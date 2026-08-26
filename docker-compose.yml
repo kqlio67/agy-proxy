@@ -1,0 +1,30 @@
+services:
+  agy-proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: agy-proxy:latest
+    container_name: agy-proxy
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+      # Optional: Enforce API Key on all incoming requests
+      # - PROXY_API_KEY=sk-antigravity-secret-key
+      # Optional: Route upstream Google CloudCode traffic via Cloudflare Worker
+      # - CLOUDFLARE_UPSTREAM_URL=https://my-antigravity-worker.workers.dev
+      # Optional: Upstream HTTP/HTTPS Proxy
+      # - HTTPS_PROXY=http://127.0.0.1:7890
+    volumes:
+      # Persist accounts and pool configuration across container restarts
+      - ./data/config:/root/.config/agy-proxy
+      # Mount host primary Antigravity token (if logged in on host machine)
+      - ~/.gemini/antigravity-cli:/root/.gemini/antigravity-cli:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s

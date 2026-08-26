@@ -1,0 +1,28 @@
+# Python & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.spec
+
+# Environments
+.venv/
+env/
+venv/
+ENV/
+
+# Secrets, Tokens & Local State
+.env
+.env.*
+accounts.json
+antigravity-oauth-token
+*.log
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*.swo

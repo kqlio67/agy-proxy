@@ -1,0 +1,980 @@
+"""
+Web Dashboard and Chat Playground HTML Template for Antigravity Proxy.
+Includes Multi-Account Pool Manager, Live Quota Gauges, and Interactive Playground.
+"""
+
+DASHBOARD_HTML = """<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Google Antigravity Proxy</title>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" href="/assets/image/antigravity-logo.png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            },
+            dark: {
+              bg: '#0f172a',
+              card: '#1e293b',
+              cardHover: '#334155',
+              border: '#334155',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background-color: #0f172a; color: #f1f5f9; font-family: ui-sans-serif, system-ui, sans-serif; }
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #1e293b; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+    .thought-bubble { border-left: 3px solid #6366f1; background: rgba(99, 102, 241, 0.08); }
+    .prose pre { background: #0b1120; border-radius: 0.5rem; padding: 0.75rem; overflow-x: auto; }
+    .prose code { color: #38bdf8; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col custom-scrollbar">
+
+  <!-- Header -->
+  <header class="border-b border-dark-border bg-slate-900/80 backdrop-blur sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <a href="/" class="flex items-center space-x-3 group">
+          <div class="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700/60 p-1 flex items-center justify-center shadow-lg group-hover:border-indigo-500/50 transition">
+            <img src="/assets/image/antigravity-logo.png" alt="Google Antigravity" class="w-full h-full object-contain">
+          </div>
+          <div>
+            <div class="flex items-center space-x-2">
+              <span class="text-lg font-black tracking-tight text-white">Google <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400">Antigravity</span> Proxy</span>
+              <span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 font-semibold border border-blue-500/20">Pool Active</span>
+            </div>
+            <p class="text-[11px] text-slate-400 font-mono">OpenAI · Anthropic · Gemini Multi-Account Gateway</p>
+          </div>
+        </a>
+      </div>
+
+      <!-- Quick Nav / Links -->
+      <div class="flex items-center space-x-3">
+        <button onclick="openAddAccountModal()" class="flex items-center space-x-2 text-xs font-semibold px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-sm">
+          <i class="fa-solid fa-user-plus"></i>
+          <span>Add Account</span>
+        </button>
+        <button onclick="refreshAllAccounts()" id="refreshBtn" class="flex items-center space-x-2 text-xs font-semibold px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 transition">
+          <i class="fa-solid fa-rotate" id="refreshIcon"></i>
+          <span>Refresh All</span>
+        </button>
+        <a href="#playground" class="text-xs font-semibold px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition shadow-sm">
+          <i class="fa-solid fa-terminal mr-1"></i> Playground
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+    <!-- Multi-Account Pool Cards -->
+    <div class="space-y-3">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <i class="fa-solid fa-users text-indigo-400"></i>
+          <h2 class="text-base font-bold text-white">Active Account Pool</h2>
+          <span class="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700" id="accountPoolCount">0 accounts</span>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button onclick="toggleAllAccounts(true)" class="text-[11px] px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 font-medium transition flex items-center space-x-1" title="Enable all accounts">
+            <i class="fa-solid fa-play text-emerald-400 text-[10px]"></i>
+            <span>Enable All</span>
+          </button>
+          <button onclick="toggleAllAccounts(false)" class="text-[11px] px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 font-medium transition flex items-center space-x-1" title="Pause / Disable all accounts">
+            <i class="fa-solid fa-pause text-amber-400 text-[10px]"></i>
+            <span>Disable All</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="accountsGrid">
+        <div class="p-5 rounded-2xl bg-dark-card border border-dark-border text-center text-slate-500 text-sm">
+          Loading accounts...
+        </div>
+      </div>
+    </div>
+
+    <!-- Playground & Models Layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8" id="playground">
+
+      <!-- Left Column: Controls & Models -->
+      <div class="lg:col-span-1 space-y-6">
+
+        <!-- Config Panel -->
+        <div class="p-6 rounded-2xl bg-dark-card border border-dark-border space-y-4">
+          <h2 class="text-base font-bold text-white flex items-center">
+            <i class="fa-solid fa-sliders mr-2 text-indigo-400"></i> Playground Settings
+          </h2>
+
+          <div class="space-y-3 text-sm">
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1">Model</label>
+              <select id="modelSelect" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition">
+                <option value="gemini-3.7-flash-high">Gemini 3.7 Flash (High Reasoning)</option>
+                <option value="gemini-3.1-pro-high">Gemini 3.1 Pro (High)</option>
+                <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite</option>
+                <option value="claude-sonnet-4-6">Claude Sonnet 4.6 (Thinking)</option>
+                <option value="claude-opus-4-6-thinking">Claude Opus 4.6 (Thinking)</option>
+                <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                <option value="gpt-oss-120b-medium">GPT-OSS 120B</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1">System Prompt</label>
+              <textarea id="systemPrompt" rows="2" placeholder="You are a helpful coding assistant..." class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 custom-scrollbar transition"></textarea>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-medium text-slate-400 mb-1">Temperature (<span id="tempVal">0.7</span>)</label>
+                <input type="range" id="tempSlider" min="0" max="2" step="0.1" value="0.7" class="w-full accent-indigo-500" oninput="document.getElementById('tempVal').innerText=this.value">
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-400 mb-1">Max Output Tokens</label>
+                <input type="number" id="maxTokens" value="2048" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-500">
+              </div>
+            </div>
+
+            <div class="pt-2 flex items-center justify-between">
+              <label class="text-xs font-medium text-slate-300 flex items-center cursor-pointer">
+                <input type="checkbox" id="streamToggle" checked class="mr-2 accent-indigo-500 rounded">
+                Stream Response (SSE)
+              </label>
+              <button onclick="clearChat()" class="text-xs text-slate-400 hover:text-red-400 transition">
+                <i class="fa-solid fa-trash-can mr-1"></i> Clear Chat
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Available Models Catalog -->
+        <div class="p-6 rounded-2xl bg-dark-card border border-dark-border space-y-3.5">
+          <div class="flex items-center justify-between">
+            <h2 class="text-base font-bold text-white flex items-center">
+              <i class="fa-solid fa-cubes mr-2 text-purple-400"></i> Model Catalog & Quota
+            </h2>
+            <span class="text-xs font-mono text-slate-400" id="modelCount">0 models</span>
+          </div>
+
+          <!-- Real-time Model Search Input -->
+          <div class="relative">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-slate-500"></i>
+            <input 
+              type="text" 
+              id="modelSearchInput" 
+              placeholder="Search 50+ models (e.g. flash, claude, 3.7)..." 
+              class="w-full bg-slate-900 border border-slate-700/80 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition"
+              oninput="filterModelCatalog()"
+            >
+          </div>
+
+          <div class="space-y-2.5 max-h-80 overflow-y-auto pr-1 custom-scrollbar" id="modelList">
+            <div class="text-center py-6 text-slate-500 text-sm">Loading model catalog...</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Right Column: Interactive Chat Interface -->
+      <div class="lg:col-span-2 flex flex-col h-[720px] rounded-2xl bg-dark-card border border-dark-border overflow-hidden">
+
+        <!-- Chat Header -->
+        <div class="p-4 border-b border-dark-border bg-slate-900/60 flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <i class="fa-solid fa-comments text-indigo-400"></i>
+            <span class="font-bold text-sm text-white">Live Playground</span>
+            <span class="text-xs font-mono text-indigo-300 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20" id="activeModelBadge">gemini-3.7-flash-high</span>
+          </div>
+          <div class="text-xs text-slate-400" id="tokenUsageBadge"></div>
+        </div>
+
+        <!-- Chat Messages Container -->
+        <div class="flex-1 p-6 overflow-y-auto space-y-6 custom-scrollbar" id="chatContainer">
+          <div class="text-center py-16 text-slate-500">
+            <div class="w-12 h-12 mx-auto rounded-full bg-slate-800 flex items-center justify-center text-slate-400 mb-3">
+              <i class="fa-solid fa-wand-magic-sparkles text-xl"></i>
+            </div>
+            <p class="text-sm font-medium">Type a message below to start chatting with Antigravity backend.</p>
+            <p class="text-xs text-slate-600 mt-1">Multi-account routing and thought extraction are handled automatically.</p>
+          </div>
+        </div>
+
+        <!-- Chat Input Form -->
+        <div class="p-4 border-t border-dark-border bg-slate-900/90">
+          <form onsubmit="sendMessage(event)" class="flex space-x-3">
+            <textarea
+              id="userInput"
+              rows="2"
+              placeholder="Ask anything or request code..."
+              class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 custom-scrollbar resize-none transition"
+              onkeydown="if(event.key === 'Enter' && !event.shiftKey){ event.preventDefault(); sendMessage(event); }"
+            ></textarea>
+            <button
+              type="submit"
+              id="sendBtn"
+              class="px-5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium flex items-center justify-center transition shadow-lg shadow-indigo-600/30 disabled:opacity-50"
+            >
+              <i class="fa-solid fa-paper-plane text-base" id="sendIcon"></i>
+            </button>
+          </form>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Quick Integrations Guide -->
+    <div class="p-6 rounded-2xl bg-dark-card border border-dark-border space-y-4">
+      <h2 class="text-base font-bold text-white flex items-center">
+        <i class="fa-solid fa-plug-circle-bolt mr-2 text-emerald-400"></i> Client Integrations
+      </h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 text-xs font-mono">
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+          <div class="font-bold text-slate-300 text-sm flex items-center space-x-1.5">
+            <i class="fa-solid fa-bolt text-emerald-400"></i>
+            <span>OpenAI Chat API</span>
+          </div>
+          <pre class="text-slate-400 overflow-x-auto custom-scrollbar p-2 bg-slate-950 rounded">curl http://localhost:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model":"gemini-3.7-flash-high","messages":[{"role":"user","content":"Hello!"}]}'</pre>
+        </div>
+
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+          <div class="font-bold text-slate-300 text-sm flex items-center space-x-1.5">
+            <i class="fa-solid fa-terminal text-purple-400"></i>
+            <span>Anthropic Messages API</span>
+          </div>
+          <pre class="text-slate-400 overflow-x-auto custom-scrollbar p-2 bg-slate-950 rounded">curl http://localhost:8000/v1/messages \
+  -H "Content-Type: application/json" \
+  -d '{"model":"claude-3-7-sonnet","max_tokens":1024,"messages":[{"role":"user","content":"Hello!"}]}'</pre>
+        </div>
+
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+          <div class="font-bold text-slate-300 text-sm flex items-center space-x-1.5">
+            <i class="fa-brands fa-google text-blue-400"></i>
+            <span>Gemini Native API (v1beta)</span>
+          </div>
+          <pre class="text-slate-400 overflow-x-auto custom-scrollbar p-2 bg-slate-950 rounded">curl http://localhost:8000/v1beta/models/gemini-3.7-flash-high:streamGenerateContent \
+  -H "Content-Type: application/json" \
+  -d '{"contents":[{"role":"user","parts":[{"text":"Hello Gemini!"}]}]}'</pre>
+        </div>
+
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+          <div class="font-bold text-slate-300 text-sm flex items-center space-x-1.5">
+            <i class="fa-brands fa-cloudflare text-orange-400"></i>
+            <span>Cloudflare AI Gateway / Tunnel</span>
+          </div>
+          <pre class="text-slate-400 overflow-x-auto custom-scrollbar p-2 bg-slate-950 rounded"># 1. Cloudflare Tunnel (Remote URL)
+cloudflared tunnel --url http://localhost:8000
+
+# 2. Cloudflare AI Gateway / Worker
+fetch("https://your-tunnel.trycloudflare.com/v1/chat/completions", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ model: "gemini-3.7-flash-high", messages: [...] })
+})</pre>
+        </div>
+
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+          <div class="font-bold text-slate-300 text-sm flex items-center space-x-1.5">
+            <i class="fa-brands fa-python text-yellow-400"></i>
+            <span>Python (OpenAI / Anthropic)</span>
+          </div>
+          <pre class="text-slate-400 overflow-x-auto custom-scrollbar p-2 bg-slate-950 rounded">from openai import OpenAI
+client = OpenAI(
+  base_url="http://localhost:8000/v1",
+  api_key="dummy"
+)
+resp = client.chat.completions.create(
+  model="gemini-3.7-flash-high",
+  messages=[{"role": "user", "content": "Hi!"}]
+)</pre>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Add Account Modal -->
+  <div id="addAccountModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-dark-card border border-dark-border rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-dark-border pb-4">
+        <h3 class="text-lg font-bold text-white flex items-center">
+          <i class="fa-solid fa-user-plus mr-2 text-indigo-400"></i> Add Account / Provider to Pool
+        </h3>
+        <button onclick="closeAddAccountModal()" class="text-slate-400 hover:text-white text-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Tab Switcher -->
+      <div class="flex p-1 bg-slate-900 rounded-xl border border-slate-800 text-xs">
+        <button id="tabBtnOAuth" onclick="switchAddTab('oauth')" class="flex-1 py-2 rounded-lg font-semibold transition bg-indigo-600 text-white shadow">
+          <i class="fa-brands fa-google mr-1.5"></i> Google Antigravity (OAuth)
+        </button>
+        <button id="tabBtnApiKey" onclick="switchAddTab('apikey')" class="flex-1 py-2 rounded-lg font-semibold transition text-slate-400 hover:text-white">
+          <i class="fa-solid fa-key mr-1.5"></i> Gemini API Key (AI Studio)
+        </button>
+      </div>
+
+      <!-- Tab 1: Google OAuth Content -->
+      <div id="tabContentOAuth" class="space-y-4 text-xs">
+        <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+          <div class="font-semibold text-slate-200 text-sm flex items-center">
+            <span class="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center mr-2 text-xs">1</span>
+            Authenticate in Browser
+          </div>
+          <p class="text-slate-400">Click the button below to sign in with your secondary Google account:</p>
+          <a id="oauthLoginLink" href="#" target="_blank" class="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition shadow">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i>
+            <span>Open Google OAuth Sign-In</span>
+          </a>
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+          <div class="font-semibold text-slate-200 text-sm flex items-center">
+            <span class="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center mr-2 text-xs">2</span>
+            Paste Authorization Code or Redirect URL
+          </div>
+          <p class="text-slate-400">After authorizing, paste the code (or entire callback URL) below:</p>
+          <textarea id="authCodeInput" rows="2" placeholder="4/0ATsMZ... or https://antigravity.google/oauth-callback?code=..." class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-indigo-500 custom-scrollbar"></textarea>
+        </div>
+      </div>
+
+      <!-- Tab 2: Gemini API Key Content -->
+      <div id="tabContentApiKey" class="space-y-4 text-xs hidden">
+        <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+          <div class="font-semibold text-slate-200 text-sm flex items-center">
+            <i class="fa-solid fa-key mr-2 text-amber-400"></i> Google AI Studio API Key
+          </div>
+          <p class="text-slate-400">Add a direct Gemini API key from <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-indigo-400 underline">Google AI Studio</a>:</p>
+          <div class="space-y-2.5 pt-1">
+            <div>
+              <label class="text-[11px] text-slate-400 block mb-1 font-medium">Account Display Name</label>
+              <input type="text" id="apiKeyLabelInput" placeholder="e.g. Work Gemini API Key" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-indigo-500">
+            </div>
+            <div>
+              <label class="text-[11px] text-slate-400 block mb-1 font-medium">Gemini API Key</label>
+              <input type="password" id="apiKeyValueInput" placeholder="AIzaSy..." class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-indigo-500">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end space-x-3 pt-2">
+        <button onclick="closeAddAccountModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition">
+          Cancel
+        </button>
+        <button onclick="submitAddAccountModal()" id="submitAuthBtn" class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center space-x-2 transition shadow">
+          <i class="fa-solid fa-check"></i>
+          <span>Add to Pool</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Script -->
+  <script>
+    let messagesHistory = [];
+    let isGenerating = false;
+    let currentOAuthState = null;
+    let currentOAuthVerifier = null;
+
+    document.getElementById('modelSelect').addEventListener('change', (e) => {
+      document.getElementById('activeModelBadge').innerText = e.target.value;
+    });
+
+    async function loadAccounts() {
+      try {
+        const res = await fetch('/api/accounts');
+        const data = await res.json();
+        const accounts = data.accounts || [];
+        document.getElementById('accountPoolCount').innerText = `${accounts.length} account${accounts.length === 1 ? '' : 's'}`;
+
+        const grid = document.getElementById('accountsGrid');
+        if (accounts.length === 0) {
+          grid.innerHTML = '<div class="p-5 rounded-2xl bg-dark-card border border-dark-border text-center text-slate-500 text-sm">No accounts found. Click "Add Account" to connect one.</div>';
+          return;
+        }
+
+        grid.innerHTML = '';
+        accounts.forEach(acc => {
+          const isEnabled = acc.enabled !== false;
+
+          // Extract quota fractions
+          let geminiQuota = 100;
+          let claudeQuota = 100;
+          if (acc.quota_summary?.groups) {
+            for (const g of acc.quota_summary.groups) {
+              const gName = (g.displayName || '').toLowerCase();
+              const b = g.buckets?.[0];
+              if (b) {
+                const pct = Math.round(b.remainingFraction * 100);
+                if (gName.includes('claude') || gName.includes('gpt')) claudeQuota = pct;
+                else geminiQuota = pct;
+              }
+            }
+          }
+
+          const card = document.createElement('div');
+          card.className = `p-5 rounded-2xl border transition space-y-3 relative overflow-hidden ${
+            isEnabled 
+              ? 'bg-dark-card border-dark-border shadow-sm' 
+              : 'bg-slate-900/40 border-slate-800/80 opacity-60'
+          }`;
+
+          card.innerHTML = `
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-3">
+                <img src="${acc.picture || 'https://lh3.googleusercontent.com/a/default-user=s96-c'}" class="w-9 h-9 rounded-full bg-slate-800 border border-slate-700" onerror="this.src='https://ui-avatars.com/api/?name=' + encodeURIComponent('${acc.name || 'User'}')">
+                <div>
+                  <div class="font-bold text-white text-sm flex items-center">
+                    <span>${acc.name || acc.email}</span>
+                    ${acc.is_primary ? '<span class="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30">Primary</span>' : ''}
+                    ${!isEnabled ? '<span class="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-medium border border-slate-700">Paused</span>' : ''}
+                  </div>
+                  <div class="text-[11px] text-slate-400 font-mono">${acc.email}</div>
+                </div>
+              </div>
+              <div class="flex items-center space-x-2.5">
+                <!-- Interactive Toggle Switch -->
+                <button onclick="toggleAccount('${acc.account_id}', ${!isEnabled})" class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isEnabled ? 'bg-indigo-600' : 'bg-slate-700'}" title="${isEnabled ? 'Pause account (Stop sending requests)' : 'Enable account'}">
+                  <span class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isEnabled ? 'translate-x-4' : 'translate-x-0'}"></span>
+                </button>
+                <button onclick="deleteAccount('${acc.account_id}')" class="text-slate-500 hover:text-red-400 text-xs p-1 transition" title="Remove account from pool"><i class="fa-solid fa-trash-can"></i></button>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-xs pt-1">
+              <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+                <div class="flex justify-between text-slate-400 text-[11px]">
+                  <span>Gemini Quota</span>
+                  <span class="font-bold text-slate-200">${geminiQuota}%</span>
+                </div>
+                <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                  <div class="h-full ${geminiQuota > 30 ? 'bg-indigo-500' : 'bg-red-500'}" style="width: ${geminiQuota}%"></div>
+                </div>
+              </div>
+
+              <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+                <div class="flex justify-between text-slate-400 text-[11px]">
+                  <span>Claude/3P Quota</span>
+                  <span class="font-bold text-slate-200">${claudeQuota}%</span>
+                </div>
+                <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                  <div class="h-full ${claudeQuota > 30 ? 'bg-purple-500' : 'bg-red-500'}" style="width: ${claudeQuota}%"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+              <span>Project: <code class="text-slate-400">${acc.project_id || 'default'}</code></span>
+              <span>Reqs: <b class="text-slate-300">${acc.total_requests || 0}</b></span>
+            </div>
+          `;
+          grid.appendChild(card);
+        });
+
+      } catch (err) {
+        console.error("Accounts load failed", err);
+      }
+    }
+
+    let allModelsData = {};
+
+    function renderModelCatalog(filterQuery = '') {
+      const container = document.getElementById('modelList');
+      const q = filterQuery.trim().toLowerCase();
+
+      const totalCount = Object.keys(allModelsData).length;
+
+      if (totalCount === 0) {
+        document.getElementById('modelCount').innerText = '0 active models';
+        container.innerHTML = `<div class="text-center py-8 text-slate-500 text-xs leading-relaxed">
+          <i class="fa-solid fa-circle-pause text-amber-400/80 text-xl mb-2 block"></i>
+          All accounts in the pool are paused.<br>
+          <span class="text-slate-400">Enable at least one account to activate models.</span>
+        </div>`;
+        return;
+      }
+
+      const filteredEntries = Object.entries(allModelsData).filter(([key, info]) => {
+        if (!q) return true;
+        const name = (info.displayName || '').toLowerCase();
+        return key.toLowerCase().includes(q) || name.includes(q);
+      });
+
+      document.getElementById('modelCount').innerText = q 
+        ? `${filteredEntries.length} / ${totalCount} active` 
+        : `${totalCount} active model${totalCount === 1 ? '' : 's'}`;
+
+      if (filteredEntries.length === 0) {
+        container.innerHTML = `<div class="text-center py-8 text-slate-500 text-xs">No active models found matching "<span class="text-slate-300 font-semibold">${filterQuery}</span>"</div>`;
+        return;
+      }
+
+      container.innerHTML = '';
+      const select = document.getElementById('modelSelect');
+
+      for (const [key, info] of filteredEntries) {
+        const poolQuota = info.pool_remaining_fraction !== undefined 
+          ? Math.round(info.pool_remaining_fraction * 100) 
+          : (info.quotaInfo ? Math.round(info.quotaInfo.remainingFraction * 100) : 100);
+        
+        const quotaColor = poolQuota > 60 ? 'bg-emerald-500' : (poolQuota > 25 ? 'bg-amber-500' : 'bg-red-500');
+        const readyAccs = info.available_accounts !== undefined ? info.available_accounts : 1;
+        const totalAccs = info.total_accounts || 1;
+
+        const item = document.createElement('div');
+        item.className = 'p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition cursor-pointer text-xs space-y-1.5';
+        item.onclick = () => {
+          if (select) select.value = key;
+          document.getElementById('activeModelBadge').innerText = key;
+        };
+
+        // Build per-account mini badges
+        let accountBreakdownHtml = '';
+        if (info.accounts && Object.keys(info.accounts).length > 0) {
+          const badges = Object.entries(info.accounts).map(([email, accData]) => {
+            const accPct = Math.round(accData.remainingFraction * 100);
+            const dotColor = accPct > 50 ? 'bg-emerald-400' : (accPct > 0 ? 'bg-amber-400' : 'bg-red-500');
+            const shortEmail = email.split('@')[0];
+            return `<span class="inline-flex items-center text-[10px] text-slate-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800" title="${email}: ${accPct}%">
+              <span class="w-1.5 h-1.5 rounded-full ${dotColor} mr-1"></span>${shortEmail}: ${accPct}%
+            </span>`;
+          }).join(' ');
+          accountBreakdownHtml = `<div class="flex flex-wrap gap-1 pt-1 border-t border-slate-800/60">${badges}</div>`;
+        }
+
+        item.innerHTML = `
+          <div class="flex items-center justify-between font-semibold text-slate-200">
+            <span>${info.displayName || key}</span>
+            <span class="font-mono text-[10px] text-slate-400">${key}</span>
+          </div>
+          <div class="flex items-center justify-between text-[11px] text-slate-400">
+            <span class="flex items-center space-x-1.5">
+              <span class="font-bold ${poolQuota > 0 ? 'text-indigo-300' : 'text-red-400'}">Pool: ${poolQuota}%</span>
+              <span class="text-[10px] text-slate-500">(${readyAccs}/${totalAccs} ready)</span>
+            </span>
+            <span>Max: ${(info.maxTokens || 0).toLocaleString()} tok</span>
+          </div>
+          <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+            <div class="h-full ${quotaColor}" style="width: ${poolQuota}%"></div>
+          </div>
+          ${accountBreakdownHtml}
+        `;
+        container.appendChild(item);
+      }
+    }
+
+    function filterModelCatalog() {
+      const q = document.getElementById('modelSearchInput')?.value || '';
+      renderModelCatalog(q);
+    }
+
+    async function loadModels() {
+      try {
+        const res = await fetch('/api/models');
+        const data = await res.json();
+        allModelsData = data.models || {};
+        const count = Object.keys(allModelsData).length;
+
+        const select = document.getElementById('modelSelect');
+        if (select) {
+          if (count > 0) {
+            select.innerHTML = '';
+            for (const [key, info] of Object.entries(allModelsData)) {
+              const opt = document.createElement('option');
+              opt.value = key;
+              opt.innerText = `${info.displayName || key} (${key})`;
+              select.appendChild(opt);
+            }
+            if (allModelsData['gemini-3.7-flash-high']) {
+              select.value = 'gemini-3.7-flash-high';
+              document.getElementById('activeModelBadge').innerText = 'gemini-3.7-flash-high';
+            } else {
+              const firstKey = Object.keys(allModelsData)[0];
+              select.value = firstKey;
+              document.getElementById('activeModelBadge').innerText = firstKey;
+            }
+          } else {
+            select.innerHTML = '<option value="">No active models (all accounts paused)</option>';
+            document.getElementById('activeModelBadge').innerText = 'None';
+          }
+        }
+
+        const currentFilter = document.getElementById('modelSearchInput')?.value || '';
+        renderModelCatalog(currentFilter);
+      } catch (err) {
+        console.error("Models load failed", err);
+      }
+    }
+
+    let currentAddTab = 'oauth';
+
+    function switchAddTab(tab) {
+      currentAddTab = tab;
+      const btnOAuth = document.getElementById('tabBtnOAuth');
+      const btnApiKey = document.getElementById('tabBtnApiKey');
+      const contentOAuth = document.getElementById('tabContentOAuth');
+      const contentApiKey = document.getElementById('tabContentApiKey');
+
+      if (tab === 'oauth') {
+        btnOAuth.className = 'flex-1 py-2 rounded-lg font-semibold transition bg-indigo-600 text-white shadow';
+        btnApiKey.className = 'flex-1 py-2 rounded-lg font-semibold transition text-slate-400 hover:text-white';
+        contentOAuth.classList.remove('hidden');
+        contentApiKey.classList.add('hidden');
+      } else {
+        btnApiKey.className = 'flex-1 py-2 rounded-lg font-semibold transition bg-indigo-600 text-white shadow';
+        btnOAuth.className = 'flex-1 py-2 rounded-lg font-semibold transition text-slate-400 hover:text-white';
+        contentApiKey.classList.remove('hidden');
+        contentOAuth.classList.add('hidden');
+      }
+    }
+
+    async function openAddAccountModal() {
+      switchAddTab('oauth');
+      try {
+        const res = await fetch('/api/accounts/oauth/start', { method: 'POST' });
+        const data = await res.json();
+        currentOAuthState = data.state;
+        currentOAuthVerifier = data.code_verifier;
+        document.getElementById('oauthLoginLink').href = data.auth_url;
+        document.getElementById('authCodeInput').value = '';
+        document.getElementById('apiKeyValueInput').value = '';
+        document.getElementById('apiKeyLabelInput').value = '';
+        document.getElementById('addAccountModal').classList.remove('hidden');
+      } catch (e) {
+        alert('Failed to start OAuth: ' + e);
+      }
+    }
+
+    function closeAddAccountModal() {
+      document.getElementById('addAccountModal').classList.add('hidden');
+    }
+
+    async function submitAddAccountModal() {
+      if (currentAddTab === 'apikey') {
+        const apiKey = document.getElementById('apiKeyValueInput').value.trim();
+        const label = document.getElementById('apiKeyLabelInput').value.trim() || 'Gemini API Key';
+        if (!apiKey) {
+          alert('Please enter your Gemini API Key.');
+          return;
+        }
+
+        const btn = document.getElementById('submitAuthBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Adding...';
+
+        try {
+          const res = await fetch('/api/accounts/apikey', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ api_key: apiKey, name: label })
+          });
+          if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(errText);
+          }
+          const data = await res.json();
+          alert('Successfully added API Key: ' + (data.name || data.email));
+          closeAddAccountModal();
+          await loadAccounts();
+          await loadModels();
+        } catch (err) {
+          alert('Failed to add API key: ' + err.message);
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fa-solid fa-check"></i> Add to Pool';
+        }
+        return;
+      }
+
+      // OAuth flow
+      const codeOrUrl = document.getElementById('authCodeInput').value.trim();
+      if (!codeOrUrl) {
+        alert('Please paste the authorization code or redirect URL.');
+        return;
+      }
+
+      const btn = document.getElementById('submitAuthBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Adding...';
+
+      try {
+        const res = await fetch('/api/accounts/oauth/callback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            code: codeOrUrl,
+            state: currentOAuthState,
+            code_verifier: currentOAuthVerifier,
+          })
+        });
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(errText);
+        }
+        const data = await res.json();
+        alert('Successfully added Google Account: ' + (data.email || data.account_id));
+        closeAddAccountModal();
+        await loadAccounts();
+        await loadModels();
+      } catch (err) {
+        alert('Failed to add account: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-check"></i> Add to Pool';
+      }
+    }
+
+    async function toggleAccount(accId, newState) {
+      try {
+        const res = await fetch(`/api/accounts/${accId}/toggle`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enabled: newState })
+        });
+        if (!res.ok) throw new Error(await res.text());
+        await loadAccounts();
+        await loadModels();
+      } catch (err) {
+        alert('Toggle failed: ' + err.message);
+      }
+    }
+
+    async function toggleAllAccounts(newState) {
+      try {
+        const res = await fetch('/api/accounts/toggle_all', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enabled: newState })
+        });
+        if (!res.ok) throw new Error(await res.text());
+        await loadAccounts();
+        await loadModels();
+      } catch (err) {
+        alert('Toggle all failed: ' + err.message);
+      }
+    }
+
+    async function deleteAccount(accId) {
+      if (!confirm('Remove this account from the pool?')) return;
+      try {
+        await fetch(`/api/accounts/${accId}`, { method: 'DELETE' });
+        await loadAccounts();
+      } catch (e) {
+        alert('Failed to remove account: ' + e);
+      }
+    }
+
+    async function refreshAllAccounts() {
+      const icon = document.getElementById('refreshIcon');
+      icon.classList.add('fa-spin');
+      try {
+        await fetch('/api/accounts/refresh_all', { method: 'POST' });
+        await loadAccounts();
+        await loadModels();
+      } catch (err) {
+        alert('Refresh failed: ' + err);
+      } finally {
+        icon.classList.remove('fa-spin');
+      }
+    }
+
+    function clearChat() {
+      messagesHistory = [];
+      document.getElementById('chatContainer').innerHTML = `
+        <div class="text-center py-16 text-slate-500">
+          <div class="w-12 h-12 mx-auto rounded-full bg-slate-800 flex items-center justify-center text-slate-400 mb-3">
+            <i class="fa-solid fa-wand-magic-sparkles text-xl"></i>
+          </div>
+          <p class="text-sm font-medium">Chat cleared. Ready for new questions.</p>
+        </div>
+      `;
+      document.getElementById('tokenUsageBadge').innerText = '';
+    }
+
+    async function sendMessage(e) {
+      if (e) e.preventDefault();
+      if (isGenerating) return;
+
+      const input = document.getElementById('userInput');
+      const text = input.value.trim();
+      if (!text) return;
+
+      input.value = '';
+
+      if (messagesHistory.length === 0) {
+        document.getElementById('chatContainer').innerHTML = '';
+      }
+
+      // Add user message
+      messagesHistory.push({ role: 'user', content: text });
+      appendMessageUI('user', text);
+
+      // Prepare assistant bubble
+      const assistantBubble = appendMessageUI('assistant', '');
+      const contentElem = assistantBubble.querySelector('.msg-content');
+      const thoughtElem = assistantBubble.querySelector('.msg-thought');
+
+      const model = document.getElementById('modelSelect').value;
+      const system = document.getElementById('systemPrompt').value.trim();
+      const temperature = parseFloat(document.getElementById('tempSlider').value);
+      const maxTokens = parseInt(document.getElementById('maxTokens').value);
+      const stream = document.getElementById('streamToggle').checked;
+
+      const reqMessages = [];
+      if (system) {
+        reqMessages.push({ role: 'system', content: system });
+      }
+      reqMessages.push(...messagesHistory);
+
+      isGenerating = true;
+      document.getElementById('sendBtn').disabled = true;
+
+      let fullText = '';
+      let fullThought = '';
+
+      try {
+        if (stream) {
+          const resp = await fetch('/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: model,
+              messages: reqMessages,
+              temperature: temperature,
+              max_tokens: maxTokens,
+              stream: true,
+            })
+          });
+
+          const reader = resp.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\\n');
+            buffer = lines.pop();
+
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (trimmed.startsWith('data:')) {
+                const dataStr = trimmed.slice(5).trim();
+                if (dataStr === '[DONE]') break;
+                try {
+                  const chunk = JSON.parse(dataStr);
+                  const delta = chunk.choices?.[0]?.delta || {};
+
+                  if (delta.reasoning_content) {
+                    fullThought += delta.reasoning_content;
+                    thoughtElem.classList.remove('hidden');
+                    thoughtElem.querySelector('.thought-content').innerText = fullThought;
+                  }
+
+                  if (delta.content) {
+                    fullText += delta.content;
+                    contentElem.innerHTML = marked.parse(fullText);
+                  }
+                } catch (pe) {}
+              }
+            }
+            document.getElementById('chatContainer').scrollTop = document.getElementById('chatContainer').scrollHeight;
+          }
+        } else {
+          const resp = await fetch('/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: model,
+              messages: reqMessages,
+              temperature: temperature,
+              max_tokens: maxTokens,
+              stream: false,
+            })
+          });
+          const resJson = await resp.json();
+          const msg = resJson.choices?.[0]?.message || {};
+          if (msg.reasoning_content) {
+            thoughtElem.classList.remove('hidden');
+            thoughtElem.querySelector('.thought-content').innerText = msg.reasoning_content;
+          }
+          fullText = msg.content || '';
+          contentElem.innerHTML = marked.parse(fullText);
+        }
+
+        messagesHistory.push({ role: 'assistant', content: fullText });
+        await loadAccounts(); // Update live quota and request counts
+      } catch (err) {
+        contentElem.innerHTML = `<span class="text-red-400">Error generating response: ${err.message}</span>`;
+      } finally {
+        isGenerating = false;
+        document.getElementById('sendBtn').disabled = false;
+      }
+    }
+
+    function appendMessageUI(role, text) {
+      const container = document.getElementById('chatContainer');
+      const msgDiv = document.createElement('div');
+      msgDiv.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'}`;
+
+      if (role === 'user') {
+        msgDiv.innerHTML = `
+          <div class="max-w-2xl px-5 py-3 rounded-2xl bg-indigo-600 text-white text-sm shadow-md">
+            <p class="whitespace-pre-wrap">${text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+          </div>
+        `;
+      } else {
+        msgDiv.innerHTML = `
+          <div class="max-w-3xl w-full space-y-2">
+            <div class="msg-thought hidden p-3 rounded-xl thought-bubble text-xs text-indigo-300 font-mono">
+              <div class="font-bold text-indigo-400 mb-1 flex items-center">
+                <i class="fa-solid fa-brain mr-1.5"></i> Thinking Process
+              </div>
+              <div class="thought-content max-h-48 overflow-y-auto whitespace-pre-wrap custom-scrollbar"></div>
+            </div>
+            <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800 text-slate-100 text-sm prose prose-invert max-w-none shadow-md">
+              <div class="msg-content">${text ? marked.parse(text) : '<span class="text-slate-500 animate-pulse">Generating response...</span>'}</div>
+            </div>
+          </div>
+        `;
+      }
+
+      container.appendChild(msgDiv);
+      container.scrollTop = container.scrollHeight;
+      return msgDiv;
+    }
+
+    // Init
+    loadAccounts();
+    loadModels();
+  </script>
+</body>
+</html>
+"""

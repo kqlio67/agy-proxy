@@ -1,0 +1,10 @@
+name = "agy-proxy-edge"
+main = "worker.js"
+compatibility_date = "2024-09-23"
+
+# Optional environment variables
+[vars]
+# PROXY_API_KEY = "your-optional-secret-key"
+
+# [observability]
+# enabled = true
