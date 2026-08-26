@@ -105,7 +105,7 @@ Download the single executable for your OS & architecture from **[GitHub Release
 - **Linux (x86_64 / amd64)**: `./agy-proxy --port 8000`
 - **Linux ARM64 (Raspberry Pi 3/4/5, Orange Pi, ARM VPS)**: `./agy-proxy --port 8000`
 - **Windows (x64)**: `agy-proxy.exe --port 8000`
-- **macOS (Apple Silicon M1/M2/M3/M4 & Intel)**: `./agy-proxy --port 8000`
+- **macOS (Apple Silicon M1/M2/M3/M4)**: `./agy-proxy --port 8000`
 
 *(To compile a single executable locally on your machine: `python build_binary.py`)*
 
