@@ -55,6 +55,9 @@ jobs:
           pip install pyinstaller
 
       - name: Build standalone executable
+        env:
+          PYTHONIOENCODING: "utf-8"
+          PYTHONUTF8: "1"
         run: |
           python build_binary.py
 

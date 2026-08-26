@@ -17,6 +17,12 @@ BUILD_DIR = ROOT_DIR / "build"
 STATIC_DIR = ROOT_DIR / "agy_proxy" / "static"
 
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
+
 def build():
     print("==================================================")
     print("  Building Antigravity Proxy Standalone Binary    ")
@@ -81,15 +87,15 @@ def build():
     print("Running PyInstaller...")
     res = subprocess.run(cmd, cwd=ROOT_DIR)
     if res.returncode != 0:
-        print(f"\n❌ Build failed with exit code {res.returncode}")
+        print(f"\n[ERROR] Build failed with exit code {res.returncode}")
         sys.exit(res.returncode)
 
     built_file = DIST_DIR / binary_name
     if built_file.exists():
         size_mb = built_file.stat().st_size / (1024 * 1024)
         print("\n==================================================")
-        print(f"  🎉 SUCCESS! Standalone binary built: {built_file}")
-        print(f"  📦 Size: {size_mb:.2f} MB")
+        print(f"  [SUCCESS] Standalone binary built: {built_file}")
+        print(f"  [PACKAGE] Size: {size_mb:.2f} MB")
         print("==================================================\n")
         print("To run:")
         if system == "Windows":
@@ -97,7 +103,7 @@ def build():
         else:
             print("  ./dist/agy-proxy --port 8000")
     else:
-        print(f"\n❌ Output binary not found at {built_file}")
+        print(f"\n[ERROR] Output binary not found at {built_file}")
         sys.exit(1)
 
 
