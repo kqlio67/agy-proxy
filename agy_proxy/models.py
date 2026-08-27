@@ -53,6 +53,10 @@ MODEL_ALIASES: Dict[str, str] = {
     "claude-3-opus": "claude-opus-4-6-thinking",
     "claude-3-opus-20240229": "claude-opus-4-6-thinking",
     "claude-3-5-haiku": "gemini-3.1-flash-lite",
+    "claude-3-haiku": "gemini-3.1-flash-lite",
+    "claude-sonnet-5": "gemini-3.7-flash-high",
+    "claude-sonnet-5-latest": "gemini-3.7-flash-high",
+    "claude-5-sonnet": "gemini-3.7-flash-high",
 
     # OpenAI Aliases
     "gpt-4o": "gemini-3.7-flash-high",
