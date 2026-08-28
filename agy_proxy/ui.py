@@ -246,71 +246,172 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
     <!-- Quick Integrations Guide -->
     <div class="p-6 rounded-2xl bg-dark-card border border-dark-border space-y-4">
-      <h2 class="text-base font-bold text-white flex items-center">
-        <i class="fa-solid fa-plug-circle-bolt mr-2 text-emerald-400"></i> Client Integrations
-      </h2>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 text-xs font-mono">
-        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
-          <div class="font-bold text-slate-300 text-sm flex items-center space-x-1.5">
-            <i class="fa-solid fa-bolt text-emerald-400"></i>
-            <span>OpenAI Chat API</span>
+      <div class="flex items-center justify-between">
+        <h2 class="text-base font-bold text-white flex items-center">
+          <i class="fa-solid fa-plug-circle-bolt mr-2 text-emerald-400"></i> Client Integrations & Setup Guides
+        </h2>
+        <span class="text-xs font-mono text-slate-400">Endpoint: <code class="text-indigo-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">http://localhost:8000/v1</code></span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 text-xs font-mono">
+
+        <!-- 1. Claude Code CLI -->
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2 flex flex-col justify-between">
+          <div class="space-y-1">
+            <div class="font-bold text-slate-200 text-sm flex items-center justify-between">
+              <span class="flex items-center space-x-1.5">
+                <i class="fa-solid fa-code text-indigo-400"></i>
+                <span>Claude Code CLI</span>
+              </span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">Anthropic</span>
+            </div>
+            <p class="text-[11px] text-slate-400 font-sans">Official terminal agent with Thinking & Tool Calling</p>
           </div>
-          <pre class="text-slate-400 overflow-x-auto custom-scrollbar p-2 bg-slate-950 rounded">curl http://localhost:8000/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{"model":"gemini-3.7-flash-high","messages":[{"role":"user","content":"Hello!"}]}'</pre>
+          <pre class="text-slate-300 overflow-x-auto custom-scrollbar p-2.5 bg-slate-950 rounded border border-slate-800/80"># Fast 1-Click Launcher
+./run_claude.sh -m gemini-3.7-flash-high
+
+# Or via Environment:
+export ANTHROPIC_BASE_URL=http://localhost:8000
+export ANTHROPIC_API_KEY=dummy
+claude</pre>
         </div>
 
-        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
-          <div class="font-bold text-slate-300 text-sm flex items-center space-x-1.5">
-            <i class="fa-solid fa-terminal text-purple-400"></i>
-            <span>Anthropic Messages API</span>
+        <!-- 2. Cursor / Windsurf -->
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2 flex flex-col justify-between">
+          <div class="space-y-1">
+            <div class="font-bold text-slate-200 text-sm flex items-center justify-between">
+              <span class="flex items-center space-x-1.5">
+                <i class="fa-solid fa-arrow-pointer text-cyan-400"></i>
+                <span>Cursor / Windsurf</span>
+              </span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">OpenAI</span>
+            </div>
+            <p class="text-[11px] text-slate-400 font-sans">AI Code Editors & IDE Custom Providers</p>
           </div>
-          <pre class="text-slate-400 overflow-x-auto custom-scrollbar p-2 bg-slate-950 rounded">curl http://localhost:8000/v1/messages \
-  -H "Content-Type: application/json" \
-  -d '{"model":"claude-3-7-sonnet","max_tokens":1024,"messages":[{"role":"user","content":"Hello!"}]}'</pre>
+          <pre class="text-slate-300 overflow-x-auto custom-scrollbar p-2.5 bg-slate-950 rounded border border-slate-800/80">Base URL: http://localhost:8000/v1
+API Key:  dummy
+Model:    gemini-3.7-flash-high
+(or: claude-3-7-sonnet / gpt-4o)</pre>
         </div>
 
-        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
-          <div class="font-bold text-slate-300 text-sm flex items-center space-x-1.5">
-            <i class="fa-brands fa-google text-blue-400"></i>
-            <span>Gemini Native API (v1beta)</span>
+        <!-- 3. Roo Code / Cline (VS Code) -->
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2 flex flex-col justify-between">
+          <div class="space-y-1">
+            <div class="font-bold text-slate-200 text-sm flex items-center justify-between">
+              <span class="flex items-center space-x-1.5">
+                <i class="fa-solid fa-robot text-purple-400"></i>
+                <span>Roo Code / Cline</span>
+              </span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20">Anthropic / OpenAI</span>
+            </div>
+            <p class="text-[11px] text-slate-400 font-sans">Autonomous coding agent for VS Code</p>
           </div>
-          <pre class="text-slate-400 overflow-x-auto custom-scrollbar p-2 bg-slate-950 rounded">curl http://localhost:8000/v1beta/models/gemini-3.7-flash-high:streamGenerateContent \
-  -H "Content-Type: application/json" \
-  -d '{"contents":[{"role":"user","parts":[{"text":"Hello Gemini!"}]}]}'</pre>
+          <pre class="text-slate-300 overflow-x-auto custom-scrollbar p-2.5 bg-slate-950 rounded border border-slate-800/80">Provider: OpenAI Compatible / Anthropic
+Base URL: http://localhost:8000/v1
+API Key:  dummy
+Model:    gemini-3.7-flash-high</pre>
         </div>
 
-        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
-          <div class="font-bold text-slate-300 text-sm flex items-center space-x-1.5">
-            <i class="fa-brands fa-cloudflare text-orange-400"></i>
-            <span>Cloudflare AI Gateway / Tunnel</span>
+        <!-- 4. Continue.dev -->
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2 flex flex-col justify-between">
+          <div class="space-y-1">
+            <div class="font-bold text-slate-200 text-sm flex items-center justify-between">
+              <span class="flex items-center space-x-1.5">
+                <i class="fa-solid fa-forward text-emerald-400"></i>
+                <span>Continue.dev</span>
+              </span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">VS Code / JetBrains</span>
+            </div>
+            <p class="text-[11px] text-slate-400 font-sans">Open-source AI code assistant</p>
           </div>
-          <pre class="text-slate-400 overflow-x-auto custom-scrollbar p-2 bg-slate-950 rounded"># 1. Cloudflare Tunnel (Remote URL)
-cloudflared tunnel --url http://localhost:8000
-
-# 2. Cloudflare AI Gateway / Worker
-fetch("https://your-tunnel.trycloudflare.com/v1/chat/completions", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ model: "gemini-3.7-flash-high", messages: [...] })
-})</pre>
+          <pre class="text-slate-300 overflow-x-auto custom-scrollbar p-2.5 bg-slate-950 rounded border border-slate-800/80">// ~/.continue/config.json
+{
+  "models": [{
+    "title": "Antigravity Gemini",
+    "provider": "openai",
+    "model": "gemini-3.7-flash-high",
+    "apiBase": "http://localhost:8000/v1",
+    "apiKey": "dummy"
+  }]
+}</pre>
         </div>
 
-        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
-          <div class="font-bold text-slate-300 text-sm flex items-center space-x-1.5">
-            <i class="fa-brands fa-python text-yellow-400"></i>
-            <span>Python (OpenAI / Anthropic)</span>
+        <!-- 5. Aider CLI -->
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2 flex flex-col justify-between">
+          <div class="space-y-1">
+            <div class="font-bold text-slate-200 text-sm flex items-center justify-between">
+              <span class="flex items-center space-x-1.5">
+                <i class="fa-solid fa-keyboard text-amber-400"></i>
+                <span>Aider CLI</span>
+              </span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">Terminal Pair-Programmer</span>
+            </div>
+            <p class="text-[11px] text-slate-400 font-sans">Command-line AI coding assistant</p>
           </div>
-          <pre class="text-slate-400 overflow-x-auto custom-scrollbar p-2 bg-slate-950 rounded">from openai import OpenAI
+          <pre class="text-slate-300 overflow-x-auto custom-scrollbar p-2.5 bg-slate-950 rounded border border-slate-800/80">OPENAI_API_BASE="http://localhost:8000/v1" \
+OPENAI_API_KEY="dummy" \
+aider --model openai/gemini-3.7-flash-high</pre>
+        </div>
+
+        <!-- 6. Python SDK -->
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2 flex flex-col justify-between">
+          <div class="space-y-1">
+            <div class="font-bold text-slate-200 text-sm flex items-center justify-between">
+              <span class="flex items-center space-x-1.5">
+                <i class="fa-brands fa-python text-yellow-400"></i>
+                <span>Python SDK</span>
+              </span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">OpenAI / Anthropic</span>
+            </div>
+            <p class="text-[11px] text-slate-400 font-sans">Scripting with official SDKs</p>
+          </div>
+          <pre class="text-slate-300 overflow-x-auto custom-scrollbar p-2.5 bg-slate-950 rounded border border-slate-800/80">from openai import OpenAI
 client = OpenAI(
   base_url="http://localhost:8000/v1",
   api_key="dummy"
 )
-resp = client.chat.completions.create(
+res = client.chat.completions.create(
   model="gemini-3.7-flash-high",
   messages=[{"role": "user", "content": "Hi!"}]
 )</pre>
         </div>
+
+        <!-- 7. Gemini Native API (v1beta) -->
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2 flex flex-col justify-between">
+          <div class="space-y-1">
+            <div class="font-bold text-slate-200 text-sm flex items-center justify-between">
+              <span class="flex items-center space-x-1.5">
+                <i class="fa-brands fa-google text-blue-400"></i>
+                <span>Gemini Native API</span>
+              </span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">v1beta Native</span>
+            </div>
+            <p class="text-[11px] text-slate-400 font-sans">Raw Google Generative Language format</p>
+          </div>
+          <pre class="text-slate-300 overflow-x-auto custom-scrollbar p-2.5 bg-slate-950 rounded border border-slate-800/80">curl http://localhost:8000/v1beta/models/gemini-3.7-flash-high:streamGenerateContent \
+  -H "Content-Type: application/json" \
+  -d '{"contents":[{"role":"user","parts":[{"text":"Hello!"}]}]}'</pre>
+        </div>
+
+        <!-- 8. Cloudflare AI Gateway / Tunnel -->
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2 flex flex-col justify-between">
+          <div class="space-y-1">
+            <div class="font-bold text-slate-200 text-sm flex items-center justify-between">
+              <span class="flex items-center space-x-1.5">
+                <i class="fa-brands fa-cloudflare text-orange-400"></i>
+                <span>Remote / Tunnel</span>
+              </span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-400 border border-orange-500/20">Edge Access</span>
+            </div>
+            <p class="text-[11px] text-slate-400 font-sans">Public HTTPS URL without port forwarding</p>
+          </div>
+          <pre class="text-slate-300 overflow-x-auto custom-scrollbar p-2.5 bg-slate-950 rounded border border-slate-800/80"># 1. Instant Tunnel
+cloudflared tunnel --url http://localhost:8000
+
+# 2. Use generated remote URL:
+https://your-tunnel.trycloudflare.com/v1</pre>
+        </div>
+
       </div>
     </div>
 

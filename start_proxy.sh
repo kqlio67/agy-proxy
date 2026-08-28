@@ -5,8 +5,18 @@
 
 set -e
 
-# Resolve current script directory dynamically
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Resolve current script directory dynamically (following symlinks)
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+    TARGET="$(readlink "$SOURCE")"
+    if [[ $TARGET == /* ]]; then
+        SOURCE="$TARGET"
+    else
+        DIR="$(dirname "$SOURCE")"
+        SOURCE="$DIR/$TARGET"
+    fi
+done
+SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
 cd "$SCRIPT_DIR" || exit 1
 
 # Check for python runner: uv -> python3 -> python

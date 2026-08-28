@@ -21,6 +21,9 @@ from agy_proxy.models import (
 
 logger = logging.getLogger("agy_proxy.converter")
 
+# Default dummy thought signature recognized by Gemini to bypass missing signature validation in history
+DEFAULT_THOUGHT_SIGNATURE = "context_engineering_is_the_way_to_go"
+
 # In-memory cache for preserving Gemini Thought Signatures across conversation turns
 _THOUGHT_SIGNATURE_CACHE: Dict[Any, str] = {}
 
@@ -38,6 +41,12 @@ def save_thought_signature(call_id: Optional[str], func_name: Optional[str], arg
             _THOUGHT_SIGNATURE_CACHE[(func_name, args_str)] = sig
         except Exception:
             pass
+    # Keep cache bounded to prevent memory leaks in long-running server
+    while len(_THOUGHT_SIGNATURE_CACHE) > 5000:
+        try:
+            _THOUGHT_SIGNATURE_CACHE.pop(next(iter(_THOUGHT_SIGNATURE_CACHE)))
+        except Exception:
+            break
 
 
 def get_thought_signature(call_id: Optional[str] = None, func_name: Optional[str] = None, args_obj: Any = None) -> Optional[str]:
@@ -56,6 +65,27 @@ def get_thought_signature(call_id: Optional[str] = None, func_name: Optional[str
     if _THOUGHT_SIGNATURE_CACHE:
         return next(reversed(_THOUGHT_SIGNATURE_CACHE.values()))
     return None
+
+
+def sanitize_gemini_contents_thought_signatures(contents: Any) -> Any:
+    """Ensures all functionCall parts in Gemini contents have a valid thoughtSignature."""
+    if not isinstance(contents, list):
+        return contents
+    for c in contents:
+        if isinstance(c, dict) and "parts" in c and isinstance(c["parts"], list):
+            for p in c["parts"]:
+                if isinstance(p, dict) and "functionCall" in p:
+                    if not p.get("thoughtSignature") and not p.get("thought_signature"):
+                        fc = p["functionCall"]
+                        if isinstance(fc, dict):
+                            sig = (
+                                fc.get("thoughtSignature")
+                                or fc.get("thought_signature")
+                                or get_thought_signature(call_id=fc.get("id"), func_name=fc.get("name"), args_obj=fc.get("args"))
+                                or DEFAULT_THOUGHT_SIGNATURE
+                            )
+                            p["thoughtSignature"] = sig
+    return contents
 
 
 def to_dict(obj: Any) -> Any:
@@ -126,6 +156,13 @@ def sanitize_gemini_schema(schema: Any) -> Any:
 
     if "properties" in sanitized and "type" not in sanitized:
         sanitized["type"] = "object"
+    elif "items" in sanitized and "type" not in sanitized:
+        sanitized["type"] = "array"
+    elif not sanitized.get("type"):
+        if "enum" in sanitized:
+            sanitized["type"] = "string"
+        else:
+            sanitized["type"] = "string"
 
     return sanitized
 
@@ -249,7 +286,9 @@ def openai_to_cloudcode_payload(
                     continue
                 p_type = part.get("type")
                 if p_type == "text":
-                    parts.append({"text": part.get("text", "")})
+                    txt = part.get("text", "")
+                    if txt:
+                        parts.append({"text": txt})
                 elif p_type == "image_url":
                     img_url = part.get("image_url", {}).get("url", "")
                     mime_type, b64_data = _extract_media_from_url(img_url)
@@ -279,6 +318,7 @@ def openai_to_cloudcode_payload(
                     tc.get("thought_signature")
                     or tc.get("thoughtSignature")
                     or get_thought_signature(call_id=tc_id, func_name=func_name, args_obj=args_obj)
+                    or DEFAULT_THOUGHT_SIGNATURE
                 )
 
                 fc_part: Dict[str, Any] = {
@@ -286,10 +326,9 @@ def openai_to_cloudcode_payload(
                         "name": func_name,
                         "args": args_obj,
                         "id": tc_id,
-                    }
+                    },
+                    "thoughtSignature": sig,
                 }
-                if sig:
-                    fc_part["thoughtSignature"] = sig
 
                 parts.append(fc_part)
 
@@ -442,7 +481,9 @@ def anthropic_to_cloudcode_payload(
                     continue
                 b_type = b_dict.get("type")
                 if b_type == "text":
-                    parts.append({"text": b_dict.get("text", "")})
+                    txt = b_dict.get("text", "")
+                    if txt:
+                        parts.append({"text": txt})
                 elif b_type == "thinking":
                     last_thinking_sig = b_dict.get("signature")
                     thought_content = b_dict.get("thinking", "")
@@ -488,6 +529,7 @@ def anthropic_to_cloudcode_payload(
                         or b_dict.get("signature")
                         or last_thinking_sig
                         or get_thought_signature(call_id=tool_id, func_name=func_name, args_obj=func_input)
+                        or DEFAULT_THOUGHT_SIGNATURE
                     )
 
                     fc_part: Dict[str, Any] = {
@@ -495,10 +537,9 @@ def anthropic_to_cloudcode_payload(
                             "name": func_name,
                             "args": func_input,
                             "id": tool_id,
-                        }
+                        },
+                        "thoughtSignature": sig,
                     }
-                    if sig:
-                        fc_part["thoughtSignature"] = sig
 
                     parts.append(fc_part)
                 elif b_type == "tool_result":
@@ -582,31 +623,45 @@ def anthropic_to_cloudcode_payload(
     }
 
 
-def parse_gemini_sse_candidate(candidate_obj: Dict[str, Any]) -> Tuple[str, str, List[Dict[str, Any]], Optional[str]]:
+def parse_gemini_sse_candidate(candidate_obj: Dict[str, Any]) -> Tuple[str, str, List[Dict[str, Any]], Optional[str], Optional[str]]:
     """
-    Extracts (text, thought_text, tool_calls, finish_reason) from a Gemini candidate chunk.
+    Extracts (text, thought_text, tool_calls, finish_reason, latest_thought_sig) from a Gemini candidate chunk.
     """
     text = ""
     thought_text = ""
     tool_calls: List[Dict[str, Any]] = []
     finish_reason = candidate_obj.get("finishReason")
+    candidate_thought_sig = (
+        candidate_obj.get("thoughtSignature")
+        or candidate_obj.get("thought_signature")
+        or candidate_obj.get("content", {}).get("thoughtSignature")
+        or candidate_obj.get("content", {}).get("thought_signature")
+    )
+    latest_thought_sig = candidate_thought_sig
 
     content = candidate_obj.get("content", {})
     parts = content.get("parts", [])
 
     for p in parts:
+        part_sig = (
+            p.get("thoughtSignature")
+            or p.get("thought_signature")
+            or p.get("signature")
+        )
+        if part_sig:
+            latest_thought_sig = part_sig
+
         if "functionCall" in p:
             fc = p["functionCall"]
             call_id = fc.get("id", f"call_{uuid.uuid4().hex[:8]}")
             fc_name = fc.get("name", "")
             fc_args = fc.get("args", {})
             thought_sig = (
-                p.get("thoughtSignature")
-                or p.get("thought_signature")
+                part_sig
                 or fc.get("thoughtSignature")
                 or fc.get("thought_signature")
-                or candidate_obj.get("thoughtSignature")
-                or candidate_obj.get("thought_signature")
+                or latest_thought_sig
+                or DEFAULT_THOUGHT_SIGNATURE
             )
             if thought_sig:
                 save_thought_signature(call_id, fc_name, fc_args, thought_sig)
@@ -622,10 +677,12 @@ def parse_gemini_sse_candidate(candidate_obj: Dict[str, Any]) -> Tuple[str, str,
             })
         elif p.get("thought") is True:
             thought_text += p.get("text", "")
+            if part_sig:
+                save_thought_signature(None, None, None, part_sig)
         elif "text" in p:
             text += p.get("text", "")
 
-    return text, thought_text, tool_calls, finish_reason
+    return text, thought_text, tool_calls, finish_reason, latest_thought_sig
 
 
 def create_openai_chunk(

@@ -107,8 +107,8 @@ async def run_tests():
                     events_received.append(line[6:].strip())
         print(f"  ✅ Received Anthropic events: {set(events_received)}")
 
-        # 8. Test Tool & Function Calling with Thought Signatures
-        print("\n[8/10] Testing Tool / Function Calling (OpenAI format)...")
+        # 8. Test Tool & Function Calling with Thought Signatures (OpenAI & Anthropic Multi-Turn)
+        print("\n[8/11] Testing Tool / Function Calling (OpenAI format)...")
         tool_req = {
             "model": "gemini-3.7-flash-high",
             "messages": [
@@ -140,10 +140,63 @@ async def run_tests():
         assert len(t_calls) > 0, "Model should have generated a tool call"
         called_func = t_calls[0]["function"]["name"]
         called_args = t_calls[0]["function"]["arguments"]
-        print(f"  ✅ Tool Called: {called_func} with args {called_args}")
+        print(f"  ✅ OpenAI Tool Called: {called_func} with args {called_args}")
 
-        # 9. Test Token Counting API
-        print("\n[9/10] Testing POST /v1/messages/count_tokens...")
+        # 9. Test Multi-Turn Anthropic Tool Calling with History (reproducing Bash tool invocation)
+        print("\n[9/11] Testing Multi-Turn Anthropic Tool Calling with History & Thought Signatures...")
+        multi_turn_anthropic_req = {
+            "model": "gemini-3.7-flash-high",
+            "messages": [
+                {"role": "user", "content": "List files in directory"},
+                {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "id": "toolu_bash_test_999",
+                            "name": "default_api:Bash",
+                            "input": {"command": "ls -la"}
+                        }
+                    ]
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": "toolu_bash_test_999",
+                            "content": "total 8\n-rw-r--r-- 1 user user 100 main.py\n-rw-r--r-- 1 user user 200 README.md"
+                        }
+                    ]
+                }
+            ],
+            "tools": [
+                {
+                    "name": "default_api:Bash",
+                    "description": "Run bash command",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "command": {"type": "string"}
+                        },
+                        "required": ["command"]
+                    }
+                }
+            ],
+            "max_tokens": 200,
+            "stream": True,
+        }
+        events = []
+        async with client.stream("POST", "/v1/messages?beta=true", json=multi_turn_anthropic_req) as a_stream:
+            assert a_stream.status_code == 200, f"Multi-turn failed with status {a_stream.status_code}"
+            async for line in a_stream.aiter_lines():
+                if line.startswith("event:"):
+                    events.append(line[6:].strip())
+        assert "message_start" in events and "message_stop" in events
+        print(f"  ✅ Multi-turn Anthropic tool response received successfully (Events: {set(events)})")
+
+        # 10. Test Token Counting API
+        print("\n[10/11] Testing POST /v1/messages/count_tokens...")
         count_req = {
             "model": "gemini-3.7-flash-high",
             "messages": [
@@ -155,8 +208,8 @@ async def run_tests():
         count_res = r.json()
         print(f"  ✅ Estimated Input Tokens: {count_res.get('input_tokens')}")
 
-        # 10. Test Multi-Account Pool API Management
-        print("\n[10/10] Testing /api/accounts (Pool List & Toggle API)...")
+        # 11. Test Multi-Account Pool API Management
+        print("\n[11/11] Testing /api/accounts (Pool List & Toggle API)...")
         r = await client.get("/api/accounts")
         assert r.status_code == 200
         acc_data = r.json().get("accounts", [])
@@ -172,7 +225,7 @@ async def run_tests():
             print(f"  ✅ Successfully tested account toggle lifecycle on {first_id}.")
 
     print("\n========================================")
-    print("   🎉 ALL 10 TEST SUITES PASSED 100%!   ")
+    print("   🎉 ALL 11 TEST SUITES PASSED 100%!   ")
     print("========================================\n")
     return True
 

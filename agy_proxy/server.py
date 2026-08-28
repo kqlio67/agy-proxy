@@ -136,6 +136,32 @@ def create_app(
     async def claude_code_hello():
         return {"status": "ok", "message": "hello from antigravity proxy"}
 
+    @app.get("/api/claude_cli/bootstrap")
+    async def claude_cli_bootstrap():
+        return {
+            "status": "ok",
+            "features": {
+                "fast_mode": True,
+                "extended_context": True,
+            },
+            "model_configs": {},
+        }
+
+    @app.get("/api/claude_code_penguin_mode")
+    async def claude_code_penguin_mode():
+        return {
+            "enabled": False,
+            "status": "disabled",
+        }
+
+    @app.get("/api/web/domain_info")
+    async def web_domain_info():
+        return {"allowed": True}
+
+    @app.post("/api/oauth/claude_cli/create_api_key")
+    async def claude_cli_create_api_key():
+        return {"api_key": "dummy", "status": "ok"}
+
     @app.get("/api/claude_code/organizations/metrics_enabled")
     async def claude_code_metrics():
         return {"metrics_enabled": False}
@@ -143,6 +169,10 @@ def create_app(
     @app.get("/api/oauth/claude_cli/roles")
     async def claude_code_roles():
         return {"roles": ["admin", "developer"]}
+
+    @app.get("/mcp-registry/v0/servers")
+    async def mcp_registry_servers():
+        return {"servers": []}
 
     @app.post("/v1/messages/count_tokens")
     @app.post("/messages/count_tokens")
@@ -283,6 +313,19 @@ def create_app(
                     reset_time=quota_info.get("resetTime"),
                 )
             )
+            # Claude Code gateway format: anthropic/<model> and anthropic.<model>
+            for prefix in (f"anthropic/{m_id}", f"anthropic.{m_id}"):
+                if prefix not in seen_ids:
+                    seen_ids.add(prefix)
+                    model_cards.append(
+                        ModelCard(
+                            id=prefix,
+                            display_name=info.get("displayName", m_id),
+                            max_tokens=info.get("maxTokens"),
+                            remaining_quota=pool_rem,
+                            reset_time=quota_info.get("resetTime"),
+                        )
+                    )
 
         for alias, target in MODEL_ALIASES.items():
             if alias not in seen_ids:
@@ -378,21 +421,29 @@ def create_app(
                 response_data = await client.generate_anthropic_messages(req)
                 return JSONResponse(content=response_data)
         except httpx.HTTPStatusError as e:
-            if e.response.status_code == 429:
-                return JSONResponse(
-                    status_code=429,
-                    content={
-                        "type": "error",
-                        "error": {
-                            "type": "rate_limit_error",
-                            "message": "All accounts in pool have hit rate limit / quota (429). Please wait a few minutes or add more accounts.",
-                        },
+            err_type = "rate_limit_error" if e.response.status_code == 429 else "api_error"
+            return JSONResponse(
+                status_code=e.response.status_code,
+                content={
+                    "type": "error",
+                    "error": {
+                        "type": err_type,
+                        "message": str(e),
                     },
-                )
-            raise HTTPException(status_code=e.response.status_code, detail=str(e))
+                },
+            )
         except Exception as e:
             logger.error("Anthropic Messages Error: %s", e, exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "type": "error",
+                    "error": {
+                        "type": "api_error",
+                        "message": str(e),
+                    },
+                },
+            )
 
     # -------------------------------------------------------------------------
     # Gemini Native API

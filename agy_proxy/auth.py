@@ -34,7 +34,7 @@ SCOPES = [
     "openid",
 ]
 
-USER_AGENT = "antigravity/cli/1.1.20 (aidev_client; os_type=linux; arch=amd64; cl=970154694; auth_method=consumer)"
+USER_AGENT = "antigravity/cli/1.1.22 (aidev_client; os_type=linux; arch=amd64; cl=971564011; auth_method=consumer)"
 
 # Candidate search paths for Antigravity primary / CLI / IDE tokens
 CANDIDATE_TOKEN_FILES = [
@@ -361,6 +361,11 @@ class AccountSession:
         logger.warning("[%s] Marked as rate-limited for group %s for %.0fs", self.email, key, duration)
 
     def to_dict(self) -> Dict[str, Any]:
+        # Clean expired rate limits before exporting
+        now = time.time()
+        active_limits = {k: max(0, int(v - now)) for k, v in list(self.rate_limited_models.items()) if v > now}
+        self.rate_limited_models = {k: v for k, v in self.rate_limited_models.items() if v > now}
+
         return {
             "account_id": self.account_id,
             "email": self.email,
@@ -373,7 +378,8 @@ class AccountSession:
             "tier_name": self.tier_info.get("name", "Antigravity"),
             "expiry_timestamp": self.expiry_timestamp,
             "total_requests": self.total_requests,
-            "rate_limited": bool(self.rate_limited_models),
+            "rate_limited": bool(active_limits),
+            "rate_limited_models": active_limits,
             "quota_summary": self.quota_summary,
         }
 
@@ -402,12 +408,17 @@ class AccountPool:
         for t_path in target_token_paths:
             if t_path.exists():
                 try:
+                    if t_path.stat().st_size == 0:
+                        continue
                     with open(t_path, "r", encoding="utf-8") as f:
-                        data = json.load(f)
+                        content = f.read().strip()
+                        if not content:
+                            continue
+                        data = json.loads(content)
 
-                    token_obj = data.get("token", {})
-                    refresh_token = token_obj.get("refresh_token") or data.get("refresh_token")
-                    access_token = token_obj.get("access_token") or data.get("access_token")
+                    token_obj = data.get("token", {}) if isinstance(data, dict) else {}
+                    refresh_token = token_obj.get("refresh_token") or (data.get("refresh_token") if isinstance(data, dict) else None)
+                    access_token = token_obj.get("access_token") or (data.get("access_token") if isinstance(data, dict) else None)
 
                     if refresh_token or access_token:
                         if not primary_loaded:
@@ -415,7 +426,7 @@ class AccountPool:
                                 account_id="primary",
                                 refresh_token=refresh_token or "",
                                 access_token=access_token,
-                                auth_method=data.get("auth_method", "consumer"),
+                                auth_method=data.get("auth_method", "consumer") if isinstance(data, dict) else "consumer",
                                 is_primary=True,
                                 on_token_refreshed=self.save_accounts,
                             )
@@ -431,14 +442,14 @@ class AccountPool:
                                     account_id=acc_id,
                                     refresh_token=refresh_token,
                                     access_token=access_token,
-                                    auth_method=data.get("auth_method", "consumer"),
+                                    auth_method=data.get("auth_method", "consumer") if isinstance(data, dict) else "consumer",
                                     is_primary=False,
                                     on_token_refreshed=self.save_accounts,
                                 )
                                 self.accounts[acc_id] = acc
                                 logger.info("Auto-discovered additional account session from %s", t_path)
                 except Exception as e:
-                    logger.error("Error reading token file %s: %s", t_path, e)
+                    logger.debug("Could not parse token file %s: %s", t_path, e)
 
         # 2. Check for legacy migration if ~/.config/agy-proxy/accounts.json does not exist
         if not self.accounts_file.exists():

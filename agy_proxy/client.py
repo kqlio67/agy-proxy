@@ -17,6 +17,7 @@ from agy_proxy.converter import (
     create_openai_chunk,
     openai_to_cloudcode_payload,
     parse_gemini_sse_candidate,
+    sanitize_gemini_contents_thought_signatures,
 )
 from agy_proxy.models import AnthropicRequest, OpenAIChatRequest, normalize_model_name
 
@@ -126,12 +127,16 @@ class CloudCodeClient:
 
                     except httpx.HTTPStatusError as e:
                         last_error = e
-                        if e.response.status_code in (429, 500, 502, 503, 504, 404):
+                        if e.response.status_code in (403, 429, 500, 502, 503, 504, 404):
                             logger.warning("[%s] Account error [%d]. Failing over to next candidate account...", acc.email, e.response.status_code)
                             break
                         raise
+                    except (httpx.TimeoutException, httpx.NetworkError) as e:
+                        logger.warning("[%s] Network/Timeout error (%s). Failing over to next account...", acc.email, e)
+                        last_error = e
+                        break
                     except Exception as e:
-                        if attempt == 0 and acc.auth_method != "api_key" and not isinstance(e, (httpx.TimeoutException, httpx.NetworkError)):
+                        if attempt == 0 and acc.auth_method != "api_key":
                             logger.warning("[%s] Stream error (%s); refreshing token...", acc.email, e)
                             try:
                                 await acc.refresh_access_token(force=True)
@@ -188,7 +193,7 @@ class CloudCodeClient:
                     total_tokens = usage_meta.get("totalTokenCount", total_tokens)
 
                 for cand in candidates:
-                    text, thought, tool_calls, finish_reason = parse_gemini_sse_candidate(cand)
+                    text, thought, tool_calls, finish_reason, _ = parse_gemini_sse_candidate(cand)
                     mapped_finish = "stop" if finish_reason == "STOP" else ("tool_calls" if tool_calls else None)
 
                     chunk = create_openai_chunk(
@@ -282,7 +287,7 @@ class CloudCodeClient:
                 total_tokens = usage_meta.get("totalTokenCount", total_tokens)
 
             for cand in candidates:
-                text, thought, tool_calls, _ = parse_gemini_sse_candidate(cand)
+                text, thought, tool_calls, _, _ = parse_gemini_sse_candidate(cand)
                 if text:
                     full_text += text
                 if thought:
@@ -356,6 +361,7 @@ class CloudCodeClient:
         has_tool_calls = False
         total_prompt_tokens = 0
         total_output_tokens = 0
+        current_thought_sig: Optional[str] = None
 
         try:
             async for data in self._post_sse_stream_with_failover(
@@ -372,7 +378,9 @@ class CloudCodeClient:
                     total_output_tokens = usage_meta.get("candidatesTokenCount", total_output_tokens)
 
                 for cand in candidates:
-                    text, thought, tool_calls, finish_reason = parse_gemini_sse_candidate(cand)
+                    text, thought, tool_calls, finish_reason, chunk_sig = parse_gemini_sse_candidate(cand)
+                    if chunk_sig:
+                        current_thought_sig = chunk_sig
 
                     # Stream thinking if present
                     if thought:
@@ -383,6 +391,8 @@ class CloudCodeClient:
 
                     # If transitioning from thought to text/tool, close thought block
                     if (text or tool_calls) and has_started_thought_block:
+                        if current_thought_sig:
+                            yield f"event: content_block_delta\ndata: {json.dumps({'type': 'content_block_delta', 'index': current_block_index, 'delta': {'type': 'signature_delta', 'signature': current_thought_sig}})}\n\n"
                         yield f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': current_block_index})}\n\n"
                         has_started_thought_block = False
                         current_block_index += 1
@@ -422,6 +432,8 @@ class CloudCodeClient:
 
             # Final cleanup for open blocks
             if has_started_thought_block:
+                if current_thought_sig:
+                    yield f"event: content_block_delta\ndata: {json.dumps({'type': 'content_block_delta', 'index': current_block_index, 'delta': {'type': 'signature_delta', 'signature': current_thought_sig}})}\n\n"
                 yield f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': current_block_index})}\n\n"
                 current_block_index += 1
 
@@ -476,6 +488,7 @@ class CloudCodeClient:
         tool_blocks: List[Dict[str, Any]] = []
         prompt_tokens = 0
         candidates_tokens = 0
+        current_thought_sig: Optional[str] = None
 
         async for data in self._post_sse_stream_with_failover(
             "v1internal:streamGenerateContent?alt=sse",
@@ -491,7 +504,9 @@ class CloudCodeClient:
                 candidates_tokens = usage_meta.get("candidatesTokenCount", candidates_tokens)
 
             for cand in candidates:
-                text, thought, tool_calls, _ = parse_gemini_sse_candidate(cand)
+                text, thought, tool_calls, _, chunk_sig = parse_gemini_sse_candidate(cand)
+                if chunk_sig:
+                    current_thought_sig = chunk_sig
                 if text:
                     full_text += text
                 if thought:
@@ -507,7 +522,10 @@ class CloudCodeClient:
 
         content_blocks: List[Dict[str, Any]] = []
         if full_thinking:
-            content_blocks.append({"type": "thinking", "thinking": full_thinking})
+            t_block: Dict[str, Any] = {"type": "thinking", "thinking": full_thinking}
+            if current_thought_sig:
+                t_block["signature"] = current_thought_sig
+            content_blocks.append(t_block)
         if full_text:
             content_blocks.append({"type": "text", "text": full_text})
         content_blocks.extend(tool_blocks)
@@ -537,10 +555,13 @@ class CloudCodeClient:
         backend_model = normalize_model_name(model)
 
         def build_payload(project_id: str):
+            sanitized_req = dict(raw_payload)
+            if "contents" in sanitized_req:
+                sanitized_req["contents"] = sanitize_gemini_contents_thought_signatures(sanitized_req["contents"])
             return {
                 "project": project_id,
                 "requestId": f"native/{uuid.uuid4()}",
-                "request": raw_payload,
+                "request": sanitized_req,
                 "model": backend_model,
                 "userAgent": "antigravity",
                 "requestType": "chat",

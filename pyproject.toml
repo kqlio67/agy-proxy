@@ -1,6 +1,6 @@
 [project]
 name = "agy-proxy"
-version = "1.0.1"
+version = "1.0.2"
 description = "High-performance OpenAI and Anthropic compatible proxy server for Google Antigravity & Gemini Code Assist."
 readme = "README.md"
 license = { text = "GPL-3.0-or-later" }

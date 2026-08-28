@@ -57,6 +57,15 @@ MODEL_ALIASES: Dict[str, str] = {
     "claude-sonnet-5": "gemini-3.7-flash-high",
     "claude-sonnet-5-latest": "gemini-3.7-flash-high",
     "claude-5-sonnet": "gemini-3.7-flash-high",
+    "claude-fable-5": "gemini-3.7-flash-high",
+    "claude-fable-5-latest": "gemini-3.7-flash-high",
+    "claude-5-fable": "gemini-3.7-flash-high",
+    "claude-opus-5": "claude-opus-4-6-thinking",
+    "claude-opus-5-latest": "claude-opus-4-6-thinking",
+    "claude-5-opus": "claude-opus-4-6-thinking",
+    "claude-haiku-4-5": "gemini-3.1-flash-lite",
+    "claude-haiku-4-5-20251001": "gemini-3.1-flash-lite",
+    "claude-4-5-haiku": "gemini-3.1-flash-lite",
 
     # OpenAI Aliases
     "gpt-4o": "gemini-3.7-flash-high",
@@ -111,8 +120,8 @@ def normalize_model_name(model_name: Optional[str]) -> str:
     import re
     cleaned = model_name.strip().lower()
 
-    # Remove provider prefixes (e.g. anthropic/gemini-3.7-flash-high -> gemini-3.7-flash-high)
-    cleaned = re.sub(r"^(anthropic|openai|google|models)/", "", cleaned).strip()
+    # Remove provider prefixes (e.g. anthropic/gemini-3.7-flash-high or anthropic.gemini-3.7-flash-high)
+    cleaned = re.sub(r"^(anthropic|openai|google|models)[./]", "", cleaned).strip()
 
     # Remove context annotations like [1m], (1m context), [thinking], etc.
     cleaned = re.sub(r"\[.*?\]", "", cleaned).strip()

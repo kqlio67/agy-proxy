@@ -65,10 +65,14 @@ async def handle_auth_login():
     console.print(f"[underline blue]{auth_url}[/underline blue]\n")
 
     console.print("[bold yellow]Step 2:[/bold yellow] After authorizing, copy and paste the authorization code (or the full redirect URL):")
-    code_input = input("Authorization Code / URL: ").strip()
+    try:
+        code_input = input("Authorization Code / URL: ").strip()
+    except (KeyboardInterrupt, EOFError):
+        console.print("\n[dim]Login cancelled by user.[/dim]")
+        return
 
     if not code_input:
-        console.print("[bold red]Aborted: No code entered.[/bold red]")
+        console.print("[bold red]Aborted: No input entered.[/bold red]")
         return
 
     console.print("\n[dim]Exchanging authorization code for OAuth tokens...[/dim]")
@@ -78,6 +82,39 @@ async def handle_auth_login():
         console.print(f"Project: [cyan]{acc.project_id}[/cyan], Tier: [magenta]{acc.tier_info.get('name', 'Antigravity')}[/magenta]")
     except Exception as e:
         console.print(f"[bold red]✗ Failed to add account:[/bold red] {e}")
+
+
+async def handle_auth_apikey(api_key: str = None, name: str = None):
+    """Command for adding a Google AI Studio API Key to the pool."""
+    console.print(Panel("[bold cyan]Add Google AI Studio API Key[/bold cyan]", border_style="blue"))
+    pool = AccountPool()
+    pool.load_accounts()
+
+    if not api_key:
+        try:
+            api_key = input("Enter Gemini API Key (AIza...): ").strip()
+        except (KeyboardInterrupt, EOFError):
+            console.print("\n[dim]Cancelled by user.[/dim]")
+            return
+    if not api_key:
+        console.print("[bold red]Aborted: No key entered.[/bold red]")
+        return
+
+    if not name:
+        try:
+            display_name = input("Optional Account Name [Gemini API Key]: ").strip() or "Gemini API Key"
+        except (KeyboardInterrupt, EOFError):
+            display_name = "Gemini API Key"
+    else:
+        display_name = name
+
+    console.print("\n[dim]Validating API Key with Google AI Studio...[/dim]")
+    try:
+        acc = await pool.add_api_key_account(api_key=api_key, name=display_name)
+        console.print(f"[bold green]✓ Successfully added API Key account:[/bold green] [bold white]{acc.name}[/bold white] ({acc.email})")
+        console.print(f"Discovered Models: [cyan]{len(acc.available_models)} model(s)[/cyan]")
+    except Exception as e:
+        console.print(f"[bold red]✗ Failed to add API Key:[/bold red] {e}")
 
 
 async def handle_auth_list():
@@ -130,8 +167,14 @@ def main():
     # auth subcommand
     auth_parser = subparsers.add_parser("auth", help="Manage Antigravity Google accounts in pool")
     auth_subparsers = auth_parser.add_subparsers(dest="auth_action", help="Auth action")
-    auth_subparsers.add_parser("login", help="Log in a new Google account via OAuth PKCE")
+    auth_subparsers.add_parser("login", help="Log in a Google account via browser OAuth PKCE")
     auth_subparsers.add_parser("list", help="List all accounts and quotas in pool")
+
+    # Dedicated API key subcommands: `auth api` and `auth apikey`
+    for alias_cmd in ("api", "apikey"):
+        api_sub = auth_subparsers.add_parser(alias_cmd, help="Add a Google AI Studio Gemini API Key")
+        api_sub.add_argument("--key", "-k", type=str, default=None, help="Gemini API Key (AIza...)")
+        api_sub.add_argument("--name", "-n", type=str, default=None, help="Friendly display name for this API key")
 
     # Server arguments
     parser.add_argument(
@@ -181,6 +224,9 @@ def main():
     if args.subcommand == "auth":
         if args.auth_action == "login":
             asyncio.run(handle_auth_login())
+            return
+        elif args.auth_action in ("api", "apikey"):
+            asyncio.run(handle_auth_apikey(api_key=getattr(args, "key", None), name=getattr(args, "name", None)))
             return
         elif args.auth_action == "list":
             asyncio.run(handle_auth_list())
