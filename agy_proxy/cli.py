@@ -130,32 +130,37 @@ async def handle_auth_list():
     await pool.initialize_all()
 
     table = Table(title="Antigravity Account Pool", border_style="blue")
-    table.add_column("Account ID", style="cyan")
-    table.add_column("Email", style="white")
-    table.add_column("Project", style="dim")
-    table.add_column("Tier", style="magenta")
-    table.add_column("Gemini 5h Quota", style="green")
+    table.add_column("Account / Name", style="cyan")
+    table.add_column("Type", style="magenta")
+    table.add_column("Identity / Email", style="white")
+    table.add_column("Gemini Quota", style="green")
     table.add_column("Claude/3P Quota", style="yellow")
     table.add_column("Requests", justify="right")
 
     for acc in pool.accounts.values():
-        gemini_q = "100%"
-        claude_q = "100%"
-        if acc.quota_summary.get("groups"):
-            for g in acc.quota_summary["groups"]:
-                name = g.get("displayName", "").lower()
-                b = g.get("buckets", [{}])[0]
-                pct = f"{int(b.get('remainingFraction', 1.0) * 100)}%"
-                if "claude" in name or "gpt" in name:
-                    claude_q = pct
-                else:
-                    gemini_q = pct
+        is_api_key = acc.auth_method == "api_key"
+        acc_type = "API Key" if is_api_key else "OAuth"
+        display_name = acc.name or ("Primary Account" if acc.is_primary else acc.account_id)
+        if acc.is_primary:
+            display_name += " ⭐"
+
+        if is_api_key:
+            if acc.error_message:
+                gemini_q = "[bold red]Invalid/Expired[/bold red]"
+            else:
+                gemini_q = "[bold green]PayG Active[/bold green]"
+            claude_q = "[dim]N/A[/dim]"
+        else:
+            q_details = acc.get_quota_details()
+            g_pct = int(q_details.get("gemini", {}).get("percent", 100))
+            c_pct = int(q_details.get("3p", {}).get("percent", 100))
+            gemini_q = f"[bold red]{g_pct}%[/bold red]" if g_pct <= 0 else f"{g_pct}%"
+            claude_q = f"[bold red]{c_pct}%[/bold red]" if c_pct <= 0 else f"{c_pct}%"
 
         table.add_row(
-            f"{acc.account_id} {'⭐' if acc.is_primary else ''}",
-            acc.email,
-            acc.project_id or "N/A",
-            acc.tier_info.get("name", "Antigravity"),
+            display_name,
+            acc_type,
+            acc.email or "N/A",
             gemini_q,
             claude_q,
             str(acc.total_requests),
