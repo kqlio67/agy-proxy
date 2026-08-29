@@ -150,7 +150,7 @@ class AccountSession:
                 return self.access_token
 
             client = await self.get_http_client()
-            logger.info("[%s] Refreshing OAuth access token...", self.email)
+            logger.debug("[%s] Refreshing OAuth access token...", self.email)
             data = {
                 "client_id": self.client_id,
                 "client_secret": self.client_secret,
@@ -179,7 +179,7 @@ class AccountSession:
                     if "refresh_token" in res_json:
                         self.refresh_token = res_json["refresh_token"]
 
-                    logger.info("[%s] Successfully refreshed token (expires in %ds)", self.email, expires_in)
+                    logger.debug("[%s] Successfully refreshed token (expires in %ds)", self.email, expires_in)
                     if self.on_token_refreshed:
                         try:
                             self.on_token_refreshed()

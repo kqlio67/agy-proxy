@@ -264,12 +264,13 @@ def main():
         datefmt="%H:%M:%S",
     )
 
-    # Silence noisy HTTP client libraries in normal mode (unless --debug is explicitly enabled)
+    # Silence noisy HTTP client and server access logs in normal mode (unless --debug is explicitly enabled)
     if not args.debug and effective_log_level.lower() != "debug":
         logging.getLogger("httpx").setLevel(logging.WARNING)
         logging.getLogger("httpcore").setLevel(logging.WARNING)
         logging.getLogger("urllib3").setLevel(logging.WARNING)
         logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+        logging.getLogger("uvicorn.error").setLevel(logging.WARNING)
 
     # Initialize AccountPool and preload accounts from disk for banner
     pool = AccountPool(token_path=args.token_file)
@@ -300,7 +301,8 @@ def main():
         app,
         host=args.host,
         port=args.port,
-        log_level=effective_log_level,
+        log_level="warning" if (not args.debug and effective_log_level.lower() != "debug") else effective_log_level,
+        access_log=bool(args.debug or effective_log_level.lower() == "debug"),
     )
 
 

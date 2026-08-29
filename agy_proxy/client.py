@@ -105,7 +105,11 @@ class CloudCodeClient:
                     req_body = payload
                     models_to_try = [None]  # Standard CloudCode single URL
 
-                logger.info("[%s] ⚡ Request -> Model: %s (Client requested: %s)", acc.email, backend_m, model_name)
+                acc_label = acc.name or acc.email
+                if backend_m == model_name:
+                    logger.info("[%s] ⚡ %s", acc_label, backend_m)
+                else:
+                    logger.info("[%s] ⚡ %s (requested: %s)", acc_label, backend_m, model_name)
                 acc.last_used_timestamp = time.time()
                 acc.total_requests += 1
 
