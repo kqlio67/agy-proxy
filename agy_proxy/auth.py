@@ -515,7 +515,7 @@ class AccountPool:
                             )
                             self.accounts["primary"] = primary_acc
                             primary_loaded = True
-                            logger.info("Loaded primary account from %s", t_path)
+                            logger.debug("Loaded primary account from %s", t_path)
                         else:
                             # Auto-import distinct session tokens from other Antigravity locations (e.g. IDE)
                             existing_tokens = {a.refresh_token for a in self.accounts.values() if a.refresh_token}
@@ -530,7 +530,7 @@ class AccountPool:
                                     on_token_refreshed=self.save_accounts,
                                 )
                                 self.accounts[acc_id] = acc
-                                logger.info("Auto-discovered additional account session from %s", t_path)
+                                logger.debug("Auto-discovered additional account session from %s", t_path)
                 except Exception as e:
                     logger.debug("Could not parse token file %s: %s", t_path, e)
 
@@ -622,7 +622,7 @@ class AccountPool:
                         on_token_refreshed=self.save_accounts,
                     )
                     self.accounts[acc_id] = acc
-                    logger.info("Loaded account %s (%s, enabled=%s)", acc_id, acc.email, acc.enabled)
+                    logger.debug("Loaded account %s (%s, enabled=%s)", acc_id, acc.email, acc.enabled)
             except Exception as e:
                 logger.error("Error reading accounts file %s: %s", self.accounts_file, e)
 
