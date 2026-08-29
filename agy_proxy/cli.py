@@ -296,15 +296,32 @@ def main():
         update_info=update_info,
     )
 
-    # Run Uvicorn
-    uvicorn.run(
+    # Run Uvicorn with graceful shutdown handling
+    config = uvicorn.Config(
         app,
         host=args.host,
         port=args.port,
         log_level="warning" if (not args.debug and effective_log_level.lower() != "debug") else effective_log_level,
         access_log=bool(args.debug or effective_log_level.lower() == "debug"),
     )
+    server = uvicorn.Server(config)
+
+    try:
+        server.run()
+    except (KeyboardInterrupt, SystemExit):
+        pass
+    except Exception as e:
+        if not args.debug:
+            console.print(f"\n[bold yellow]Proxy stopped.[/bold yellow]")
+        else:
+            raise e
+    finally:
+        if not args.debug:
+            console.print("[dim]Antigravity Proxy stopped successfully. Bye![/dim]")
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        sys.exit(0)
