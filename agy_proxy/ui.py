@@ -60,6 +60,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           <div>
             <div class="flex items-center space-x-2">
               <span class="text-lg font-black tracking-tight text-white">Google <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400">Antigravity</span> Proxy</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono font-bold border border-indigo-500/30">v1.0.2</span>
               <span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 font-semibold border border-blue-500/20">Pool Active</span>
             </div>
             <p class="text-[11px] text-slate-400 font-mono">OpenAI · Anthropic · Gemini Multi-Account Gateway</p>
@@ -578,6 +579,29 @@ https://your-tunnel.trycloudflare.com/v1</pre>
 
       </div>
     </div>
+
+    <!-- Footer with Version & GitHub Links -->
+    <footer class="border-t border-slate-800/80 pt-6 pb-2 text-center text-xs text-slate-500 space-y-2">
+      <div class="flex items-center justify-center space-x-4">
+        <span class="font-mono text-slate-400">Antigravity Proxy <b class="text-indigo-400">v1.0.2</b></span>
+        <span>•</span>
+        <a href="https://github.com/kqlio67/agy-proxy" target="_blank" class="hover:text-slate-300 transition flex items-center space-x-1">
+          <i class="fa-brands fa-github"></i>
+          <span>GitHub Repo</span>
+        </a>
+        <span>•</span>
+        <a href="https://github.com/kqlio67/agy-proxy/releases" target="_blank" class="hover:text-slate-300 transition flex items-center space-x-1">
+          <i class="fa-solid fa-tag"></i>
+          <span>Releases</span>
+        </a>
+        <span>•</span>
+        <a href="https://github.com/kqlio67/agy-proxy/issues" target="_blank" class="hover:text-slate-300 transition flex items-center space-x-1">
+          <i class="fa-regular fa-circle-question"></i>
+          <span>Issues & Help</span>
+        </a>
+      </div>
+      <p class="text-[11px] text-slate-600">Open source proxy for Google Antigravity & Gemini Code Assist pool routing.</p>
+    </footer>
 
   </main>
 

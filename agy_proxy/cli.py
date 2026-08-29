@@ -13,6 +13,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from agy_proxy import __version__ as APP_VERSION
 from agy_proxy.auth import AccountPool, AuthManager
 from agy_proxy.server import create_app
 
@@ -48,7 +49,7 @@ def print_banner(host: str, port: int, pool: AccountPool, api_key: str = None, u
 
     panel = Panel(
         table,
-        title="[bold white]⚡ Google Antigravity AI Proxy (Multi-Account Enabled)[/bold white]",
+        title=f"[bold white]⚡ Google Antigravity AI Proxy [dim](v{APP_VERSION})[/dim][/bold white]",
         border_style="blue",
         subtitle="[dim]Press Ctrl+C to stop[/dim]",
         padding=(1, 2),
@@ -171,7 +172,14 @@ async def handle_auth_list():
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Antigravity Proxy - OpenAI & Anthropic compatible API server for Antigravity with Multi-Account pooling."
+        description=f"Antigravity Proxy (v{APP_VERSION}) - OpenAI & Anthropic compatible API server for Antigravity with Multi-Account pooling."
+    )
+    parser.add_argument(
+        "--version",
+        "-v",
+        action="version",
+        version=f"%(prog)s v{APP_VERSION}",
+        help="Show program version number and exit",
     )
     subparsers = parser.add_subparsers(dest="subcommand", help="Subcommand to execute")
 
