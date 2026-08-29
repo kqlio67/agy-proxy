@@ -215,6 +215,12 @@ def main():
         help="Require this API key in client requests (Authorization: Bearer <key>)",
     )
     parser.add_argument(
+        "--debug",
+        "-d",
+        action="store_true",
+        help="Enable detailed debug logging including raw HTTP traffic",
+    )
+    parser.add_argument(
         "--log-level",
         type=str,
         default="info",
@@ -251,14 +257,23 @@ def main():
             return
 
     # Configure logging
+    effective_log_level = "debug" if args.debug else args.log_level
     logging.basicConfig(
-        level=getattr(logging, args.log_level.upper()),
+        level=getattr(logging, effective_log_level.upper()),
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         datefmt="%H:%M:%S",
     )
 
-    # Initialize AccountPool
+    # Silence noisy HTTP client libraries in normal mode (unless --debug is explicitly enabled)
+    if not args.debug and effective_log_level.lower() != "debug":
+        logging.getLogger("httpx").setLevel(logging.WARNING)
+        logging.getLogger("httpcore").setLevel(logging.WARNING)
+        logging.getLogger("urllib3").setLevel(logging.WARNING)
+        logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+
+    # Initialize AccountPool and preload accounts from disk for banner
     pool = AccountPool(token_path=args.token_file)
+    pool.load_accounts()
 
     # Create FastAPI app
     app = create_app(account_pool=pool, api_key=args.api_key)
@@ -285,7 +300,7 @@ def main():
         app,
         host=args.host,
         port=args.port,
-        log_level=args.log_level,
+        log_level=effective_log_level,
     )
 
 

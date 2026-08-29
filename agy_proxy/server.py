@@ -62,9 +62,10 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        # Startup: Load accounts and initialize them
+        # Startup: Ensure accounts are loaded and initialized
         try:
-            pool.load_accounts()
+            if not pool.accounts:
+                pool.load_accounts()
             await pool.initialize_all()
         except Exception as e:
             logger.warning("Startup initialization warning: %s", e)
