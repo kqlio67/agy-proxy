@@ -107,9 +107,9 @@ class CloudCodeClient:
 
                 acc_label = acc.name or acc.email
                 if backend_m == model_name:
-                    logger.info("[%s] ⚡ %s", acc_label, backend_m)
+                    logger.debug("[%s] ⚡ %s", acc_label, backend_m)
                 else:
-                    logger.info("[%s] ⚡ %s (requested: %s)", acc_label, backend_m, model_name)
+                    logger.debug("[%s] ⚡ %s (requested: %s)", acc_label, backend_m, model_name)
                 acc.last_used_timestamp = time.time()
                 acc.total_requests += 1
 
