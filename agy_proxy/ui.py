@@ -69,6 +69,14 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
       <!-- Quick Nav / Links -->
       <div class="flex items-center space-x-3">
+        <!-- Update Available Badge (dynamic) -->
+        <div id="updateBadgeContainer" class="hidden">
+          <button onclick="openUpdateModal()" class="flex items-center space-x-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 hover:bg-indigo-500/30 transition animate-pulse">
+            <i class="fa-solid fa-sparkles text-amber-400"></i>
+            <span id="updateBadgeText">Update v1.0.3</span>
+          </button>
+        </div>
+
         <button onclick="openAddAccountModal()" class="flex items-center space-x-2 text-xs font-semibold px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-sm">
           <i class="fa-solid fa-user-plus"></i>
           <span>Add Account</span>
@@ -86,6 +94,31 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
   <!-- Main Container -->
   <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+    <!-- Global Update Banner (Shown when new release is detected) -->
+    <div id="updateBanner" class="hidden p-4 rounded-2xl bg-gradient-to-r from-indigo-900/60 via-purple-900/40 to-slate-900 border border-indigo-500/40 text-xs shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div class="flex items-center space-x-3">
+        <div class="w-8 h-8 rounded-xl bg-indigo-600/30 border border-indigo-400/30 flex items-center justify-center text-amber-300 text-sm flex-shrink-0">
+          <i class="fa-solid fa-gift"></i>
+        </div>
+        <div>
+          <div class="font-bold text-white text-sm flex items-center space-x-2">
+            <span>New Version Available: <span id="bannerNewVer" class="text-emerald-400">v1.0.3</span></span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/30 text-indigo-200 border border-indigo-500/40">Latest</span>
+          </div>
+          <p class="text-slate-300 text-[11px] mt-0.5" id="bannerReleaseName">A new release is available on GitHub.</p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-2 flex-shrink-0">
+        <button onclick="openUpdateModal()" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition flex items-center space-x-1.5 shadow">
+          <i class="fa-solid fa-circle-info"></i>
+          <span>View Release / Update</span>
+        </button>
+        <button onclick="dismissUpdateBanner()" class="text-slate-400 hover:text-white p-1.5" title="Dismiss banner">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+    </div>
 
     <!-- Multi-Account Pool Section -->
     <div class="space-y-4">
@@ -565,6 +598,66 @@ https://your-tunnel.trycloudflare.com/v1</pre>
         </button>
         <button onclick="submitRenameModal()" class="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition shadow">
           Save
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Update Modal -->
+  <div id="updateModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-dark-card border border-dark-border rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-dark-border pb-4">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-8 h-8 rounded-xl bg-indigo-600/30 border border-indigo-400/30 flex items-center justify-center text-amber-400 text-sm">
+            <i class="fa-solid fa-sparkles"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white">Software Update Available</h3>
+            <p class="text-xs text-slate-400" id="updateModalSub">v1.0.2 $\rightarrow$ v1.0.3</p>
+          </div>
+        </div>
+        <button onclick="closeUpdateModal()" class="text-slate-400 hover:text-white text-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+          <div class="font-semibold text-slate-200 flex items-center justify-between">
+            <span id="modalReleaseTitle">Release Highlights</span>
+            <a id="modalGitHubLink" href="#" target="_blank" class="text-indigo-400 hover:underline flex items-center space-x-1 font-mono text-[11px]">
+              <span>GitHub Release</span>
+              <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+            </a>
+          </div>
+          <div id="modalReleaseBody" class="text-slate-300 max-h-48 overflow-y-auto whitespace-pre-wrap font-mono text-[11px] bg-slate-950 p-2.5 rounded-lg border border-slate-800/80 custom-scrollbar">Loading release notes...</div>
+        </div>
+
+        <div id="updateActionGit" class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2.5 hidden">
+          <div class="font-semibold text-slate-200 flex items-center">
+            <i class="fa-solid fa-wand-magic-sparkles text-emerald-400 mr-2"></i> 1-Click Update (Git Pull)
+          </div>
+          <p class="text-slate-400 text-[11px]">Pull latest commits directly into this local directory:</p>
+          <div class="flex items-center space-x-2">
+            <button onclick="executeGitPull()" id="btnGitPull" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold flex items-center space-x-2 transition shadow">
+              <i class="fa-solid fa-download"></i>
+              <span>Pull & Update Now</span>
+            </button>
+          </div>
+          <div id="gitPullOutput" class="hidden p-2 rounded-lg bg-slate-950 font-mono text-[10px] text-slate-300 whitespace-pre-wrap border border-slate-800"></div>
+        </div>
+
+        <div id="updateActionManual" class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+          <div class="font-semibold text-slate-200 flex items-center">
+            <i class="fa-solid fa-terminal text-cyan-400 mr-2"></i> Manual Command
+          </div>
+          <pre class="bg-slate-950 p-2.5 rounded-lg border border-slate-800/80 font-mono text-[11px] text-slate-300">git pull origin main</pre>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end space-x-2.5 pt-1 border-t border-slate-800">
+        <button onclick="closeUpdateModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition">
+          Close
         </button>
       </div>
     </div>
@@ -1485,9 +1578,106 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       return msgDiv;
     }
 
+    // Update Checker
+    let cachedUpdateData = null;
+
+    async function checkForSoftwareUpdates(force = false) {
+      try {
+        const res = await fetch(`/api/version${force ? '?force=true' : ''}`);
+        const data = await res.json();
+        cachedUpdateData = data;
+
+        if (data.has_update) {
+          const badgeCont = document.getElementById('updateBadgeContainer');
+          const badgeText = document.getElementById('updateBadgeText');
+          const banner = document.getElementById('updateBanner');
+          const bannerNewVer = document.getElementById('bannerNewVer');
+          const bannerName = document.getElementById('bannerReleaseName');
+
+          if (badgeCont && badgeText) {
+            badgeText.innerText = `Update v${data.latest_version}`;
+            badgeCont.classList.remove('hidden');
+          }
+
+          if (banner && !sessionStorage.getItem('agy_update_banner_dismissed')) {
+            bannerNewVer.innerText = `v${data.latest_version}`;
+            bannerName.innerText = data.release_name || 'A new release is available on GitHub.';
+            banner.classList.remove('hidden');
+          }
+        }
+      } catch (err) {
+        console.debug('Update check failed:', err);
+      }
+    }
+
+    function dismissUpdateBanner() {
+      document.getElementById('updateBanner')?.classList.add('hidden');
+      sessionStorage.setItem('agy_update_banner_dismissed', 'true');
+    }
+
+    function openUpdateModal() {
+      if (!cachedUpdateData) return;
+      const sub = document.getElementById('updateModalSub');
+      const title = document.getElementById('modalReleaseTitle');
+      const body = document.getElementById('modalReleaseBody');
+      const link = document.getElementById('modalGitHubLink');
+      const gitSection = document.getElementById('updateActionGit');
+
+      if (sub) sub.innerText = `v${cachedUpdateData.current_version} → v${cachedUpdateData.latest_version}`;
+      if (title) title.innerText = cachedUpdateData.release_name || `Release v${cachedUpdateData.latest_version}`;
+      if (body) body.innerText = cachedUpdateData.release_notes || 'No release description provided.';
+      if (link) link.href = cachedUpdateData.release_url || 'https://github.com/kqlio67/agy-proxy/releases';
+
+      if (gitSection) {
+        if (cachedUpdateData.is_git_repo) {
+          gitSection.classList.remove('hidden');
+        } else {
+          gitSection.classList.add('hidden');
+        }
+      }
+
+      document.getElementById('updateModal')?.classList.remove('hidden');
+    }
+
+    function closeUpdateModal() {
+      document.getElementById('updateModal')?.classList.add('hidden');
+    }
+
+    async function executeGitPull() {
+      const btn = document.getElementById('btnGitPull');
+      const out = document.getElementById('gitPullOutput');
+      if (!btn || !out) return;
+
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Pulling latest changes...';
+      out.classList.remove('hidden');
+      out.innerText = 'Running: git pull origin main...';
+
+      try {
+        const res = await fetch('/api/update/pull', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          out.innerText = `Successfully updated!\n${data.stdout || 'Already up to date.'}\n\nPlease restart the proxy server if python files changed.`;
+          btn.innerHTML = '<i class="fa-solid fa-check"></i> Updated';
+          setTimeout(() => {
+            checkForSoftwareUpdates(true);
+          }, 2000);
+        } else {
+          out.innerText = `Update failed (code ${data.returncode}):\n${data.stderr || data.stdout || data.error}`;
+          btn.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Retry';
+          btn.disabled = false;
+        }
+      } catch (err) {
+        out.innerText = `Network/Server error: ${err.message}`;
+        btn.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Retry';
+        btn.disabled = false;
+      }
+    }
+
     // Init
     loadAccounts();
     loadModels();
+    checkForSoftwareUpdates();
   </script>
 </body>
 </html>

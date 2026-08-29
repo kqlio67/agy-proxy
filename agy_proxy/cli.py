@@ -19,7 +19,7 @@ from agy_proxy.server import create_app
 console = Console()
 
 
-def print_banner(host: str, port: int, pool: AccountPool, api_key: str = None):
+def print_banner(host: str, port: int, pool: AccountPool, api_key: str = None, update_info: dict = None):
     url = f"http://{host}:{port}"
     table = Table(show_header=False, box=None, padding=(0, 1))
     table.add_column("Key", no_wrap=True)
@@ -39,6 +39,12 @@ def print_banner(host: str, port: int, pool: AccountPool, api_key: str = None):
         table.add_row("[bold cyan]Proxy API Key:[/bold cyan]", f"[bold red]{api_key}[/bold red]")
     else:
         table.add_row("[bold cyan]Proxy API Key:[/bold cyan]", "[dim](None - Open access)[/dim]")
+
+    if update_info and update_info.get("has_update"):
+        table.add_row(
+            "[bold yellow]Update Available:[/bold yellow]",
+            f"[bold green]v{update_info.get('latest_version')}[/bold green] (current: v{update_info.get('current_version')}) - [underline blue]{update_info.get('release_url')}[/underline blue]",
+        )
 
     panel = Panel(
         table,
@@ -259,12 +265,21 @@ def main():
     # Create FastAPI app
     app = create_app(account_pool=pool, api_key=args.api_key)
 
+    # Check for updates in quick background task
+    update_info = None
+    try:
+        from agy_proxy.updater import check_for_updates
+        update_info = asyncio.run(check_for_updates())
+    except Exception:
+        pass
+
     # Display startup info
     print_banner(
         host=args.host,
         port=args.port,
         pool=pool,
         api_key=args.api_key,
+        update_info=update_info,
     )
 
     # Run Uvicorn

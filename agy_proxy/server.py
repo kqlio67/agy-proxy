@@ -302,6 +302,18 @@ def create_app(
         await pool.initialize_all()
         return {"status": "refreshed", "accounts_count": len(pool.accounts)}
 
+    @app.get("/api/version")
+    async def get_version_info(force: bool = False):
+        from agy_proxy.updater import check_for_updates
+        info = await check_for_updates(force=force)
+        return info
+
+    @app.post("/api/update/pull")
+    async def update_git_repo():
+        from agy_proxy.updater import trigger_git_pull
+        res = await trigger_git_pull()
+        return res
+
     # -------------------------------------------------------------------------
     # OpenAI Compatible API
     # -------------------------------------------------------------------------
