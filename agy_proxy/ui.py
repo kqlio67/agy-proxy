@@ -87,29 +87,78 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   <!-- Main Container -->
   <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
 
-    <!-- Multi-Account Pool Cards -->
-    <div class="space-y-3">
-      <div class="flex items-center justify-between">
+    <!-- Multi-Account Pool Section -->
+    <div class="space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div class="flex items-center space-x-2">
           <i class="fa-solid fa-users text-indigo-400"></i>
           <h2 class="text-base font-bold text-white">Active Account Pool</h2>
           <span class="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700" id="accountPoolCount">0 accounts</span>
         </div>
-        <div class="flex items-center space-x-2">
-          <button onclick="toggleAllAccounts(true)" class="text-[11px] px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 font-medium transition flex items-center space-x-1" title="Enable all accounts">
+
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- View Switcher (Grid vs Table) -->
+          <div class="flex items-center bg-slate-900 border border-slate-800 rounded-lg p-0.5 text-xs">
+            <button id="viewBtnGrid" onclick="setAccountView('grid')" class="px-2.5 py-1 rounded-md font-medium text-white bg-indigo-600 transition flex items-center space-x-1" title="Grid Card View">
+              <i class="fa-solid fa-grip"></i>
+              <span class="hidden sm:inline">Grid</span>
+            </button>
+            <button id="viewBtnTable" onclick="setAccountView('table')" class="px-2.5 py-1 rounded-md font-medium text-slate-400 hover:text-white transition flex items-center space-x-1" title="Compact Table View">
+              <i class="fa-solid fa-list"></i>
+              <span class="hidden sm:inline">Compact</span>
+            </button>
+          </div>
+
+          <button onclick="toggleAllAccounts(true)" class="text-[11px] px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 font-medium transition flex items-center space-x-1" title="Enable all accounts">
             <i class="fa-solid fa-play text-emerald-400 text-[10px]"></i>
             <span>Enable All</span>
           </button>
-          <button onclick="toggleAllAccounts(false)" class="text-[11px] px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 font-medium transition flex items-center space-x-1" title="Pause / Disable all accounts">
+          <button onclick="toggleAllAccounts(false)" class="text-[11px] px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 font-medium transition flex items-center space-x-1" title="Pause / Disable all accounts">
             <i class="fa-solid fa-pause text-amber-400 text-[10px]"></i>
             <span>Disable All</span>
           </button>
         </div>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="accountsGrid">
-        <div class="p-5 rounded-2xl bg-dark-card border border-dark-border text-center text-slate-500 text-sm">
-          Loading accounts...
+      <!-- Account Filter & Search Toolbar -->
+      <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/80 text-xs">
+        <!-- Search Input -->
+        <div class="relative flex-1 max-w-md">
+          <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-500"></i>
+          <input
+            type="text"
+            id="accountSearchInput"
+            placeholder="Filter accounts by name, email, or key..."
+            class="w-full bg-slate-900 border border-slate-700/80 rounded-lg pl-8 pr-3 py-1.5 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition text-xs"
+            oninput="renderAccounts()"
+          >
+        </div>
+
+        <!-- Filter Tabs & Sort Dropdown -->
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="flex items-center space-x-1 bg-slate-900 rounded-lg p-0.5 border border-slate-800" id="accountTypeFilters">
+            <button onclick="setAccountFilter('all')" data-filter="all" class="acc-filter-btn px-2 py-1 rounded text-[11px] font-medium bg-indigo-600 text-white">All (<span id="countAll">0</span>)</button>
+            <button onclick="setAccountFilter('oauth')" data-filter="oauth" class="acc-filter-btn px-2 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-white">OAuth (<span id="countOAuth">0</span>)</button>
+            <button onclick="setAccountFilter('apikey')" data-filter="apikey" class="acc-filter-btn px-2 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-white">API Keys (<span id="countApiKey">0</span>)</button>
+            <button onclick="setAccountFilter('exhausted')" data-filter="exhausted" class="acc-filter-btn px-2 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-red-400">0% (<span id="countExhausted">0</span>)</button>
+          </div>
+
+          <select id="accountSortSelect" onchange="renderAccounts()" class="bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-slate-300 text-[11px] focus:outline-none focus:border-indigo-500">
+            <option value="default">Sort: Default (Primary first)</option>
+            <option value="quota-desc">Sort: Highest Quota</option>
+            <option value="quota-asc">Sort: Lowest Quota</option>
+            <option value="reqs-desc">Sort: Most Requests</option>
+            <option value="name-asc">Sort: Name (A-Z)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Accounts Container (Grid or Compact Table) -->
+      <div id="accountsContainer">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="accountsGrid">
+          <div class="p-5 rounded-2xl bg-dark-card border border-dark-border text-center text-slate-500 text-sm col-span-full">
+            Loading accounts...
+          </div>
         </div>
       </div>
     </div>
@@ -527,6 +576,35 @@ https://your-tunnel.trycloudflare.com/v1</pre>
     let isGenerating = false;
     let currentOAuthState = null;
     let currentOAuthVerifier = null;
+    let rawAccountsData = [];
+    let currentAccountView = 'grid';
+    let currentAccountFilter = 'all';
+
+    function setAccountView(mode) {
+      currentAccountView = mode;
+      const btnGrid = document.getElementById('viewBtnGrid');
+      const btnTable = document.getElementById('viewBtnTable');
+      if (mode === 'grid') {
+        btnGrid.className = 'px-2.5 py-1 rounded-md font-medium text-white bg-indigo-600 transition flex items-center space-x-1';
+        btnTable.className = 'px-2.5 py-1 rounded-md font-medium text-slate-400 hover:text-white transition flex items-center space-x-1';
+      } else {
+        btnTable.className = 'px-2.5 py-1 rounded-md font-medium text-white bg-indigo-600 transition flex items-center space-x-1';
+        btnGrid.className = 'px-2.5 py-1 rounded-md font-medium text-slate-400 hover:text-white transition flex items-center space-x-1';
+      }
+      renderAccounts();
+    }
+
+    function setAccountFilter(filter) {
+      currentAccountFilter = filter;
+      document.querySelectorAll('.acc-filter-btn').forEach(btn => {
+        if (btn.dataset.filter === filter) {
+          btn.className = 'acc-filter-btn px-2 py-1 rounded text-[11px] font-medium bg-indigo-600 text-white';
+        } else {
+          btn.className = 'acc-filter-btn px-2 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-white';
+        }
+      });
+      renderAccounts();
+    }
 
     function formatResetTime(isoStr) {
       if (!isoStr) return '';
@@ -535,13 +613,13 @@ https://your-tunnel.trycloudflare.com/v1</pre>
         const now = new Date();
         const diffMs = resetDate - now;
         if (diffMs <= 0) return 'Ready';
-        
+
         const diffMins = Math.floor(diffMs / 60000);
         const diffHours = Math.floor(diffMins / 60);
         const diffDays = Math.floor(diffHours / 24);
-        
+
         const timeStr = resetDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        
+
         if (diffDays > 0) {
           const remHours = diffHours % 24;
           return remHours > 0 ? `in ${diffDays}d ${remHours}h` : `in ${diffDays}d`;
@@ -564,31 +642,122 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       try {
         const res = await fetch('/api/accounts');
         const data = await res.json();
-        const accounts = data.accounts || [];
-        document.getElementById('accountPoolCount').innerText = `${accounts.length} account${accounts.length === 1 ? '' : 's'}`;
+        rawAccountsData = data.accounts || [];
+        renderAccounts();
+      } catch (err) {
+        console.error("Accounts load failed", err);
+      }
+    }
 
-        const grid = document.getElementById('accountsGrid');
-        if (accounts.length === 0) {
-          grid.innerHTML = '<div class="p-5 rounded-2xl bg-dark-card border border-dark-border text-center text-slate-500 text-sm">No accounts found. Click "Add Account" to connect one.</div>';
-          return;
+    function renderAccounts() {
+      const container = document.getElementById('accountsContainer');
+      const searchQ = (document.getElementById('accountSearchInput')?.value || '').toLowerCase().trim();
+      const sortMode = document.getElementById('accountSortSelect')?.value || 'default';
+
+      // Calculate counts for filters
+      let totalAll = rawAccountsData.length;
+      let totalOAuth = 0;
+      let totalApiKey = 0;
+      let totalExhausted = 0;
+
+      rawAccountsData.forEach(acc => {
+        const isApiKey = acc.auth_method === 'api_key';
+        if (isApiKey) totalApiKey++;
+        else totalOAuth++;
+
+        const qDetails = acc.quota_details || {};
+        const geminiQ = qDetails.gemini || { percent: 100, fraction: 1.0 };
+        const claudeQ = qDetails['3p'] || qDetails.claude || { percent: 100, fraction: 1.0 };
+        const geminiPct = Math.round(geminiQ.percent ?? (geminiQ.fraction * 100));
+        const claudePct = Math.round(claudeQ.percent ?? (claudeQ.fraction * 100));
+        if (!isApiKey && (geminiPct <= 0 || claudePct <= 0)) {
+          totalExhausted++;
+        }
+      });
+
+      if (document.getElementById('countAll')) document.getElementById('countAll').innerText = totalAll;
+      if (document.getElementById('countOAuth')) document.getElementById('countOAuth').innerText = totalOAuth;
+      if (document.getElementById('countApiKey')) document.getElementById('countApiKey').innerText = totalApiKey;
+      if (document.getElementById('countExhausted')) document.getElementById('countExhausted').innerText = totalExhausted;
+
+      document.getElementById('accountPoolCount').innerText = `${totalAll} account${totalAll === 1 ? '' : 's'}`;
+
+      if (totalAll === 0) {
+        container.innerHTML = '<div class="p-8 rounded-2xl bg-dark-card border border-dark-border text-center text-slate-500 text-sm">No accounts found. Click "Add Account" to connect one.</div>';
+        return;
+      }
+
+      // Filter
+      let filtered = rawAccountsData.filter(acc => {
+        const isApiKey = acc.auth_method === 'api_key';
+        if (currentAccountFilter === 'oauth' && isApiKey) return false;
+        if (currentAccountFilter === 'apikey' && !isApiKey) return false;
+
+        const qDetails = acc.quota_details || {};
+        const geminiQ = qDetails.gemini || { percent: 100, fraction: 1.0 };
+        const claudeQ = qDetails['3p'] || qDetails.claude || { percent: 100, fraction: 1.0 };
+        const geminiPct = Math.round(geminiQ.percent ?? (geminiQ.fraction * 100));
+        const claudePct = Math.round(claudeQ.percent ?? (claudeQ.fraction * 100));
+
+        if (currentAccountFilter === 'exhausted') {
+          if (isApiKey) return false;
+          if (geminiPct > 0 && claudePct > 0) return false;
         }
 
-        grid.innerHTML = '';
-        accounts.forEach(acc => {
+        if (searchQ) {
+          const name = (acc.name || '').toLowerCase();
+          const email = (acc.email || '').toLowerCase();
+          const proj = (acc.project_id || '').toLowerCase();
+          if (!name.includes(searchQ) && !email.includes(searchQ) && !proj.includes(searchQ)) {
+            return false;
+          }
+        }
+        return true;
+      });
+
+      // Sort
+      filtered.sort((a, b) => {
+        if (sortMode === 'quota-desc' || sortMode === 'quota-asc') {
+          const getAvgQuota = (acc) => {
+            if (acc.auth_method === 'api_key') return 100;
+            const q = acc.quota_details || {};
+            const g = q.gemini ? Math.round(q.gemini.percent ?? (q.gemini.fraction * 100)) : 100;
+            const c = (q['3p'] || q.claude) ? Math.round((q['3p']||q.claude).percent ?? ((q['3p']||q.claude).fraction * 100)) : 100;
+            return (g + c) / 2;
+          };
+          const diff = getAvgQuota(b) - getAvgQuota(a);
+          return sortMode === 'quota-desc' ? diff : -diff;
+        }
+        if (sortMode === 'reqs-desc') {
+          return (b.total_requests || 0) - (a.total_requests || 0);
+        }
+        if (sortMode === 'name-asc') {
+          return (a.name || a.email || '').localeCompare(b.name || b.email || '');
+        }
+        // Default: Primary first, then original order
+        if (a.is_primary && !b.is_primary) return -1;
+        if (!a.is_primary && b.is_primary) return 1;
+        return 0;
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `<div class="p-8 rounded-2xl bg-dark-card border border-dark-border text-center text-slate-500 text-sm">No accounts match the selected filter/search.</div>`;
+        return;
+      }
+
+      if (currentAccountView === 'grid') {
+        // --- GRID VIEW ---
+        let html = '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="accountsGrid">';
+        filtered.forEach(acc => {
           const isEnabled = acc.enabled !== false;
           const isApiKey = acc.auth_method === 'api_key';
-
-          // Extract structured quota details
           const qDetails = acc.quota_details || {};
           const geminiQ = qDetails.gemini || { percent: 100, fraction: 1.0 };
           const claudeQ = qDetails['3p'] || qDetails.claude || { percent: 100, fraction: 1.0 };
-
           const geminiPct = Math.round(geminiQ.percent ?? (geminiQ.fraction * 100));
           const claudePct = Math.round(claudeQ.percent ?? (claudeQ.fraction * 100));
-
           const geminiReset = formatResetTime(geminiQ.reset_time);
           const claudeReset = formatResetTime(claudeQ.reset_time);
-
           const geminiIsExhausted = geminiPct <= 0 || (acc.rate_limited_models && acc.rate_limited_models.gemini !== undefined);
           const claudeIsExhausted = claudePct <= 0 || (acc.rate_limited_models && acc.rate_limited_models['3p'] !== undefined);
 
@@ -629,7 +798,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
                     </div>
                   </div>
                   <div class="text-[10px] text-right">
-                    ${geminiIsExhausted 
+                    ${geminiIsExhausted
                       ? `<span class="text-red-400 font-medium"><i class="fa-solid fa-triangle-exclamation mr-1"></i>${geminiReset ? 'Resets ' + geminiReset : 'Exhausted'}</span>`
                       : `<span class="text-slate-400">${geminiReset ? 'Resets ' + geminiReset : 'Weekly limit'}</span>`}
                   </div>
@@ -646,7 +815,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
                     </div>
                   </div>
                   <div class="text-[10px] text-right">
-                    ${claudeIsExhausted 
+                    ${claudeIsExhausted
                       ? `<span class="text-red-400 font-medium"><i class="fa-solid fa-triangle-exclamation mr-1"></i>${claudeReset ? 'Resets ' + claudeReset : '5h limit'}</span>`
                       : `<span class="text-slate-400">${claudeReset ? 'Resets ' + claudeReset : '5h rolling'}</span>`}
                   </div>
@@ -655,50 +824,149 @@ https://your-tunnel.trycloudflare.com/v1</pre>
             `;
           }
 
-          const card = document.createElement('div');
-          card.className = `p-5 rounded-2xl border transition space-y-3 relative overflow-hidden ${
-            isEnabled 
-              ? 'bg-dark-card border-dark-border shadow-sm' 
-              : 'bg-slate-900/40 border-slate-800/80 opacity-60'
-          }`;
-
-          card.innerHTML = `
-            <div class="flex items-center justify-between">
-              <div class="flex items-center space-x-3 min-w-0 flex-1 mr-2">
-                <img src="${acc.picture || 'https://lh3.googleusercontent.com/a/default-user=s96-c'}" class="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 flex-shrink-0" onerror="this.src='https://ui-avatars.com/api/?name=' + encodeURIComponent('${(acc.name || 'User').replace(/'/g, "\\'")}')">
-                <div class="min-w-0 flex-1">
-                  <div class="font-bold text-white text-sm flex items-center flex-wrap gap-1">
-                    <span class="truncate max-w-[150px] sm:max-w-[200px]" title="${acc.name || acc.email}">${acc.name || acc.email}</span>
-                    <button onclick="openRenameModal('${acc.account_id}', '${(acc.name || acc.email).replace(/'/g, "\\'")}')" class="text-slate-500 hover:text-indigo-400 p-0.5 transition" title="Rename account / key">
-                      <i class="fa-solid fa-pen-to-square text-[11px]"></i>
-                    </button>
-                    ${acc.is_primary ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30">Primary</span>' : ''}
-                    ${!isEnabled ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-medium border border-slate-700">Paused</span>' : ''}
+          html += `
+            <div class="p-5 rounded-2xl border transition space-y-3 relative overflow-hidden ${
+              isEnabled
+                ? 'bg-dark-card border-dark-border shadow-sm'
+                : 'bg-slate-900/40 border-slate-800/80 opacity-60'
+            }">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3 min-w-0 flex-1 mr-2">
+                  <img src="${acc.picture || 'https://lh3.googleusercontent.com/a/default-user=s96-c'}" class="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 flex-shrink-0" onerror="this.src='https://ui-avatars.com/api/?name=' + encodeURIComponent('${(acc.name || 'User').replace(/'/g, "\\'")}')">
+                  <div class="min-w-0 flex-1">
+                    <div class="font-bold text-white text-sm flex items-center flex-wrap gap-1">
+                      <span class="truncate max-w-[140px] sm:max-w-[180px]" title="${acc.name || acc.email}">${acc.name || acc.email}</span>
+                      <button onclick="openRenameModal('${acc.account_id}', '${(acc.name || acc.email).replace(/'/g, "\\'")}')" class="text-slate-500 hover:text-indigo-400 p-0.5 transition" title="Rename account / key">
+                        <i class="fa-solid fa-pen-to-square text-[11px]"></i>
+                      </button>
+                      ${acc.is_primary ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30">Primary</span>' : ''}
+                      ${!isEnabled ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-medium border border-slate-700">Paused</span>' : ''}
+                    </div>
+                    <div class="text-[11px] text-slate-400 font-mono truncate" title="${acc.email}">${acc.email}</div>
                   </div>
-                  <div class="text-[11px] text-slate-400 font-mono truncate" title="${acc.email}">${acc.email}</div>
+                </div>
+                <div class="flex items-center space-x-1.5 flex-shrink-0">
+                  <button onclick="toggleAccount('${acc.account_id}', ${!isEnabled})" class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isEnabled ? 'bg-indigo-600' : 'bg-slate-700'}" title="${isEnabled ? 'Pause account' : 'Enable account'}">
+                    <span class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isEnabled ? 'translate-x-4' : 'translate-x-0'}"></span>
+                  </button>
+                  <button onclick="deleteAccount('${acc.account_id}')" class="text-slate-500 hover:text-red-400 text-xs p-1.5 rounded-lg hover:bg-slate-800 transition" title="Remove account"><i class="fa-solid fa-trash-can"></i></button>
                 </div>
               </div>
-              <div class="flex items-center space-x-1.5 flex-shrink-0">
-                <button onclick="openRenameModal('${acc.account_id}', '${(acc.name || acc.email).replace(/'/g, "\\'")}')" class="text-slate-500 hover:text-indigo-400 text-xs p-1.5 rounded-lg hover:bg-slate-800 transition" title="Rename account"><i class="fa-solid fa-pen-to-square"></i></button>
-                <button onclick="toggleAccount('${acc.account_id}', ${!isEnabled})" class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isEnabled ? 'bg-indigo-600' : 'bg-slate-700'}" title="${isEnabled ? 'Pause account (Stop sending requests)' : 'Enable account'}">
-                  <span class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isEnabled ? 'translate-x-4' : 'translate-x-0'}"></span>
-                </button>
-                <button onclick="deleteAccount('${acc.account_id}')" class="text-slate-500 hover:text-red-400 text-xs p-1.5 rounded-lg hover:bg-slate-800 transition" title="Remove account from pool"><i class="fa-solid fa-trash-can"></i></button>
+
+              ${quotaSectionHtml}
+
+              <div class="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-800/50">
+                <span>Project: <code class="text-slate-400">${acc.project_id || 'default'}</code></span>
+                <span>Reqs: <b class="text-slate-300">${acc.total_requests || 0}</b></span>
               </div>
             </div>
-
-            ${quotaSectionHtml}
-
-            <div class="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-800/50">
-              <span>Project: <code class="text-slate-400">${acc.project_id || 'default'}</code></span>
-              <span>Reqs: <b class="text-slate-300">${acc.total_requests || 0}</b></span>
-            </div>
           `;
-          grid.appendChild(card);
+        });
+        html += '</div>';
+        container.innerHTML = html;
+      } else {
+        // --- COMPACT TABLE VIEW ---
+        let html = `
+          <div class="overflow-x-auto rounded-2xl border border-dark-border bg-dark-card shadow-sm custom-scrollbar">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-900/80 text-slate-400 border-b border-dark-border uppercase font-mono text-[10px]">
+                <tr>
+                  <th class="px-4 py-3">Account / Identity</th>
+                  <th class="px-3 py-3">Type</th>
+                  <th class="px-4 py-3">Gemini Quota</th>
+                  <th class="px-4 py-3">Claude / 3P Quota</th>
+                  <th class="px-3 py-3 text-center">Reqs</th>
+                  <th class="px-4 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-800/80 text-slate-300 font-sans">
+        `;
+
+        filtered.forEach(acc => {
+          const isEnabled = acc.enabled !== false;
+          const isApiKey = acc.auth_method === 'api_key';
+          const qDetails = acc.quota_details || {};
+          const geminiQ = qDetails.gemini || { percent: 100, fraction: 1.0 };
+          const claudeQ = qDetails['3p'] || qDetails.claude || { percent: 100, fraction: 1.0 };
+          const geminiPct = Math.round(geminiQ.percent ?? (geminiQ.fraction * 100));
+          const claudePct = Math.round(claudeQ.percent ?? (claudeQ.fraction * 100));
+          const geminiReset = formatResetTime(geminiQ.reset_time);
+          const claudeReset = formatResetTime(claudeQ.reset_time);
+          const geminiIsExhausted = geminiPct <= 0 || (acc.rate_limited_models && acc.rate_limited_models.gemini !== undefined);
+          const claudeIsExhausted = claudePct <= 0 || (acc.rate_limited_models && acc.rate_limited_models['3p'] !== undefined);
+
+          html += `
+            <tr class="hover:bg-slate-800/40 transition ${!isEnabled ? 'opacity-50' : ''}">
+              <td class="px-4 py-3">
+                <div class="flex items-center space-x-2.5">
+                  <img src="${acc.picture || 'https://lh3.googleusercontent.com/a/default-user=s96-c'}" class="w-7 h-7 rounded-full bg-slate-800 border border-slate-700 flex-shrink-0" onerror="this.src='https://ui-avatars.com/api/?name=' + encodeURIComponent('${(acc.name || 'User').replace(/'/g, "\\'")}')">
+                  <div class="min-w-0">
+                    <div class="font-bold text-white flex items-center space-x-1.5">
+                      <span class="truncate max-w-[180px]" title="${acc.name || acc.email}">${acc.name || acc.email}</span>
+                      <button onclick="openRenameModal('${acc.account_id}', '${(acc.name || acc.email).replace(/'/g, "\\'")}')" class="text-slate-500 hover:text-indigo-400 transition" title="Rename"><i class="fa-solid fa-pen-to-square text-[10px]"></i></button>
+                      ${acc.is_primary ? '<span class="text-[9px] px-1 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30">Primary</span>' : ''}
+                    </div>
+                    <div class="text-[10px] text-slate-400 font-mono truncate max-w-[200px]" title="${acc.email}">${acc.email}</div>
+                  </div>
+                </div>
+              </td>
+
+              <td class="px-3 py-3">
+                ${isApiKey
+                  ? '<span class="inline-flex items-center text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20"><i class="fa-solid fa-key mr-1"></i> API Key</span>'
+                  : '<span class="inline-flex items-center text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"><i class="fa-brands fa-google mr-1"></i> OAuth</span>'}
+              </td>
+
+              <td class="px-4 py-3 min-w-[140px]">
+                ${isApiKey ? '<span class="text-emerald-400 font-semibold text-[11px]">PayG Active</span>' : `
+                  <div>
+                    <div class="flex justify-between items-center text-[10px] mb-1">
+                      <span class="font-bold ${geminiIsExhausted ? 'text-red-400' : 'text-slate-300'}">${geminiPct}%</span>
+                      <span class="text-[9px] text-slate-500">${geminiReset || ''}</span>
+                    </div>
+                    <div class="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
+                      <div class="h-full ${geminiIsExhausted ? 'bg-red-500' : (geminiPct > 30 ? 'bg-indigo-500' : 'bg-amber-500')}" style="width: ${geminiPct}%"></div>
+                    </div>
+                  </div>
+                `}
+              </td>
+
+              <td class="px-4 py-3 min-w-[140px]">
+                ${isApiKey ? '<span class="text-slate-500 text-[11px]">—</span>' : `
+                  <div>
+                    <div class="flex justify-between items-center text-[10px] mb-1">
+                      <span class="font-bold ${claudeIsExhausted ? 'text-red-400' : 'text-slate-300'}">${claudePct}%</span>
+                      <span class="text-[9px] text-slate-500">${claudeReset || ''}</span>
+                    </div>
+                    <div class="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
+                      <div class="h-full ${claudeIsExhausted ? 'bg-red-500' : (claudePct > 30 ? 'bg-purple-500' : 'bg-amber-500')}" style="width: ${claudePct}%"></div>
+                    </div>
+                  </div>
+                `}
+              </td>
+
+              <td class="px-3 py-3 text-center font-mono font-bold text-slate-300">
+                ${acc.total_requests || 0}
+              </td>
+
+              <td class="px-4 py-3 text-right">
+                <div class="flex items-center justify-end space-x-2">
+                  <button onclick="toggleAccount('${acc.account_id}', ${!isEnabled})" class="relative inline-flex h-4 w-7 flex-shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isEnabled ? 'bg-indigo-600' : 'bg-slate-700'}" title="${isEnabled ? 'Pause' : 'Enable'}">
+                    <span class="pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${isEnabled ? 'translate-x-3' : 'translate-x-0'}"></span>
+                  </button>
+                  <button onclick="deleteAccount('${acc.account_id}')" class="text-slate-500 hover:text-red-400 p-1 transition" title="Delete"><i class="fa-solid fa-trash-can text-xs"></i></button>
+                </div>
+              </td>
+            </tr>
+          `;
         });
 
-      } catch (err) {
-        console.error("Accounts load failed", err);
+        html += `
+              </tbody>
+            </table>
+          </div>
+        `;
+        container.innerHTML = html;
       }
     }
 
