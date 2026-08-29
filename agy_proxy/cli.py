@@ -173,6 +173,8 @@ def main():
     # Dedicated API key subcommands: `auth api` and `auth apikey`
     for alias_cmd in ("api", "apikey"):
         api_sub = auth_subparsers.add_parser(alias_cmd, help="Add a Google AI Studio Gemini API Key")
+        api_sub.add_argument("positional_key", nargs="?", default=None, help="Gemini API Key (AIza...)")
+        api_sub.add_argument("positional_name", nargs="?", default=None, help="Friendly display name for this API key")
         api_sub.add_argument("--key", "-k", type=str, default=None, help="Gemini API Key (AIza...)")
         api_sub.add_argument("--name", "-n", type=str, default=None, help="Friendly display name for this API key")
 
@@ -226,7 +228,9 @@ def main():
             asyncio.run(handle_auth_login())
             return
         elif args.auth_action in ("api", "apikey"):
-            asyncio.run(handle_auth_apikey(api_key=getattr(args, "key", None), name=getattr(args, "name", None)))
+            key_val = getattr(args, "key", None) or getattr(args, "positional_key", None)
+            name_val = getattr(args, "name", None) or getattr(args, "positional_name", None)
+            asyncio.run(handle_auth_apikey(api_key=key_val, name=name_val))
             return
         elif args.auth_action == "list":
             asyncio.run(handle_auth_list())

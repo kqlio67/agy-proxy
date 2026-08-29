@@ -8,7 +8,7 @@ set -e
 # Default settings
 PORT="${PORT:-8000}"
 HOST="${HOST:-127.0.0.1}"
-DEFAULT_MODEL="${ANTHROPIC_MODEL:-gemini-3.7-flash-high}"
+DEFAULT_MODEL="${ANTHROPIC_MODEL:-anthropic.gemini-3.7-flash-high}"
 CUSTOM_URL="${ANTHROPIC_BASE_URL:-}"
 
 # Colors
@@ -131,44 +131,27 @@ export ANTHROPIC_MODEL="${DEFAULT_MODEL}"
 export ANTHROPIC_SMALL_FAST_MODEL="${ANTHROPIC_SMALL_FAST_MODEL:-${DEFAULT_MODEL}}"
 
 # Override model picker entries so /model shows proxy models
-export ANTHROPIC_DEFAULT_HAIKU_MODEL="${ANTHROPIC_DEFAULT_HAIKU_MODEL:-gemini-3.1-flash-lite}"
+export ANTHROPIC_DEFAULT_HAIKU_MODEL="${ANTHROPIC_DEFAULT_HAIKU_MODEL:-anthropic.gemini-3.1-flash-lite}"
 export ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME="${ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME:-Gemini 3.1 Flash Lite}"
 export ANTHROPIC_DEFAULT_HAIKU_MODEL_DESCRIPTION="${ANTHROPIC_DEFAULT_HAIKU_MODEL_DESCRIPTION:-Fast & lightweight via Antigravity Proxy}"
 
-export ANTHROPIC_DEFAULT_SONNET_MODEL="${ANTHROPIC_DEFAULT_SONNET_MODEL:-gemini-3.7-flash-high}"
+export ANTHROPIC_DEFAULT_SONNET_MODEL="${ANTHROPIC_DEFAULT_SONNET_MODEL:-anthropic.gemini-3.7-flash-high}"
 export ANTHROPIC_DEFAULT_SONNET_MODEL_NAME="${ANTHROPIC_DEFAULT_SONNET_MODEL_NAME:-Gemini 3.7 Flash High}"
 export ANTHROPIC_DEFAULT_SONNET_MODEL_DESCRIPTION="${ANTHROPIC_DEFAULT_SONNET_MODEL_DESCRIPTION:-High quality coding via Antigravity Proxy}"
 
-export ANTHROPIC_DEFAULT_OPUS_MODEL="${ANTHROPIC_DEFAULT_OPUS_MODEL:-claude-opus-4-6-thinking}"
+export ANTHROPIC_DEFAULT_OPUS_MODEL="${ANTHROPIC_DEFAULT_OPUS_MODEL:-anthropic.claude-opus-4-6-thinking}"
 export ANTHROPIC_DEFAULT_OPUS_MODEL_NAME="${ANTHROPIC_DEFAULT_OPUS_MODEL_NAME:-Claude Opus 4.6 Thinking}"
 export ANTHROPIC_DEFAULT_OPUS_MODEL_DESCRIPTION="${ANTHROPIC_DEFAULT_OPUS_MODEL_DESCRIPTION:-Most capable via Antigravity Proxy}"
 
-export ANTHROPIC_DEFAULT_FABLE_MODEL="${ANTHROPIC_DEFAULT_FABLE_MODEL:-gemini-3.7-flash-high}"
-export ANTHROPIC_DEFAULT_FABLE_MODEL_NAME="${ANTHROPIC_DEFAULT_FABLE_MODEL_NAME:-Gemini 3.7 Flash High}"
+export ANTHROPIC_DEFAULT_FABLE_MODEL="${ANTHROPIC_DEFAULT_FABLE_MODEL:-anthropic.gemini-pro-agent}"
+export ANTHROPIC_DEFAULT_FABLE_MODEL_NAME="${ANTHROPIC_DEFAULT_FABLE_MODEL_NAME:-Gemini Pro Agent (3.1 Pro)}"
 export ANTHROPIC_DEFAULT_FABLE_MODEL_DESCRIPTION="${ANTHROPIC_DEFAULT_FABLE_MODEL_DESCRIPTION:-Best for long-running tasks via Antigravity Proxy}"
 
-# Expose all proxy models in Claude Code /model picker
-# Both anthropic.<model> (shown in picker) and bare <model> (avoids whitelist blocking)
+# Expose proxy models in Claude Code /model picker
+# anthropic.<model> prefix required so Claude Code registers them as separate selectable entries
 AGY_SETTINGS=$(cat <<'SETTINGS_EOF'
 {
   "availableModels": [
-    "gemini-3.7-flash-high",
-    "gemini-3.7-flash-medium",
-    "gemini-3.7-flash-low",
-    "gemini-3.6-flash-high",
-    "gemini-3.6-flash-medium",
-    "gemini-3.6-flash-low",
-    "gemini-3.5-flash-low",
-    "gemini-3.1-pro-high",
-    "gemini-3.1-pro-low",
-    "gemini-3.1-flash-lite",
-    "gemini-3.1-flash-image",
-    "gemini-3-flash",
-    "gemini-2.5-pro",
-    "gemini-2.5-flash",
-    "claude-sonnet-4-6",
-    "claude-opus-4-6-thinking",
-    "gpt-oss-120b-medium",
     "anthropic.gemini-3.7-flash-high",
     "anthropic.gemini-3.7-flash-medium",
     "anthropic.gemini-3.7-flash-low",
@@ -176,7 +159,7 @@ AGY_SETTINGS=$(cat <<'SETTINGS_EOF'
     "anthropic.gemini-3.6-flash-medium",
     "anthropic.gemini-3.6-flash-low",
     "anthropic.gemini-3.5-flash-low",
-    "anthropic.gemini-3.1-pro-high",
+    "anthropic.gemini-pro-agent",
     "anthropic.gemini-3.1-pro-low",
     "anthropic.gemini-3.1-flash-lite",
     "anthropic.gemini-3.1-flash-image",

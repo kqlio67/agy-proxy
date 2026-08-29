@@ -131,7 +131,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
               <label class="block text-xs font-medium text-slate-400 mb-1">Model</label>
               <select id="modelSelect" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition">
                 <option value="gemini-3.7-flash-high">Gemini 3.7 Flash (High Reasoning)</option>
-                <option value="gemini-3.1-pro-high">Gemini 3.1 Pro (High)</option>
+                <option value="gemini-pro-agent">Gemini Pro Agent (3.1 Pro)</option>
                 <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite</option>
                 <option value="claude-sonnet-4-6">Claude Sonnet 4.6 (Thinking)</option>
                 <option value="claude-opus-4-6-thinking">Claude Opus 4.6 (Thinking)</option>
@@ -495,12 +495,66 @@ https://your-tunnel.trycloudflare.com/v1</pre>
     </div>
   </div>
 
+  <!-- Rename Account Modal -->
+  <div id="renameModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-dark-card border border-dark-border rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-dark-border pb-3">
+        <h3 class="text-sm font-bold text-white flex items-center">
+          <i class="fa-solid fa-pen-to-square mr-2 text-indigo-400"></i> Rename Account / Key
+        </h3>
+        <button onclick="closeRenameModal()" class="text-slate-400 hover:text-white text-base">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div>
+        <label class="text-[11px] text-slate-400 block mb-1 font-medium">Display Name</label>
+        <input type="text" id="renameInput" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-indigo-500 transition" placeholder="e.g. Personal Gemini Key" onkeydown="if(event.key==='Enter') submitRenameModal(); if(event.key==='Escape') closeRenameModal();">
+      </div>
+      <div class="flex items-center justify-end space-x-2.5 pt-1">
+        <button onclick="closeRenameModal()" class="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition">
+          Cancel
+        </button>
+        <button onclick="submitRenameModal()" class="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition shadow">
+          Save
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Script -->
   <script>
     let messagesHistory = [];
     let isGenerating = false;
     let currentOAuthState = null;
     let currentOAuthVerifier = null;
+
+    function formatResetTime(isoStr) {
+      if (!isoStr) return '';
+      try {
+        const resetDate = new Date(isoStr);
+        const now = new Date();
+        const diffMs = resetDate - now;
+        if (diffMs <= 0) return 'Ready';
+        
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMins / 60);
+        const diffDays = Math.floor(diffHours / 24);
+        
+        const timeStr = resetDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        
+        if (diffDays > 0) {
+          const remHours = diffHours % 24;
+          return remHours > 0 ? `in ${diffDays}d ${remHours}h` : `in ${diffDays}d`;
+        } else if (diffHours > 0) {
+          const remMins = diffMins % 60;
+          return remMins > 0 ? `in ${diffHours}h ${remMins}m` : `in ${diffHours}h`;
+        } else {
+          return `in ${Math.max(1, diffMins)}m`;
+        }
+      } catch (e) {
+        return '';
+      }
+    }
 
     document.getElementById('modelSelect').addEventListener('change', (e) => {
       document.getElementById('activeModelBadge').innerText = e.target.value;
@@ -522,20 +576,83 @@ https://your-tunnel.trycloudflare.com/v1</pre>
         grid.innerHTML = '';
         accounts.forEach(acc => {
           const isEnabled = acc.enabled !== false;
+          const isApiKey = acc.auth_method === 'api_key';
 
-          // Extract quota fractions
-          let geminiQuota = 100;
-          let claudeQuota = 100;
-          if (acc.quota_summary?.groups) {
-            for (const g of acc.quota_summary.groups) {
-              const gName = (g.displayName || '').toLowerCase();
-              const b = g.buckets?.[0];
-              if (b) {
-                const pct = Math.round(b.remainingFraction * 100);
-                if (gName.includes('claude') || gName.includes('gpt')) claudeQuota = pct;
-                else geminiQuota = pct;
-              }
+          // Extract structured quota details
+          const qDetails = acc.quota_details || {};
+          const geminiQ = qDetails.gemini || { percent: 100, fraction: 1.0 };
+          const claudeQ = qDetails['3p'] || qDetails.claude || { percent: 100, fraction: 1.0 };
+
+          const geminiPct = Math.round(geminiQ.percent ?? (geminiQ.fraction * 100));
+          const claudePct = Math.round(claudeQ.percent ?? (claudeQ.fraction * 100));
+
+          const geminiReset = formatResetTime(geminiQ.reset_time);
+          const claudeReset = formatResetTime(claudeQ.reset_time);
+
+          const geminiIsExhausted = geminiPct <= 0 || (acc.rate_limited_models && acc.rate_limited_models.gemini !== undefined);
+          const claudeIsExhausted = claudePct <= 0 || (acc.rate_limited_models && acc.rate_limited_models['3p'] !== undefined);
+
+          let quotaSectionHtml = '';
+          if (isApiKey) {
+            if (acc.error_message) {
+              quotaSectionHtml = `
+                <div class="p-2.5 rounded-xl bg-red-500/10 border border-red-500/30 text-xs space-y-1">
+                  <div class="text-red-400 font-semibold flex items-center">
+                    <i class="fa-solid fa-triangle-exclamation mr-1.5"></i> Key Expired / Invalid
+                  </div>
+                  <p class="text-[10px] text-red-300/90 leading-tight">
+                    Get a permanent key (AIzaSy...) at <a href="https://aistudio.google.com/app/apikey" target="_blank" class="underline text-indigo-300">aistudio.google.com</a>
+                  </p>
+                </div>
+              `;
+            } else {
+              quotaSectionHtml = `
+                <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs flex items-center justify-between">
+                  <span class="text-slate-400 flex items-center">
+                    <i class="fa-solid fa-key text-amber-400 mr-2"></i> Google AI Studio Key
+                  </span>
+                  <span class="text-emerald-400 font-semibold">Active · PayG</span>
+                </div>
+              `;
             }
+          } else {
+            quotaSectionHtml = `
+              <div class="grid grid-cols-2 gap-2 text-xs pt-1">
+                <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1.5 flex flex-col justify-between">
+                  <div>
+                    <div class="flex justify-between text-[11px] items-center">
+                      <span class="text-slate-400">Gemini</span>
+                      <span class="font-bold ${geminiIsExhausted ? 'text-red-400' : 'text-slate-200'}">${geminiPct}%</span>
+                    </div>
+                    <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mt-1">
+                      <div class="h-full ${geminiIsExhausted ? 'bg-red-500' : (geminiPct > 30 ? 'bg-indigo-500' : 'bg-amber-500')}" style="width: ${geminiPct}%"></div>
+                    </div>
+                  </div>
+                  <div class="text-[10px] text-right">
+                    ${geminiIsExhausted 
+                      ? `<span class="text-red-400 font-medium"><i class="fa-solid fa-triangle-exclamation mr-1"></i>${geminiReset ? 'Resets ' + geminiReset : 'Exhausted'}</span>`
+                      : `<span class="text-slate-400">${geminiReset ? 'Resets ' + geminiReset : 'Weekly limit'}</span>`}
+                  </div>
+                </div>
+
+                <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1.5 flex flex-col justify-between">
+                  <div>
+                    <div class="flex justify-between text-[11px] items-center">
+                      <span class="text-slate-400">Claude / 3P</span>
+                      <span class="font-bold ${claudeIsExhausted ? 'text-red-400' : 'text-slate-200'}">${claudePct}%</span>
+                    </div>
+                    <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mt-1">
+                      <div class="h-full ${claudeIsExhausted ? 'bg-red-500' : (claudePct > 30 ? 'bg-purple-500' : 'bg-amber-500')}" style="width: ${claudePct}%"></div>
+                    </div>
+                  </div>
+                  <div class="text-[10px] text-right">
+                    ${claudeIsExhausted 
+                      ? `<span class="text-red-400 font-medium"><i class="fa-solid fa-triangle-exclamation mr-1"></i>${claudeReset ? 'Resets ' + claudeReset : '5h limit'}</span>`
+                      : `<span class="text-slate-400">${claudeReset ? 'Resets ' + claudeReset : '5h rolling'}</span>`}
+                  </div>
+                </div>
+              </div>
+            `;
           }
 
           const card = document.createElement('div');
@@ -547,49 +664,32 @@ https://your-tunnel.trycloudflare.com/v1</pre>
 
           card.innerHTML = `
             <div class="flex items-center justify-between">
-              <div class="flex items-center space-x-3">
-                <img src="${acc.picture || 'https://lh3.googleusercontent.com/a/default-user=s96-c'}" class="w-9 h-9 rounded-full bg-slate-800 border border-slate-700" onerror="this.src='https://ui-avatars.com/api/?name=' + encodeURIComponent('${acc.name || 'User'}')">
-                <div>
-                  <div class="font-bold text-white text-sm flex items-center">
-                    <span>${acc.name || acc.email}</span>
-                    ${acc.is_primary ? '<span class="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30">Primary</span>' : ''}
-                    ${!isEnabled ? '<span class="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-medium border border-slate-700">Paused</span>' : ''}
+              <div class="flex items-center space-x-3 min-w-0 flex-1 mr-2">
+                <img src="${acc.picture || 'https://lh3.googleusercontent.com/a/default-user=s96-c'}" class="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 flex-shrink-0" onerror="this.src='https://ui-avatars.com/api/?name=' + encodeURIComponent('${(acc.name || 'User').replace(/'/g, "\\'")}')">
+                <div class="min-w-0 flex-1">
+                  <div class="font-bold text-white text-sm flex items-center flex-wrap gap-1">
+                    <span class="truncate max-w-[150px] sm:max-w-[200px]" title="${acc.name || acc.email}">${acc.name || acc.email}</span>
+                    <button onclick="openRenameModal('${acc.account_id}', '${(acc.name || acc.email).replace(/'/g, "\\'")}')" class="text-slate-500 hover:text-indigo-400 p-0.5 transition" title="Rename account / key">
+                      <i class="fa-solid fa-pen-to-square text-[11px]"></i>
+                    </button>
+                    ${acc.is_primary ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30">Primary</span>' : ''}
+                    ${!isEnabled ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-medium border border-slate-700">Paused</span>' : ''}
                   </div>
-                  <div class="text-[11px] text-slate-400 font-mono">${acc.email}</div>
+                  <div class="text-[11px] text-slate-400 font-mono truncate" title="${acc.email}">${acc.email}</div>
                 </div>
               </div>
-              <div class="flex items-center space-x-2.5">
-                <!-- Interactive Toggle Switch -->
+              <div class="flex items-center space-x-1.5 flex-shrink-0">
+                <button onclick="openRenameModal('${acc.account_id}', '${(acc.name || acc.email).replace(/'/g, "\\'")}')" class="text-slate-500 hover:text-indigo-400 text-xs p-1.5 rounded-lg hover:bg-slate-800 transition" title="Rename account"><i class="fa-solid fa-pen-to-square"></i></button>
                 <button onclick="toggleAccount('${acc.account_id}', ${!isEnabled})" class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isEnabled ? 'bg-indigo-600' : 'bg-slate-700'}" title="${isEnabled ? 'Pause account (Stop sending requests)' : 'Enable account'}">
                   <span class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isEnabled ? 'translate-x-4' : 'translate-x-0'}"></span>
                 </button>
-                <button onclick="deleteAccount('${acc.account_id}')" class="text-slate-500 hover:text-red-400 text-xs p-1 transition" title="Remove account from pool"><i class="fa-solid fa-trash-can"></i></button>
+                <button onclick="deleteAccount('${acc.account_id}')" class="text-slate-500 hover:text-red-400 text-xs p-1.5 rounded-lg hover:bg-slate-800 transition" title="Remove account from pool"><i class="fa-solid fa-trash-can"></i></button>
               </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-2 text-xs pt-1">
-              <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
-                <div class="flex justify-between text-slate-400 text-[11px]">
-                  <span>Gemini Quota</span>
-                  <span class="font-bold text-slate-200">${geminiQuota}%</span>
-                </div>
-                <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                  <div class="h-full ${geminiQuota > 30 ? 'bg-indigo-500' : 'bg-red-500'}" style="width: ${geminiQuota}%"></div>
-                </div>
-              </div>
+            ${quotaSectionHtml}
 
-              <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
-                <div class="flex justify-between text-slate-400 text-[11px]">
-                  <span>Claude/3P Quota</span>
-                  <span class="font-bold text-slate-200">${claudeQuota}%</span>
-                </div>
-                <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                  <div class="h-full ${claudeQuota > 30 ? 'bg-purple-500' : 'bg-red-500'}" style="width: ${claudeQuota}%"></div>
-                </div>
-              </div>
-            </div>
-
-            <div class="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+            <div class="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-800/50">
               <span>Project: <code class="text-slate-400">${acc.project_id || 'default'}</code></span>
               <span>Reqs: <b class="text-slate-300">${acc.total_requests || 0}</b></span>
             </div>
@@ -599,6 +699,48 @@ https://your-tunnel.trycloudflare.com/v1</pre>
 
       } catch (err) {
         console.error("Accounts load failed", err);
+      }
+    }
+
+    let currentRenameAccountId = null;
+
+    function openRenameModal(accountId, currentName) {
+      currentRenameAccountId = accountId;
+      const inp = document.getElementById('renameInput');
+      if (inp) {
+        inp.value = currentName;
+      }
+      document.getElementById('renameModal')?.classList.remove('hidden');
+      setTimeout(() => {
+        inp?.focus();
+        inp?.select();
+      }, 50);
+    }
+
+    function closeRenameModal() {
+      currentRenameAccountId = null;
+      document.getElementById('renameModal')?.classList.add('hidden');
+    }
+
+    async function submitRenameModal() {
+      if (!currentRenameAccountId) return;
+      const newName = document.getElementById('renameInput')?.value?.trim();
+      if (!newName) return;
+
+      try {
+        const res = await fetch(`/api/accounts/${currentRenameAccountId}/rename`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: newName })
+        });
+        if (res.ok) {
+          closeRenameModal();
+          await loadAccounts();
+        } else {
+          alert('Failed to rename account');
+        }
+      } catch (err) {
+        console.error('Rename error:', err);
       }
     }
 
@@ -641,11 +783,12 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       for (const [key, info] of filteredEntries) {
         const poolQuota = info.pool_remaining_fraction !== undefined 
           ? Math.round(info.pool_remaining_fraction * 100) 
-          : (info.quotaInfo ? Math.round(info.quotaInfo.remainingFraction * 100) : 100);
+          : (info.quotaInfo && info.quotaInfo.remainingFraction !== undefined ? Math.round(info.quotaInfo.remainingFraction * 100) : 100);
         
-        const quotaColor = poolQuota > 60 ? 'bg-emerald-500' : (poolQuota > 25 ? 'bg-amber-500' : 'bg-red-500');
-        const readyAccs = info.available_accounts !== undefined ? info.available_accounts : 1;
+        const quotaColor = poolQuota > 50 ? 'bg-emerald-500' : (poolQuota > 10 ? 'bg-amber-500' : 'bg-red-500');
+        const readyAccs = info.available_accounts !== undefined ? info.available_accounts : 0;
         const totalAccs = info.total_accounts || 1;
+        const resetStr = formatResetTime(info.quotaInfo?.resetTime);
 
         const item = document.createElement('div');
         item.className = 'p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition cursor-pointer text-xs space-y-1.5';
@@ -654,14 +797,16 @@ https://your-tunnel.trycloudflare.com/v1</pre>
           document.getElementById('activeModelBadge').innerText = key;
         };
 
-        // Build per-account mini badges
+        // Build per-account mini badges with individual quotas and reset timers
         let accountBreakdownHtml = '';
         if (info.accounts && Object.keys(info.accounts).length > 0) {
           const badges = Object.entries(info.accounts).map(([email, accData]) => {
             const accPct = Math.round(accData.remainingFraction * 100);
+            const accReset = formatResetTime(accData.resetTime);
             const dotColor = accPct > 50 ? 'bg-emerald-400' : (accPct > 0 ? 'bg-amber-400' : 'bg-red-500');
             const shortEmail = email.split('@')[0];
-            return `<span class="inline-flex items-center text-[10px] text-slate-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800" title="${email}: ${accPct}%">
+            const tooltip = `${email}: ${accPct}%${accReset ? ' (Resets ' + accReset + ')' : ''}`;
+            return `<span class="inline-flex items-center text-[10px] text-slate-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800" title="${tooltip}">
               <span class="w-1.5 h-1.5 rounded-full ${dotColor} mr-1"></span>${shortEmail}: ${accPct}%
             </span>`;
           }).join(' ');
@@ -676,9 +821,9 @@ https://your-tunnel.trycloudflare.com/v1</pre>
           <div class="flex items-center justify-between text-[11px] text-slate-400">
             <span class="flex items-center space-x-1.5">
               <span class="font-bold ${poolQuota > 0 ? 'text-indigo-300' : 'text-red-400'}">Pool: ${poolQuota}%</span>
-              <span class="text-[10px] text-slate-500">(${readyAccs}/${totalAccs} ready)</span>
+              <span class="text-[10px] ${readyAccs > 0 ? 'text-slate-500' : 'text-red-400 font-medium'}">(${readyAccs}/${totalAccs} ready)</span>
             </span>
-            <span>Max: ${(info.maxTokens || 0).toLocaleString()} tok</span>
+            <span>${resetStr ? `<span class="text-amber-400/90 text-[10px] font-mono mr-2"><i class="fa-regular fa-clock mr-0.5"></i>${resetStr}</span>` : ''}Max: ${(info.maxTokens || 0).toLocaleString()} tok</span>
           </div>
           <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
             <div class="h-full ${quotaColor}" style="width: ${poolQuota}%"></div>

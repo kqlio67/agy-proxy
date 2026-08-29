@@ -121,6 +121,7 @@ class AccountSession:
         self.available_models: Dict[str, Any] = {}
         self.quota_summary: Dict[str, Any] = {}
         self.rate_limited_models: Dict[str, float] = {}  # model_group -> reset_timestamp
+        self.error_message: Optional[str] = None
         self.total_requests: int = 0
         self.last_used_timestamp: float = 0.0
 
@@ -263,30 +264,35 @@ class AccountSession:
 
     async def fetch_quota(self) -> Dict[str, Any]:
         """Fetches live quota summary and bucket remaining fractions."""
+        if self.auth_method == "api_key":
+            return self.quota_summary
+        project = await self.initialize_project()
         headers = await self.get_auth_headers()
         client = await self.get_http_client()
         try:
             resp = await client.post(
                 f"{CLOUDCODE_BASE_URL}/v1internal:retrieveUserQuotaSummary",
                 headers=headers,
-                json={},
+                json={"project": project},
             )
             if resp.status_code == 200:
                 self.quota_summary = resp.json()
-                # Update rate limit status based on buckets
                 now = time.time()
                 for group in self.quota_summary.get("groups", []):
                     g_name = group.get("displayName", "").lower()
+                    key = "3p" if ("claude" in g_name or "gpt" in g_name) else "gemini"
+                    is_exhausted = False
                     for bucket in group.get("buckets", []):
+                        if bucket.get("disabled", False):
+                            continue
                         rem = bucket.get("remainingFraction", 1.0)
                         if rem <= 0.001:
-                            # Rate limited
-                            key = "3p" if "claude" in g_name or "gpt" in g_name else "gemini"
-                            self.rate_limited_models[key] = now + 3600
-                        else:
-                            key = "3p" if "claude" in g_name or "gpt" in g_name else "gemini"
-                            if key in self.rate_limited_models:
-                                del self.rate_limited_models[key]
+                            is_exhausted = True
+                            break
+                    if is_exhausted:
+                        self.rate_limited_models[key] = now + 3600
+                    else:
+                        self.rate_limited_models.pop(key, None)
                 return self.quota_summary
         except Exception as e:
             logger.debug("[%s] retrieveUserQuotaSummary error: %s", self.email, e)
@@ -304,6 +310,7 @@ class AccountSession:
                     timeout=15.0,
                 )
                 if resp.status_code == 200:
+                    self.error_message = None
                     models_list = resp.json().get("models", [])
                     res_dict: Dict[str, Any] = {}
                     for m in models_list:
@@ -320,8 +327,17 @@ class AccountSession:
                     self.available_models = res_dict
                     return self.available_models
                 else:
-                    logger.warning("[%s] AI Studio fetch models returned %d: %s", self.email, resp.status_code, resp.text)
+                    err_msg = "API key expired or invalid"
+                    try:
+                        err_data = resp.json()
+                        err_msg = err_data.get("error", {}).get("message", err_msg)
+                    except Exception:
+                        pass
+                    self.error_message = f"AI Studio Error: {err_msg}"
+                    self.rate_limited_models["gemini"] = time.time() + 86400 * 365
+                    logger.warning("[%s] AI Studio fetch models returned %d: %s", self.email, resp.status_code, err_msg)
             except Exception as e:
+                self.error_message = f"AI Studio Connection Error: {str(e)}"
                 logger.warning("[%s] Error fetching AI Studio models: %s", self.email, e)
             return self.available_models
 
@@ -360,6 +376,69 @@ class AccountSession:
         self.rate_limited_models[key] = time.time() + duration
         logger.warning("[%s] Marked as rate-limited for group %s for %.0fs", self.email, key, duration)
 
+    def get_quota_details(self) -> Dict[str, Any]:
+        """Calculates structured quota fractions, window, reset times, and descriptions for Gemini and Claude/3P."""
+        if self.auth_method == "api_key":
+            return {
+                "gemini": {"fraction": 1.0, "percent": 100.0, "reset_time": None, "window": "unlimited", "description": "Google AI Studio API Key (PayG / Free)"},
+                "3p": {"fraction": 0.0, "percent": 0.0, "reset_time": None, "window": "n/a", "description": "API Key accounts do not support Claude / 3P models"},
+            }
+
+        res = {
+            "gemini": {"fraction": 1.0, "percent": 100.0, "reset_time": None, "window": "weekly", "description": ""},
+            "3p": {"fraction": 1.0, "percent": 100.0, "reset_time": None, "window": "5h", "description": ""},
+        }
+
+        if self.quota_summary and isinstance(self.quota_summary, dict):
+            for group in self.quota_summary.get("groups", []):
+                g_name = group.get("displayName", "").lower()
+                key = "3p" if ("claude" in g_name or "gpt" in g_name) else "gemini"
+                buckets = group.get("buckets", [])
+                active_buckets = [b for b in buckets if not b.get("disabled", False)] or buckets
+                if active_buckets:
+                    limiting = min(active_buckets, key=lambda b: b.get("remainingFraction", 1.0))
+                    fraction = float(limiting.get("remainingFraction", 1.0))
+                    if self.is_rate_limited("claude" if key == "3p" else "gemini"):
+                        fraction = 0.0
+                    res[key] = {
+                        "fraction": fraction,
+                        "percent": round(fraction * 100, 1),
+                        "reset_time": limiting.get("resetTime"),
+                        "window": limiting.get("window"),
+                        "description": limiting.get("description", ""),
+                    }
+
+        return res
+
+    def get_model_quota(self, model: str) -> Dict[str, Any]:
+        """Returns the effective quota fraction and reset time for a specific model."""
+        if self.auth_method == "api_key":
+            return {"remainingFraction": 1.0, "resetTime": None, "window": "unlimited", "description": "API Key"}
+
+        is_3p = any(k in model.lower() for k in ["claude", "gpt-oss", "sonnet", "opus"])
+        quotas = self.get_quota_details()
+        group_quota = quotas["3p"] if is_3p else quotas["gemini"]
+
+        rem = group_quota["fraction"]
+        reset_time = group_quota["reset_time"]
+
+        # Check if model catalog has a more specific remainingFraction / resetTime
+        model_q = self.available_models.get(model, {}).get("quotaInfo", {})
+        if "remainingFraction" in model_q:
+            rem = min(rem, float(model_q["remainingFraction"]))
+        if not reset_time and "resetTime" in model_q:
+            reset_time = model_q["resetTime"]
+
+        if self.is_rate_limited(model):
+            rem = 0.0
+
+        return {
+            "remainingFraction": rem,
+            "resetTime": reset_time,
+            "window": group_quota.get("window"),
+            "description": group_quota.get("description", ""),
+        }
+
     def to_dict(self) -> Dict[str, Any]:
         # Clean expired rate limits before exporting
         now = time.time()
@@ -381,6 +460,8 @@ class AccountSession:
             "rate_limited": bool(active_limits),
             "rate_limited_models": active_limits,
             "quota_summary": self.quota_summary,
+            "quota_details": self.get_quota_details(),
+            "error_message": self.error_message,
         }
 
 
@@ -497,6 +578,33 @@ class AccountPool:
                             self.accounts[acc_id].enabled = bool(item.get("enabled", True))
                         continue
 
+                    # Prevent duplicate entries for the same Google account or refresh token
+                    item_rf = item.get("refresh_token", "")
+                    item_email = (item.get("email") or "").strip().lower()
+                    item_auth = item.get("auth_method", "consumer")
+
+                    matched_existing = None
+                    for existing in self.accounts.values():
+                        if item_rf and existing.refresh_token == item_rf:
+                            matched_existing = existing
+                            break
+                        if item_auth == "consumer" and item_email and item_email != "unknown@gmail.com" and existing.email.lower() == item_email and existing.auth_method == "consumer":
+                            matched_existing = existing
+                            break
+
+                    if matched_existing:
+                        if item.get("refresh_token"):
+                            matched_existing.refresh_token = item.get("refresh_token")
+                        if item.get("access_token"):
+                            matched_existing.access_token = item.get("access_token")
+                        if item.get("expiry_timestamp"):
+                            matched_existing.expiry_timestamp = item.get("expiry_timestamp")
+                        if item.get("project_id"):
+                            matched_existing.project_id = item.get("project_id")
+                        if "enabled" in item:
+                            matched_existing.enabled = bool(item.get("enabled", True))
+                        continue
+
                     acc = AccountSession(
                         account_id=acc_id,
                         refresh_token=item.get("refresh_token", ""),
@@ -543,7 +651,12 @@ class AccountPool:
         try:
             self.accounts_file.parent.mkdir(parents=True, exist_ok=True)
             acc_list = []
+            seen_entries = set()
             for acc in self.accounts.values():
+                key = (acc.auth_method, acc.email.lower()) if (acc.auth_method == "consumer" and acc.email and acc.email != "unknown@gmail.com") else (acc.auth_method, acc.refresh_token)
+                if key in seen_entries:
+                    continue
+                seen_entries.add(key)
                 acc_list.append({
                     "account_id": acc.account_id,
                     "email": acc.email,
@@ -564,7 +677,7 @@ class AccountPool:
     async def initialize_all(self):
         """Initializes user info, project, quota, and models for all loaded accounts."""
         tasks = []
-        for acc in self.accounts.values():
+        for acc in list(self.accounts.values()):
             async def _init_acc(a: AccountSession):
                 try:
                     await a.get_valid_token()
@@ -579,7 +692,39 @@ class AccountPool:
 
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Deduplicate accounts that share the same email or refresh token
+        seen_keys = {}
+        duplicates = []
+        for acc_id, acc in list(self.accounts.items()):
+            key = (acc.auth_method, acc.email.lower()) if (acc.auth_method == "consumer" and acc.email and acc.email != "unknown@gmail.com") else (acc.auth_method, acc.refresh_token)
+            if key in seen_keys:
+                existing_id = seen_keys[key]
+                if existing_id == "primary":
+                    duplicates.append(acc_id)
+                elif acc_id == "primary":
+                    duplicates.append(existing_id)
+                    seen_keys[key] = "primary"
+                else:
+                    duplicates.append(acc_id)
+            else:
+                seen_keys[key] = acc_id
+
+        for dup_id in duplicates:
+            if dup_id in self.accounts:
+                logger.info("Removing duplicate account session %s (%s) from pool", dup_id, self.accounts[dup_id].email)
+                del self.accounts[dup_id]
+
+        self.save_accounts()
+
+    def rename_account(self, account_id: str, new_name: str) -> bool:
+        """Renames an account display name and persists to accounts.json."""
+        if account_id in self.accounts:
+            self.accounts[account_id].name = new_name.strip()
             self.save_accounts()
+            logger.info("Account %s renamed to '%s'", account_id, new_name.strip())
+            return True
+        return False
 
     def set_account_enabled(self, account_id: str, enabled: bool) -> bool:
         """Enables or disables an individual account in the pool."""
@@ -659,7 +804,7 @@ class AccountPool:
                     combined_models[m_id] = {
                         "displayName": info.get("displayName", m_id),
                         "maxTokens": info.get("maxTokens", 0),
-                        "quotaInfo": info.get("quotaInfo", {}),
+                        "quotaInfo": {},
                         "accounts": {},
                         "available_accounts": 0,
                         "total_accounts": 0,
@@ -668,23 +813,29 @@ class AccountPool:
 
                 combined_models[m_id]["total_accounts"] += 1
 
-                q_info = info.get("quotaInfo", {})
-                rem = q_info.get("remainingFraction", 1.0)
-                if acc.is_rate_limited(m_id):
-                    rem = 0.0
+                # Real calculated quota from get_model_quota
+                q_data = acc.get_model_quota(m_id)
+                rem = q_data["remainingFraction"]
+                reset_time = q_data["resetTime"]
 
                 combined_models[m_id]["accounts"][acc.email or acc.account_id] = {
                     "remainingFraction": rem,
-                    "is_rate_limited": acc.is_rate_limited(m_id),
+                    "resetTime": reset_time,
+                    "is_rate_limited": acc.is_rate_limited(m_id) or rem <= 0.001,
                     "enabled": acc.enabled,
                 }
 
-                if rem > 0.01 and not acc.is_rate_limited(m_id):
+                if rem > 0.001 and not acc.is_rate_limited(m_id):
                     combined_models[m_id]["available_accounts"] += 1
 
                 if rem > combined_models[m_id]["pool_remaining_fraction"]:
                     combined_models[m_id]["pool_remaining_fraction"] = rem
-                    combined_models[m_id]["quotaInfo"] = q_info
+                    combined_models[m_id]["quotaInfo"] = {
+                        "remainingFraction": rem,
+                        "resetTime": reset_time,
+                    }
+                elif not combined_models[m_id]["quotaInfo"].get("resetTime") and reset_time:
+                    combined_models[m_id]["quotaInfo"]["resetTime"] = reset_time
 
         return combined_models
 
@@ -765,6 +916,27 @@ class AccountPool:
             await acc.initialize_project()
             await acc.fetch_quota()
             await acc.fetch_models()
+
+            # Check if this email or refresh_token matches an existing account
+            matched_acc = None
+            for existing in self.accounts.values():
+                if (existing.email and acc.email and existing.email.lower() == acc.email.lower() and existing.auth_method == "consumer") or (existing.refresh_token and existing.refresh_token == refresh_token):
+                    matched_acc = existing
+                    break
+
+            if matched_acc:
+                logger.info("OAuth session matches existing account %s (%s). Updating tokens...", matched_acc.account_id, acc.email)
+                matched_acc.refresh_token = refresh_token
+                matched_acc.access_token = access_token
+                matched_acc.expiry_timestamp = time.time() + float(expires_in)
+                matched_acc.name = acc.name
+                matched_acc.picture = acc.picture
+                matched_acc.project_id = acc.project_id
+                matched_acc.tier_info = acc.tier_info
+                matched_acc.quota_summary = acc.quota_summary
+                matched_acc.available_models = acc.available_models
+                self.save_accounts()
+                return matched_acc
 
             self.accounts[acc_id] = acc
             self.save_accounts()

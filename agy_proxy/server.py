@@ -249,6 +249,19 @@ def create_app(
             logger.error("Error adding API key account: %s", e)
             raise HTTPException(status_code=400, detail=str(e))
 
+    class RenameAccountRequest(BaseModel):
+        name: str
+
+    @app.post("/api/accounts/{account_id}/rename")
+    @app.patch("/api/accounts/{account_id}/rename")
+    async def rename_account(account_id: str, req: RenameAccountRequest):
+        if account_id not in pool.accounts:
+            raise HTTPException(status_code=404, detail="Account not found.")
+        if not req.name or not req.name.strip():
+            raise HTTPException(status_code=400, detail="Name cannot be empty.")
+        pool.rename_account(account_id, req.name.strip())
+        return {"status": "ok", "account_id": account_id, "name": req.name.strip()}
+
     class ToggleAccountRequest(BaseModel):
         enabled: Optional[bool] = None
 
