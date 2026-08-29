@@ -259,13 +259,6 @@ def main():
 
     # Initialize AccountPool
     pool = AccountPool(token_path=args.token_file)
-    pool.load_accounts()
-
-    if not pool.accounts:
-        console.print(
-            f"[bold red]Warning:[/bold red] No accounts loaded.\n"
-            "Run `python main.py auth login` or log in with `agy auth login` to add an account."
-        )
 
     # Create FastAPI app
     app = create_app(account_pool=pool, api_key=args.api_key)

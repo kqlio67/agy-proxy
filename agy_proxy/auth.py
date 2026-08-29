@@ -218,6 +218,8 @@ class AccountSession:
 
     async def fetch_user_info(self) -> Dict[str, Any]:
         """Fetches Google user info (email, name, picture)."""
+        if self.auth_method == "api_key":
+            return {}
         headers = await self.get_auth_headers()
         client = await self.get_http_client()
         try:
