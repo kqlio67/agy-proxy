@@ -1,0 +1,30 @@
+name: 💡 Feature Request
+description: Suggest an idea or feature for Antigravity Proxy
+title: "[FEATURE]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea or proposal to improve Antigravity Proxy? We'd love to hear it!
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or Use Case
+      description: Is your feature request related to a problem or limitation?
+      placeholder: I'm always frustrated when...
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: A clear and concise description of what you want to happen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Additional Context or Alternatives Considered
+      description: Any other context, screenshots, or alternative solutions you've considered.

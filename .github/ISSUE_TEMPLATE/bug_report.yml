@@ -1,0 +1,62 @@
+name: 🐛 Bug Report
+description: Report an issue or unexpected behavior in Antigravity Proxy
+title: "[BUG]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out the form below.
+
+  - type: input
+    id: version
+    attributes:
+      label: Antigravity Proxy Version
+      description: What version of agy-proxy are you using? (e.g. v1.0.2)
+      placeholder: v1.0.2
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      description: What OS are you running on?
+      options:
+        - Linux (Ubuntu/Debian/Arch/etc.)
+        - macOS (Apple Silicon M-series)
+        - macOS (Intel)
+        - Windows 10/11
+    validations:
+      required: true
+
+  - type: dropdown
+    id: client
+    attributes:
+      label: Client / Integration
+      description: Which client is connecting to Antigravity Proxy?
+      options:
+        - Claude Code CLI
+        - Cursor / Windsurf
+        - Roo Code / Cline (VS Code)
+        - Continue.dev
+        - Aider CLI
+        - Web Dashboard Playground
+        - Custom Python / SDK script
+        - Other
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the Bug
+      description: A clear and concise description of what the bug is.
+      placeholder: When I send a request to model X, it returns error Y...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs & Output
+      description: Paste any relevant terminal logs or error stack traces.
+      render: shell
