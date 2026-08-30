@@ -267,9 +267,14 @@ def main():
 
     # Configure logging
     effective_log_level = "debug" if args.debug else args.log_level
+    if args.debug:
+        log_format = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    else:
+        log_format = "%(asctime)s [%(levelname)s] %(message)s"
+
     logging.basicConfig(
         level=getattr(logging, effective_log_level.upper()),
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        format=log_format,
         datefmt="%H:%M:%S",
     )
 
