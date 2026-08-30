@@ -1058,8 +1058,8 @@ https://your-tunnel.trycloudflare.com/v1</pre>
               ${quotaSectionHtml}
 
               <div class="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-800/50">
-                <span>Project: <code class="text-slate-400">${acc.project_id || 'default'}</code></span>
-                <span>Reqs: <b class="text-slate-300">${acc.total_requests || 0}</b></span>
+                <span class="truncate max-w-[170px]">Model: <code class="text-indigo-400 font-mono text-[10px]">${acc.last_used_model || 'standby'}</code></span>
+                <span>Reqs: <b class="text-slate-300 font-mono">${acc.total_requests || 0}</b></span>
               </div>
             </div>
           `;
@@ -1075,6 +1075,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
                 <tr>
                   <th class="px-4 py-3">Account / Identity</th>
                   <th class="px-3 py-3">Type</th>
+                  <th class="px-3 py-3">Last Active Model</th>
                   <th class="px-4 py-3">Gemini Quota</th>
                   <th class="px-4 py-3">Claude / 3P Quota</th>
                   <th class="px-3 py-3 text-center">Reqs</th>
@@ -1117,6 +1118,10 @@ https://your-tunnel.trycloudflare.com/v1</pre>
                 ${isApiKey
                   ? '<span class="inline-flex items-center text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20"><i class="fa-solid fa-key mr-1"></i> API Key</span>'
                   : '<span class="inline-flex items-center text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"><i class="fa-brands fa-google mr-1"></i> OAuth</span>'}
+              </td>
+
+              <td class="px-3 py-3">
+                <code class="text-[11px] font-mono ${acc.last_used_model ? 'text-indigo-400 font-semibold' : 'text-slate-500'}">${acc.last_used_model || '—'}</code>
               </td>
 
               <td class="px-4 py-3 min-w-[140px]">

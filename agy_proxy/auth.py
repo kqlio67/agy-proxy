@@ -124,6 +124,8 @@ class AccountSession:
         self.error_message: Optional[str] = None
         self.total_requests: int = 0
         self.last_used_timestamp: float = 0.0
+        self.last_used_model: Optional[str] = None
+        self.last_client_type: Optional[str] = None
 
         self._lock = asyncio.Lock()
         self._http_client: Optional[httpx.AsyncClient] = None
@@ -459,6 +461,9 @@ class AccountSession:
             "tier_name": self.tier_info.get("name", "Antigravity"),
             "expiry_timestamp": self.expiry_timestamp,
             "total_requests": self.total_requests,
+            "last_used_timestamp": self.last_used_timestamp,
+            "last_used_model": self.last_used_model,
+            "last_client_type": self.last_client_type,
             "rate_limited": bool(active_limits),
             "rate_limited_models": active_limits,
             "quota_summary": self.quota_summary,

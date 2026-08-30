@@ -133,11 +133,14 @@ class CloudCodeClient:
                     models_to_try = [None]  # Standard CloudCode single URL
 
                 acc_label = acc.name or acc.email
+                api_source = "AI Studio API Key" if acc.auth_method == "api_key" else "Antigravity OAuth"
                 if backend_m == model_name:
-                    logger.debug("[%s] ⚡ %s", acc_label, backend_m)
+                    logger.info("[%s] ⚡ %s (%s)", acc_label, backend_m, api_source)
                 else:
-                    logger.debug("[%s] ⚡ %s (requested: %s)", acc_label, backend_m, model_name)
+                    logger.info("[%s] ⚡ %s [requested: %s] (%s)", acc_label, backend_m, model_name, api_source)
                 acc.last_used_timestamp = time.time()
+                acc.last_used_model = backend_m
+                acc.last_client_type = api_source
                 acc.total_requests += 1
 
                 # Pin session to this successful account
