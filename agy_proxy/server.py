@@ -293,6 +293,17 @@ def create_app(
         await pool.initialize_all()
         return {"status": "refreshed", "count": len(pool.accounts)}
 
+    @app.get("/api/cache/stats")
+    async def get_cache_stats():
+        from agy_proxy.cache import google_context_cache, session_affinity
+        return {
+            "tokens_saved": google_context_cache.total_tokens_saved,
+            "cache_hits": google_context_cache.cache_hits,
+            "cache_misses": google_context_cache.cache_misses,
+            "active_sessions": len(session_affinity._sessions),
+            "cached_contents_count": len(google_context_cache._cache_map),
+        }
+
     @app.get("/api/models")
     async def get_proxy_models():
         models_dict = await pool.get_pool_models() if pool.accounts else {}

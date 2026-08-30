@@ -744,8 +744,13 @@ class AccountPool:
         self.save_accounts()
         logger.info("All accounts set enabled=%s", enabled)
 
-    def get_candidate_accounts(self, model: str, specific_account_id: Optional[str] = None) -> List[AccountSession]:
-        """Returns ordered list of candidate accounts for a request, filtering disabled & rate-limited ones."""
+    def get_candidate_accounts(
+        self,
+        model: str,
+        specific_account_id: Optional[str] = None,
+        preferred_account_id: Optional[str] = None,
+    ) -> List[AccountSession]:
+        """Returns ordered list of candidate accounts for a request, prioritizing preferred (sticky) account."""
         if specific_account_id and specific_account_id in self.accounts:
             acc = self.accounts[specific_account_id]
             if not acc.enabled:
@@ -780,8 +785,16 @@ class AccountPool:
             # All enabled accounts are marked rate limited; return active_pool to allow retry attempt
             available = list(active_pool)
 
+        # If preferred sticky account is valid and healthy in available pool, place it FIRST
+        if preferred_account_id and any(a.account_id == preferred_account_id for a in available):
+            preferred = [a for a in available if a.account_id == preferred_account_id]
+            rest = [a for a in available if a.account_id != preferred_account_id]
+            rest.sort(key=lambda a: (a.last_used_timestamp, a.total_requests))
+            return preferred + rest
+
         # Sort by least recently used and lowest total requests
         available.sort(key=lambda a: (a.last_used_timestamp, a.total_requests))
+        return available
         return available
 
     async def get_pool_models(self, include_disabled: bool = False) -> Dict[str, Any]:

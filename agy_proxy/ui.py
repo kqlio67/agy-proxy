@@ -61,7 +61,10 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             <div class="flex items-center space-x-2">
               <span class="text-lg font-black tracking-tight text-white">Google <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400">Antigravity</span> Proxy</span>
               <span class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono font-bold border border-indigo-500/30">v1.0.2</span>
-              <span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 font-semibold border border-blue-500/20">Pool Active</span>
+              <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-semibold border border-emerald-500/20 flex items-center space-x-1" title="Context Caching & Session Affinity Enabled">
+                <i class="fa-solid fa-bolt text-[9px]"></i>
+                <span id="cacheBadgeText">Cache Active</span>
+              </span>
             </div>
             <p class="text-[11px] text-slate-400 font-mono">OpenAI · Anthropic · Gemini Multi-Account Gateway</p>
           </div>
@@ -1798,10 +1801,24 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       }
     }
 
+    async function updateCacheStats() {
+      try {
+        const res = await fetch('/api/cache/stats');
+        const data = await res.json();
+        const badge = document.getElementById('cacheBadgeText');
+        if (badge && data.tokens_saved > 0) {
+          const kTokens = (data.tokens_saved / 1000).toFixed(1);
+          badge.innerText = `Cache: ~${kTokens}k saved`;
+        }
+      } catch (e) {}
+    }
+
     // Init
     loadAccounts();
     loadModels();
     checkForSoftwareUpdates();
+    updateCacheStats();
+    setInterval(updateCacheStats, 10000);
   </script>
 </body>
 </html>

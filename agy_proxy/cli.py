@@ -28,6 +28,7 @@ def print_banner(host: str, port: int, pool: AccountPool, api_key: str = None, u
     table.add_row("[bold cyan]Web Dashboard & Pool UI:[/bold cyan]", f"[bold green]{url}[/bold green]")
     table.add_row("[bold cyan]Universal API Base (OpenAI/Claude):[/bold cyan]", f"[bold yellow]{url}/v1[/bold yellow]")
     table.add_row("[bold cyan]Gemini Native API Base:[/bold cyan]", f"[bold blue]{url}/v1beta[/bold blue]")
+    table.add_row("[bold cyan]Prompt Caching & Session Affinity:[/bold cyan]", "[bold green]Enabled (75% token discount)[/bold green]")
     table.add_row("[bold cyan]Accounts in Pool:[/bold cyan]", f"[bold white]{len(pool.accounts)} active account(s)[/bold white]")
 
     for acc in pool.accounts.values():

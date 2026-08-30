@@ -12,6 +12,7 @@ from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple, Union
 import httpx
 
 from agy_proxy.auth import AccountPool, AccountSession, AuthManager, CLOUDCODE_BASE_URL
+from agy_proxy.cache import google_context_cache, session_affinity
 from agy_proxy.converter import (
     anthropic_to_cloudcode_payload,
     create_openai_chunk,
@@ -72,11 +73,18 @@ class CloudCodeClient:
         payload_builder_fn,
         model_name: str,
         timeout: float = 120.0,
+        session_key: Optional[str] = None,
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """
-        Executes request against CloudCode with automatic multi-account rotation and 429 failover.
+        Executes request against CloudCode with automatic multi-account rotation, session affinity, and 429 failover.
         """
-        candidates = self.pool.get_candidate_accounts(model_name)
+        preferred_account = None
+        if session_key:
+            pinned = session_affinity.get_pinned_account(session_key)
+            if pinned:
+                preferred_account = pinned[0]
+
+        candidates = self.pool.get_candidate_accounts(model_name, preferred_account_id=preferred_account)
         last_error = None
 
         for acc in candidates:
@@ -89,11 +97,30 @@ class CloudCodeClient:
                     payload = payload_builder_fn("google-ai-studio")
                     backend_m = payload.get("model", model_name)
                     clean_model = self._map_to_aistudio_model(backend_m, acc.available_models)
-                    
+
                     req_body = dict(payload.get("request", payload))
                     req_body.pop("sessionId", None)
                     req_body.pop("session_id", None)
-                    
+
+                    # Try Google Native Context Caching for large prompts
+                    try:
+                        cached_content_name = await google_context_cache.get_or_create_cache(
+                            api_key=acc.refresh_token,
+                            model_name=clean_model,
+                            system_instruction=req_body.get("systemInstruction"),
+                            tools=req_body.get("tools"),
+                            contents=req_body.get("contents", []),
+                        )
+                        if cached_content_name:
+                            req_body["cachedContent"] = cached_content_name
+                            # Strip static system instruction and tools to avoid duplicate token count
+                            req_body.pop("systemInstruction", None)
+                            req_body.pop("tools", None)
+                            if len(req_body.get("contents", [])) > 1:
+                                req_body["contents"] = [req_body["contents"][-1]]
+                    except Exception as cache_err:
+                        logger.debug("Context cache lookup bypassed: %s", cache_err)
+
                     models_to_try = [clean_model]
                     if clean_model in ("gemini-3.7-flash", "gemini-flash-latest") and "gemini-3.6-flash" in acc.available_models:
                         models_to_try.append("gemini-3.6-flash")
@@ -112,6 +139,11 @@ class CloudCodeClient:
                     logger.debug("[%s] ⚡ %s (requested: %s)", acc_label, backend_m, model_name)
                 acc.last_used_timestamp = time.time()
                 acc.total_requests += 1
+
+                # Pin session to this successful account
+                if session_key:
+                    backend_sess_id = payload.get("request", {}).get("sessionId", f"sess-{uuid.uuid4().hex[:8]}")
+                    session_affinity.pin_session(session_key, acc.account_id, backend_sess_id)
 
                 for target_sub_model in models_to_try:
                     if acc.auth_method == "api_key":
@@ -213,10 +245,15 @@ class CloudCodeClient:
         req_id = f"chatcmpl-{uuid.uuid4().hex[:16]}"
         model = req.model
 
+        # Derive session key for sticky session continuity
+        raw_msgs = [m.model_dump() if hasattr(m, "model_dump") else (m.dict() if hasattr(m, "dict") else dict(m)) for m in req.messages]
+        sess_key = session_affinity.get_session_key(raw_msgs)
+        pinned = session_affinity.get_pinned_account(sess_key)
+        backend_session_id = pinned[1] if pinned else f"session-{uuid.uuid4().hex[:12]}"
+
         def build_payload(project_id: str):
             p = openai_to_cloudcode_payload(req, project_id)
-            # Inject session isolation
-            p["request"]["sessionId"] = f"session-{uuid.uuid4().hex[:12]}"
+            p["request"]["sessionId"] = backend_session_id
             return p
 
         total_prompt_tokens = 0
@@ -229,6 +266,7 @@ class CloudCodeClient:
                 "v1internal:streamGenerateContent?alt=sse",
                 build_payload,
                 model_name=model,
+                session_key=sess_key,
             ):
                 resp = data.get("response", data)
                 candidates = resp.get("candidates", [])
@@ -381,9 +419,16 @@ class CloudCodeClient:
         msg_id = f"msg_{uuid.uuid4().hex[:20]}"
         model = req.model
 
+        # Derive session key for sticky session continuity
+        raw_msgs = [m.model_dump() if hasattr(m, "model_dump") else (m.dict() if hasattr(m, "dict") else dict(m)) for m in req.messages]
+        sys_str = req.system if isinstance(req.system, str) else json.dumps(req.system or "")
+        sess_key = session_affinity.get_session_key(raw_msgs, system_prompt=sys_str)
+        pinned = session_affinity.get_pinned_account(sess_key)
+        backend_session_id = pinned[1] if pinned else f"session-{uuid.uuid4().hex[:12]}"
+
         def build_payload(project_id: str):
             p = anthropic_to_cloudcode_payload(req, project_id)
-            p["request"]["sessionId"] = f"session-{uuid.uuid4().hex[:12]}"
+            p["request"]["sessionId"] = backend_session_id
             return p
 
         # 1. message_start
@@ -415,6 +460,7 @@ class CloudCodeClient:
                 "v1internal:streamGenerateContent?alt=sse",
                 build_payload,
                 model_name=model,
+                session_key=sess_key,
             ):
                 resp = data.get("response", data)
                 candidates = resp.get("candidates", [])
