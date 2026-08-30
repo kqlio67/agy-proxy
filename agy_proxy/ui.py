@@ -353,8 +353,8 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4.5 text-xs">
 
         <!-- 1. Claude Code CLI -->
-        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800/90 space-y-3 flex flex-col justify-between hover:border-indigo-500/40 transition group">
-          <div class="space-y-1.5">
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800/90 space-y-3 flex flex-col hover:border-indigo-500/40 transition group">
+          <div class="space-y-1">
             <div class="font-bold text-slate-200 text-sm flex items-center justify-between">
               <span class="flex items-center space-x-2">
                 <div class="w-6 h-6 rounded-lg bg-indigo-600/20 text-indigo-400 flex items-center justify-center text-xs">
@@ -367,12 +367,12 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             <p class="text-[11px] text-slate-400 leading-snug">Terminal coding agent with full Tool Calling & Thinking.</p>
           </div>
 
-          <div class="relative bg-slate-950 rounded-xl border border-slate-800 p-2.5">
-            <button onclick="copySnippet('codeClaudeCode', this)" class="absolute top-2 right-2 px-2 py-1 rounded-md bg-slate-800/80 hover:bg-indigo-600 text-slate-300 hover:text-white text-[10px] transition flex items-center space-x-1" title="Copy code">
+          <div class="relative bg-slate-950 rounded-xl border border-slate-800 p-2.5 flex-1 flex flex-col justify-center">
+            <button onclick="copySnippet('codeClaudeCode', this)" class="absolute top-2 right-2 px-2 py-1 rounded-md bg-slate-800/80 hover:bg-indigo-600 text-slate-300 hover:text-white text-[10px] transition flex items-center space-x-1 shadow" title="Copy code">
               <i class="fa-regular fa-copy"></i>
               <span>Copy</span>
             </button>
-            <pre id="codeClaudeCode" class="text-slate-300 font-mono text-[11px] overflow-x-auto custom-scrollbar pt-1 pr-12"># 1-Click Fast Launcher
+            <pre id="codeClaudeCode" class="text-slate-300 font-mono text-[11px] overflow-x-auto custom-scrollbar pr-12"># 1-Click Fast Launcher
 ./run_claude.sh
 
 # Or via Env Variables:
@@ -383,8 +383,8 @@ claude</pre>
         </div>
 
         <!-- 2. Cursor / Windsurf -->
-        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800/90 space-y-3 flex flex-col justify-between hover:border-cyan-500/40 transition group">
-          <div class="space-y-1.5">
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800/90 space-y-3 flex flex-col hover:border-cyan-500/40 transition group">
+          <div class="space-y-1">
             <div class="font-bold text-slate-200 text-sm flex items-center justify-between">
               <span class="flex items-center space-x-2">
                 <div class="w-6 h-6 rounded-lg bg-cyan-600/20 text-cyan-400 flex items-center justify-center text-xs">
@@ -397,20 +397,20 @@ claude</pre>
             <p class="text-[11px] text-slate-400 leading-snug">AI code editors with Custom OpenAI provider support.</p>
           </div>
 
-          <div class="relative bg-slate-950 rounded-xl border border-slate-800 p-2.5">
-            <button onclick="copySnippet('codeCursor', this)" class="absolute top-2 right-2 px-2 py-1 rounded-md bg-slate-800/80 hover:bg-cyan-600 text-slate-300 hover:text-white text-[10px] transition flex items-center space-x-1" title="Copy code">
+          <div class="relative bg-slate-950 rounded-xl border border-slate-800 p-2.5 flex-1 flex flex-col justify-center">
+            <button onclick="copySnippet('codeCursor', this)" class="absolute top-2 right-2 px-2 py-1 rounded-md bg-slate-800/80 hover:bg-cyan-600 text-slate-300 hover:text-white text-[10px] transition flex items-center space-x-1 shadow" title="Copy code">
               <i class="fa-regular fa-copy"></i>
               <span>Copy</span>
             </button>
-            <pre id="codeCursor" class="text-slate-300 font-mono text-[11px] overflow-x-auto custom-scrollbar pt-1 pr-12">Base URL: http://localhost:8000/v1
+            <pre id="codeCursor" class="text-slate-300 font-mono text-[11px] overflow-x-auto custom-scrollbar pr-12">Base URL: http://localhost:8000/v1
 API Key:  dummy
 Model:    gemini-3.7-flash-high</pre>
           </div>
         </div>
 
         <!-- 3. Roo Code / Cline (VS Code) -->
-        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800/90 space-y-3 flex flex-col justify-between hover:border-purple-500/40 transition group">
-          <div class="space-y-1.5">
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800/90 space-y-3 flex flex-col hover:border-purple-500/40 transition group">
+          <div class="space-y-1">
             <div class="font-bold text-slate-200 text-sm flex items-center justify-between">
               <span class="flex items-center space-x-2">
                 <div class="w-6 h-6 rounded-lg bg-purple-600/20 text-purple-400 flex items-center justify-center text-xs">
@@ -423,12 +423,12 @@ Model:    gemini-3.7-flash-high</pre>
             <p class="text-[11px] text-slate-400 leading-snug">Autonomous coding assistant extensions for VS Code.</p>
           </div>
 
-          <div class="relative bg-slate-950 rounded-xl border border-slate-800 p-2.5">
-            <button onclick="copySnippet('codeRooCode', this)" class="absolute top-2 right-2 px-2 py-1 rounded-md bg-slate-800/80 hover:bg-purple-600 text-slate-300 hover:text-white text-[10px] transition flex items-center space-x-1" title="Copy code">
+          <div class="relative bg-slate-950 rounded-xl border border-slate-800 p-2.5 flex-1 flex flex-col justify-center">
+            <button onclick="copySnippet('codeRooCode', this)" class="absolute top-2 right-2 px-2 py-1 rounded-md bg-slate-800/80 hover:bg-purple-600 text-slate-300 hover:text-white text-[10px] transition flex items-center space-x-1 shadow" title="Copy code">
               <i class="fa-regular fa-copy"></i>
               <span>Copy</span>
             </button>
-            <pre id="codeRooCode" class="text-slate-300 font-mono text-[11px] overflow-x-auto custom-scrollbar pt-1 pr-12">Provider: OpenAI Compatible / Anthropic
+            <pre id="codeRooCode" class="text-slate-300 font-mono text-[11px] overflow-x-auto custom-scrollbar pr-12">Provider: OpenAI / Anthropic
 Base URL: http://localhost:8000/v1
 API Key:  dummy
 Model:    gemini-3.7-flash-high</pre>
@@ -436,8 +436,8 @@ Model:    gemini-3.7-flash-high</pre>
         </div>
 
         <!-- 4. Continue.dev -->
-        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800/90 space-y-3 flex flex-col justify-between hover:border-emerald-500/40 transition group">
-          <div class="space-y-1.5">
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800/90 space-y-3 flex flex-col hover:border-emerald-500/40 transition group">
+          <div class="space-y-1">
             <div class="font-bold text-slate-200 text-sm flex items-center justify-between">
               <span class="flex items-center space-x-2">
                 <div class="w-6 h-6 rounded-lg bg-emerald-600/20 text-emerald-400 flex items-center justify-center text-xs">
@@ -445,19 +445,19 @@ Model:    gemini-3.7-flash-high</pre>
                 </div>
                 <span>Continue.dev</span>
               </span>
-              <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">JetBrains / VSCode</span>
+              <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">JetBrains/VSCode</span>
             </div>
             <p class="text-[11px] text-slate-400 leading-snug">Open-source AI autocomplete and chat copilot.</p>
           </div>
 
-          <div class="relative bg-slate-950 rounded-xl border border-slate-800 p-2.5">
-            <button onclick="copySnippet('codeContinue', this)" class="absolute top-2 right-2 px-2 py-1 rounded-md bg-slate-800/80 hover:bg-emerald-600 text-slate-300 hover:text-white text-[10px] transition flex items-center space-x-1" title="Copy code">
+          <div class="relative bg-slate-950 rounded-xl border border-slate-800 p-2.5 flex-1 flex flex-col justify-center">
+            <button onclick="copySnippet('codeContinue', this)" class="absolute top-2 right-2 px-2 py-1 rounded-md bg-slate-800/80 hover:bg-emerald-600 text-slate-300 hover:text-white text-[10px] transition flex items-center space-x-1 shadow" title="Copy code">
               <i class="fa-regular fa-copy"></i>
               <span>Copy</span>
             </button>
-            <pre id="codeContinue" class="text-slate-300 font-mono text-[10px] overflow-x-auto custom-scrollbar pt-1 pr-12">{
+            <pre id="codeContinue" class="text-slate-300 font-mono text-[10.5px] overflow-x-auto custom-scrollbar pr-12">{
   "models": [{
-    "title": "Antigravity Gemini",
+    "title": "Antigravity",
     "provider": "openai",
     "model": "gemini-3.7-flash-high",
     "apiBase": "http://localhost:8000/v1",
@@ -468,8 +468,8 @@ Model:    gemini-3.7-flash-high</pre>
         </div>
 
         <!-- 5. Aider CLI -->
-        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800/90 space-y-3 flex flex-col justify-between hover:border-amber-500/40 transition group">
-          <div class="space-y-1.5">
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800/90 space-y-3 flex flex-col hover:border-amber-500/40 transition group">
+          <div class="space-y-1">
             <div class="font-bold text-slate-200 text-sm flex items-center justify-between">
               <span class="flex items-center space-x-2">
                 <div class="w-6 h-6 rounded-lg bg-amber-600/20 text-amber-400 flex items-center justify-center text-xs">
@@ -482,20 +482,20 @@ Model:    gemini-3.7-flash-high</pre>
             <p class="text-[11px] text-slate-400 leading-snug">Terminal pair-programming assistant with git integration.</p>
           </div>
 
-          <div class="relative bg-slate-950 rounded-xl border border-slate-800 p-2.5">
-            <button onclick="copySnippet('codeAider', this)" class="absolute top-2 right-2 px-2 py-1 rounded-md bg-slate-800/80 hover:bg-amber-600 text-slate-300 hover:text-white text-[10px] transition flex items-center space-x-1" title="Copy code">
+          <div class="relative bg-slate-950 rounded-xl border border-slate-800 p-2.5 flex-1 flex flex-col justify-center">
+            <button onclick="copySnippet('codeAider', this)" class="absolute top-2 right-2 px-2 py-1 rounded-md bg-slate-800/80 hover:bg-amber-600 text-slate-300 hover:text-white text-[10px] transition flex items-center space-x-1 shadow" title="Copy code">
               <i class="fa-regular fa-copy"></i>
               <span>Copy</span>
             </button>
-            <pre id="codeAider" class="text-slate-300 font-mono text-[11px] overflow-x-auto custom-scrollbar pt-1 pr-12">OPENAI_API_BASE="http://localhost:8000/v1" \
+            <pre id="codeAider" class="text-slate-300 font-mono text-[11px] overflow-x-auto custom-scrollbar pr-12">OPENAI_API_BASE="http://localhost:8000/v1" \
 OPENAI_API_KEY="dummy" \
 aider --model openai/gemini-3.7-flash-high</pre>
           </div>
         </div>
 
         <!-- 6. Python SDK -->
-        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800/90 space-y-3 flex flex-col justify-between hover:border-yellow-500/40 transition group">
-          <div class="space-y-1.5">
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800/90 space-y-3 flex flex-col hover:border-yellow-500/40 transition group">
+          <div class="space-y-1">
             <div class="font-bold text-slate-200 text-sm flex items-center justify-between">
               <span class="flex items-center space-x-2">
                 <div class="w-6 h-6 rounded-lg bg-yellow-600/20 text-yellow-400 flex items-center justify-center text-xs">
@@ -503,32 +503,32 @@ aider --model openai/gemini-3.7-flash-high</pre>
                 </div>
                 <span>Python SDK</span>
               </span>
-              <span class="text-[10px] px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 font-semibold">OpenAI / Anthropic</span>
+              <span class="text-[10px] px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 font-semibold">SDK</span>
             </div>
             <p class="text-[11px] text-slate-400 leading-snug">Scripting and building apps with official SDK clients.</p>
           </div>
 
-          <div class="relative bg-slate-950 rounded-xl border border-slate-800 p-2.5">
-            <button onclick="copySnippet('codePython', this)" class="absolute top-2 right-2 px-2 py-1 rounded-md bg-slate-800/80 hover:bg-yellow-600 text-slate-300 hover:text-white text-[10px] transition flex items-center space-x-1" title="Copy code">
+          <div class="relative bg-slate-950 rounded-xl border border-slate-800 p-2.5 flex-1 flex flex-col justify-center">
+            <button onclick="copySnippet('codePython', this)" class="absolute top-2 right-2 px-2 py-1 rounded-md bg-slate-800/80 hover:bg-yellow-600 text-slate-300 hover:text-white text-[10px] transition flex items-center space-x-1 shadow" title="Copy code">
               <i class="fa-regular fa-copy"></i>
               <span>Copy</span>
             </button>
-            <pre id="codePython" class="text-slate-300 font-mono text-[10.5px] overflow-x-auto custom-scrollbar pt-1 pr-12">from openai import OpenAI
+            <pre id="codePython" class="text-slate-300 font-mono text-[10px] overflow-x-auto custom-scrollbar pr-12">from openai import OpenAI
 
 client = OpenAI(
-    base_url="http://localhost:8000/v1",
-    api_key="dummy"
+  base_url="http://localhost:8000/v1",
+  api_key="dummy"
 )
 res = client.chat.completions.create(
-    model="gemini-3.7-flash-high",
-    messages=[{"role": "user", "content": "Hi!"}]
+  model="gemini-3.7-flash-high",
+  messages=[{"role": "user", "content": "Hi!"}]
 )</pre>
           </div>
         </div>
 
         <!-- 7. Gemini Native API (v1beta) -->
-        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800/90 space-y-3 flex flex-col justify-between hover:border-blue-500/40 transition group">
-          <div class="space-y-1.5">
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800/90 space-y-3 flex flex-col hover:border-blue-500/40 transition group">
+          <div class="space-y-1">
             <div class="font-bold text-slate-200 text-sm flex items-center justify-between">
               <span class="flex items-center space-x-2">
                 <div class="w-6 h-6 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center text-xs">
@@ -536,25 +536,25 @@ res = client.chat.completions.create(
                 </div>
                 <span>Gemini Native API</span>
               </span>
-              <span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-semibold">v1beta Native</span>
+              <span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-semibold">Native</span>
             </div>
             <p class="text-[11px] text-slate-400 leading-snug">Raw Google Generative Language REST API format.</p>
           </div>
 
-          <div class="relative bg-slate-950 rounded-xl border border-slate-800 p-2.5">
-            <button onclick="copySnippet('codeGeminiNative', this)" class="absolute top-2 right-2 px-2 py-1 rounded-md bg-slate-800/80 hover:bg-blue-600 text-slate-300 hover:text-white text-[10px] transition flex items-center space-x-1" title="Copy code">
+          <div class="relative bg-slate-950 rounded-xl border border-slate-800 p-2.5 flex-1 flex flex-col justify-center">
+            <button onclick="copySnippet('codeGeminiNative', this)" class="absolute top-2 right-2 px-2 py-1 rounded-md bg-slate-800/80 hover:bg-blue-600 text-slate-300 hover:text-white text-[10px] transition flex items-center space-x-1 shadow" title="Copy code">
               <i class="fa-regular fa-copy"></i>
               <span>Copy</span>
             </button>
-            <pre id="codeGeminiNative" class="text-slate-300 font-mono text-[10px] overflow-x-auto custom-scrollbar pt-1 pr-12">curl http://localhost:8000/v1beta/models/gemini-3.7-flash-high:streamGenerateContent \
+            <pre id="codeGeminiNative" class="text-slate-300 font-mono text-[10px] overflow-x-auto custom-scrollbar pr-12">curl http://localhost:8000/v1beta/models/gemini-3.7-flash-high:streamGenerateContent \
   -H "Content-Type: application/json" \
-  -d '{"contents":[{"role":"user","parts":[{"text":"Hello!"}]}]}'</pre>
+  -d '{"contents":[{"role":"user","parts":[{"text":"Hi"}]}]}'</pre>
           </div>
         </div>
 
         <!-- 8. Remote Cloudflare Tunnel -->
-        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800/90 space-y-3 flex flex-col justify-between hover:border-orange-500/40 transition group">
-          <div class="space-y-1.5">
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800/90 space-y-3 flex flex-col hover:border-orange-500/40 transition group">
+          <div class="space-y-1">
             <div class="font-bold text-slate-200 text-sm flex items-center justify-between">
               <span class="flex items-center space-x-2">
                 <div class="w-6 h-6 rounded-lg bg-orange-600/20 text-orange-400 flex items-center justify-center text-xs">
@@ -567,15 +567,15 @@ res = client.chat.completions.create(
             <p class="text-[11px] text-slate-400 leading-snug">Public HTTPS URL without port forwarding.</p>
           </div>
 
-          <div class="relative bg-slate-950 rounded-xl border border-slate-800 p-2.5">
-            <button onclick="copySnippet('codeCloudflare', this)" class="absolute top-2 right-2 px-2 py-1 rounded-md bg-slate-800/80 hover:bg-orange-600 text-slate-300 hover:text-white text-[10px] transition flex items-center space-x-1" title="Copy code">
+          <div class="relative bg-slate-950 rounded-xl border border-slate-800 p-2.5 flex-1 flex flex-col justify-center">
+            <button onclick="copySnippet('codeCloudflare', this)" class="absolute top-2 right-2 px-2 py-1 rounded-md bg-slate-800/80 hover:bg-orange-600 text-slate-300 hover:text-white text-[10px] transition flex items-center space-x-1 shadow" title="Copy code">
               <i class="fa-regular fa-copy"></i>
               <span>Copy</span>
             </button>
-            <pre id="codeCloudflare" class="text-slate-300 font-mono text-[10px] overflow-x-auto custom-scrollbar pt-1 pr-12"># 1. Start Instant Tunnel
+            <pre id="codeCloudflare" class="text-slate-300 font-mono text-[10.5px] overflow-x-auto custom-scrollbar pr-12"># 1. Start Instant Tunnel
 cloudflared tunnel --url http://localhost:8000
 
-# 2. Use generated remote URL:
+# 2. Remote URL:
 https://your-tunnel.trycloudflare.com/v1</pre>
           </div>
         </div>
