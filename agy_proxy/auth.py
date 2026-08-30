@@ -731,9 +731,11 @@ class AccountPool:
     def set_account_enabled(self, account_id: str, enabled: bool) -> bool:
         """Enables or disables an individual account in the pool."""
         if account_id in self.accounts:
-            self.accounts[account_id].enabled = enabled
+            acc = self.accounts[account_id]
+            acc.enabled = enabled
             self.save_accounts()
-            logger.info("Account %s set enabled=%s", account_id, enabled)
+            status_str = "[green]Enabled[/green]" if enabled else "[yellow]Paused[/yellow]"
+            logger.info("[%s] %s (%s)", acc.name or acc.email, "Resumed / Enabled" if enabled else "Paused / Disabled", acc.email)
             return True
         return False
 
@@ -742,7 +744,7 @@ class AccountPool:
         for acc in self.accounts.values():
             acc.enabled = enabled
         self.save_accounts()
-        logger.info("All accounts set enabled=%s", enabled)
+        logger.info("All %d accounts %s", len(self.accounts), "Resumed / Enabled" if enabled else "Paused / Disabled")
 
     def get_candidate_accounts(
         self,

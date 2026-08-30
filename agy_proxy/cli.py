@@ -280,6 +280,7 @@ def main():
         logging.getLogger("urllib3").setLevel(logging.WARNING)
         logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
         logging.getLogger("uvicorn.error").setLevel(logging.WARNING)
+        logging.getLogger("uvicorn").setLevel(logging.WARNING)
 
     # Initialize AccountPool and preload accounts from disk for banner
     pool = AccountPool(token_path=args.token_file)
