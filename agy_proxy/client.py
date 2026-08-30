@@ -60,6 +60,13 @@ class CloudCodeClient:
             if stripped in available_models:
                 return stripped
 
+        # Google AI Studio deprecated gemini-2.5-flash for new users, recommending 3.6/3.7
+        if "2.5" in m:
+            if "gemini-3.7-flash" in available_models:
+                return "gemini-3.7-flash"
+            if "gemini-3.6-flash" in available_models:
+                return "gemini-3.6-flash"
+
         if "3.7" in m and "gemini-3.7-flash" in available_models:
             return "gemini-3.7-flash"
         if "3.6" in m and "gemini-3.6-flash" in available_models:
@@ -134,8 +141,10 @@ class CloudCodeClient:
                         logger.debug("Context cache lookup bypassed: %s", cache_err)
 
                     models_to_try = [clean_model]
-                    if clean_model in ("gemini-3.7-flash", "gemini-flash-latest") and "gemini-3.6-flash" in acc.available_models:
+                    if clean_model != "gemini-3.6-flash":
                         models_to_try.append("gemini-3.6-flash")
+                    if clean_model != "gemini-3.7-flash":
+                        models_to_try.append("gemini-3.7-flash")
                 else:
                     project = await acc.initialize_project()
                     url = f"{CLOUDCODE_BASE_URL}/{endpoint}"
@@ -180,9 +189,10 @@ class CloudCodeClient:
                                     last_error = httpx.HTTPStatusError("429 Too Many Requests", request=response.request, response=response)
                                     break  # Break inner retry, proceed to next candidate account in outer loop
 
-                                if response.status_code == 503 and len(models_to_try) > 1 and target_sub_model != models_to_try[-1]:
-                                    logger.warning("[%s] Model %s returned 503 (High Demand); trying fallback %s...", acc.email, target_sub_model, models_to_try[-1])
-                                    break  # Try next sub_model in models_to_try
+                                if (response.status_code in (404, 503)) and len(models_to_try) > 1 and target_sub_model != models_to_try[-1]:
+                                    next_sub = [m for m in models_to_try if m != target_sub_model][0]
+                                    logger.warning("[%s] Model %s returned %d; trying fallback %s...", acc.email, target_sub_model, response.status_code, next_sub)
+                                    continue  # Try next model in models_to_try
 
                                 if response.status_code != 200:
                                     error_text = await response.aread()
