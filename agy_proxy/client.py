@@ -140,18 +140,13 @@ class CloudCodeClient:
                     except Exception as cache_err:
                         logger.debug("Context cache lookup bypassed: %s", cache_err)
 
-                    models_to_try = [clean_model]
-                    if clean_model != "gemini-3.6-flash":
-                        models_to_try.append("gemini-3.6-flash")
-                    if clean_model != "gemini-3.7-flash":
-                        models_to_try.append("gemini-3.7-flash")
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{clean_model}:streamGenerateContent?alt=sse&key={acc.refresh_token}"
                 else:
                     project = await acc.initialize_project()
                     url = f"{CLOUDCODE_BASE_URL}/{endpoint}"
                     payload = payload_builder_fn(project)
                     backend_m = payload.get("model", model_name)
                     req_body = payload
-                    models_to_try = [None]  # Standard CloudCode single URL
 
                 acc_label = acc.name or acc.email
                 api_source = "AI Studio API Key" if acc.auth_method == "api_key" else "Antigravity OAuth"
@@ -165,71 +160,68 @@ class CloudCodeClient:
                     backend_sess_id = payload.get("request", {}).get("sessionId", f"sess-{uuid.uuid4().hex[:8]}")
                     session_affinity.pin_session(session_key, acc.account_id, backend_sess_id)
 
-                for target_sub_model in models_to_try:
-                    if acc.auth_method == "api_key":
-                        url = f"https://generativelanguage.googleapis.com/v1beta/models/{target_sub_model}:streamGenerateContent?alt=sse&key={acc.refresh_token}"
+                try:
+                    async with client.stream("POST", url, headers=headers, json=req_body, timeout=timeout) as response:
+                        if response.status_code == 429:
+                            error_text = await response.aread()
+                            acc.mark_rate_limited(model_name, duration=1800.0)
+                            logger.warning(
+                                "[%s] Hit 429 quota limit (%s). Failing over to next account in pool...",
+                                acc.email,
+                                error_text.decode("utf-8", "ignore")[:80],
+                            )
+                            last_error = httpx.HTTPStatusError("429 Too Many Requests", request=response.request, response=response)
+                            continue  # Proceed to next candidate account
 
-                    try:
-                        async with client.stream("POST", url, headers=headers, json=req_body, timeout=timeout) as response:
-                            if response.status_code == 429:
-                                error_text = await response.aread()
-                                acc.mark_rate_limited(model_name, duration=1800.0)
-                                logger.warning(
-                                    "[%s] Hit 429 quota limit (%s). Failing over to next account in pool...",
-                                    acc.email,
-                                    error_text.decode("utf-8", "ignore")[:80],
-                                )
-                                last_error = httpx.HTTPStatusError("429 Too Many Requests", request=response.request, response=response)
-                                break  # Break model attempts, proceed to next candidate account
+                        if response.status_code == 503:
+                            error_text = await response.aread()
+                            logger.warning("[%s] Model %s is currently overloaded (503 Service Unavailable). Failing over to next account in pool...", acc.email, backend_m)
+                            last_error = httpx.HTTPStatusError("503 Service Unavailable (Model Overloaded)", request=response.request, response=response)
+                            continue  # Proceed to next candidate account
 
-                            if (response.status_code in (404, 503)) and target_sub_model != models_to_try[-1]:
-                                next_sub = [m for m in models_to_try if m != target_sub_model][0]
-                                logger.warning("[%s] Model %s returned %d; trying fallback %s...", acc.email, target_sub_model, response.status_code, next_sub)
-                                continue  # Try next model in models_to_try
+                        if response.status_code != 200:
+                            error_text = await response.aread()
+                            logger.error("[%s] Provider error [%d]: %s", acc.email, response.status_code, error_text.decode("utf-8", "ignore"))
+                            raise httpx.HTTPStatusError(
+                                f"API returned {response.status_code}: {error_text.decode('utf-8', 'ignore')}",
+                                request=response.request,
+                                response=response,
+                            )
 
-                            if response.status_code != 200:
-                                error_text = await response.aread()
-                                logger.error("[%s] Provider error [%d]: %s", acc.email, response.status_code, error_text.decode("utf-8", "ignore"))
-                                raise httpx.HTTPStatusError(
-                                    f"API returned {response.status_code}: {error_text.decode('utf-8', 'ignore')}",
-                                    request=response.request,
-                                    response=response,
-                                )
+                        # Stream response chunks
+                        acc.total_requests += 1
+                        acc.last_used_timestamp = time.time()
+                        acc.last_used_model = backend_m
+                        acc.last_client_type = api_source
+                        async for line in response.aiter_lines():
+                            line = line.strip()
+                            if not line:
+                                continue
+                            if line.startswith("data:"):
+                                raw_json = line[5:].strip()
+                                if raw_json:
+                                    try:
+                                        data_obj = json.loads(raw_json)
+                                        # Normalize response wrapper for AI Studio / CloudCode
+                                        yield data_obj
+                                    except json.JSONDecodeError as e:
+                                        logger.warning("Failed to decode SSE JSON chunk: %s", e)
+                        return  # Succeeded, end generator
 
-                            # Stream response chunks
-                            acc.total_requests += 1
-                            acc.last_used_timestamp = time.time()
-                            acc.last_used_model = backend_m
-                            acc.last_client_type = api_source
-                            async for line in response.aiter_lines():
-                                line = line.strip()
-                                if not line:
-                                    continue
-                                if line.startswith("data:"):
-                                    raw_json = line[5:].strip()
-                                    if raw_json:
-                                        try:
-                                            data_obj = json.loads(raw_json)
-                                            # Normalize response wrapper for AI Studio / CloudCode
-                                            yield data_obj
-                                        except json.JSONDecodeError as e:
-                                            logger.warning("Failed to decode SSE JSON chunk: %s", e)
-                            return  # Succeeded, end generator
-
-                    except httpx.HTTPStatusError as e:
-                        last_error = e
-                        if e.response.status_code in (403, 429, 500, 502, 503, 504, 404):
-                            logger.warning("[%s] Account error [%d]. Failing over to next candidate account...", acc.email, e.response.status_code)
-                            break
-                        raise
-                    except (httpx.TimeoutException, httpx.NetworkError) as e:
-                        logger.warning("[%s] Network/Timeout error (%s). Failing over to next account...", acc.email, e)
-                        last_error = e
-                        break
-                    except Exception as e:
-                        logger.warning("[%s] Account error (%s). Failing over to next account...", acc.email, e)
-                        last_error = e
-                        break
+                except httpx.HTTPStatusError as e:
+                    last_error = e
+                    if e.response.status_code in (403, 429, 500, 502, 503, 504, 404):
+                        logger.warning("[%s] Account error [%d]. Failing over to next candidate account...", acc.email, e.response.status_code)
+                        continue
+                    raise
+                except (httpx.TimeoutException, httpx.NetworkError) as e:
+                    logger.warning("[%s] Network/Timeout error (%s). Failing over to next account...", acc.email, e)
+                    last_error = e
+                    continue
+                except Exception as e:
+                    logger.warning("[%s] Account error (%s). Failing over to next account...", acc.email, e)
+                    last_error = e
+                    continue
             except httpx.HTTPStatusError as e:
                 last_error = e
                 if e.response.status_code in (400, 422):
