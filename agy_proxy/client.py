@@ -38,9 +38,19 @@ class CloudCodeClient:
     def _map_to_aistudio_model(model: str, available_models: Dict[str, Any]) -> str:
         """
         Intelligently maps Antigravity CloudCode model names (e.g. gemini-3.7-flash-high)
-        to the best supported model in Google AI Studio (e.g. gemini-3.6-flash, gemini-3.7-flash, etc.).
+        to the best supported model in Google AI Studio (e.g. gemini-3.7-flash, gemini-3.6-flash, etc.).
         """
         m = model.replace("models/", "").strip().lower()
+        if not available_models:
+            # Fallback sane defaults if available_models is empty
+            if "3.7" in m:
+                return "gemini-3.7-flash"
+            if "3.6" in m:
+                return "gemini-3.6-flash"
+            if "pro" in m:
+                return "gemini-3.1-pro-preview"
+            return "gemini-3.6-flash"
+
         if m in available_models:
             return m
 
@@ -63,9 +73,11 @@ class CloudCodeClient:
         if "flash" in m and "gemini-3.6-flash" in available_models:
             return "gemini-3.6-flash"
 
+        if "gemini-3.7-flash" in available_models:
+            return "gemini-3.7-flash"
         if "gemini-3.6-flash" in available_models:
             return "gemini-3.6-flash"
-        return list(available_models.keys())[0] if available_models else "gemini-3.6-flash"
+        return list(available_models.keys())[0]
 
     async def _post_sse_stream_with_failover(
         self,
@@ -138,10 +150,6 @@ class CloudCodeClient:
                     logger.info("[%s] ⚡ %s (%s)", acc_label, backend_m, api_source)
                 else:
                     logger.info("[%s] ⚡ %s [requested: %s] (%s)", acc_label, backend_m, model_name, api_source)
-                acc.last_used_timestamp = time.time()
-                acc.last_used_model = backend_m
-                acc.last_client_type = api_source
-                acc.total_requests += 1
 
                 # Pin session to this successful account
                 if session_key:
@@ -186,6 +194,10 @@ class CloudCodeClient:
                                     )
 
                                 # Stream response chunks
+                                acc.total_requests += 1
+                                acc.last_used_timestamp = time.time()
+                                acc.last_used_model = backend_m
+                                acc.last_client_type = api_source
                                 async for line in response.aiter_lines():
                                     line = line.strip()
                                     if not line:
@@ -348,9 +360,14 @@ class CloudCodeClient:
         req_id = f"chatcmpl-{uuid.uuid4().hex[:16]}"
         model = req.model
 
+        raw_msgs = [m.model_dump() if hasattr(m, "model_dump") else (m.dict() if hasattr(m, "dict") else dict(m)) for m in req.messages]
+        sess_key = session_affinity.get_session_key(raw_msgs)
+        pinned = session_affinity.get_pinned_account(sess_key)
+        backend_session_id = pinned[1] if pinned else f"session-{uuid.uuid4().hex[:12]}"
+
         def build_payload(project_id: str):
             p = openai_to_cloudcode_payload(req, project_id)
-            p["request"]["sessionId"] = f"session-{uuid.uuid4().hex[:12]}"
+            p["request"]["sessionId"] = backend_session_id
             return p
 
         full_text = ""
@@ -364,6 +381,7 @@ class CloudCodeClient:
             "v1internal:streamGenerateContent?alt=sse",
             build_payload,
             model_name=model,
+            session_key=sess_key,
         ):
             resp = data.get("response", data)
             candidates = resp.get("candidates", [])
@@ -574,9 +592,15 @@ class CloudCodeClient:
         msg_id = f"msg_{uuid.uuid4().hex[:20]}"
         model = req.model
 
+        raw_msgs = [m.model_dump() if hasattr(m, "model_dump") else (m.dict() if hasattr(m, "dict") else dict(m)) for m in req.messages]
+        sys_str = req.system if isinstance(req.system, str) else json.dumps(req.system or "")
+        sess_key = session_affinity.get_session_key(raw_msgs, system_prompt=sys_str)
+        pinned = session_affinity.get_pinned_account(sess_key)
+        backend_session_id = pinned[1] if pinned else f"session-{uuid.uuid4().hex[:12]}"
+
         def build_payload(project_id: str):
             p = anthropic_to_cloudcode_payload(req, project_id)
-            p["request"]["sessionId"] = f"session-{uuid.uuid4().hex[:12]}"
+            p["request"]["sessionId"] = backend_session_id
             return p
 
         full_text = ""
@@ -590,6 +614,7 @@ class CloudCodeClient:
             "v1internal:streamGenerateContent?alt=sse",
             build_payload,
             model_name=model,
+            session_key=sess_key,
         ):
             resp = data.get("response", data)
             candidates = resp.get("candidates", [])

@@ -771,21 +771,15 @@ class AccountPool:
         if not active_pool:
             raise RuntimeError("All accounts in pool are currently disabled. Please enable at least one account in the dashboard.")
 
-        is_3p = any(k in model.lower() for k in ["claude", "gpt-oss", "sonnet", "opus"])
+        is_3p = any(k in model.lower() for k in ["claude", "gpt-oss", "sonnet", "opus", "fable"])
         if is_3p:
             # 3P models (Claude, Opus, GPT-OSS) require Google Antigravity OAuth account
             active_pool = [acc for acc in active_pool if acc.auth_method != "api_key"]
             if not active_pool:
                 raise RuntimeError("No active Google OAuth accounts available for Claude / 3P models.")
         else:
-            # For Gemini / Open models, filter API key accounts that actually support this model
-            clean_m = model.replace("models/", "")
-            active_pool = [
-                acc for acc in active_pool
-                if acc.auth_method != "api_key" or (not acc.available_models) or (clean_m in acc.available_models)
-            ]
-            if not active_pool:
-                active_pool = [acc for acc in self.accounts.values() if acc.enabled]
+            # For Gemini / Open models: API key accounts are fully eligible
+            active_pool = list(active_pool)
 
         available = [acc for acc in active_pool if not acc.is_rate_limited(model)]
         if not available:
