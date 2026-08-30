@@ -141,7 +141,7 @@ Open **`http://localhost:8000`** in Chrome / Firefox on your phone to view the d
 
 ---
 
-### 4. Run via Pre-built Standalone Binaries (Zero Dependencies)
+### 7. Run via Pre-built Standalone Binaries (Zero Dependencies)
 
 Download the single executable for your OS & architecture from **[GitHub Releases](https://github.com/kqlio67/agy-proxy/releases)**:
 
