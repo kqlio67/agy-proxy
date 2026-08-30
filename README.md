@@ -42,7 +42,36 @@ Equipped with **Multi-Account Pooling**, **Automatic 429 Quota Failover**, and a
 
 ## 🚀 Quick Start
 
-### 1. Run via 1-Click Scripts (Linux, macOS, Windows)
+### 1. One-Line Fast Install (Linux & macOS) ⚡
+
+Install the pre-built standalone binary directly with a single command without needing Python:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/kqlio67/agy-proxy/main/install.sh | bash
+```
+
+Then simply start the proxy anywhere:
+```bash
+agy-proxy --port 8000
+```
+
+---
+
+### 2. Run with Docker / Docker Compose 🐳
+
+```bash
+# Quick Docker Run:
+docker run -d -p 8000:8000 \
+  -v ~/.config/agy-proxy:/home/appuser/.config/agy-proxy \
+  --name agy-proxy ghcr.io/kqlio67/agy-proxy:latest
+
+# Or using Docker Compose:
+docker compose up -d
+```
+
+---
+
+### 3. Run via 1-Click Scripts (Repository Source)
 
 - **Linux & macOS**:
   ```bash
@@ -55,7 +84,7 @@ Equipped with **Multi-Account Pooling**, **Automatic 429 Quota Failover**, and a
 
 ---
 
-### 2. Run via Python / UV / Pip (Source)
+### 4. Run via Python / UV / Pip (Source)
 
 ```bash
 # Clone the repository
@@ -75,7 +104,7 @@ python main.py --port 8000
 
 ---
 
-### 3. Run on Android via Termux 📱
+### 5. Run on Android via Termux 📱
 
 Run Antigravity Proxy directly on your Android phone without root:
 

@@ -1,36 +1,47 @@
-# Multi-arch lightweight Python container (amd64, arm64 / Raspberry Pi)
-FROM python:3.11-slim
+# ==============================================================================
+# ⚡ Antigravity Proxy - Official Dockerfile
+# Multi-stage lightweight build for containerized deployments
+# ==============================================================================
 
-# Prevent Python from writing .pyc files and enable unbuffered logging
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    HOST=0.0.0.0 \
-    PORT=8000
+FROM python:3.11-slim AS builder
 
 WORKDIR /app
 
-# Install curl for container health checks
-RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy project definition and dependencies first for efficient Docker layer caching
 COPY pyproject.toml .
+COPY agy_proxy/ agy_proxy/
 
-# Install dependencies and project package
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir .
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir .
 
-# Copy application source code
-COPY . .
+# Final runtime image
+FROM python:3.11-slim AS runner
 
-# Install current package in editable/live mode
-RUN pip install --no-cache-dir -e .
+WORKDIR /app
 
-# Expose standard proxy port
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    HOST=0.0.0.0 \
+    PORT=8000
+
+# Create non-root user for security
+RUN useradd -m -u 1000 appuser && \
+    mkdir -p /home/appuser/.config/agy-proxy /home/appuser/.gemini/antigravity-cli && \
+    chown -R appuser:appuser /home/appuser
+
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+COPY --from=builder /app /app
+
+USER appuser
+
 EXPOSE 8000
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-  CMD curl -f http://127.0.0.1:8000/health || exit 1
+    CMD python3 -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/info')" || exit 1
 
-# Start the proxy server
-CMD ["python", "main.py", "--host", "0.0.0.0", "--port", "8000"]
+ENTRYPOINT ["python3", "-m", "agy_proxy.cli"]
+CMD ["--host", "0.0.0.0", "--port", "8000"]
