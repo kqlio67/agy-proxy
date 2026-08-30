@@ -162,8 +162,12 @@ export default {
         const auth = await getAccessToken(acc);
 
         if (auth.type === "api_key") {
-          // Google AI Studio endpoint
-          const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=${auth.token}`;
+          // Google AI Studio endpoint (auto-map to gemini-3.7-flash / 3.6-flash)
+          let targetModel = "gemini-3.7-flash";
+          if (model.includes("3.6")) targetModel = "gemini-3.6-flash";
+          else if (model.includes("lite")) targetModel = "gemini-3.1-flash-lite";
+
+          const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:streamGenerateContent?alt=sse&key=${auth.token}`;
           const contents = (reqJson.messages || []).map((m) => ({
             role: m.role === "assistant" ? "model" : "user",
             parts: [{ text: typeof m.content === "string" ? m.content : JSON.stringify(m.content) }],
