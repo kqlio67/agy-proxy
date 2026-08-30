@@ -104,7 +104,21 @@ python main.py --port 8000
 
 ---
 
-### 5. Run on Android via Termux 📱
+### 5. In-Place Self Update 🔄
+
+Check and update Antigravity Proxy directly from the CLI:
+
+```bash
+# Check if a new version is available:
+agy-proxy update --check
+
+# Download & apply the latest update:
+agy-proxy update
+```
+
+---
+
+### 6. Run on Android via Termux 📱
 
 Run Antigravity Proxy directly on your Android phone without root:
 

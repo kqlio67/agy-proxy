@@ -104,21 +104,40 @@ async def check_for_updates(force: bool = False) -> Dict[str, Any]:
     return result
 
 
-async def trigger_git_pull() -> Dict[str, Any]:
-    """Performs git pull origin main for 1-click updates in git-based installations."""
+async def perform_self_update() -> Dict[str, Any]:
+    """
+    Intelligently updates Antigravity Proxy:
+    - If running inside a git repo: executes git pull origin main
+    - If running standalone or via pip: installs/upgrades via pip or installer script
+    """
+    info = await check_for_updates(force=True)
+
+    if info.get("is_git_repo"):
+        # Git pull update
+        res = await trigger_git_pull()
+        return {
+            "method": "git",
+            "success": res.get("success", False),
+            "output": res.get("stdout") or res.get("stderr") or res.get("error"),
+            "current_version": CURRENT_VERSION,
+            "latest_version": info.get("latest_version"),
+        }
+
+    # Standalone / pip upgrade
     try:
         proc = subprocess.run(
-            ["git", "pull", "origin", "main"],
+            ["pip", "install", "--upgrade", f"git+https://github.com/{GITHUB_REPO}.git"],
             capture_output=True,
             text=True,
-            timeout=15.0,
+            timeout=45.0,
         )
         success = proc.returncode == 0
         return {
+            "method": "pip",
             "success": success,
-            "stdout": proc.stdout.strip(),
-            "stderr": proc.stderr.strip(),
-            "returncode": proc.returncode,
+            "output": proc.stdout.strip() if success else proc.stderr.strip(),
+            "current_version": CURRENT_VERSION,
+            "latest_version": info.get("latest_version"),
         }
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return {"method": "pip", "success": False, "error": str(e)}

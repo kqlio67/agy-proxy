@@ -171,6 +171,46 @@ async def handle_auth_list():
     console.print(table)
 
 
+async def handle_update_command(check_only: bool = False):
+    """Checks for releases and performs self-update."""
+    from agy_proxy.updater import check_for_updates, perform_self_update
+
+    console.print(Panel("[bold cyan]⚡ Antigravity Proxy Update Manager[/bold cyan]", border_style="blue"))
+    console.print("🔍 Checking GitHub Releases...")
+    info = await check_for_updates(force=True)
+
+    curr_v = info.get("current_version", APP_VERSION)
+    latest_v = info.get("latest_version", APP_VERSION)
+    has_update = info.get("has_update", False)
+
+    console.print(f"Current Version: [bold white]v{curr_v}[/bold white]")
+    console.print(f"Latest Version:  [bold green]v{latest_v}[/bold green]")
+
+    if not has_update:
+        console.print("\n[bold green]✅ You are on the latest version of Antigravity Proxy![/bold green]")
+        return
+
+    console.print(f"\n[bold yellow]🚀 New update available:[/bold yellow] [bold green]v{latest_v}[/bold green]")
+    if info.get("release_name"):
+        console.print(f"Release: [bold white]{info.get('release_name')}[/bold white]")
+    if info.get("release_url"):
+        console.print(f"Release URL: [underline blue]{info.get('release_url')}[/underline blue]")
+
+    if check_only:
+        return
+
+    console.print("\n📦 Pulling latest update...")
+    res = await perform_self_update()
+    if res.get("success"):
+        console.print(f"[bold green]✅ Successfully updated to latest version via {res.get('method')}![/bold green]")
+        if res.get("output"):
+            console.print(f"[dim]{res.get('output')}[/dim]")
+        console.print("\n[bold cyan]Restart your proxy server to apply changes:[/bold cyan] `agy-proxy`")
+    else:
+        console.print(f"[bold red]❌ Automatic update failed:[/bold red] {res.get('output') or res.get('error')}")
+        console.print("\n[bold yellow]Manual update command:[/bold yellow] `git pull origin main`")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description=f"Antigravity Proxy (v{APP_VERSION}) - OpenAI & Anthropic compatible API server for Antigravity with Multi-Account pooling."
@@ -184,6 +224,9 @@ def main():
     )
     subparsers = parser.add_subparsers(dest="subcommand", help="Subcommand to execute")
 
+    # update subcommand (agy-proxy update)
+    update_parser = subparsers.add_parser("update", help="Check and install latest Antigravity Proxy updates")
+    update_parser.add_argument("--check", "-c", action="store_true", help="Only check for updates without installing")
     # auth subcommand
     auth_parser = subparsers.add_parser("auth", help="Manage Antigravity Google accounts in pool")
     auth_subparsers = auth_parser.add_subparsers(dest="auth_action", help="Auth action")
@@ -249,7 +292,11 @@ def main():
         os.environ["CLOUDFLARE_UPSTREAM_URL"] = args.cloudflare_url.rstrip("/")
 
     # Handle subcommands
-    if args.subcommand == "auth":
+    if args.subcommand == "update":
+        check_only = getattr(args, "check", False)
+        asyncio.run(handle_update_command(check_only=check_only))
+        return
+    elif args.subcommand == "auth":
         if args.auth_action == "login":
             asyncio.run(handle_auth_login())
             return
