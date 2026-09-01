@@ -280,6 +280,45 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           </div>
         </div>
 
+        <!-- Context Auto-Compactor & Summarizer Card -->
+        <div class="p-6 rounded-2xl bg-dark-card border border-dark-border space-y-4">
+          <div class="flex items-center justify-between">
+            <h2 class="text-base font-bold text-white flex items-center">
+              <i class="fa-solid fa-compress-alt mr-2 text-purple-400"></i> Context Compactor
+            </h2>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="compactorEnabledToggle" class="sr-only peer" checked onchange="updateCompactorSettings()">
+              <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+            </label>
+          </div>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Auto-compresses long chat histories using <span class="font-mono text-purple-300">gemini-3.1-flash-lite</span> when full, saving 80%+ tokens and preventing overflow.
+          </p>
+          <div class="space-y-3 pt-1">
+            <div>
+              <div class="flex justify-between text-xs text-slate-400 mb-1">
+                <span>Auto-Summarize Threshold</span>
+                <span id="compactThresholdDisplay" class="font-mono text-purple-300 font-semibold">90,000 tokens</span>
+              </div>
+              <input type="range" id="compactThresholdSlider" min="30000" max="200000" step="5000" value="90000" class="w-full accent-purple-500" oninput="onCompactSliderInput(this.value)" onchange="updateCompactorSettings()">
+              <div class="flex justify-between text-[10px] text-slate-500 mt-0.5 font-mono">
+                <span>30k</span>
+                <span>90k (Optimal)</span>
+                <span>200k</span>
+              </div>
+            </div>
+            <div class="flex items-center justify-between text-xs text-slate-400 pt-1">
+              <span>Preserve Last Messages:</span>
+              <select id="compactKeepLastSelect" onchange="updateCompactorSettings()" class="bg-slate-900 border border-slate-700/80 rounded-lg px-2 py-1 text-slate-200 text-xs focus:outline-none focus:border-purple-500 font-mono">
+                <option value="4">4 msgs</option>
+                <option value="6" selected>6 msgs</option>
+                <option value="10">10 msgs</option>
+                <option value="16">16 msgs</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
       </div>
 
       <!-- Right Column: Interactive Chat Interface -->
@@ -1818,9 +1857,53 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       } catch (e) {}
     }
 
+    async function loadCompactorSettings() {
+      try {
+        const res = await fetch('/api/context/settings');
+        if (!res.ok) return;
+        const data = await res.json();
+        const toggle = document.getElementById('compactorEnabledToggle');
+        const slider = document.getElementById('compactThresholdSlider');
+        const display = document.getElementById('compactThresholdDisplay');
+        const select = document.getElementById('compactKeepLastSelect');
+        if (toggle) toggle.checked = !!data.enabled;
+        if (slider) slider.value = data.threshold_tokens || 90000;
+        if (display) display.innerText = (data.threshold_tokens || 90000).toLocaleString() + ' tokens';
+        if (select) select.value = data.keep_last_n || 6;
+      } catch(e) {
+        console.debug('Failed to load compactor settings', e);
+      }
+    }
+
+    function onCompactSliderInput(val) {
+      const display = document.getElementById('compactThresholdDisplay');
+      if (display) display.innerText = Number(val).toLocaleString() + ' tokens';
+    }
+
+    async function updateCompactorSettings() {
+      const toggle = document.getElementById('compactorEnabledToggle');
+      const slider = document.getElementById('compactThresholdSlider');
+      const select = document.getElementById('compactKeepLastSelect');
+      try {
+        await fetch('/api/context/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            enabled: toggle ? toggle.checked : true,
+            threshold_tokens: slider ? parseInt(slider.value, 10) : 90000,
+            keep_last_n: select ? parseInt(select.value, 10) : 6,
+            model: 'gemini-3.1-flash-lite'
+          })
+        });
+      } catch(e) {
+        console.error('Failed to save compactor settings', e);
+      }
+    }
+
     // Init
     loadAccounts();
     loadModels();
+    loadCompactorSettings();
     checkForSoftwareUpdates();
     updateCacheStats();
     setInterval(updateCacheStats, 10000);

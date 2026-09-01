@@ -15,6 +15,7 @@ import httpx
 from agy_proxy.auth import AccountPool, AccountSession, AuthManager, CLOUDCODE_BASE_URL
 from agy_proxy.cache import google_context_cache, session_affinity
 from agy_proxy.converter import (
+    _extract_message_text,
     anthropic_to_cloudcode_payload,
     create_openai_chunk,
     openai_to_cloudcode_payload,
@@ -23,6 +24,7 @@ from agy_proxy.converter import (
 )
 from agy_proxy.models import AnthropicMessage, AnthropicRequest, OpenAIChatRequest, normalize_model_name
 from agy_proxy.search import search_multi_engine, search_duckduckgo
+from agy_proxy.compactor import generate_compact_summary, should_auto_compact, compact_conversation_history
 
 logger = logging.getLogger("agy_proxy.client")
 
@@ -215,7 +217,16 @@ class CloudCodeClient:
 
                     acc_label = acc.name or acc.email
                     api_source = "AI Studio API Key" if acc.auth_method == "api_key" else "Antigravity OAuth"
-                    if backend_m == model_name:
+                    is_background = payload.get("requestType") == "checkpoint"
+                    if is_background:
+                        logger.info(
+                            "[%s] ⚙️ [Background / Compact] %s (routed from %s) | %s",
+                            acc_label,
+                            backend_m,
+                            model_name,
+                            api_source,
+                        )
+                    elif backend_m == model_name:
                         logger.info("[%s] ⚡ %s (%s)", acc_label, backend_m, api_source)
                     else:
                         logger.info("[%s] ⚡ %s [requested: %s] (%s)", acc_label, backend_m, model_name, api_source)
@@ -320,8 +331,13 @@ class CloudCodeClient:
 
     async def stream_openai_chat(self, req: OpenAIChatRequest) -> AsyncGenerator[str, None]:
         """Streams OpenAI formatted SSE chunks."""
-        req_id = f"chatcmpl-{uuid.uuid4().hex[:16]}"
-        model = req.model
+        # 0. Check and apply context auto-compaction if threshold is reached
+        if should_auto_compact(req.messages):
+            try:
+                compacted, _, _ = await compact_conversation_history(self.pool, req.messages)
+                req.messages = compacted
+            except Exception as e:
+                logger.warning("OpenAI auto-compaction error: %s", e)
 
         # Derive session key for sticky session continuity
         raw_msgs = [m.model_dump() if hasattr(m, "model_dump") else (m.dict() if hasattr(m, "dict") else dict(m)) for m in req.messages]
@@ -422,6 +438,14 @@ class CloudCodeClient:
         """Returns non-streaming full OpenAI ChatCompletionResponse."""
         req_id = f"chatcmpl-{uuid.uuid4().hex[:16]}"
         model = req.model
+
+        # 0. Check and apply context auto-compaction if threshold is reached
+        if should_auto_compact(req.messages):
+            try:
+                compacted, _, _ = await compact_conversation_history(self.pool, req.messages)
+                req.messages = compacted
+            except Exception as e:
+                logger.warning("OpenAI auto-compaction error: %s", e)
 
         raw_msgs = [m.model_dump() if hasattr(m, "model_dump") else (m.dict() if hasattr(m, "dict") else dict(m)) for m in req.messages]
         sess_key = session_affinity.get_session_key(raw_msgs)
@@ -556,6 +580,44 @@ class CloudCodeClient:
             yield f"event: message_delta\ndata: {json.dumps(msg_delta)}\n\n"
             yield f"event: message_stop\ndata: {json.dumps({'type': 'message_stop'})}\n\n"
             return
+
+        # 0. Check if this is an explicit /compact command from Claude Code
+        is_explicit_compact = False
+        compact_idx = -1
+        for i in range(len(req.messages) - 1, max(-1, len(req.messages) - 6), -1):
+            txt = _extract_message_text(req.messages[i]).lower()
+            if (
+                "create a detailed summary of the conversation so far" in txt
+                or "respond with text only. do not call any tools" in txt
+                or "your task is to create a detailed summary" in txt
+            ):
+                is_explicit_compact = True
+                compact_idx = i
+                break
+
+        if is_explicit_compact:
+            compact_targets = req.messages[:compact_idx] if compact_idx > 0 else req.messages
+            logger.info("[Claude Code] 🗜 Executing /compact summarization on %d messages via gemini-3.1-flash-lite", len(compact_targets))
+            summary_txt = await generate_compact_summary(self.pool, compact_targets)
+            if not summary_txt:
+                summary_txt = "<summary>\n1. Primary Request and Intent:\n   Session context compacted.\n</summary>"
+
+            # Yield clean Anthropic SSE text response to Claude Code
+            yield f"event: message_start\ndata: {json.dumps({'type': 'message_start', 'message': {'id': msg_id, 'type': 'message', 'role': 'assistant', 'model': model, 'content': [], 'stop_reason': None, 'stop_sequence': None, 'usage': {'input_tokens': 0, 'output_tokens': 0}}})}\n\n"
+            yield f"event: content_block_start\ndata: {json.dumps({'type': 'content_block_start', 'index': 0, 'content_block': {'type': 'text', 'text': ''}})}\n\n"
+            yield f"event: content_block_delta\ndata: {json.dumps({'type': 'content_block_delta', 'index': 0, 'delta': {'type': 'text_delta', 'text': summary_txt}})}\n\n"
+            yield f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': 0})}\n\n"
+            yield f"event: message_delta\ndata: {json.dumps({'type': 'message_delta', 'delta': {'stop_reason': 'end_turn', 'stop_sequence': None}, 'usage': {'output_tokens': max(1, len(summary_txt) // 4)}})}\n\n"
+            yield f"event: message_stop\ndata: {json.dumps({'type': 'message_stop'})}\n\n"
+            return
+
+        # Apply background context auto-compaction if threshold is reached
+        if should_auto_compact(req.messages, system=req.system):
+            try:
+                compacted, _, _ = await compact_conversation_history(self.pool, req.messages)
+                req.messages = compacted
+            except Exception as e:
+                logger.warning("Anthropic stream auto-compaction error: %s", e)
 
         # Derive session key for sticky session continuity
         raw_msgs = [m.model_dump() if hasattr(m, "model_dump") else (m.dict() if hasattr(m, "dict") else dict(m)) for m in req.messages]
@@ -745,6 +807,53 @@ class CloudCodeClient:
                     "output_tokens": 150,
                 },
             }
+
+        # 0. Check if this is an explicit /compact command from Claude Code
+        is_explicit_compact = False
+        compact_idx = -1
+        for i in range(len(req.messages) - 1, max(-1, len(req.messages) - 6), -1):
+            txt = _extract_message_text(req.messages[i]).lower()
+            if (
+                "create a detailed summary of the conversation so far" in txt
+                or "respond with text only. do not call any tools" in txt
+                or "your task is to create a detailed summary" in txt
+            ):
+                is_explicit_compact = True
+                compact_idx = i
+                break
+
+        if is_explicit_compact:
+            compact_targets = req.messages[:compact_idx] if compact_idx > 0 else req.messages
+            logger.info("[Claude Code] 🗜 Executing /compact summarization on %d messages via gemini-3.1-flash-lite", len(compact_targets))
+            summary_txt = await generate_compact_summary(self.pool, compact_targets)
+            if not summary_txt:
+                summary_txt = "<summary>\n1. Primary Request and Intent:\n   Session context compacted.\n</summary>"
+            return {
+                "id": f"msg_{uuid.uuid4().hex[:12]}",
+                "type": "message",
+                "role": "assistant",
+                "model": model,
+                "content": [
+                    {
+                        "type": "text",
+                        "text": summary_txt,
+                    },
+                ],
+                "stop_reason": "end_turn",
+                "stop_sequence": None,
+                "usage": {
+                    "input_tokens": 100,
+                    "output_tokens": max(1, len(summary_txt) // 4),
+                },
+            }
+
+        # Apply background context auto-compaction if threshold is reached
+        if should_auto_compact(req.messages, system=req.system):
+            try:
+                compacted, _, _ = await compact_conversation_history(self.pool, req.messages)
+                req.messages = compacted
+            except Exception as e:
+                logger.warning("Anthropic non-stream auto-compaction error: %s", e)
 
         raw_msgs = [m.model_dump() if hasattr(m, "model_dump") else (m.dict() if hasattr(m, "dict") else dict(m)) for m in req.messages]
         sys_str = req.system if isinstance(req.system, str) else json.dumps(req.system or "")

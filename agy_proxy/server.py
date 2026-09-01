@@ -317,6 +317,44 @@ def create_app(
             "cached_contents_count": len(google_context_cache._cache_map),
         }
 
+    @app.get("/api/context/settings")
+    async def get_compactor_settings():
+        from agy_proxy.compactor import compactor_settings
+        return compactor_settings.to_dict()
+
+    @app.post("/api/context/settings")
+    async def update_compactor_settings(request: Request):
+        from agy_proxy.compactor import compactor_settings
+        body = await request.json()
+        if "enabled" in body:
+            compactor_settings.enabled = bool(body["enabled"])
+        if "threshold_tokens" in body:
+            compactor_settings.threshold_tokens = int(body["threshold_tokens"])
+        if "keep_last_n" in body:
+            compactor_settings.keep_last_n = int(body["keep_last_n"])
+        if "model" in body:
+            compactor_settings.model = str(body["model"])
+        compactor_settings.save()
+        return {"status": "ok", "settings": compactor_settings.to_dict()}
+
+    @app.post("/api/context/compact")
+    async def manual_compact_context(request: Request):
+        from agy_proxy.compactor import compact_conversation_history
+        body = await request.json()
+        messages = body.get("messages", [])
+        if not messages or not isinstance(messages, list):
+            raise HTTPException(status_code=400, detail="Messages array is required.")
+        keep_last_n = body.get("keep_last_n")
+        compacted, before, after = await compact_conversation_history(pool, messages, keep_last_n=keep_last_n)
+        savings_pct = int((1.0 - (after / max(1, before))) * 100) if before > 0 else 0
+        return {
+            "status": "compacted",
+            "messages": compacted,
+            "tokens_before": before,
+            "tokens_after": after,
+            "savings_percent": savings_pct,
+        }
+
     @app.get("/api/models")
     async def get_proxy_models():
         models_dict = await pool.get_pool_models() if pool.accounts else {}
@@ -475,6 +513,7 @@ def create_app(
             err_type = "rate_limit_error" if e.response.status_code == 429 else "api_error"
             return JSONResponse(
                 status_code=e.response.status_code,
+                headers={"Retry-After": "2"},
                 content={
                     "type": "error",
                     "error": {
@@ -488,6 +527,7 @@ def create_app(
             err_msg = str(e) or f"{type(e).__name__}: Upstream request failed"
             return JSONResponse(
                 status_code=500,
+                headers={"Retry-After": "2"},
                 content={
                     "type": "error",
                     "error": {

@@ -67,6 +67,36 @@ def get_thought_signature(call_id: Optional[str] = None, func_name: Optional[str
     return None
 
 
+def _extract_message_text(msg: Any) -> str:
+    """Extracts text content safely from dict or object message representations."""
+    if not msg:
+        return ""
+    if isinstance(msg, str):
+        return msg
+    if isinstance(msg, dict):
+        content = msg.get("content", "")
+    else:
+        content = getattr(msg, "content", "")
+
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: List[str] = []
+        for b in content:
+            if isinstance(b, str):
+                parts.append(b)
+            elif isinstance(b, dict):
+                t = b.get("text")
+                if t and isinstance(t, str):
+                    parts.append(t)
+            else:
+                t = getattr(b, "text", None)
+                if t and isinstance(t, str):
+                    parts.append(t)
+        return " ".join(parts)
+    return str(content or "")
+
+
 def sanitize_gemini_contents_thought_signatures(contents: Any) -> Any:
     """Ensures all functionCall parts in Gemini contents have a valid thoughtSignature."""
     if not isinstance(contents, list):
@@ -414,13 +444,29 @@ def openai_to_cloudcode_payload(
         if function_declarations:
             inner_request["tools"] = [{"functionDeclarations": function_declarations}]
 
-    sys_text = "".join(p.get("text", "") for p in system_parts).lower()
-    is_checkpoint_or_title = "title generator" in sys_text or "conversation title" in sys_text
-    if is_checkpoint_or_title:
+    sys_text = "".join(str(p.get("text", "")) for p in system_parts if isinstance(p, dict) and p.get("text")).lower()
+    is_checkpoint_or_compact = False
+    if "title generator" in sys_text or "conversation title" in sys_text:
+        is_checkpoint_or_compact = True
+    else:
+        for m in req.messages[-4:]:
+            c_text = _extract_message_text(m)
+            c_lower = c_text.lower()
+            if (
+                "create a detailed summary of the conversation so far" in c_lower
+                or "respond with text only. do not call any tools" in c_lower
+                or "your task is to create a detailed summary" in c_lower
+            ):
+                is_checkpoint_or_compact = True
+                break
+
+    if is_checkpoint_or_compact:
         backend_model = "gemini-3.1-flash-lite"
         generation_config["thinkingConfig"] = {"includeThoughts": False, "thinkingBudget": 0}
-        generation_config["maxOutputTokens"] = min(max_tokens, 1024)
+        generation_config["maxOutputTokens"] = min(max_tokens, 4096)
         req_type = "checkpoint"
+        if "tools" in inner_request:
+            inner_request.pop("tools", None)
     else:
         req_type = "chat"
 
@@ -623,13 +669,29 @@ def anthropic_to_cloudcode_payload(
         if function_declarations:
             inner_request["tools"] = [{"functionDeclarations": function_declarations}]
 
-    sys_text = "".join(p.get("text", "") for p in system_parts).lower()
-    is_checkpoint_or_title = "title generator" in sys_text or "conversation title" in sys_text
-    if is_checkpoint_or_title:
+    sys_text = "".join(str(p.get("text", "")) for p in system_parts if isinstance(p, dict) and p.get("text")).lower()
+    is_checkpoint_or_compact = False
+    if "title generator" in sys_text or "conversation title" in sys_text:
+        is_checkpoint_or_compact = True
+    else:
+        for m in req.messages[-4:]:
+            c_text = _extract_message_text(m)
+            c_lower = c_text.lower()
+            if (
+                "create a detailed summary of the conversation so far" in c_lower
+                or "respond with text only. do not call any tools" in c_lower
+                or "your task is to create a detailed summary" in c_lower
+            ):
+                is_checkpoint_or_compact = True
+                break
+
+    if is_checkpoint_or_compact:
         backend_model = "gemini-3.1-flash-lite"
         generation_config["thinkingConfig"] = {"includeThoughts": False, "thinkingBudget": 0}
-        generation_config["maxOutputTokens"] = min(req.max_tokens or 1024, 1024)
+        generation_config["maxOutputTokens"] = min(req.max_tokens or 4096, 4096)
         req_type = "checkpoint"
+        if "tools" in inner_request:
+            inner_request.pop("tools", None)
     else:
         req_type = "chat"
 
