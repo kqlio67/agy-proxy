@@ -86,64 +86,66 @@ def estimate_tokens(text: str) -> int:
 
 def estimate_message_tokens(msg: Any) -> int:
     """Estimates tokens for a single message object (dict or Pydantic model), including large tool results."""
+    if not msg:
+        return 0
     total = 4  # base message overhead
     if isinstance(msg, dict):
         role = msg.get("role", "")
-        total += estimate_tokens(role)
         content = msg.get("content", "")
-        if isinstance(content, str):
-            total += estimate_tokens(content)
-        elif isinstance(content, list):
-            for block in content:
-                if isinstance(block, dict):
-                    txt = block.get("text", "") or block.get("thinking", "")
-                    if txt:
-                        total += estimate_tokens(str(txt))
-                    if "tool_use" in block.get("type", ""):
-                        inp = block.get("input", {})
-                        total += estimate_tokens(json.dumps(inp) if isinstance(inp, dict) else str(inp))
-                    if "tool_result" in block.get("type", ""):
-                        res = block.get("content", "")
-                        total += estimate_tokens(str(res))
-                elif isinstance(block, str):
-                    total += estimate_tokens(block)
         tool_calls = msg.get("tool_calls", [])
-        if isinstance(tool_calls, list):
-            for tc in tool_calls:
-                if isinstance(tc, dict):
-                    fn = tc.get("function", {})
-                    total += estimate_tokens(fn.get("name", "")) + estimate_tokens(fn.get("arguments", ""))
     else:
         role = getattr(msg, "role", "")
-        total += estimate_tokens(str(role))
         content = getattr(msg, "content", "")
-        if isinstance(content, str):
-            total += estimate_tokens(content)
-        elif isinstance(content, list):
-            for block in content:
-                if isinstance(block, str):
-                    total += estimate_tokens(block)
-                elif isinstance(block, dict):
-                    txt = block.get("text", "") or block.get("thinking", "")
-                    if txt:
-                        total += estimate_tokens(str(txt))
-                    if "tool_result" in block.get("type", ""):
-                        total += estimate_tokens(str(block.get("content", "")))
-                else:
-                    txt = getattr(block, "text", "") or getattr(block, "thinking", "")
-                    if txt:
-                        total += estimate_tokens(str(txt))
-                    inp = getattr(block, "input", None)
-                    if inp:
-                        total += estimate_tokens(json.dumps(inp) if isinstance(inp, dict) else str(inp))
-                    res = getattr(block, "content", None)
-                    if res:
-                        if isinstance(res, str):
-                            total += estimate_tokens(res)
-                        elif isinstance(res, list):
-                            for sub_b in res:
-                                sub_txt = getattr(sub_b, "text", "") or (sub_b.get("text", "") if isinstance(sub_b, dict) else str(sub_b))
-                                total += estimate_tokens(str(sub_txt))
+        tool_calls = getattr(msg, "tool_calls", [])
+
+    total += estimate_tokens(str(role or ""))
+
+    if isinstance(content, str):
+        total += estimate_tokens(content)
+    elif isinstance(content, list):
+        for block in content:
+            if isinstance(block, str):
+                total += estimate_tokens(block)
+            elif isinstance(block, dict):
+                txt = block.get("text", "") or block.get("thinking", "")
+                if txt:
+                    total += estimate_tokens(str(txt))
+                if "tool_use" in block.get("type", ""):
+                    inp = block.get("input", {})
+                    total += estimate_tokens(json.dumps(inp) if isinstance(inp, dict) else str(inp))
+                if "tool_result" in block.get("type", ""):
+                    res = block.get("content", "")
+                    if isinstance(res, list):
+                        for sub in res:
+                            sub_t = sub.get("text", "") if isinstance(sub, dict) else getattr(sub, "text", "")
+                            total += estimate_tokens(str(sub_t or ""))
+                    else:
+                        total += estimate_tokens(str(res or ""))
+            else:
+                txt = getattr(block, "text", "") or getattr(block, "thinking", "")
+                if txt:
+                    total += estimate_tokens(str(txt))
+                inp = getattr(block, "input", None)
+                if inp is not None:
+                    total += estimate_tokens(json.dumps(inp) if isinstance(inp, dict) else str(inp))
+                res = getattr(block, "content", None)
+                if res is not None:
+                    if isinstance(res, str):
+                        total += estimate_tokens(res)
+                    elif isinstance(res, list):
+                        for sub_b in res:
+                            sub_txt = getattr(sub_b, "text", "") or (sub_b.get("text", "") if isinstance(sub_b, dict) else str(sub_b))
+                            total += estimate_tokens(str(sub_txt or ""))
+
+    if isinstance(tool_calls, list):
+        for tc in tool_calls:
+            if isinstance(tc, dict):
+                fn = tc.get("function", {})
+                total += estimate_tokens(str(fn.get("name", ""))) + estimate_tokens(str(fn.get("arguments", "")))
+            else:
+                fn = getattr(tc, "function", None)
+                if fn:
+                    total += estimate_tokens(str(getattr(fn, "name", ""))) + estimate_tokens(str(getattr(fn, "arguments", "")))
     return total
 
 
