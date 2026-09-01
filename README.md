@@ -24,17 +24,24 @@ Equipped with **Multi-Account Pooling**, **Automatic 429 Quota Failover**, and a
   - Thinking / Reasoning process extracted to `delta.reasoning_content` (OpenAI) and `thinking` blocks (Anthropic) for reasoning models (`gemini-3.7-flash-high`, `claude-opus-4-6-thinking`).
   - Native Multi-turn Tool & Function Calling support (`tools`, `tool_choice`, `tool_use`, `tool_result`).
   - Multimodal input support (Images via base64 data URIs and URLs).
-  - 🌐 **Built-in Concurrent Multi-Engine Web Search**: Live search aggregation across **DuckDuckGo**, **Bing**, and **Brave** for Claude Code (`WebSearch`) without requiring external API keys.
+  - 🌐 **Built-in Live Web Search**: Native **Google Grounding Search (Vertex AI)** with automatic multi-engine fallbacks (**DuckDuckGo**, **Bing**, **Brave**) for Claude Code (`WebSearch`) without requiring external API keys.
+- 🗜 **Context Compactor & Auto-Summarization (Token Saver)**:
+  - Automatically compresses long conversation histories using `gemini-3.1-flash-lite` before reaching token limits, saving **80% to 95%+ tokens** and preventing Google's 1,048,576 token hard limit (Error 400).
+  - Native interception of Claude Code `/compact` and `/autocompact` commands with official 9-section summarization schema.
+  - Interactive threshold slider (30k – 200k tokens) and toggle controls in the Web Dashboard.
+- ⚡ **Intelligent Background Task Optimization**:
+  - Automatically detects non-interactive tasks (title generation, context compaction, checkpoints) and routes them to lightweight, fast models (`gemini-3.1-flash-lite`) with 0 thinking budget to save 100% of your primary model quotas.
 - 👥 **Multi-Account Pooling & Limit Bypass**:
   - Pool multiple Google Antigravity accounts simultaneously to multiply your rate limits and concurrent request capacity.
   - **Automatic 429 Failover**: When Account A exhausts its quota bucket, the proxy seamlessly retries and routes the request to Account B without dropping the session!
-  - **Least-Used Load Balancing**: Evenly distributes parallel calls across healthy accounts.
+  - **Zero-Delay Recovery**: Injects standard `Retry-After: 2` headers to prevent Claude Code from locking up in 4-minute exponential backoff retry delays.
 - 🔑 **Interactive OAuth PKCE Login (Web UI & CLI)**:
   - Add secondary Google accounts in 2 clicks via the Web UI ("➕ Add Google Account") or via terminal: `uv run python main.py auth login`.
   - Support for Google AI Studio API Keys with automatic dynamic model discovery.
 - 📊 **Modern Web UI Dashboard & Playground**:
   - View all pooled Google accounts, avatars, active tiers, and live Gemini & Claude quota progress bars.
   - Interactive live chat playground with markdown rendering and collapsible thinking blocks.
+  - Dynamic Context Compactor card with configurable auto-summarization thresholds.
   - Toggle switch to enable/pause specific accounts and one-click account deletion.
 - 🚀 **One-Click Launchers**:
   - Pre-configured shell scripts: `./run_claude.sh` (with custom port and model flags) and `./start_proxy.sh`.
@@ -324,6 +331,46 @@ uv run python main.py auth login
 ```bash
 uv run python main.py auth list
 ```
+
+---
+
+## 🗜 Context Compactor & Auto-Summarization (Token Saver)
+
+Antigravity Proxy features an intelligent **Context Compactor Engine** that continuously monitors conversation length and automatically summarizes older conversation turns when token limits approach threshold.
+
+### 🌟 Why it matters:
+- **80% to 98% Token Reduction**: Large 500,000+ token sessions (with full file contents, diffs, and bash outputs) are safely compressed down into a clean ~1,500-token structured context.
+- **Zero 400 Context Overflow Errors**: Prevents hitting Google CloudCode's hard limit of `1,048,576 tokens`.
+- **Zero Claude Quota Wasted**: Compactions and summaries are processed in milliseconds via `gemini-3.1-flash-lite`, using **0% of your primary model quota**.
+- **Full History Retention**: Uses Claude Code's official 9-section summarization prompt schema, retaining all project architectures, file paths, pending tasks, and user instructions.
+
+### ⚙️ Configuration (Web UI & REST API)
+You can configure the compactor dynamically from the Web Dashboard (`http://localhost:8000`) or via REST API:
+
+- **Auto-Summarize Threshold**: Set token threshold from `30,000` to `200,000` tokens (Default: `85,000` tokens).
+- **Preserve Last Messages**: Choose how many recent messages to keep uncompressed in full detail (e.g., 4 to 8 messages).
+- **Manual `/compact` Command**: Type `/compact` inside Claude Code CLI anytime to trigger instantaneous background compression.
+
+```bash
+# Get current compactor settings
+curl http://127.0.0.1:8000/api/context/settings
+
+# Update threshold to 75,000 tokens
+curl -X POST http://127.0.0.1:8000/api/context/settings \
+  -H "Content-Type: application/json" \
+  -d '{"enabled": true, "threshold_tokens": 75000, "keep_last_n": 4}'
+```
+
+---
+
+## 🌐 Live Web Search & Google Grounding
+
+Antigravity Proxy natively equips coding agents (like Claude Code) with live internet access without needing paid API keys from third-party search providers.
+
+### 🔍 Search Architecture:
+1. **Google Grounding (Vertex AI)**: Real-time search indexing directly from Google's search engine.
+2. **Multi-Engine Concurrent Fan-Out**: Automatic parallel querying across **DuckDuckGo**, **Bing**, and **Brave** with URL deduplication, domain ranking, and domain filtering (`site:` filters).
+3. **Transparent Claude Tool Interception**: Automatically handles Claude Code's `WebSearch` and `web_search` tool calls, returning clean, grounded results with citations and URLs.
 
 ---
 
