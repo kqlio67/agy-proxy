@@ -25,6 +25,7 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "*",
   "Access-Control-Expose-Headers": "*",
   "Access-Control-Max-Age": "86400",
+  "Retry-After": "2",
 };
 
 // In-memory token cache across warm worker invocations
@@ -202,7 +203,7 @@ export default {
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${auth.token}`,
-              "User-Agent": "antigravity/1.11.3 linux/amd64",
+              "User-Agent": "antigravity/cli/1.1.23 (aidev_client; os_type=linux; arch=amd64; cl=974125021; auth_method=consumer)",
             },
             body: JSON.stringify(payload),
           });
@@ -254,7 +255,7 @@ export default {
     reqHeaders.delete("x-proxy-key");
 
     if (!reqHeaders.has("User-Agent")) {
-      reqHeaders.set("User-Agent", "antigravity/1.11.3 linux/amd64");
+      reqHeaders.set("User-Agent", "antigravity/cli/1.1.23 (aidev_client; os_type=linux; arch=amd64; cl=974125021; auth_method=consumer)");
     }
 
     try {
