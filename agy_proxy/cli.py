@@ -329,10 +329,18 @@ def main():
     logging.getLogger("httpcore").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("asyncio").setLevel(logging.WARNING)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
 
-    # In non-debug mode, also silence general httpx and uvicorn access logs
+    class EndpointFilter(logging.Filter):
+        def filter(self, record: logging.LogRecord) -> bool:
+            msg = record.getMessage()
+            return not any(p in msg for p in ["/api/cache/stats", "/api/context/settings", "/api/accounts", "/health", "/api/usage"])
+
+    logging.getLogger("uvicorn.access").addFilter(EndpointFilter())
+    logging.getLogger("uvicorn").addFilter(EndpointFilter())
+
+    # In non-debug mode, also silence general uvicorn access logs
     if not args.debug and effective_log_level.lower() != "debug":
-        logging.getLogger("httpx").setLevel(logging.WARNING)
         logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
         logging.getLogger("uvicorn.error").setLevel(logging.WARNING)
         logging.getLogger("uvicorn").setLevel(logging.WARNING)
@@ -367,7 +375,7 @@ def main():
         host=args.host,
         port=args.port,
         log_level="warning" if (not args.debug and effective_log_level.lower() != "debug") else effective_log_level,
-        access_log=bool(args.debug or effective_log_level.lower() == "debug"),
+        access_log=False,
     )
     server = uvicorn.Server(config)
 
