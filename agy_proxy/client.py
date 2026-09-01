@@ -22,7 +22,7 @@ from agy_proxy.converter import (
     parse_gemini_sse_candidate,
     sanitize_gemini_contents_thought_signatures,
 )
-from agy_proxy.models import AnthropicMessage, AnthropicRequest, OpenAIChatRequest, normalize_model_name
+from agy_proxy.models import AnthropicMessage, AnthropicRequest, OpenAIChatRequest, normalize_model_name, DEFAULT_MODEL
 from agy_proxy.search import search_multi_engine, search_duckduckgo
 from agy_proxy.compactor import generate_compact_summary, should_auto_compact, compact_conversation_history
 
@@ -331,6 +331,9 @@ class CloudCodeClient:
 
     async def stream_openai_chat(self, req: OpenAIChatRequest) -> AsyncGenerator[str, None]:
         """Streams OpenAI formatted SSE chunks."""
+        req_id = f"chatcmpl-{uuid.uuid4().hex[:16]}"
+        model = req.model or DEFAULT_MODEL
+
         # 0. Check and apply context auto-compaction if threshold is reached
         if should_auto_compact(req.messages):
             try:
