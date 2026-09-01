@@ -68,7 +68,7 @@ def create_app(
                 pool.load_accounts()
             await pool.initialize_all()
             models_dict = await pool.get_pool_models() if pool.accounts else {}
-            logger.info("✨ Antigravity Proxy ready: %d account(s) active, %d model(s) available in catalog", len(pool.accounts), len(models_dict))
+            logger.info("Antigravity Proxy ready: %d account(s) active, %d model(s) available in catalog", len(pool.accounts), len(models_dict))
         except Exception as e:
             logger.warning("Startup initialization warning: %s", e)
         yield

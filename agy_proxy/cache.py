@@ -177,7 +177,7 @@ class GoogleContextCacheManager:
                             "created_at": now,
                             "expires_at": now + self.ttl_seconds,
                         }
-                        logger.info("✨ Created Google Context Cache: %s (TTL: %ds)", res_name, self.ttl_seconds)
+                        logger.info("Created Google Context Cache: %s (TTL: %ds)", res_name, self.ttl_seconds)
                         return res_name
                 else:
                     if "TotalCachedContentStorageTokensPerModelFreeTier" in resp.text:

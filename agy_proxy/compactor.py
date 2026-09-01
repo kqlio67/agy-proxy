@@ -378,7 +378,7 @@ async def compact_conversation_history(
     tokens_after = estimate_total_tokens(compacted)
     savings_pct = int((1.0 - (tokens_after / max(1, tokens_before))) * 100)
     logger.info(
-        "🗜 [Auto-Compactor] Context compacted: %d tokens -> %d tokens (%d%% saved, %d messages summarized)",
+        "[Auto-Compactor] Context compacted: %d tokens -> %d tokens (%d%% saved, %d messages summarized)",
         tokens_before,
         tokens_after,
         savings_pct,

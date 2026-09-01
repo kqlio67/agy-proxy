@@ -220,7 +220,7 @@ class CloudCodeClient:
                     is_background = payload.get("requestType") == "checkpoint"
                     if is_background:
                         logger.info(
-                            "[%s] ⚙️ [Background / Compact] %s (routed from %s) | %s",
+                            "[%s] [Background / Compact] %s (routed from %s) | %s",
                             acc_label,
                             backend_m,
                             model_name,
@@ -600,7 +600,7 @@ class CloudCodeClient:
 
         if is_explicit_compact:
             compact_targets = req.messages[:compact_idx] if compact_idx > 0 else req.messages
-            logger.info("[Claude Code] 🗜 Executing /compact summarization on %d messages via gemini-3.1-flash-lite", len(compact_targets))
+            logger.info("[Claude Code] [Compact] Executing summarization on %d messages via gemini-3.1-flash-lite", len(compact_targets))
             summary_txt = await generate_compact_summary(self.pool, compact_targets)
             if not summary_txt:
                 summary_txt = "<summary>\n1. Primary Request and Intent:\n   Session context compacted.\n</summary>"
@@ -827,7 +827,7 @@ class CloudCodeClient:
 
         if is_explicit_compact:
             compact_targets = req.messages[:compact_idx] if compact_idx > 0 else req.messages
-            logger.info("[Claude Code] 🗜 Executing /compact summarization on %d messages via gemini-3.1-flash-lite", len(compact_targets))
+            logger.info("[Claude Code] [Compact] Executing summarization on %d messages via gemini-3.1-flash-lite", len(compact_targets))
             summary_txt = await generate_compact_summary(self.pool, compact_targets)
             if not summary_txt:
                 summary_txt = "<summary>\n1. Primary Request and Intent:\n   Session context compacted.\n</summary>"

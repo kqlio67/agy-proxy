@@ -211,7 +211,7 @@ async def search_google_grounding(
                             "source": "google_grounding",
                         })
                 if results:
-                    logger.info("🔍 Google Grounding Search ('%s'): returned %d result(s)", query, len(results))
+                    logger.info("Google Grounding Search ('%s'): returned %d result(s)", query, len(results))
                     return results[:max_results]
     except Exception as e:
         logger.debug("Google grounding search error: %s", e)
@@ -298,7 +298,7 @@ async def search_multi_engine(
         if len(deduped_results) >= max_results:
             break
 
-    logger.info("🔍 Multi-Engine Search ('%s'): gathered %d raw -> %d unique result(s)", clean_query, len(all_raw_results), len(deduped_results))
+    logger.info("Multi-Engine Search ('%s'): gathered %d raw -> %d unique result(s)", clean_query, len(all_raw_results), len(deduped_results))
     return deduped_results
 
 

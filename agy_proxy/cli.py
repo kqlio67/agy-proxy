@@ -50,7 +50,7 @@ def print_banner(host: str, port: int, pool: AccountPool, api_key: str = None, u
 
     panel = Panel(
         table,
-        title=f"[bold white]⚡ Google Antigravity AI Proxy [dim](v{APP_VERSION})[/dim][/bold white]",
+        title=f"[bold white]Google Antigravity AI Proxy [dim](v{APP_VERSION})[/dim][/bold white]",
         border_style="blue",
         subtitle="[dim]Press Ctrl+C to stop[/dim]",
         padding=(1, 2),
@@ -175,8 +175,8 @@ async def handle_update_command(check_only: bool = False):
     """Checks for releases and performs self-update."""
     from agy_proxy.updater import check_for_updates, perform_self_update
 
-    console.print(Panel("[bold cyan]⚡ Antigravity Proxy Update Manager[/bold cyan]", border_style="blue"))
-    console.print("🔍 Checking GitHub Releases...")
+    console.print(Panel("[bold cyan]Antigravity Proxy Update Manager[/bold cyan]", border_style="blue"))
+    console.print("Checking GitHub Releases...")
     info = await check_for_updates(force=True)
 
     curr_v = info.get("current_version", APP_VERSION)
