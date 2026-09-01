@@ -23,7 +23,36 @@ DEFAULT_CLIENT_SECRET = "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"
 OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token"
 USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo"
 CLOUDCODE_BASE_URL = os.environ.get("CLOUDFLARE_UPSTREAM_URL", "https://daily-cloudcode-pa.googleapis.com").rstrip("/")
+GENAI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
 REDIRECT_URI = "https://antigravity.google/oauth-callback"
+
+
+def quota_percentages(quota_summary: Dict[str, Any]) -> Tuple[str, str]:
+    """Helper to extract Gemini and Claude percentage strings from quota_summary."""
+    if not quota_summary or not isinstance(quota_summary, dict):
+        return "?", "?"
+    gemini_q = "?"
+    claude_q = "?"
+    for group in quota_summary.get("groups", []):
+        name = (group.get("displayName") or group.get("name") or "").lower()
+        rem = None
+        # Check buckets for 5-hour window first (operational limit), then weekly
+        for bucket in group.get("buckets", []):
+            if bucket.get("window") == "5h" or "5h" in bucket.get("bucketId", ""):
+                rem = bucket.get("remainingFraction")
+                break
+            elif rem is None and "remainingFraction" in bucket:
+                rem = bucket.get("remainingFraction")
+        if rem is None:
+            rem = group.get("remainingFraction")
+
+        if rem is not None:
+            pct = f"{int(rem * 100)}%"
+            if "gemini" in name or "default" in name:
+                gemini_q = pct
+            elif "3p" in name or "claude" in name or "anthropic" in name or "gpt" in name:
+                claude_q = pct
+    return gemini_q, claude_q
 SCOPES = [
     "https://www.googleapis.com/auth/cloud-platform",
     "https://www.googleapis.com/auth/userinfo.email",
@@ -34,7 +63,7 @@ SCOPES = [
     "openid",
 ]
 
-USER_AGENT = "antigravity/cli/1.1.22 (aidev_client; os_type=linux; arch=amd64; cl=971564011; auth_method=consumer)"
+USER_AGENT = "antigravity/cli/1.1.23 (aidev_client; os_type=linux; arch=amd64; cl=974125021; auth_method=consumer)"
 
 # Candidate search paths for Antigravity primary / CLI / IDE tokens
 CANDIDATE_TOKEN_FILES = [
@@ -126,18 +155,29 @@ class AccountSession:
         self.last_used_timestamp: float = 0.0
         self.last_used_model: Optional[str] = None
         self.last_client_type: Optional[str] = None
-
         self._lock = asyncio.Lock()
         self._http_client: Optional[httpx.AsyncClient] = None
 
+    @property
+    def disabled(self) -> bool:
+        return not self.enabled
+
+    @disabled.setter
+    def disabled(self, val: bool):
+        self.enabled = not val
+
     async def get_http_client(self) -> httpx.AsyncClient:
         if self._http_client is None or self._http_client.is_closed:
-            self._http_client = httpx.AsyncClient(timeout=30.0)
+            self._http_client = httpx.AsyncClient(
+                timeout=httpx.Timeout(timeout=300.0, connect=20.0, read=300.0, write=120.0, pool=30.0),
+                limits=httpx.Limits(max_keepalive_connections=20, max_connections=50, keepalive_expiry=120.0),
+            )
         return self._http_client
 
     async def close(self):
         if self._http_client and not self._http_client.is_closed:
             await self._http_client.aclose()
+        self._http_client = None
 
     async def refresh_access_token(self, force: bool = False) -> str:
         """Refreshes the OAuth access token for this account."""
@@ -163,7 +203,7 @@ class AccountSession:
             last_exc = None
             for retry in range(3):
                 try:
-                    resp = await client.post(OAUTH_TOKEN_URL, data=data, timeout=15.0)
+                    resp = await client.post(OAUTH_TOKEN_URL, data=data, timeout=30.0)
                     if resp.status_code != 200:
                         logger.error("[%s] Token refresh failed [%d]: %s", self.email, resp.status_code, resp.text)
                         raise RuntimeError(f"Token refresh failed ({resp.status_code}): {resp.text}")
@@ -253,16 +293,16 @@ class AccountSession:
             if resp.status_code == 200:
                 data = resp.json()
                 self.tier_info = data.get("currentTier", {})
-                self.project_id = data.get("cloudaicompanionProject") or "antigravity-default"
+                self.project_id = data.get("cloudaicompanionProject") or "aicode-consumers"
                 logger.info("[%s] Discovered project: %s (Tier: %s)", self.email, self.project_id, self.tier_info.get("name"))
             else:
                 logger.warning("[%s] loadCodeAssist returned %d", self.email, resp.status_code)
                 if not self.project_id:
-                    self.project_id = "antigravity-default"
+                    self.project_id = "aicode-consumers"
         except Exception as e:
             logger.error("[%s] Error initializing project: %s", self.email, e)
             if not self.project_id:
-                self.project_id = "antigravity-default"
+                self.project_id = "aicode-consumers"
 
         return self.project_id
 
@@ -488,58 +528,10 @@ class AccountPool:
         self._lock = asyncio.Lock()
 
     def load_accounts(self):
-        """Loads accounts from primary/IDE token files and ~/.config/agy-proxy/accounts.json."""
-        # 1. Primary token file discovery across CLI and IDE directories
-        primary_loaded = False
-        target_token_paths = [self.token_path] + [p for p in CANDIDATE_TOKEN_FILES if p != self.token_path]
+        """Loads accounts from ~/.config/agy-proxy/accounts.json as the authoritative source of truth."""
+        self.accounts.clear()
 
-        for t_path in target_token_paths:
-            if t_path.exists():
-                try:
-                    if t_path.stat().st_size == 0:
-                        continue
-                    with open(t_path, "r", encoding="utf-8") as f:
-                        content = f.read().strip()
-                        if not content:
-                            continue
-                        data = json.loads(content)
-
-                    token_obj = data.get("token", {}) if isinstance(data, dict) else {}
-                    refresh_token = token_obj.get("refresh_token") or (data.get("refresh_token") if isinstance(data, dict) else None)
-                    access_token = token_obj.get("access_token") or (data.get("access_token") if isinstance(data, dict) else None)
-
-                    if refresh_token or access_token:
-                        if not primary_loaded:
-                            primary_acc = AccountSession(
-                                account_id="primary",
-                                refresh_token=refresh_token or "",
-                                access_token=access_token,
-                                auth_method=data.get("auth_method", "consumer") if isinstance(data, dict) else "consumer",
-                                is_primary=True,
-                                on_token_refreshed=self.save_accounts,
-                            )
-                            self.accounts["primary"] = primary_acc
-                            primary_loaded = True
-                            logger.debug("Loaded primary account from %s", t_path)
-                        else:
-                            # Auto-import distinct session tokens from other Antigravity locations (e.g. IDE)
-                            existing_tokens = {a.refresh_token for a in self.accounts.values() if a.refresh_token}
-                            if refresh_token and refresh_token not in existing_tokens:
-                                acc_id = f"acc_auto_{hashlib.sha256(refresh_token.encode()).hexdigest()[:8]}"
-                                acc = AccountSession(
-                                    account_id=acc_id,
-                                    refresh_token=refresh_token,
-                                    access_token=access_token,
-                                    auth_method=data.get("auth_method", "consumer") if isinstance(data, dict) else "consumer",
-                                    is_primary=False,
-                                    on_token_refreshed=self.save_accounts,
-                                )
-                                self.accounts[acc_id] = acc
-                                logger.debug("Auto-discovered additional account session from %s", t_path)
-                except Exception as e:
-                    logger.debug("Could not parse token file %s: %s", t_path, e)
-
-        # 2. Check for legacy migration if ~/.config/agy-proxy/accounts.json does not exist
+        # 1. Check for legacy migration if ~/.config/agy-proxy/accounts.json does not exist
         if not self.accounts_file.exists():
             for legacy_path in LEGACY_ACCOUNTS_FILES:
                 if legacy_path.exists():
@@ -554,7 +546,7 @@ class AccountPool:
                     except Exception as e:
                         logger.warning("Failed to migrate legacy accounts file %s: %s", legacy_path, e)
 
-        # 3. Multi-account storage file (~/.config/agy-proxy/accounts.json)
+        # 2. Multi-account storage file (~/.config/agy-proxy/accounts.json)
         if self.accounts_file.exists():
             try:
                 with open(self.accounts_file, "r", encoding="utf-8") as f:
@@ -563,54 +555,7 @@ class AccountPool:
                 for item in accounts_data.get("accounts", []):
                     acc_id = item.get("account_id")
                     if not acc_id:
-                        continue
-
-                    # If primary account already loaded from token file, update its cached profile & project
-                    if acc_id == "primary" and "primary" in self.accounts:
-                        primary_acc = self.accounts["primary"]
-                        if item.get("email") and item.get("email") != "unknown@gmail.com":
-                            primary_acc.email = item.get("email")
-                        if item.get("name"):
-                            primary_acc.name = item.get("name")
-                        if item.get("picture"):
-                            primary_acc.picture = item.get("picture")
-                        if item.get("project_id"):
-                            primary_acc.project_id = item.get("project_id")
-                        if "enabled" in item:
-                            primary_acc.enabled = bool(item.get("enabled", True))
-                        continue
-
-                    if acc_id in self.accounts:
-                        if "enabled" in item:
-                            self.accounts[acc_id].enabled = bool(item.get("enabled", True))
-                        continue
-
-                    # Prevent duplicate entries for the same Google account or refresh token
-                    item_rf = item.get("refresh_token", "")
-                    item_email = (item.get("email") or "").strip().lower()
-                    item_auth = item.get("auth_method", "consumer")
-
-                    matched_existing = None
-                    for existing in self.accounts.values():
-                        if item_rf and existing.refresh_token == item_rf:
-                            matched_existing = existing
-                            break
-                        if item_auth == "consumer" and item_email and item_email != "unknown@gmail.com" and existing.email.lower() == item_email and existing.auth_method == "consumer":
-                            matched_existing = existing
-                            break
-
-                    if matched_existing:
-                        if item.get("refresh_token"):
-                            matched_existing.refresh_token = item.get("refresh_token")
-                        if item.get("access_token"):
-                            matched_existing.access_token = item.get("access_token")
-                        if item.get("expiry_timestamp"):
-                            matched_existing.expiry_timestamp = item.get("expiry_timestamp")
-                        if item.get("project_id"):
-                            matched_existing.project_id = item.get("project_id")
-                        if "enabled" in item:
-                            matched_existing.enabled = bool(item.get("enabled", True))
-                        continue
+                        acc_id = f"acc_{os.urandom(4).hex()}"
 
                     acc = AccountSession(
                         account_id=acc_id,
@@ -622,7 +567,7 @@ class AccountPool:
                         picture=item.get("picture"),
                         auth_method=item.get("auth_method", "consumer"),
                         project_id=item.get("project_id"),
-                        is_primary=(acc_id == "primary"),
+                        is_primary=bool(item.get("is_primary", acc_id == "primary" or len(self.accounts) == 0)),
                         enabled=bool(item.get("enabled", True)),
                         on_token_refreshed=self.save_accounts,
                     )
@@ -631,26 +576,88 @@ class AccountPool:
             except Exception as e:
                 logger.error("Error reading accounts file %s: %s", self.accounts_file, e)
 
+        # 3. Only if no accounts loaded from accounts.json, try importing initial token from candidate token files
+        if not self.accounts:
+            for t_path in [self.token_path] + CANDIDATE_TOKEN_FILES:
+                if t_path.exists() and t_path.stat().st_size > 0:
+                    try:
+                        with open(t_path, "r", encoding="utf-8") as f:
+                            content = f.read().strip()
+                            if not content:
+                                continue
+                            data = json.loads(content)
+
+                        token_obj = data.get("token", {}) if isinstance(data, dict) else {}
+                        refresh_token = token_obj.get("refresh_token") or (data.get("refresh_token") if isinstance(data, dict) else None)
+                        access_token = token_obj.get("access_token") or (data.get("access_token") if isinstance(data, dict) else None)
+
+                        if refresh_token:
+                            acc_id = f"acc_{os.urandom(4).hex()}"
+                            primary_acc = AccountSession(
+                                account_id=acc_id,
+                                refresh_token=refresh_token,
+                                access_token=access_token,
+                                auth_method=data.get("auth_method", "consumer") if isinstance(data, dict) else "consumer",
+                                is_primary=True,
+                                enabled=True,
+                                on_token_refreshed=self.save_accounts,
+                            )
+                            self.accounts[acc_id] = primary_acc
+                            logger.info("Imported initial account from %s", t_path)
+                            self.save_accounts()
+                            break
+                    except Exception as e:
+                        logger.debug("Could not import initial token from %s: %s", t_path, e)
+
     def save_accounts(self):
         """Saves secondary accounts to ~/.config/agy-proxy/accounts.json and updates primary token file."""
-        # 1. Update primary token file if primary account exists
+        # 1. Update primary token file if primary/OAuth account exists
         primary_acc = self.accounts.get("primary")
-        if primary_acc and primary_acc.access_token and self.token_path.exists():
+        if not primary_acc:
+            for acc in self.accounts.values():
+                if acc.is_primary and acc.auth_method == "consumer" and acc.refresh_token:
+                    primary_acc = acc
+                    break
+        if not primary_acc:
+            for acc in self.accounts.values():
+                if acc.auth_method == "consumer" and acc.refresh_token:
+                    primary_acc = acc
+                    break
+
+        if primary_acc and primary_acc.refresh_token:
             try:
                 expiry_iso = ""
                 if primary_acc.expiry_timestamp > 0:
                     expiry_iso = datetime.fromtimestamp(primary_acc.expiry_timestamp, timezone.utc).isoformat()
                 payload = {
                     "token": {
-                        "access_token": primary_acc.access_token,
+                        "access_token": primary_acc.access_token or "",
                         "token_type": "Bearer",
                         "refresh_token": primary_acc.refresh_token,
                         "expiry": expiry_iso,
                     },
                     "auth_method": primary_acc.auth_method,
                 }
+                self.token_path.parent.mkdir(parents=True, exist_ok=True)
                 with open(self.token_path, "w", encoding="utf-8") as f:
                     json.dump(payload, f, indent=2)
+                try:
+                    os.chmod(self.token_path, 0o600)
+                except Exception:
+                    pass
+
+                # Also sync across existing candidate token locations (e.g. IDE)
+                for candidate in CANDIDATE_TOKEN_FILES:
+                    if candidate != self.token_path and candidate.parent.exists():
+                        try:
+                            with open(candidate, "w", encoding="utf-8") as f:
+                                json.dump(payload, f, indent=2)
+                            try:
+                                os.chmod(candidate, 0o600)
+                            except Exception:
+                                pass
+                        except Exception:
+                            pass
             except Exception as e:
                 logger.warning("Failed to save primary token: %s", e)
 
@@ -878,12 +885,90 @@ class AccountPool:
         import urllib.parse
         code = code_or_url.strip()
 
-        # Handle full redirect URL pasted
-        if "code=" in code:
+        # 1. Handle JSON token pasted directly
+        if code.startswith("{") and ("refresh_token" in code or "access_token" in code):
+            try:
+                parsed_json = json.loads(code)
+                tok_obj = parsed_json.get("token", parsed_json) if isinstance(parsed_json, dict) else {}
+                rf = tok_obj.get("refresh_token")
+                acc_tok = tok_obj.get("access_token")
+                if rf:
+                    acc_id = f"acc_{os.urandom(4).hex()}"
+                    acc = AccountSession(
+                        account_id=acc_id,
+                        refresh_token=rf,
+                        access_token=acc_tok,
+                        auth_method=parsed_json.get("auth_method", "consumer") if isinstance(parsed_json, dict) else "consumer",
+                        is_primary=len(self.accounts) == 0,
+                        on_token_refreshed=self.save_accounts,
+                    )
+                    await acc.refresh_access_token()
+                    await acc.fetch_user_info()
+                    await acc.initialize_project()
+                    await acc.fetch_quota()
+                    await acc.fetch_models()
+
+                    matched_acc = None
+                    for existing in self.accounts.values():
+                        if (existing.email and acc.email and existing.email.lower() == acc.email.lower() and existing.auth_method == "consumer") or (existing.refresh_token and existing.refresh_token == rf):
+                            matched_acc = existing
+                            break
+                    if matched_acc:
+                        matched_acc.refresh_token = rf
+                        matched_acc.access_token = acc.access_token
+                        matched_acc.expiry_timestamp = acc.expiry_timestamp
+                        self.save_accounts()
+                        return matched_acc
+
+                    self.accounts[acc_id] = acc
+                    self.save_accounts()
+                    return acc
+            except Exception as json_err:
+                logger.debug("Failed parsing pasted JSON token: %s", json_err)
+
+        # 2. Handle raw OAuth Refresh Token pasted directly (starts with 1//0...)
+        if code.startswith("1//0"):
+            acc_id = f"acc_{os.urandom(4).hex()}"
+            acc = AccountSession(
+                account_id=acc_id,
+                refresh_token=code,
+                auth_method="consumer",
+                is_primary=len(self.accounts) == 0,
+                on_token_refreshed=self.save_accounts,
+            )
+            await acc.refresh_access_token()
+            await acc.fetch_user_info()
+            await acc.initialize_project()
+            await acc.fetch_quota()
+            await acc.fetch_models()
+
+            matched_acc = None
+            for existing in self.accounts.values():
+                if (existing.email and acc.email and existing.email.lower() == acc.email.lower() and existing.auth_method == "consumer") or (existing.refresh_token and existing.refresh_token == code):
+                    matched_acc = existing
+                    break
+            if matched_acc:
+                matched_acc.refresh_token = code
+                matched_acc.access_token = acc.access_token
+                matched_acc.expiry_timestamp = acc.expiry_timestamp
+                self.save_accounts()
+                return matched_acc
+
+            self.accounts[acc_id] = acc
+            self.save_accounts()
+            return acc
+
+        # 3. Handle full redirect URL pasted
+        if code.startswith("http://") or code.startswith("https://") or "state=" in code or "code=" in code:
             parsed = urllib.parse.urlparse(code)
             query = urllib.parse.parse_qs(parsed.query)
+            if "error" in query:
+                err_desc = query.get("error_description", [""])[0] or query["error"][0]
+                raise ValueError(f"Google OAuth authorization error: {err_desc}")
             if "code" in query:
                 code = query["code"][0]
+            else:
+                raise ValueError("The provided URL is missing the 'code' parameter. Make sure you complete the Google consent screen and click 'Continue'/'Allow' before copying the final redirect URL.")
             if "state" in query and not state:
                 state = query["state"][0]
 

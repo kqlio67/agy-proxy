@@ -167,12 +167,12 @@ def create_app(
     async def handle_web_search_route(request: Request):
         """Direct web search endpoint for Claude Code CCR proxy mode."""
         try:
-            from agy_proxy.search import search_duckduckgo
+            from agy_proxy.search import search_multi_engine
             body = await request.json()
             query = body.get("query", "") or body.get("q", "")
             allowed = body.get("allowed_domains", [])
             blocked = body.get("blocked_domains", [])
-            results = await search_duckduckgo(query, allowed_domains=allowed, blocked_domains=blocked)
+            results = await search_multi_engine(query, allowed_domains=allowed, blocked_domains=blocked, account_pool=pool)
             return {"results": results}
         except Exception as e:
             logger.warning("Direct web search error: %s", e)
@@ -441,7 +441,8 @@ def create_app(
             raise HTTPException(status_code=e.response.status_code, detail=str(e))
         except Exception as e:
             logger.error("OpenAI Chat Completion Error: %s", e, exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
+            err_msg = str(e) or f"{type(e).__name__}: Upstream request failed"
+            raise HTTPException(status_code=500, detail=err_msg)
 
     # -------------------------------------------------------------------------
     # Anthropic Compatible API
@@ -478,19 +479,20 @@ def create_app(
                     "type": "error",
                     "error": {
                         "type": err_type,
-                        "message": str(e),
+                        "message": str(e) or f"HTTP {e.response.status_code} Error",
                     },
                 },
             )
         except Exception as e:
             logger.error("Anthropic Messages Error: %s", e, exc_info=True)
+            err_msg = str(e) or f"{type(e).__name__}: Upstream request failed"
             return JSONResponse(
                 status_code=500,
                 content={
                     "type": "error",
                     "error": {
                         "type": "api_error",
-                        "message": str(e),
+                        "message": err_msg,
                     },
                 },
             )

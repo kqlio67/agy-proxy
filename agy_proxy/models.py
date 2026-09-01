@@ -16,6 +16,9 @@ DEFAULT_MODEL = "gemini-3.7-flash-high"
 
 MODEL_ALIASES: Dict[str, str] = {
     # Gemini Aliases
+    "flash": "gemini-3.7-flash-tiered",
+    "flash-lite": "gemini-3.1-flash-lite",
+    "pro": "gemini-3.1-pro-low",
     "gemini-2.5-pro": "gemini-2.5-pro",
     "gemini-2.5-flash": "gemini-2.5-flash",
     "gemini-2.5-flash-lite": "gemini-2.5-flash-lite",
@@ -24,28 +27,33 @@ MODEL_ALIASES: Dict[str, str] = {
     "gemini-3-flash-agent": "gemini-3-flash-agent",
     "gemini-3.1-flash-lite": "gemini-3.1-flash-lite",
     "gemini-3.1-flash-image": "gemini-3.1-flash-image",
-    "gemini-3.1-pro": "gemini-pro-agent",
-    "gemini-3.1-pro-high": "gemini-pro-agent",
-    "gemini-pro-agent": "gemini-pro-agent",
+    "gemini-3.1-pro": "gemini-3.1-pro-low",
+    "gemini-3.1-pro-high": "gemini-3.1-pro-high",
     "gemini-3.1-pro-low": "gemini-3.1-pro-low",
+    "gemini-pro-agent": "gemini-pro-agent",
     "gemini-3.5-flash": "gemini-3.5-flash-low",
     "gemini-3.5-flash-low": "gemini-3.5-flash-low",
     "gemini-3.5-flash-extra-low": "gemini-3.5-flash-extra-low",
-    "gemini-3.6-flash": "gemini-3.6-flash-high",
+    "gemini-3.6-flash": "gemini-3.6-flash-tiered",
     "gemini-3.6-flash-high": "gemini-3.6-flash-high",
     "gemini-3.6-flash-medium": "gemini-3.6-flash-medium",
     "gemini-3.6-flash-low": "gemini-3.6-flash-low",
-    "gemini-3.7-flash": "gemini-3.7-flash-high",
+    "gemini-3.6-flash-tiered": "gemini-3.6-flash-tiered",
+    "gemini-3.7-flash": "gemini-3.7-flash-tiered",
     "gemini-3.7-flash-high": "gemini-3.7-flash-high",
     "gemini-3.7-flash-medium": "gemini-3.7-flash-medium",
     "gemini-3.7-flash-low": "gemini-3.7-flash-low",
-    "gemini-pro": "gemini-pro-agent",
-    "gemini-flash": "gemini-3.7-flash-high",
-    "gemini-flash-thinking": "gemini-3.7-flash-high",
+    "gemini-3.7-flash-tiered": "gemini-3.7-flash-tiered",
+    "gemini-pro": "gemini-3.1-pro-low",
+    "gemini-flash": "gemini-3.7-flash-tiered",
+    "gemini-flash-thinking": "gemini-3.7-flash-tiered",
 
     # Claude Aliases
     "claude-sonnet-4-6": "claude-sonnet-4-6",
+    "claude-sonnet-4.6": "claude-sonnet-4-6",
     "claude-opus-4-6-thinking": "claude-opus-4-6-thinking",
+    "claude-opus-4-6": "claude-opus-4-6-thinking",
+    "claude-opus-4.6": "claude-opus-4-6-thinking",
     "claude-3-7-sonnet": "claude-sonnet-4-6",
     "claude-3-7-sonnet-20250219": "claude-sonnet-4-6",
     "claude-3-5-sonnet": "claude-sonnet-4-6",
@@ -55,12 +63,12 @@ MODEL_ALIASES: Dict[str, str] = {
     "claude-3-opus-20240229": "claude-opus-4-6-thinking",
     "claude-3-5-haiku": "gemini-3.1-flash-lite",
     "claude-3-haiku": "gemini-3.1-flash-lite",
-    "claude-sonnet-5": "gemini-3.7-flash-high",
-    "claude-sonnet-5-latest": "gemini-3.7-flash-high",
-    "claude-5-sonnet": "gemini-3.7-flash-high",
-    "claude-fable-5": "gemini-3.7-flash-high",
-    "claude-fable-5-latest": "gemini-3.7-flash-high",
-    "claude-5-fable": "gemini-3.7-flash-high",
+    "claude-sonnet-5": "claude-sonnet-4-6",
+    "claude-sonnet-5-latest": "claude-sonnet-4-6",
+    "claude-5-sonnet": "claude-sonnet-4-6",
+    "claude-fable-5": "claude-sonnet-4-6",
+    "claude-fable-5-latest": "claude-sonnet-4-6",
+    "claude-5-fable": "claude-sonnet-4-6",
     "claude-opus-5": "claude-opus-4-6-thinking",
     "claude-opus-5-latest": "claude-opus-4-6-thinking",
     "claude-5-opus": "claude-opus-4-6-thinking",
@@ -69,20 +77,20 @@ MODEL_ALIASES: Dict[str, str] = {
     "claude-4-5-haiku": "gemini-3.1-flash-lite",
 
     # OpenAI Aliases
-    "gpt-4o": "gemini-3.7-flash-high",
+    "gpt-4o": "gemini-3.7-flash-tiered",
     "gpt-4o-mini": "gemini-3.1-flash-lite",
-    "gpt-4-turbo": "gemini-3.7-flash-high",
-    "gpt-4": "gemini-3.7-flash-high",
+    "gpt-4-turbo": "gemini-3.7-flash-tiered",
+    "gpt-4": "gemini-3.7-flash-tiered",
     "gpt-3.5-turbo": "gemini-3.1-flash-lite",
-    "o1": "gemini-3.7-flash-high",
-    "o1-mini": "gemini-3.7-flash-high",
-    "o3-mini": "gemini-3.7-flash-high",
+    "o1": "gemini-3.7-flash-tiered",
+    "o1-mini": "gemini-3.7-flash-tiered",
+    "o3-mini": "gemini-3.7-flash-tiered",
     "gpt-oss-120b": "gpt-oss-120b-medium",
     "gpt-oss-120b-medium": "gpt-oss-120b-medium",
 
     # DeepSeek / Open Source Aliases
-    "deepseek-r1": "gemini-3.7-flash-high",
-    "deepseek-v3": "gemini-3.7-flash-high",
+    "deepseek-r1": "gemini-3.7-flash-tiered",
+    "deepseek-v3": "gemini-3.7-flash-tiered",
 }
 
 
@@ -98,6 +106,7 @@ VALID_CLOUDCODE_MODELS = {
     "gemini-3.5-flash-low",
     "gemini-3.5-flash-extra-low",
     "gemini-pro-agent",
+    "gemini-3.1-pro-high",
     "gemini-3.1-pro-low",
     "gemini-3.1-flash-lite",
     "gemini-3.1-flash-image",
@@ -139,16 +148,16 @@ def normalize_model_name(model_name: Optional[str]) -> str:
         return "claude-opus-4-6-thinking"
     if "sonnet" in cleaned:
         return "claude-sonnet-4-6"
-    if "haiku" in cleaned:
+    if "haiku" in cleaned or "flash-lite" in cleaned or "lite" in cleaned or "mini" in cleaned or "small" in cleaned or "micro" in cleaned:
         return "gemini-3.1-flash-lite"
     if "3.7" in cleaned or "3-7" in cleaned:
-        return "gemini-3.7-flash-high"
+        return "gemini-3.7-flash-tiered"
     if "3.1-pro" in cleaned or "3_1-pro" in cleaned or "3-1-pro" in cleaned:
-        return "gemini-pro-agent" if "low" not in cleaned else "gemini-3.1-pro-low"
+        return "gemini-3.1-pro-low"
     if "2.5-pro" in cleaned or "2_5-pro" in cleaned:
         return "gemini-2.5-pro"
     if "flash" in cleaned:
-        return "gemini-3.7-flash-high"
+        return "gemini-3.7-flash-tiered"
 
     # Prefix match
     for k, v in MODEL_ALIASES.items():

@@ -24,6 +24,7 @@ Equipped with **Multi-Account Pooling**, **Automatic 429 Quota Failover**, and a
   - Thinking / Reasoning process extracted to `delta.reasoning_content` (OpenAI) and `thinking` blocks (Anthropic) for reasoning models (`gemini-3.7-flash-high`, `claude-opus-4-6-thinking`).
   - Native Multi-turn Tool & Function Calling support (`tools`, `tool_choice`, `tool_use`, `tool_result`).
   - Multimodal input support (Images via base64 data URIs and URLs).
+  - 🌐 **Built-in Concurrent Multi-Engine Web Search**: Live search aggregation across **DuckDuckGo**, **Bing**, and **Brave** for Claude Code (`WebSearch`) without requiring external API keys.
 - 👥 **Multi-Account Pooling & Limit Bypass**:
   - Pool multiple Google Antigravity accounts simultaneously to multiply your rate limits and concurrent request capacity.
   - **Automatic 429 Failover**: When Account A exhausts its quota bucket, the proxy seamlessly retries and routes the request to Account B without dropping the session!

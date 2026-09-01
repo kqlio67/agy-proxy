@@ -22,7 +22,7 @@ from agy_proxy.converter import (
     sanitize_gemini_contents_thought_signatures,
 )
 from agy_proxy.models import AnthropicMessage, AnthropicRequest, OpenAIChatRequest, normalize_model_name
-from agy_proxy.search import search_duckduckgo
+from agy_proxy.search import search_multi_engine, search_duckduckgo
 
 logger = logging.getLogger("agy_proxy.client")
 
@@ -76,6 +76,15 @@ def extract_web_search_query(req: AnthropicRequest) -> Optional[Tuple[str, List[
         return "search", allowed, blocked
 
     return None
+
+
+DEFAULT_STREAM_TIMEOUT = httpx.Timeout(
+    timeout=600.0,
+    connect=20.0,
+    read=300.0,
+    write=120.0,
+    pool=30.0,
+)
 
 
 class CloudCodeClient:
@@ -151,8 +160,7 @@ class CloudCodeClient:
         Executes request against CloudCode with automatic multi-account rotation, session affinity, and 429 failover.
         """
         if timeout is None:
-            # Fast failover timeouts: 10s connect to avoid hanging on DNS/dead routes, 45s read for SSE tokens
-            timeout = httpx.Timeout(timeout=60.0, connect=10.0, read=45.0, write=15.0)
+            timeout = DEFAULT_STREAM_TIMEOUT
         preferred_account = None
         if session_key:
             pinned = session_affinity.get_pinned_account(session_key)
@@ -163,131 +171,143 @@ class CloudCodeClient:
         last_error = None
 
         for acc in candidates:
-            try:
-                client = await acc.get_http_client()
-                headers = await acc.get_auth_headers()
-
-                if acc.auth_method == "api_key":
-                    # Route to Google AI Studio REST API
-                    payload = payload_builder_fn("google-ai-studio")
-                    backend_m = payload.get("model", model_name)
-                    clean_model = self._map_to_aistudio_model(backend_m, acc.available_models)
-
-                    req_body = dict(payload.get("request", payload))
-                    req_body.pop("sessionId", None)
-                    req_body.pop("session_id", None)
-
-                    # Try Google Native Context Caching for large prompts
-                    try:
-                        cached_content_name = await google_context_cache.get_or_create_cache(
-                            api_key=acc.refresh_token,
-                            model_name=clean_model,
-                            system_instruction=req_body.get("systemInstruction"),
-                            tools=req_body.get("tools"),
-                            contents=req_body.get("contents", []),
-                        )
-                        if cached_content_name:
-                            req_body["cachedContent"] = cached_content_name
-                            # Strip static system instruction and tools to avoid duplicate token count
-                            req_body.pop("systemInstruction", None)
-                            req_body.pop("tools", None)
-                            if len(req_body.get("contents", [])) > 1:
-                                req_body["contents"] = [req_body["contents"][-1]]
-                    except Exception as cache_err:
-                        logger.debug("Context cache lookup bypassed: %s", cache_err)
-
-                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{clean_model}:streamGenerateContent?alt=sse&key={acc.refresh_token}"
-                else:
-                    project = await acc.initialize_project()
-                    url = f"{CLOUDCODE_BASE_URL}/{endpoint}"
-                    payload = payload_builder_fn(project)
-                    backend_m = payload.get("model", model_name)
-                    req_body = payload
-
-                acc_label = acc.name or acc.email
-                api_source = "AI Studio API Key" if acc.auth_method == "api_key" else "Antigravity OAuth"
-                if backend_m == model_name:
-                    logger.info("[%s] ⚡ %s (%s)", acc_label, backend_m, api_source)
-                else:
-                    logger.info("[%s] ⚡ %s [requested: %s] (%s)", acc_label, backend_m, model_name, api_source)
-
-                # Pin session to this successful account
-                if session_key:
-                    backend_sess_id = payload.get("request", {}).get("sessionId", f"sess-{uuid.uuid4().hex[:8]}")
-                    session_affinity.pin_session(session_key, acc.account_id, backend_sess_id)
-
+            for attempt in range(2):
                 try:
-                    async with client.stream("POST", url, headers=headers, json=req_body, timeout=timeout) as response:
-                        if response.status_code == 429:
-                            error_text = await response.aread()
-                            acc.mark_rate_limited(model_name, duration=1800.0)
-                            logger.warning(
-                                "[%s] Hit 429 quota limit (%s). Failing over to next account in pool...",
-                                acc.email,
-                                error_text.decode("utf-8", "ignore")[:80],
+                    client = await acc.get_http_client()
+                    headers = await acc.get_auth_headers()
+
+                    if acc.auth_method == "api_key":
+                        # Route to Google AI Studio REST API
+                        payload = payload_builder_fn("google-ai-studio")
+                        backend_m = payload.get("model", model_name)
+                        clean_model = self._map_to_aistudio_model(backend_m, acc.available_models)
+
+                        req_body = dict(payload.get("request", payload))
+                        req_body.pop("sessionId", None)
+                        req_body.pop("session_id", None)
+
+                        # Try Google Native Context Caching for large prompts
+                        try:
+                            cached_content_name = await google_context_cache.get_or_create_cache(
+                                api_key=acc.refresh_token,
+                                model_name=clean_model,
+                                system_instruction=req_body.get("systemInstruction"),
+                                tools=req_body.get("tools"),
+                                contents=req_body.get("contents", []),
                             )
-                            last_error = httpx.HTTPStatusError("429 Too Many Requests", request=response.request, response=response)
-                            continue  # Proceed to next candidate account
+                            if cached_content_name:
+                                req_body["cachedContent"] = cached_content_name
+                                # Strip static system instruction and tools to avoid duplicate token count
+                                req_body.pop("systemInstruction", None)
+                                req_body.pop("tools", None)
+                                if len(req_body.get("contents", [])) > 1:
+                                    req_body["contents"] = [req_body["contents"][-1]]
+                        except Exception as cache_err:
+                            logger.debug("Context cache lookup bypassed: %s", cache_err)
 
-                        if response.status_code == 503:
-                            error_text = await response.aread()
-                            logger.warning("[%s] Model %s is currently overloaded (503 Service Unavailable). Failing over to next account in pool...", acc.email, backend_m)
-                            last_error = httpx.HTTPStatusError("503 Service Unavailable (Model Overloaded)", request=response.request, response=response)
-                            continue  # Proceed to next candidate account
+                        url = f"https://generativelanguage.googleapis.com/v1beta/models/{clean_model}:streamGenerateContent?alt=sse&key={acc.refresh_token}"
+                    else:
+                        project = await acc.initialize_project()
+                        url = f"{CLOUDCODE_BASE_URL}/{endpoint}"
+                        payload = payload_builder_fn(project)
+                        backend_m = payload.get("model", model_name)
+                        req_body = payload
 
-                        if response.status_code != 200:
-                            error_text = await response.aread()
-                            logger.error("[%s] Provider error [%d]: %s", acc.email, response.status_code, error_text.decode("utf-8", "ignore"))
-                            raise httpx.HTTPStatusError(
-                                f"API returned {response.status_code}: {error_text.decode('utf-8', 'ignore')}",
-                                request=response.request,
-                                response=response,
-                            )
+                    acc_label = acc.name or acc.email
+                    api_source = "AI Studio API Key" if acc.auth_method == "api_key" else "Antigravity OAuth"
+                    if backend_m == model_name:
+                        logger.info("[%s] ⚡ %s (%s)", acc_label, backend_m, api_source)
+                    else:
+                        logger.info("[%s] ⚡ %s [requested: %s] (%s)", acc_label, backend_m, model_name, api_source)
 
-                        # Stream response chunks
-                        acc.total_requests += 1
-                        acc.last_used_timestamp = time.time()
-                        acc.last_used_model = backend_m
-                        acc.last_client_type = api_source
-                        async for line in response.aiter_lines():
-                            line = line.strip()
-                            if not line:
-                                continue
-                            if line.startswith("data:"):
-                                raw_json = line[5:].strip()
-                                if raw_json:
-                                    try:
-                                        data_obj = json.loads(raw_json)
-                                        # Normalize response wrapper for AI Studio / CloudCode
-                                        yield data_obj
-                                    except json.JSONDecodeError as e:
-                                        logger.warning("Failed to decode SSE JSON chunk: %s", e)
-                        return  # Succeeded, end generator
+                    # Pin session to this successful account
+                    if session_key:
+                        backend_sess_id = payload.get("request", {}).get("sessionId", f"sess-{uuid.uuid4().hex[:8]}")
+                        session_affinity.pin_session(session_key, acc.account_id, backend_sess_id)
 
+                    try:
+                        async with client.stream("POST", url, headers=headers, json=req_body, timeout=timeout) as response:
+                            if response.status_code == 429:
+                                error_text = await response.aread()
+                                acc.mark_rate_limited(model_name, duration=1800.0)
+                                logger.warning(
+                                    "[%s] Hit 429 quota limit (%s). Failing over to next account in pool...",
+                                    acc.email,
+                                    error_text.decode("utf-8", "ignore")[:80],
+                                )
+                                last_error = httpx.HTTPStatusError("429 Too Many Requests", request=response.request, response=response)
+                                break  # Proceed to next candidate account
+
+                            if response.status_code == 503:
+                                error_text = await response.aread()
+                                logger.warning("[%s] Model %s is currently overloaded (503 Service Unavailable). Failing over to next account in pool...", acc.email, backend_m)
+                                last_error = httpx.HTTPStatusError("503 Service Unavailable (Model Overloaded)", request=response.request, response=response)
+                                break  # Proceed to next candidate account
+
+                            if response.status_code != 200:
+                                error_text = await response.aread()
+                                logger.error("[%s] Provider error [%d]: %s", acc.email, response.status_code, error_text.decode("utf-8", "ignore"))
+                                raise httpx.HTTPStatusError(
+                                    f"API returned {response.status_code}: {error_text.decode('utf-8', 'ignore')}",
+                                    request=response.request,
+                                    response=response,
+                                )
+
+                            # Stream response chunks
+                            acc.total_requests += 1
+                            acc.last_used_timestamp = time.time()
+                            acc.last_used_model = backend_m
+                            acc.last_client_type = api_source
+                            async for line in response.aiter_lines():
+                                line = line.strip()
+                                if not line:
+                                    continue
+                                if line.startswith("data:"):
+                                    raw_json = line[5:].strip()
+                                    if raw_json:
+                                        try:
+                                            data_obj = json.loads(raw_json)
+                                            # Normalize response wrapper for AI Studio / CloudCode
+                                            yield data_obj
+                                        except json.JSONDecodeError as e:
+                                            logger.warning("Failed to decode SSE JSON chunk: %s", e)
+                            return  # Succeeded, end generator
+
+                    except httpx.HTTPStatusError as e:
+                        last_error = e
+                        if e.response.status_code in (403, 429, 500, 502, 503, 504, 404):
+                            logger.warning("[%s] Account error [%d]. Failing over to next candidate account...", acc.email, e.response.status_code)
+                            break
+                        raise
+                    except (httpx.TimeoutException, httpx.NetworkError) as e:
+                        err_name = type(e).__name__
+                        err_msg = f"{err_name}: {e}" if str(e) else err_name
+                        await acc.close()
+                        if attempt == 0 and len(candidates) == 1:
+                            logger.warning("[%s] Network/Timeout error (%s). Retrying once...", acc.email, err_msg)
+                            await asyncio.sleep(0.5)
+                            continue
+                        logger.warning("[%s] Network/Timeout error (%s). Failing over to next account...", acc.email, err_msg)
+                        last_error = e
+                        break
+                    except Exception as e:
+                        err_name = type(e).__name__
+                        err_msg = f"{err_name}: {e}" if str(e) else err_name
+                        logger.warning("[%s] Account error (%s). Failing over to next account...", acc.email, err_msg)
+                        last_error = e
+                        break
                 except httpx.HTTPStatusError as e:
                     last_error = e
-                    if e.response.status_code in (403, 429, 500, 502, 503, 504, 404):
-                        logger.warning("[%s] Account error [%d]. Failing over to next candidate account...", acc.email, e.response.status_code)
-                        continue
-                    raise
-                except (httpx.TimeoutException, httpx.NetworkError) as e:
-                    logger.warning("[%s] Network/Timeout error (%s). Failing over to next account...", acc.email, e)
-                    last_error = e
-                    continue
+                    if e.response.status_code in (400, 422):
+                        raise
+                    logger.warning("[%s] Account error [%d]. Failing over to next account in pool...", acc.email, e.response.status_code)
+                    break
                 except Exception as e:
-                    logger.warning("[%s] Account error (%s). Failing over to next account...", acc.email, e)
+                    err_name = type(e).__name__
+                    err_msg = f"{err_name}: {e}" if str(e) else err_name
+                    logger.warning("[%s] Account error (%s). Failing over to next account in pool...", acc.email, err_msg)
                     last_error = e
-                    continue
-            except httpx.HTTPStatusError as e:
-                last_error = e
-                if e.response.status_code in (400, 422):
-                    raise
-                logger.warning("[%s] Account error [%d]. Failing over to next account in pool...", acc.email, e.response.status_code)
-                continue
-            except Exception as e:
-                logger.warning("[%s] Account error (%s). Failing over to next account in pool...", acc.email, e)
-                last_error = e
-                continue
+                    break
 
         # If all accounts failed
         if last_error:
@@ -487,7 +507,7 @@ class CloudCodeClient:
         search_info = extract_web_search_query(req)
         if search_info:
             query, allowed_domains, blocked_domains = search_info
-            search_results = await search_duckduckgo(query, allowed_domains=allowed_domains, blocked_domains=blocked_domains)
+            search_results = await search_multi_engine(query, allowed_domains=allowed_domains, blocked_domains=blocked_domains, account_pool=self.pool)
             tool_id = f"srv_tool_{uuid.uuid4().hex[:8]}"
 
             # 1. message_start
@@ -693,7 +713,7 @@ class CloudCodeClient:
         search_info = extract_web_search_query(req)
         if search_info:
             query, allowed_domains, blocked_domains = search_info
-            search_results = await search_duckduckgo(query, allowed_domains=allowed_domains, blocked_domains=blocked_domains)
+            search_results = await search_multi_engine(query, allowed_domains=allowed_domains, blocked_domains=blocked_domains, account_pool=self.pool)
             tool_id = f"srv_tool_{uuid.uuid4().hex[:8]}"
 
             return {
@@ -768,11 +788,22 @@ class CloudCodeClient:
                     full_thinking += thought
                 if tool_calls:
                     for tc in tool_calls:
+                        raw_args = tc.get("function", {}).get("arguments", "{}")
+                        if isinstance(raw_args, dict):
+                            parsed_input = raw_args
+                        elif isinstance(raw_args, str) and raw_args.strip():
+                            try:
+                                parsed_input = json.loads(raw_args)
+                            except Exception:
+                                parsed_input = {"raw": raw_args}
+                        else:
+                            parsed_input = {}
+
                         tool_blocks.append({
                             "type": "tool_use",
                             "id": tc.get("id"),
                             "name": tc.get("function", {}).get("name"),
-                            "input": json.loads(tc.get("function", {}).get("arguments", "{}")),
+                            "input": parsed_input,
                         })
 
         content_blocks: List[Dict[str, Any]] = []

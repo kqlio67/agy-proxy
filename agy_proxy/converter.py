@@ -414,13 +414,23 @@ def openai_to_cloudcode_payload(
         if function_declarations:
             inner_request["tools"] = [{"functionDeclarations": function_declarations}]
 
+    sys_text = "".join(p.get("text", "") for p in system_parts).lower()
+    is_checkpoint_or_title = "title generator" in sys_text or "conversation title" in sys_text
+    if is_checkpoint_or_title:
+        backend_model = "gemini-3.1-flash-lite"
+        generation_config["thinkingConfig"] = {"includeThoughts": False, "thinkingBudget": 0}
+        generation_config["maxOutputTokens"] = min(max_tokens, 1024)
+        req_type = "checkpoint"
+    else:
+        req_type = "chat"
+
     payload: Dict[str, Any] = {
         "project": project_id,
-        "requestId": f"chat/{uuid.uuid4()}",
+        "requestId": f"{req_type}/{uuid.uuid4()}",
         "request": inner_request,
         "model": backend_model,
         "userAgent": "antigravity",
-        "requestType": "chat",
+        "requestType": req_type,
     }
 
     return payload
@@ -613,13 +623,23 @@ def anthropic_to_cloudcode_payload(
         if function_declarations:
             inner_request["tools"] = [{"functionDeclarations": function_declarations}]
 
+    sys_text = "".join(p.get("text", "") for p in system_parts).lower()
+    is_checkpoint_or_title = "title generator" in sys_text or "conversation title" in sys_text
+    if is_checkpoint_or_title:
+        backend_model = "gemini-3.1-flash-lite"
+        generation_config["thinkingConfig"] = {"includeThoughts": False, "thinkingBudget": 0}
+        generation_config["maxOutputTokens"] = min(req.max_tokens or 1024, 1024)
+        req_type = "checkpoint"
+    else:
+        req_type = "chat"
+
     return {
         "project": project_id,
-        "requestId": f"claude/{uuid.uuid4()}",
+        "requestId": f"{req_type}/{uuid.uuid4()}",
         "request": inner_request,
         "model": backend_model,
         "userAgent": "antigravity",
-        "requestType": "chat",
+        "requestType": req_type,
     }
 
 

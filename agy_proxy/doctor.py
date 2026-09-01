@@ -219,7 +219,7 @@ async def run_doctor(host: str = "127.0.0.1", port: int = 8000, cloudflare_url: 
             live = live_results.get(acc.account_id, {})
 
             # Status merges enabled/disabled with the live token verdict
-            if acc.disabled:
+            if not acc.enabled:
                 status_text = "[yellow]⏸️ Disabled[/yellow]"
             elif live.get("token_ok") is True:
                 status_text = "[bold green]✅ Verified[/bold green]"
