@@ -91,6 +91,7 @@ class GoogleContextCacheManager:
         self.ttl_seconds = ttl_seconds
         # cache_key -> {"cached_content_name": str, "created_at": float, "expires_at": float, "tokens_saved": int}
         self._cache_map: Dict[str, Dict[str, Any]] = {}
+        self._unsupported_keys: set = set()
         self.total_tokens_saved: int = 0
         self.cache_hits: int = 0
         self.cache_misses: int = 0
@@ -118,6 +119,9 @@ class GoogleContextCacheManager:
         Looks up or creates a Google AI Studio cachedContents resource.
         Returns the resource name (e.g. 'cachedContents/12345678') if available.
         """
+        if api_key in self._unsupported_keys:
+            return None
+
         # Estimate size in characters
         sys_str = json.dumps(system_instruction or {})
         tools_str = json.dumps(tools or [])
@@ -176,6 +180,8 @@ class GoogleContextCacheManager:
                         logger.info("✨ Created Google Context Cache: %s (TTL: %ds)", res_name, self.ttl_seconds)
                         return res_name
                 else:
+                    if "TotalCachedContentStorageTokensPerModelFreeTier" in resp.text:
+                        self._unsupported_keys.add(api_key)
                     logger.debug("Google cachedContents creation returned %d: %s", resp.status_code, resp.text)
         except Exception as e:
             logger.debug("Failed to create Google cachedContent: %s", e)
