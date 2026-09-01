@@ -114,6 +114,25 @@ else
     echo -e "${GREEN}⚡ Antigravity Proxy is active at ${PROXY_URL}${NC}"
 fi
 
+# Ask user if they want to bypass permission prompts (if not already explicitly passed in args)
+SKIP_PERMS=false
+for arg in "${CLAUDE_ARGS[@]}"; do
+    if [[ "$arg" == "--dangerously-skip-permissions" || "$arg" == "--permission-mode" ]]; then
+        SKIP_PERMS=true
+        break
+    fi
+done
+
+if [[ "$SKIP_PERMS" == "false" && -t 0 ]]; then
+    echo ""
+    echo -e "${YELLOW}⚡ Auto-approve actions without permission prompts? (--dangerously-skip-permissions)${NC}"
+    read -r -p "Enable danger mode for fast autonomous work? [y/N]: " perm_choice
+    if [[ "$perm_choice" =~ ^[Yy]$ ]]; then
+        CLAUDE_ARGS+=("--dangerously-skip-permissions")
+    fi
+fi
+
+echo ""
 echo -e "${CYAN}🚀 Launching Claude Code:${NC}"
 echo -e "   • URL:   ${GREEN}${PROXY_URL}${NC}"
 echo -e "   • Model: ${GREEN}${DEFAULT_MODEL}${NC}"
@@ -129,23 +148,6 @@ export ANTHROPIC_MODEL="${DEFAULT_MODEL}"
 
 # Route auxiliary / haiku model requests through proxy
 export ANTHROPIC_SMALL_FAST_MODEL="${ANTHROPIC_SMALL_FAST_MODEL:-${DEFAULT_MODEL}}"
-
-# Override model picker entries so /model shows proxy models
-export ANTHROPIC_DEFAULT_HAIKU_MODEL="${ANTHROPIC_DEFAULT_HAIKU_MODEL:-anthropic.gemini-3.1-flash-lite}"
-export ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME="${ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME:-Gemini 3.1 Flash Lite}"
-export ANTHROPIC_DEFAULT_HAIKU_MODEL_DESCRIPTION="${ANTHROPIC_DEFAULT_HAIKU_MODEL_DESCRIPTION:-Fast & lightweight via Antigravity Proxy}"
-
-export ANTHROPIC_DEFAULT_SONNET_MODEL="${ANTHROPIC_DEFAULT_SONNET_MODEL:-anthropic.gemini-3.7-flash-high}"
-export ANTHROPIC_DEFAULT_SONNET_MODEL_NAME="${ANTHROPIC_DEFAULT_SONNET_MODEL_NAME:-Gemini 3.7 Flash High}"
-export ANTHROPIC_DEFAULT_SONNET_MODEL_DESCRIPTION="${ANTHROPIC_DEFAULT_SONNET_MODEL_DESCRIPTION:-High quality coding via Antigravity Proxy}"
-
-export ANTHROPIC_DEFAULT_OPUS_MODEL="${ANTHROPIC_DEFAULT_OPUS_MODEL:-anthropic.claude-opus-4-6-thinking}"
-export ANTHROPIC_DEFAULT_OPUS_MODEL_NAME="${ANTHROPIC_DEFAULT_OPUS_MODEL_NAME:-Claude Opus 4.6 Thinking}"
-export ANTHROPIC_DEFAULT_OPUS_MODEL_DESCRIPTION="${ANTHROPIC_DEFAULT_OPUS_MODEL_DESCRIPTION:-Most capable via Antigravity Proxy}"
-
-export ANTHROPIC_DEFAULT_FABLE_MODEL="${ANTHROPIC_DEFAULT_FABLE_MODEL:-anthropic.gemini-pro-agent}"
-export ANTHROPIC_DEFAULT_FABLE_MODEL_NAME="${ANTHROPIC_DEFAULT_FABLE_MODEL_NAME:-Gemini Pro Agent (3.1 Pro)}"
-export ANTHROPIC_DEFAULT_FABLE_MODEL_DESCRIPTION="${ANTHROPIC_DEFAULT_FABLE_MODEL_DESCRIPTION:-Best for long-running tasks via Antigravity Proxy}"
 
 # Expose proxy models in Claude Code /model picker
 # anthropic.<model> prefix required so Claude Code registers them as separate selectable entries
@@ -180,7 +182,7 @@ export DISABLE_ERROR_REPORTING=1
 export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 export CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT=1
 export CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1
-export CLAUDE_CODE_MAX_CONTEXT_TOKENS="${CLAUDE_CODE_MAX_CONTEXT_TOKENS:-1048576}"
+export CLAUDE_CODE_MAX_CONTEXT_TOKENS="${CLAUDE_CODE_MAX_CONTEXT_TOKENS:-200000}"
 
 # Execute claude with collected arguments
 if [[ ${#CLAUDE_ARGS[@]} -gt 0 ]]; then

@@ -325,11 +325,14 @@ def main():
         datefmt="%H:%M:%S",
     )
 
-    # Silence noisy HTTP client and server access logs in normal mode (unless --debug is explicitly enabled)
+    # Silence noisy low-level socket/HTTP connection logs even in debug mode
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    logging.getLogger("asyncio").setLevel(logging.WARNING)
+
+    # In non-debug mode, also silence general httpx and uvicorn access logs
     if not args.debug and effective_log_level.lower() != "debug":
         logging.getLogger("httpx").setLevel(logging.WARNING)
-        logging.getLogger("httpcore").setLevel(logging.WARNING)
-        logging.getLogger("urllib3").setLevel(logging.WARNING)
         logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
         logging.getLogger("uvicorn.error").setLevel(logging.WARNING)
         logging.getLogger("uvicorn").setLevel(logging.WARNING)

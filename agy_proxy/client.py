@@ -6,6 +6,7 @@ and multi-account failover/load-balancing across accounts.
 import asyncio
 import json
 import logging
+import re
 import time
 import uuid
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple, Union
@@ -20,9 +21,61 @@ from agy_proxy.converter import (
     parse_gemini_sse_candidate,
     sanitize_gemini_contents_thought_signatures,
 )
-from agy_proxy.models import AnthropicRequest, OpenAIChatRequest, normalize_model_name
+from agy_proxy.models import AnthropicMessage, AnthropicRequest, OpenAIChatRequest, normalize_model_name
+from agy_proxy.search import search_duckduckgo
 
 logger = logging.getLogger("agy_proxy.client")
+
+
+def extract_web_search_query(req: AnthropicRequest) -> Optional[Tuple[str, List[str], List[str]]]:
+    """
+    Detects if request is a Claude Code WebSearch tool invocation and extracts query & domain constraints.
+    """
+    is_search = False
+    allowed: List[str] = []
+    blocked: List[str] = []
+
+    if req.tool_choice:
+        tc = req.tool_choice if isinstance(req.tool_choice, dict) else {"name": str(req.tool_choice)}
+        if tc.get("name") == "web_search":
+            is_search = True
+
+    if req.tools:
+        for t in req.tools:
+            if isinstance(t, dict):
+                t_name = t.get("name", "")
+                t_type = t.get("type", "")
+                if t_name == "web_search" or t_type == "web_search_20250305":
+                    is_search = True
+                    allowed = t.get("allowed_domains", []) or []
+                    blocked = t.get("blocked_domains", []) or []
+
+    # Check messages for query
+    if req.messages:
+        last_msg = req.messages[-1]
+        msg_dict = last_msg.model_dump() if hasattr(last_msg, "model_dump") else (last_msg.dict() if hasattr(last_msg, "dict") else (last_msg if isinstance(last_msg, dict) else {}))
+        content = msg_dict.get("content", "")
+        if isinstance(content, str) and content:
+            m = re.search(r"Perform a web search for the query:\s*(.+)", content, re.IGNORECASE)
+            if m:
+                return m.group(1).strip(), allowed, blocked
+            if is_search and content.strip():
+                return content.strip(), allowed, blocked
+        elif isinstance(content, list):
+            for b in content:
+                b_dict = b.model_dump() if hasattr(b, "model_dump") else (b.dict() if hasattr(b, "dict") else (b if isinstance(b, dict) else {}))
+                txt = b_dict.get("text")
+                if isinstance(txt, str) and txt:
+                    m = re.search(r"Perform a web search for the query:\s*(.+)", txt, re.IGNORECASE)
+                    if m:
+                        return m.group(1).strip(), allowed, blocked
+                    if is_search and txt.strip():
+                        return txt.strip(), allowed, blocked
+
+    if is_search:
+        return "search", allowed, blocked
+
+    return None
 
 
 class CloudCodeClient:
@@ -91,12 +144,15 @@ class CloudCodeClient:
         endpoint: str,
         payload_builder_fn,
         model_name: str,
-        timeout: float = 120.0,
+        timeout: Optional[Union[float, httpx.Timeout]] = None,
         session_key: Optional[str] = None,
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """
         Executes request against CloudCode with automatic multi-account rotation, session affinity, and 429 failover.
         """
+        if timeout is None:
+            # Fast failover timeouts: 10s connect to avoid hanging on DNS/dead routes, 45s read for SSE tokens
+            timeout = httpx.Timeout(timeout=60.0, connect=10.0, read=45.0, write=15.0)
         preferred_account = None
         if session_key:
             pinned = session_affinity.get_pinned_account(session_key)
@@ -427,6 +483,60 @@ class CloudCodeClient:
         msg_id = f"msg_{uuid.uuid4().hex[:20]}"
         model = req.model
 
+        # 0. Intercept WebSearch requests from Claude Code built-in search tool
+        search_info = extract_web_search_query(req)
+        if search_info:
+            query, allowed_domains, blocked_domains = search_info
+            search_results = await search_duckduckgo(query, allowed_domains=allowed_domains, blocked_domains=blocked_domains)
+            tool_id = f"srv_tool_{uuid.uuid4().hex[:8]}"
+
+            # 1. message_start
+            msg_start = {
+                "type": "message_start",
+                "message": {
+                    "id": msg_id,
+                    "type": "message",
+                    "role": "assistant",
+                    "model": model,
+                    "content": [],
+                    "stop_reason": None,
+                    "stop_sequence": None,
+                    "usage": {"input_tokens": 50, "output_tokens": 150},
+                },
+            }
+            yield f"event: message_start\ndata: {json.dumps(msg_start)}\n\n"
+
+            # 2. server_tool_use block
+            tool_use_block = {
+                "type": "server_tool_use",
+                "id": tool_id,
+                "name": "web_search",
+                "input": {},
+            }
+            yield f"event: content_block_start\ndata: {json.dumps({'type': 'content_block_start', 'index': 0, 'content_block': tool_use_block})}\n\n"
+            yield f"event: content_block_delta\ndata: {json.dumps({'type': 'content_block_delta', 'index': 0, 'delta': {'type': 'input_json_delta', 'partial_json': json.dumps({'query': query})}})}\n\n"
+            yield f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': 0})}\n\n"
+
+            # 3. web_search_tool_result block
+            yield f"event: content_block_start\ndata: {json.dumps({'type': 'content_block_start', 'index': 1, 'content_block': {'type': 'web_search_tool_result', 'tool_use_id': tool_id, 'content': search_results}})}\n\n"
+            yield f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': 1})}\n\n"
+
+            # 4. text commentary block
+            summary_txt = f"Found {len(search_results)} web search result(s) for '{query}'."
+            yield f"event: content_block_start\ndata: {json.dumps({'type': 'content_block_start', 'index': 2, 'content_block': {'type': 'text', 'text': ''}})}\n\n"
+            yield f"event: content_block_delta\ndata: {json.dumps({'type': 'content_block_delta', 'index': 2, 'delta': {'type': 'text_delta', 'text': summary_txt}})}\n\n"
+            yield f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': 2})}\n\n"
+
+            # 5. message_delta & message_stop
+            msg_delta = {
+                "type": "message_delta",
+                "delta": {"stop_reason": "end_turn", "stop_sequence": None},
+                "usage": {"output_tokens": 150},
+            }
+            yield f"event: message_delta\ndata: {json.dumps(msg_delta)}\n\n"
+            yield f"event: message_stop\ndata: {json.dumps({'type': 'message_stop'})}\n\n"
+            return
+
         # Derive session key for sticky session continuity
         raw_msgs = [m.model_dump() if hasattr(m, "model_dump") else (m.dict() if hasattr(m, "dict") else dict(m)) for m in req.messages]
         sys_str = req.system if isinstance(req.system, str) else json.dumps(req.system or "")
@@ -578,6 +688,43 @@ class CloudCodeClient:
         """Returns non-streaming full Anthropic Messages response."""
         msg_id = f"msg_{uuid.uuid4().hex[:20]}"
         model = req.model
+
+        # 0. Intercept WebSearch requests from Claude Code built-in search tool
+        search_info = extract_web_search_query(req)
+        if search_info:
+            query, allowed_domains, blocked_domains = search_info
+            search_results = await search_duckduckgo(query, allowed_domains=allowed_domains, blocked_domains=blocked_domains)
+            tool_id = f"srv_tool_{uuid.uuid4().hex[:8]}"
+
+            return {
+                "id": msg_id,
+                "type": "message",
+                "role": "assistant",
+                "model": model,
+                "content": [
+                    {
+                        "type": "server_tool_use",
+                        "id": tool_id,
+                        "name": "web_search",
+                        "input": {"query": query},
+                    },
+                    {
+                        "type": "web_search_tool_result",
+                        "tool_use_id": tool_id,
+                        "content": search_results,
+                    },
+                    {
+                        "type": "text",
+                        "text": f"Found {len(search_results)} web search result(s) for '{query}'.",
+                    },
+                ],
+                "stop_reason": "end_turn",
+                "stop_sequence": None,
+                "usage": {
+                    "input_tokens": 50,
+                    "output_tokens": 150,
+                },
+            }
 
         raw_msgs = [m.model_dump() if hasattr(m, "model_dump") else (m.dict() if hasattr(m, "dict") else dict(m)) for m in req.messages]
         sys_str = req.system if isinstance(req.system, str) else json.dumps(req.system or "")

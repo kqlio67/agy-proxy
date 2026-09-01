@@ -161,6 +161,23 @@ def create_app(
     async def web_domain_info():
         return {"allowed": True}
 
+    @app.post("/api/web-search")
+    @app.post("/v1/web-search")
+    @app.post("/web-search")
+    async def handle_web_search_route(request: Request):
+        """Direct web search endpoint for Claude Code CCR proxy mode."""
+        try:
+            from agy_proxy.search import search_duckduckgo
+            body = await request.json()
+            query = body.get("query", "") or body.get("q", "")
+            allowed = body.get("allowed_domains", [])
+            blocked = body.get("blocked_domains", [])
+            results = await search_duckduckgo(query, allowed_domains=allowed, blocked_domains=blocked)
+            return {"results": results}
+        except Exception as e:
+            logger.warning("Direct web search error: %s", e)
+            return {"results": [], "error": {"error_type": "api_error", "error_message": str(e)}}
+
     @app.post("/api/oauth/claude_cli/create_api_key")
     async def claude_cli_create_api_key():
         return {"api_key": "dummy", "status": "ok"}
@@ -182,17 +199,11 @@ def create_app(
     async def count_tokens(request: Request):
         try:
             body = await request.json()
-            messages = body.get("messages", [])
-            total_chars = 0
-            for m in messages:
-                c = m.get("content", "")
-                if isinstance(c, str):
-                    total_chars += len(c)
-                elif isinstance(c, list):
-                    for b in c:
-                        if isinstance(b, dict) and "text" in b:
-                            total_chars += len(b["text"])
-            return {"input_tokens": max(1, total_chars // 4)}
+            # Serialize the entire request body to capture system instructions, tools, tool results, and history
+            serialized = json.dumps(body)
+            # Standard ~3.7 characters per token estimation for Gemini/Anthropic mixed content
+            est_tokens = int(len(serialized) / 3.7)
+            return {"input_tokens": max(1, est_tokens)}
         except Exception:
             return {"input_tokens": 10}
 

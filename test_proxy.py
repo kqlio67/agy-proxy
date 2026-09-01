@@ -209,7 +209,7 @@ async def run_tests():
         print(f"  ✅ Estimated Input Tokens: {count_res.get('input_tokens')}")
 
         # 11. Test Multi-Account Pool API Management
-        print("\n[11/11] Testing /api/accounts (Pool List & Toggle API)...")
+        print("\n[11/12] Testing /api/accounts (Pool List & Toggle API)...")
         r = await client.get("/api/accounts")
         assert r.status_code == 200
         acc_data = r.json().get("accounts", [])
@@ -224,8 +224,29 @@ async def run_tests():
             assert t_res2.status_code == 200
             print(f"  ✅ Successfully tested account toggle lifecycle on {first_id}.")
 
+        # 12. Test Built-in WebSearch for Claude Code
+        print("\n[12/12] Testing WebSearch Interception & Live Search Engine...")
+        search_req = {
+            "model": "anthropic.gemini-3.7-flash-high",
+            "messages": [
+                {"role": "user", "content": "Perform a web search for the query: python asyncio fast tutorial"}
+            ],
+            "tools": [{"type": "web_search_20250305", "name": "web_search"}],
+            "tool_choice": {"type": "tool", "name": "web_search"},
+            "stream": True,
+        }
+        r = await client.post("/v1/messages", json=search_req)
+        assert r.status_code == 200
+        events_found = set()
+        for line in r.text.split("\n"):
+            if line.startswith("event: "):
+                events_found.add(line.replace("event: ", "").strip())
+        assert "content_block_start" in events_found
+        assert "message_stop" in events_found
+        print(f"  ✅ WebSearch SSE response stream validated (Events: {events_found})")
+
     print("\n========================================")
-    print("   🎉 ALL 11 TEST SUITES PASSED 100%!   ")
+    print("   🎉 ALL 12 TEST SUITES PASSED 100%!   ")
     print("========================================\n")
     return True
 
