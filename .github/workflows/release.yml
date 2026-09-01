@@ -33,10 +33,6 @@ jobs:
             arch: arm64
             artifact_name: agy-proxy-darwin-arm64
             asset_name: agy-proxy-darwin-arm64.tar.gz
-          - os: macos-13 # Intel Mac (x86_64)
-            arch: amd64
-            artifact_name: agy-proxy-darwin-amd64
-            asset_name: agy-proxy-darwin-amd64.tar.gz
 
     steps:
       - name: Checkout repository
