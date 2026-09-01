@@ -50,12 +50,23 @@ Equipped with **Multi-Account Pooling**, **Automatic 429 Quota Failover**, and a
 
 ## 🚀 Quick Start
 
-### 1. One-Line Fast Install (Linux & macOS) ⚡
+### 1. One-Line Fast Install (Linux, macOS, Windows) ⚡
 
 Install the pre-built standalone binary directly with a single command without needing Python:
 
+#### 🔹 Linux & macOS
 ```bash
 curl -fsSL https://raw.githubusercontent.com/kqlio67/agy-proxy/main/install.sh | bash
+```
+
+#### 🔹 Windows (PowerShell)
+```powershell
+irm https://raw.githubusercontent.com/kqlio67/agy-proxy/main/install.ps1 | iex
+```
+
+#### 🔹 Windows (Command Prompt)
+```cmd
+curl -fsSL https://raw.githubusercontent.com/kqlio67/agy-proxy/main/install.cmd -o install.cmd && install.cmd && del install.cmd
 ```
 
 Then simply start the proxy anywhere:
