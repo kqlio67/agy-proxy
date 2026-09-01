@@ -227,9 +227,9 @@ class CloudCodeClient:
                             api_source,
                         )
                     elif backend_m == model_name:
-                        logger.info("[%s] ⚡ %s (%s)", acc_label, backend_m, api_source)
+                        logger.info("[%s] %s (%s)", acc_label, backend_m, api_source)
                     else:
-                        logger.info("[%s] ⚡ %s [requested: %s] (%s)", acc_label, backend_m, model_name, api_source)
+                        logger.info("[%s] %s [requested: %s] (%s)", acc_label, backend_m, model_name, api_source)
 
                     # Pin session to this successful account
                     if session_key:

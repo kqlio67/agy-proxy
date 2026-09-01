@@ -142,7 +142,7 @@ class GoogleContextCacheManager:
                 self.cache_hits += 1
                 estimated_tokens = total_chars // 4
                 self.total_tokens_saved += estimated_tokens
-                logger.debug("⚡ Cache HIT for %s (Saved ~%d tokens)", model_name, estimated_tokens)
+                logger.debug("Cache HIT for %s (Saved ~%d tokens)", model_name, estimated_tokens)
                 return entry["cached_content_name"]
             else:
                 del self._cache_map[cache_key]
