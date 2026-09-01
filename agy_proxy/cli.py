@@ -325,11 +325,10 @@ def main():
         datefmt="%H:%M:%S",
     )
 
-    # Silence noisy low-level socket/HTTP connection logs even in debug mode
+    # Silence noisy low-level socket/HTTP connection logs
     logging.getLogger("httpcore").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("asyncio").setLevel(logging.WARNING)
-    logging.getLogger("httpx").setLevel(logging.WARNING)
 
     class EndpointFilter(logging.Filter):
         def filter(self, record: logging.LogRecord) -> bool:
@@ -339,8 +338,13 @@ def main():
     logging.getLogger("uvicorn.access").addFilter(EndpointFilter())
     logging.getLogger("uvicorn").addFilter(EndpointFilter())
 
-    # In non-debug mode, also silence general uvicorn access logs
-    if not args.debug and effective_log_level.lower() != "debug":
+    if args.debug or effective_log_level.lower() == "debug":
+        logging.getLogger("httpx").setLevel(logging.INFO)
+        logging.getLogger("uvicorn.access").setLevel(logging.INFO)
+        logging.getLogger("uvicorn").setLevel(logging.INFO)
+    else:
+        # Standard user mode: keep console 100% clean and minimalistic
+        logging.getLogger("httpx").setLevel(logging.WARNING)
         logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
         logging.getLogger("uvicorn.error").setLevel(logging.WARNING)
         logging.getLogger("uvicorn").setLevel(logging.WARNING)
@@ -374,8 +378,8 @@ def main():
         app,
         host=args.host,
         port=args.port,
-        log_level="warning" if (not args.debug and effective_log_level.lower() != "debug") else effective_log_level,
-        access_log=False,
+        log_level="debug" if (args.debug or effective_log_level.lower() == "debug") else "warning",
+        access_log=bool(args.debug or effective_log_level.lower() == "debug"),
     )
     server = uvicorn.Server(config)
 
