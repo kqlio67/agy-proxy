@@ -69,7 +69,7 @@ npx wrangler deploy
 You can now directly use:
 - **Base URL**: `https://agy-proxy-edge.<your-subdomain>.workers.dev/v1`
 - **API Key**: `dummy` (or your `PROXY_API_KEY`)
-- **Model**: `gemini-3.7-flash-high`, `claude-3-7-sonnet`, `gpt-4o`
+- **Model**: `gemini-3.8-flash-high`, `gemini-3.7-flash-high`, `claude-3-7-sonnet`, `gpt-4o`
 
 ---
 

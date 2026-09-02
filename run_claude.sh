@@ -8,7 +8,7 @@ set -e
 # Default settings
 PORT="${PORT:-8000}"
 HOST="${HOST:-127.0.0.1}"
-DEFAULT_MODEL="${ANTHROPIC_MODEL:-anthropic.gemini-3.7-flash-high}"
+DEFAULT_MODEL="${ANTHROPIC_MODEL:-anthropic.gemini-3.8-flash-high}"
 CUSTOM_URL="${ANTHROPIC_BASE_URL:-}"
 
 # Colors
@@ -26,7 +26,7 @@ show_help() {
     echo -e "${BOLD}Proxy Options:${NC}"
     echo -e "  --port PORT         Port where agy-proxy is running (default: 8000 or \$PORT)"
     echo -e "  --url URL           Full proxy URL (e.g., http://127.0.0.1:8080 or Cloudflare URL)"
-    echo -e "  -m, --model MODEL   Model for Claude Code (default: gemini-3.7-flash-high)"
+    echo -e "  -m, --model MODEL   Model for Claude Code (default: gemini-3.8-flash-high)"
     echo -e "  --proxy-help        Show this launcher help message"
     echo ""
     echo -e "${BOLD}Claude Code passthrough:${NC}"

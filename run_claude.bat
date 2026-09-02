@@ -3,7 +3,7 @@ setlocal enabledelayedexpansion
 title Claude Code with Antigravity Proxy
 
 set "PORT=8000"
-set "MODEL=anthropic.gemini-3.7-flash-high"
+set "MODEL=anthropic.gemini-3.8-flash-high"
 set "CUSTOM_URL="
 set "CLAUDE_ARGS="
 

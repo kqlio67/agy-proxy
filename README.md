@@ -21,7 +21,7 @@ Equipped with **Multi-Account Pooling**, **Automatic 429 Quota Failover**, and a
 
 - 🔄 **OpenAI & Anthropic & Gemini Compatible APIs**:
   - Full support for streaming (`stream: true` SSE) and non-streaming responses.
-  - Thinking / Reasoning process extracted to `delta.reasoning_content` (OpenAI) and `thinking` blocks (Anthropic) for reasoning models (`gemini-3.7-flash-high`, `claude-opus-4-6-thinking`).
+  - Thinking / Reasoning process extracted to `delta.reasoning_content` (OpenAI) and `thinking` blocks (Anthropic) for reasoning models (`gemini-3.8-flash-high`, `gemini-3.7-flash-high`, `claude-opus-4-6-thinking`).
   - Native Multi-turn Tool & Function Calling support (`tools`, `tool_choice`, `tool_use`, `tool_result`).
   - Multimodal input support (Images via base64 data URIs and URLs).
   - 🌐 **Built-in Live Web Search**: Native **Google Grounding Search (Vertex AI)** with automatic multi-engine fallbacks (**DuckDuckGo**, **Bing**, **Brave**) for Claude Code (`WebSearch`) without requiring external API keys.
@@ -202,19 +202,19 @@ Open **`http://localhost:8000`** in your browser to access the Web Dashboard & A
 run_claude.bat
 
 :: Launch with custom port and model
-run_claude.bat -p 8080 -m gemini-3.7-flash-high
+run_claude.bat -p 8080 -m gemini-3.8-flash-high
 ```
 
 #### 🔹 Manual Launch (Direct Environment Variables)
 ```bash
 # Linux / macOS / Termux:
-ANTHROPIC_BASE_URL="http://127.0.0.1:8000" ANTHROPIC_API_KEY="dummy" ANTHROPIC_MODEL="gemini-3.7-flash-high" claude
+ANTHROPIC_BASE_URL="http://127.0.0.1:8000" ANTHROPIC_API_KEY="dummy" ANTHROPIC_MODEL="gemini-3.8-flash-high" claude
 
 # Windows PowerShell:
-$env:ANTHROPIC_BASE_URL="http://127.0.0.1:8000"; $env:ANTHROPIC_API_KEY="dummy"; $env:ANTHROPIC_MODEL="gemini-3.7-flash-high"; claude
+$env:ANTHROPIC_BASE_URL="http://127.0.0.1:8000"; $env:ANTHROPIC_API_KEY="dummy"; $env:ANTHROPIC_MODEL="gemini-3.8-flash-high"; claude
 
 # Windows CMD:
-set ANTHROPIC_BASE_URL=http://127.0.0.1:8000 && set ANTHROPIC_API_KEY=dummy && set ANTHROPIC_MODEL=gemini-3.7-flash-high && claude
+set ANTHROPIC_BASE_URL=http://127.0.0.1:8000 && set ANTHROPIC_API_KEY=dummy && set ANTHROPIC_MODEL=gemini-3.8-flash-high && claude
 ```
 
 ---
@@ -227,6 +227,7 @@ set ANTHROPIC_BASE_URL=http://127.0.0.1:8000 && set ANTHROPIC_API_KEY=dummy && s
    - **OpenAI Base URL**: `http://127.0.0.1:8000/v1`
    - **OpenAI API Key**: `dummy` (or your `PROXY_API_KEY`)
 3. In the **Model Names** section, add:
+   - `gemini-3.8-flash-high`
    - `gemini-3.7-flash-high`
    - `claude-3-7-sonnet`
    - `gpt-4o`
@@ -236,7 +237,7 @@ set ANTHROPIC_BASE_URL=http://127.0.0.1:8000 && set ANTHROPIC_API_KEY=dummy && s
 2. Configure:
    - **Base URL**: `http://127.0.0.1:8000/v1`
    - **API Key**: `dummy`
-   - **Model**: `gemini-3.7-flash-high`
+   - **Model**: `gemini-3.8-flash-high`
 
 #### 🔹 VS Code — Continue Extension
 Add the following to your `~/.continue/config.json`:
@@ -244,9 +245,9 @@ Add the following to your `~/.continue/config.json`:
 {
   "models": [
     {
-      "title": "Antigravity Gemini 3.7 Flash",
+      "title": "Antigravity Gemini 3.8 Flash",
       "provider": "openai",
-      "model": "gemini-3.7-flash-high",
+      "model": "gemini-3.8-flash-high",
       "apiBase": "http://127.0.0.1:8000/v1",
       "apiKey": "dummy"
     },
@@ -266,7 +267,7 @@ Add the following to your `~/.continue/config.json`:
 2. Select provider **Anthropic** or **OpenAI Compatible**:
    - **Base URL**: `http://127.0.0.1:8000` *(for Anthropic)* or `http://127.0.0.1:8000/v1` *(for OpenAI)*
    - **API Key**: `dummy`
-   - **Model ID**: `gemini-3.7-flash-high` or `claude-3-7-sonnet`
+   - **Model ID**: `gemini-3.8-flash-high` or `claude-3-7-sonnet`
 
 ---
 
@@ -277,7 +278,7 @@ Add the following to your `~/.continue/config.json`:
 # Using OpenAI endpoint
 OPENAI_API_BASE="http://127.0.0.1:8000/v1" \
 OPENAI_API_KEY="dummy" \
-aider --model openai/gemini-3.7-flash-high
+aider --model openai/gemini-3.8-flash-high
 
 # Using Anthropic endpoint
 ANTHROPIC_BASE_URL="http://127.0.0.1:8000" \
@@ -389,9 +390,11 @@ Antigravity Proxy natively equips coding agents (like Claude Code) with live int
 
 | Client Request (Alias) | Google Antigravity Backend Model | Description |
 |---|---|---|
-| `gemini-3.7-flash-high`, `gemini-pro`, `gpt-4o` | `gemini-3.7-flash-high` | ⚡ Flagship model with extended Thinking / Reasoning |
-| `gemini-3.1-pro-high`, `gemini-3.1-pro` | `gemini-3.1-pro-high` | 🧠 Pro model for deep analysis & complex logic |
-| `gemini-3.1-flash-lite`, `gpt-4o-mini` | `gemini-3.1-flash-lite` | 💡 Ultra-fast lightweight model |
+| `gemini-3.8-flash-high`, `flash`, `gpt-4o`, `deepseek-r1` | `gemini-3.8-flash-high` | ⚡ **Default Flagship**: Gemini 3.8 Flash with High Reasoning / Thinking |
+| `gemini-3.8-flash-medium`, `gemini-3.8-flash-low` | `gemini-3.8-flash-*` | ⚖️ Gemini 3.8 Flash with balanced or low thinking budget |
+| `gemini-3.7-flash-high`, `gemini-3.7-flash-tiered` | `gemini-3.7-flash-high` | ⚡ Gemini 3.7 Flash with extended Thinking / Reasoning |
+| `gemini-3.1-pro-high`, `gemini-3.1-pro`, `pro` | `gemini-3.1-pro-high` | 🧠 Pro model for deep analysis & complex logic |
+| `gemini-3.1-flash-lite`, `gpt-4o-mini` | `gemini-3.1-flash-lite` | 💡 Ultra-fast lightweight model (Background tasks & Compactor) |
 | `claude-sonnet-4-6`, `claude-3-7-sonnet`, `claude-3-5-sonnet` | `claude-sonnet-4-6` | 🚀 Native Claude Sonnet via Antigravity backend |
 | `claude-opus-4-6-thinking`, `claude-3-opus` | `claude-opus-4-6-thinking` | 🔬 Native Claude Opus with thinking process |
 | `gpt-oss-120b-medium`, `gpt-oss-120b` | `gpt-oss-120b-medium` | 🌐 Open Source 120B model |
@@ -410,7 +413,7 @@ client = OpenAI(
 )
 
 response = client.chat.completions.create(
-    model="gemini-3.7-flash-high",
+    model="gemini-3.8-flash-high",
     messages=[{"role": "user", "content": "Explain how quantum computers work in simple terms."}],
     stream=True
 )
