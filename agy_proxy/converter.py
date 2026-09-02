@@ -470,6 +470,8 @@ def openai_to_cloudcode_payload(
         req_type = "checkpoint"
         if "tools" in inner_request:
             inner_request.pop("tools", None)
+    elif req.tools:
+        req_type = "agent"
     else:
         req_type = "chat"
 
@@ -695,6 +697,8 @@ def anthropic_to_cloudcode_payload(
         req_type = "checkpoint"
         if "tools" in inner_request:
             inner_request.pop("tools", None)
+    elif req.tools:
+        req_type = "agent"
     else:
         req_type = "chat"
 
