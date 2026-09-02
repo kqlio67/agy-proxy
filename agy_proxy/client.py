@@ -107,13 +107,15 @@ class CloudCodeClient:
         m = model.replace("models/", "").strip().lower()
         if not available_models:
             # Fallback sane defaults if available_models is empty
+            if "3.8" in m:
+                return "gemini-3.8-flash"
             if "3.7" in m:
                 return "gemini-3.7-flash"
             if "3.6" in m:
                 return "gemini-3.6-flash"
             if "pro" in m:
                 return "gemini-3.1-pro-preview"
-            return "gemini-3.6-flash"
+            return "gemini-3.8-flash"
 
         if m in available_models:
             return m
@@ -124,8 +126,16 @@ class CloudCodeClient:
             if stripped in available_models:
                 return stripped
 
-        # Google AI Studio deprecated gemini-2.5-flash for new users, recommending 3.6/3.7
+        # Google AI Studio deprecated gemini-2.5-flash for new users, recommending 3.7/3.8
+        if "3.8" in m:
+            if "gemini-3.8-flash" in available_models:
+                return "gemini-3.8-flash"
+            if "gemini-3.7-flash" in available_models:
+                return "gemini-3.7-flash"
+
         if "2.5" in m:
+            if "gemini-3.8-flash" in available_models:
+                return "gemini-3.8-flash"
             if "gemini-3.7-flash" in available_models:
                 return "gemini-3.7-flash"
             if "gemini-3.6-flash" in available_models:
@@ -141,9 +151,13 @@ class CloudCodeClient:
             return "gemini-3.1-flash-lite"
         if "pro" in m and "gemini-3.1-pro-preview" in available_models:
             return "gemini-3.1-pro-preview"
-        if "flash" in m and "gemini-3.6-flash" in available_models:
-            return "gemini-3.6-flash"
+        if "flash" in m and "gemini-3.8-flash" in available_models:
+            return "gemini-3.8-flash"
+        if "flash" in m and "gemini-3.7-flash" in available_models:
+            return "gemini-3.7-flash"
 
+        if "gemini-3.8-flash" in available_models:
+            return "gemini-3.8-flash"
         if "gemini-3.7-flash" in available_models:
             return "gemini-3.7-flash"
         if "gemini-3.6-flash" in available_models:

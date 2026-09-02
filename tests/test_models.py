@@ -29,31 +29,36 @@ class TestModelNormalization(unittest.TestCase):
             self.assertEqual(normalize_model_name(model), model)
 
     def test_common_aliases(self):
-        self.assertEqual(normalize_model_name("flash"), "gemini-3.7-flash-tiered")
+        self.assertEqual(normalize_model_name("flash"), "gemini-3.8-flash-high")
         self.assertEqual(normalize_model_name("flash-lite"), "gemini-3.1-flash-lite")
         self.assertEqual(normalize_model_name("pro"), "gemini-3.1-pro-low")
+        self.assertEqual(normalize_model_name("gemini-3.8"), "gemini-3.8-flash-high")
+        self.assertEqual(normalize_model_name("gemini-3.8-flash"), "gemini-3.8-flash-high")
         self.assertEqual(normalize_model_name("claude-3-5-sonnet"), "claude-sonnet-4-6")
         self.assertEqual(normalize_model_name("claude-3-7-sonnet"), "claude-sonnet-4-6")
         self.assertEqual(normalize_model_name("claude-3-opus"), "claude-opus-4-6-thinking")
-        self.assertEqual(normalize_model_name("gpt-4o"), "gemini-3.7-flash-tiered")
+        self.assertEqual(normalize_model_name("gpt-4o"), "gemini-3.8-flash-high")
         self.assertEqual(normalize_model_name("gpt-4o-mini"), "gemini-3.1-flash-lite")
-        self.assertEqual(normalize_model_name("deepseek-r1"), "gemini-3.7-flash-tiered")
+        self.assertEqual(normalize_model_name("deepseek-r1"), "gemini-3.8-flash-high")
 
     def test_prefix_stripping(self):
         self.assertEqual(normalize_model_name("anthropic/claude-sonnet-4-6"), "claude-sonnet-4-6")
-        self.assertEqual(normalize_model_name("openai/gpt-4o"), "gemini-3.7-flash-tiered")
+        self.assertEqual(normalize_model_name("openai/gpt-4o"), "gemini-3.8-flash-high")
+        self.assertEqual(normalize_model_name("google/gemini-3.8-flash-high"), "gemini-3.8-flash-high")
         self.assertEqual(normalize_model_name("google/gemini-3.7-flash-high"), "gemini-3.7-flash-high")
         self.assertEqual(normalize_model_name("models/gemini-2.5-pro"), "gemini-2.5-pro")
 
     def test_context_annotations_stripping(self):
+        self.assertEqual(normalize_model_name("gemini-3.8-flash-high[1m]"), "gemini-3.8-flash-high")
         self.assertEqual(normalize_model_name("gemini-3.7-flash-high[1m]"), "gemini-3.7-flash-high")
         self.assertEqual(normalize_model_name("claude-sonnet-4-6 (1m context)"), "claude-sonnet-4-6")
-        self.assertEqual(normalize_model_name("gemini-3.7-flash-tiered [thinking]"), "gemini-3.7-flash-tiered")
+        self.assertEqual(normalize_model_name("gemini-3.8-flash-tiered [thinking]"), "gemini-3.8-flash-tiered")
 
     def test_keyword_fallbacks(self):
         self.assertEqual(normalize_model_name("some-custom-opus-model"), "claude-opus-4-6-thinking")
         self.assertEqual(normalize_model_name("my-sonnet-v1"), "claude-sonnet-4-6")
         self.assertEqual(normalize_model_name("claude-haiku-custom"), "gemini-3.1-flash-lite")
+        self.assertEqual(normalize_model_name("custom-gemini-3-8-flash"), "gemini-3.8-flash-high")
         self.assertEqual(normalize_model_name("unknown-model-xyz"), DEFAULT_MODEL)
 
 
