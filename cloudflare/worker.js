@@ -203,7 +203,7 @@ export default {
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${auth.token}`,
-              "User-Agent": "antigravity/cli/1.1.23 (aidev_client; os_type=linux; arch=amd64; cl=974125021; auth_method=consumer)",
+              "User-Agent": "antigravity/cli/1.1.24 (aidev_client; os_type=linux; arch=amd64; cl=974782877; auth_method=consumer)",
             },
             body: JSON.stringify(payload),
           });
@@ -255,7 +255,7 @@ export default {
     reqHeaders.delete("x-proxy-key");
 
     if (!reqHeaders.has("User-Agent")) {
-      reqHeaders.set("User-Agent", "antigravity/cli/1.1.23 (aidev_client; os_type=linux; arch=amd64; cl=974125021; auth_method=consumer)");
+      reqHeaders.set("User-Agent", "antigravity/cli/1.1.24 (aidev_client; os_type=linux; arch=amd64; cl=974782877; auth_method=consumer)");
     }
 
     try {
