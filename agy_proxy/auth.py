@@ -520,7 +520,7 @@ class AccountPool:
         token_path: Optional[Path] = None,
         accounts_file: Optional[Path] = None,
     ):
-        self.token_path = token_path or DEFAULT_TOKEN_FILE
+        self.token_path = token_path
         self.accounts_file = accounts_file or DEFAULT_ACCOUNTS_FILE
         self.accounts: Dict[str, AccountSession] = {}
         self.round_robin_index = 0
@@ -576,10 +576,11 @@ class AccountPool:
             except Exception as e:
                 logger.error("Error reading accounts file %s: %s", self.accounts_file, e)
 
-        # 3. Only if no accounts loaded from accounts.json, try importing initial token from candidate token files
+        # 3. Only if no accounts loaded from accounts.json, try importing initial token from candidate token files (read-only import)
         if not self.accounts:
-            for t_path in [self.token_path] + CANDIDATE_TOKEN_FILES:
-                if t_path.exists() and t_path.stat().st_size > 0:
+            search_paths = [self.token_path] if self.token_path else CANDIDATE_TOKEN_FILES
+            for t_path in search_paths:
+                if t_path and t_path.exists() and t_path.stat().st_size > 0:
                     try:
                         with open(t_path, "r", encoding="utf-8") as f:
                             content = f.read().strip()
@@ -610,56 +611,44 @@ class AccountPool:
                         logger.debug("Could not import initial token from %s: %s", t_path, e)
 
     def save_accounts(self):
-        """Saves secondary accounts to ~/.config/agy-proxy/accounts.json and updates primary token file."""
-        # 1. Update primary token file if primary/OAuth account exists
-        primary_acc = self.accounts.get("primary")
-        if not primary_acc:
-            for acc in self.accounts.values():
-                if acc.is_primary and acc.auth_method == "consumer" and acc.refresh_token:
-                    primary_acc = acc
-                    break
-        if not primary_acc:
-            for acc in self.accounts.values():
-                if acc.auth_method == "consumer" and acc.refresh_token:
-                    primary_acc = acc
-                    break
+        """Saves all accounts to ~/.config/agy-proxy/accounts.json without touching CLI/IDE tokens."""
+        # 1. If an explicit custom token_path was provided (outside system Antigravity files), sync primary token to it
+        if self.token_path and self.token_path not in CANDIDATE_TOKEN_FILES:
+            primary_acc = self.accounts.get("primary")
+            if not primary_acc:
+                for acc in self.accounts.values():
+                    if acc.is_primary and acc.auth_method == "consumer" and acc.refresh_token:
+                        primary_acc = acc
+                        break
+            if not primary_acc:
+                for acc in self.accounts.values():
+                    if acc.auth_method == "consumer" and acc.refresh_token:
+                        primary_acc = acc
+                        break
 
-        if primary_acc and primary_acc.refresh_token:
-            try:
-                expiry_iso = ""
-                if primary_acc.expiry_timestamp > 0:
-                    expiry_iso = datetime.fromtimestamp(primary_acc.expiry_timestamp, timezone.utc).isoformat()
-                payload = {
-                    "token": {
-                        "access_token": primary_acc.access_token or "",
-                        "token_type": "Bearer",
-                        "refresh_token": primary_acc.refresh_token,
-                        "expiry": expiry_iso,
-                    },
-                    "auth_method": primary_acc.auth_method,
-                }
-                self.token_path.parent.mkdir(parents=True, exist_ok=True)
-                with open(self.token_path, "w", encoding="utf-8") as f:
-                    json.dump(payload, f, indent=2)
+            if primary_acc and primary_acc.refresh_token:
                 try:
-                    os.chmod(self.token_path, 0o600)
-                except Exception:
-                    pass
-
-                # Also sync across existing candidate token locations (e.g. IDE)
-                for candidate in CANDIDATE_TOKEN_FILES:
-                    if candidate != self.token_path and candidate.parent.exists():
-                        try:
-                            with open(candidate, "w", encoding="utf-8") as f:
-                                json.dump(payload, f, indent=2)
-                            try:
-                                os.chmod(candidate, 0o600)
-                            except Exception:
-                                pass
-                        except Exception:
-                            pass
-            except Exception as e:
-                logger.warning("Failed to save primary token: %s", e)
+                    expiry_iso = ""
+                    if primary_acc.expiry_timestamp > 0:
+                        expiry_iso = datetime.fromtimestamp(primary_acc.expiry_timestamp, timezone.utc).isoformat()
+                    payload = {
+                        "token": {
+                            "access_token": primary_acc.access_token or "",
+                            "token_type": "Bearer",
+                            "refresh_token": primary_acc.refresh_token,
+                            "expiry": expiry_iso,
+                        },
+                        "auth_method": primary_acc.auth_method,
+                    }
+                    self.token_path.parent.mkdir(parents=True, exist_ok=True)
+                    with open(self.token_path, "w", encoding="utf-8") as f:
+                        json.dump(payload, f, indent=2)
+                    try:
+                        os.chmod(self.token_path, 0o600)
+                    except Exception:
+                        pass
+                except Exception as e:
+                    logger.warning("Failed to save custom token file %s: %s", self.token_path, e)
 
         # 2. Save all accounts to ~/.config/agy-proxy/accounts.json
         try:
@@ -1140,7 +1129,7 @@ class AuthManager:
 
     @property
     def token_path(self) -> Path:
-        return self.pool.token_path
+        return self.pool.token_path or DEFAULT_TOKEN_FILE
 
     async def get_http_client(self) -> httpx.AsyncClient:
         return await self.primary_account.get_http_client()

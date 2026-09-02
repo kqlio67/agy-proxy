@@ -238,6 +238,19 @@ class CloudCodeClient:
 
                     try:
                         async with client.stream("POST", url, headers=headers, json=req_body, timeout=timeout) as response:
+                            if response.status_code == 401:
+                                error_text = await response.aread()
+                                logger.warning("[%s] Got 401 Unauthorized (%s). Refreshing token...", acc.email, error_text.decode("utf-8", "ignore")[:80])
+                                if acc.auth_method != "api_key":
+                                    try:
+                                        await acc.refresh_access_token(force=True)
+                                        if attempt == 0:
+                                            continue
+                                    except Exception as ref_err:
+                                        logger.warning("[%s] Force-refresh failed: %s", acc.email, ref_err)
+                                last_error = httpx.HTTPStatusError("401 Unauthorized", request=response.request, response=response)
+                                break  # Fail over to next candidate account
+
                             if response.status_code == 429:
                                 error_text = await response.aread()
                                 acc.mark_rate_limited(model_name, duration=1800.0)
@@ -286,7 +299,7 @@ class CloudCodeClient:
 
                     except httpx.HTTPStatusError as e:
                         last_error = e
-                        if e.response.status_code in (403, 429, 500, 502, 503, 504, 404):
+                        if e.response.status_code in (401, 403, 429, 500, 502, 503, 504, 404):
                             logger.warning("[%s] Account error [%d]. Failing over to next candidate account...", acc.email, e.response.status_code)
                             break
                         raise
