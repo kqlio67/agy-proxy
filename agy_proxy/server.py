@@ -33,7 +33,7 @@ from agy_proxy.models import (
     OpenAIChatRequest,
     normalize_model_name,
 )
-from agy_proxy.ui import DASHBOARD_HTML
+from agy_proxy.ui import DASHBOARD_HTML, get_dashboard_html
 
 logger = logging.getLogger("agy_proxy.server")
 
@@ -113,11 +113,11 @@ def create_app(
 
     @app.get("/", response_class=HTMLResponse)
     async def dashboard_root():
-        return HTMLResponse(content=DASHBOARD_HTML)
+        return HTMLResponse(content=get_dashboard_html())
 
     @app.get("/dashboard", response_class=HTMLResponse)
     async def dashboard_page():
-        return HTMLResponse(content=DASHBOARD_HTML)
+        return HTMLResponse(content=get_dashboard_html())
 
     @app.get("/favicon.ico")
     async def get_favicon():

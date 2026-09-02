@@ -356,8 +356,20 @@ async def compact_conversation_history(
         logger.warning("Compaction summary call returned empty result; retaining original messages.")
         return messages, tokens_before, tokens_before
 
-    if "<summary>" not in summary_text and "<CONTEXT_SUMMARY>" not in summary_text:
-        summary_text = f"<summary>\n{summary_text}\n</summary>"
+    from datetime import datetime, timezone
+    timestamp_str = datetime.now(timezone.utc).isoformat()
+
+    if "<CONTEXT_SUMMARY>" not in summary_text:
+        formatted_summary = (
+            f"<CONTEXT_SUMMARY>\n"
+            f"The following is a summary of the conversation history that has been truncated to fit within the context window:\n\n"
+            f"This summary was generated at {timestamp_str}.\n\n"
+            f"{summary_text}\n\n"
+            f"**IMPORTANT: this summary is just for your reference. You may respond to my previous and future messages, but DO NOT ACKNOWLEDGE THIS CHECKPOINT MESSAGE. JUST READ IT BUT DO NOT MENTION IT, RESPOND TO IT, OR TAKE ACTION BECAUSE OF IT.**\n"
+            f"</CONTEXT_SUMMARY>"
+        )
+    else:
+        formatted_summary = summary_text
 
     # Construct compacted messages list
     # Determine format (dict or Anthropic/OpenAI object)
@@ -365,13 +377,13 @@ async def compact_conversation_history(
     if is_dict:
         summary_msg = {
             "role": "user",
-            "content": f"{summary_text}\n\n[System Note: The preceding conversation was compacted to conserve context.]",
+            "content": formatted_summary,
         }
     else:
         from agy_proxy.models import AnthropicMessage
         summary_msg = AnthropicMessage(
             role="user",
-            content=f"{summary_text}\n\n[System Note: The preceding conversation was compacted to conserve context.]",
+            content=formatted_summary,
         )
 
     compacted = [summary_msg] + list(recent_messages)

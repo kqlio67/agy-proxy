@@ -369,6 +369,7 @@ class CloudCodeClient:
         total_prompt_tokens = 0
         total_output_tokens = 0
         total_tokens = 0
+        total_thoughts_tokens = 0
         include_usage = bool(req.stream_options and req.stream_options.get("include_usage"))
 
         try:
@@ -386,6 +387,7 @@ class CloudCodeClient:
                     total_prompt_tokens = usage_meta.get("promptTokenCount", total_prompt_tokens)
                     total_output_tokens = usage_meta.get("candidatesTokenCount", total_output_tokens)
                     total_tokens = usage_meta.get("totalTokenCount", total_tokens)
+                    total_thoughts_tokens = usage_meta.get("thoughtsTokenCount", total_thoughts_tokens)
 
                 for cand in candidates:
                     text, thought, tool_calls, finish_reason, _ = parse_gemini_sse_candidate(cand)
@@ -401,11 +403,15 @@ class CloudCodeClient:
                     )
                     yield f"data: {json.dumps(chunk)}\n\n"
 
-            usage_obj = {
+            usage_obj: Dict[str, Any] = {
                 "prompt_tokens": total_prompt_tokens,
                 "completion_tokens": total_output_tokens,
                 "total_tokens": total_tokens or (total_prompt_tokens + total_output_tokens),
             }
+            if total_thoughts_tokens > 0:
+                usage_obj["completion_tokens_details"] = {
+                    "reasoning_tokens": total_thoughts_tokens
+                }
 
             if include_usage:
                 usage_chunk = {
@@ -479,6 +485,7 @@ class CloudCodeClient:
         prompt_tokens = 0
         completion_tokens = 0
         total_tokens = 0
+        thoughts_tokens = 0
 
         async for data in self._post_sse_stream_with_failover(
             "v1internal:streamGenerateContent?alt=sse",
@@ -494,6 +501,7 @@ class CloudCodeClient:
                 prompt_tokens = usage_meta.get("promptTokenCount", prompt_tokens)
                 completion_tokens = usage_meta.get("candidatesTokenCount", completion_tokens)
                 total_tokens = usage_meta.get("totalTokenCount", total_tokens)
+                thoughts_tokens = usage_meta.get("thoughtsTokenCount", thoughts_tokens)
 
             for cand in candidates:
                 text, thought, tool_calls, _, _ = parse_gemini_sse_candidate(cand)
@@ -515,6 +523,16 @@ class CloudCodeClient:
 
         finish_reason = "tool_calls" if collected_tool_calls else "stop"
 
+        usage_dict: Dict[str, Any] = {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": total_tokens,
+        }
+        if thoughts_tokens > 0:
+            usage_dict["completion_tokens_details"] = {
+                "reasoning_tokens": thoughts_tokens
+            }
+
         return {
             "id": req_id,
             "object": "chat.completion",
@@ -527,11 +545,7 @@ class CloudCodeClient:
                     "finish_reason": finish_reason,
                 }
             ],
-            "usage": {
-                "prompt_tokens": prompt_tokens,
-                "completion_tokens": completion_tokens,
-                "total_tokens": total_tokens,
-            },
+            "usage": usage_dict,
         }
 
     # -------------------------------------------------------------------------

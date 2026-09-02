@@ -15,6 +15,7 @@ ROOT_DIR = Path(__file__).parent.resolve()
 DIST_DIR = ROOT_DIR / "dist"
 BUILD_DIR = ROOT_DIR / "build"
 STATIC_DIR = ROOT_DIR / "agy_proxy" / "static"
+TEMPLATES_DIR = ROOT_DIR / "agy_proxy" / "templates"
 
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -47,7 +48,8 @@ def build():
 
     # PyInstaller command arguments
     sep = ";" if system == "Windows" else ":"
-    data_arg = f"{STATIC_DIR}{sep}agy_proxy/static"
+    data_static = f"{STATIC_DIR}{sep}agy_proxy/static"
+    data_templates = f"{TEMPLATES_DIR}{sep}agy_proxy/templates"
 
     cmd = [
         sys.executable,
@@ -58,7 +60,9 @@ def build():
         "--onefile",
         "--clean",
         "--add-data",
-        data_arg,
+        data_static,
+        "--add-data",
+        data_templates,
         "--collect-all",
         "uvicorn",
         "--collect-all",

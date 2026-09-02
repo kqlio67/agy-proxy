@@ -304,6 +304,9 @@ def openai_to_cloudcode_payload(
             tool_calls = getattr(msg, "tool_calls", None)
             tool_call_id = getattr(msg, "tool_call_id", None)
 
+        if role in ("system", "developer"):
+            continue
+
         gemini_role = "model" if role == "assistant" else "user"
         parts: List[Dict[str, Any]] = []
 
@@ -405,8 +408,8 @@ def openai_to_cloudcode_payload(
     max_tokens = req.max_tokens or req.max_completion_tokens or 8192
     generation_config["maxOutputTokens"] = max_tokens
 
-    # Configure thinking for models that support it
-    thinking_config: Dict[str, Any] = {"includeThoughts": True}
+    # Configure thinking for models that support it (default -1 for dynamic unconstrained budget)
+    thinking_config: Dict[str, Any] = {"includeThoughts": True, "thinkingBudget": -1}
     if req.thinking and isinstance(req.thinking, dict):
         if "budget_tokens" in req.thinking:
             thinking_config["thinkingBudget"] = req.thinking["budget_tokens"]
@@ -630,8 +633,8 @@ def anthropic_to_cloudcode_payload(
         contents = [{"role": "user", "parts": [{"text": "Hello"}]}]
 
     generation_config: Dict[str, Any] = {
-        "maxOutputTokens": req.max_tokens or 4096,
-        "thinkingConfig": {"includeThoughts": True},
+        "maxOutputTokens": req.max_tokens or 65536,
+        "thinkingConfig": {"includeThoughts": True, "thinkingBudget": -1},
     }
     if req.temperature is not None:
         generation_config["temperature"] = req.temperature

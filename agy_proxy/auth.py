@@ -63,7 +63,7 @@ SCOPES = [
     "openid",
 ]
 
-USER_AGENT = "antigravity/cli/1.1.23 (aidev_client; os_type=linux; arch=amd64; cl=974125021; auth_method=consumer)"
+USER_AGENT = "antigravity/cli/1.1.24 (aidev_client; os_type=linux; arch=amd64; cl=974782877; auth_method=consumer)"
 
 # Candidate search paths for Antigravity primary / CLI / IDE tokens
 CANDIDATE_TOKEN_FILES = [
