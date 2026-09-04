@@ -80,6 +80,10 @@
           <i class="fa-solid fa-user-plus"></i>
           <span>Add Account</span>
         </button>
+        <button onclick="toggleAutoRefresh()" id="autoRefreshBtn" class="flex items-center space-x-1.5 text-xs font-semibold px-2.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 transition" title="Auto-refresh accounts every 15s (Disabled by default)">
+          <span class="w-2 h-2 rounded-full bg-slate-500" id="autoRefreshDot"></span>
+          <span id="autoRefreshLabel">Auto-refresh: OFF</span>
+        </button>
         <button onclick="refreshAllAccounts()" id="refreshBtn" class="flex items-center space-x-2 text-xs font-semibold px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 transition">
           <i class="fa-solid fa-rotate" id="refreshIcon"></i>
           <span>Refresh All</span>
@@ -116,6 +120,85 @@
         <button onclick="dismissUpdateBanner()" class="text-slate-400 hover:text-white p-1.5" title="Dismiss banner">
           <i class="fa-solid fa-xmark"></i>
         </button>
+      </div>
+    </div>
+
+    <!-- Global Overview KPI Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="overviewKpiRow">
+      <!-- Total Requests -->
+      <div class="p-4 rounded-2xl bg-dark-card border border-dark-border flex items-center space-x-3.5 shadow-sm">
+        <div class="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 text-lg flex-shrink-0">
+          <i class="fa-solid fa-chart-line"></i>
+        </div>
+        <div class="min-w-0">
+          <div class="text-[11px] font-medium text-slate-400 uppercase tracking-wider font-mono">Total Requests</div>
+          <div class="text-xl font-bold text-white font-mono mt-0.5" id="kpiTotalRequests">0</div>
+        </div>
+      </div>
+
+      <!-- Pool Health -->
+      <div class="p-4 rounded-2xl bg-dark-card border border-dark-border flex items-center space-x-3.5 shadow-sm">
+        <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 text-lg flex-shrink-0">
+          <i class="fa-solid fa-heart-pulse"></i>
+        </div>
+        <div class="min-w-0">
+          <div class="text-[11px] font-medium text-slate-400 uppercase tracking-wider font-mono">Gemini Pool Health</div>
+          <div class="text-xl font-bold text-emerald-400 font-mono mt-0.5" id="kpiPoolHealth">100%</div>
+        </div>
+      </div>
+
+      <!-- Gateway Status & Port -->
+      <div class="p-4 rounded-2xl bg-dark-card border border-dark-border flex items-center space-x-3.5 shadow-sm">
+        <div class="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 text-lg flex-shrink-0">
+          <i class="fa-solid fa-server"></i>
+        </div>
+        <div class="min-w-0">
+          <div class="text-[11px] font-medium text-slate-400 uppercase tracking-wider font-mono">Gateway Status</div>
+          <div class="text-xs font-bold text-white flex items-center space-x-1.5 mt-0.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span class="truncate">Online · :8000</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Smart Tool Pruning & Compactor -->
+      <div class="p-4 rounded-2xl bg-dark-card border border-dark-border flex items-center space-x-3.5 shadow-sm">
+        <div class="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 text-lg flex-shrink-0">
+          <i class="fa-solid fa-scissors"></i>
+        </div>
+        <div class="min-w-0">
+          <div class="text-[11px] font-medium text-slate-400 uppercase tracking-wider font-mono">Context Optimizer</div>
+          <div class="text-xs font-bold text-purple-300 font-mono mt-0.5 truncate" id="kpiPruningStatus">Smart Pruning Active</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Connect / Client Launch Commands Bar -->
+    <div class="p-3.5 rounded-2xl bg-slate-900/80 border border-dark-border text-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 shadow-sm">
+      <div class="flex items-center space-x-2.5 min-w-0">
+        <span class="w-7 h-7 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center flex-shrink-0 text-xs font-bold">
+          <i class="fa-solid fa-terminal"></i>
+        </span>
+        <span class="text-slate-300 font-medium truncate">Quick Connect:</span>
+        <div class="flex items-center space-x-1.5 overflow-x-auto custom-scrollbar py-0.5">
+          <button onclick="copySnippet('claude')" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[11px] font-mono transition flex items-center space-x-1 flex-shrink-0" title="Copy Claude Code launcher command">
+            <i class="fa-solid fa-copy text-indigo-400 text-[10px]"></i>
+            <span>Claude Code</span>
+          </button>
+          <button onclick="copySnippet('agy')" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[11px] font-mono transition flex items-center space-x-1 flex-shrink-0" title="Copy Antigravity CLI command">
+            <i class="fa-solid fa-copy text-emerald-400 text-[10px]"></i>
+            <span>AGY (Antigravity)</span>
+          </button>
+          <button onclick="copySnippet('baseurl')" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[11px] font-mono transition flex items-center space-x-1 flex-shrink-0" title="Copy API Base URL for Cursor/Cline">
+            <i class="fa-solid fa-link text-cyan-400 text-[10px]"></i>
+            <span>Base URL (:8000/v1)</span>
+          </button>
+        </div>
+      </div>
+      <div class="flex items-center space-x-2 text-[11px] text-slate-400 self-end md:self-auto">
+        <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold font-mono">
+          <i class="fa-solid fa-check-double mr-1 text-[9px]"></i> OpenAI · Anthropic Ready
+        </span>
       </div>
     </div>
 
@@ -214,9 +297,11 @@
                 <option value="gemini-3.8-flash-high" selected>Gemini 3.8 Flash (High Reasoning)</option>
                 <option value="gemini-3.8-flash-medium">Gemini 3.8 Flash (Medium Reasoning)</option>
                 <option value="gemini-3.8-flash-low">Gemini 3.8 Flash (Low Reasoning)</option>
+                <option value="gemini-3.8-flash-tiered">Gemini 3.8 Flash Tiered (Dynamic 1M Context)</option>
                 <option value="gemini-3.7-flash-high">Gemini 3.7 Flash (High Reasoning)</option>
-                <option value="gemini-pro-agent">Gemini Pro Agent (3.1 Pro)</option>
-                <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite</option>
+                <option value="gemini-pro-agent">Gemini Pro Agent (Deep Reasoning 3.1 Pro)</option>
+                <option value="gemini-3-flash-agent">Gemini 3 Flash Agent (Fast Tooling)</option>
+                <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite (Zero-Thinking)</option>
                 <option value="claude-sonnet-4-6">Claude Sonnet 4.6 (Thinking)</option>
                 <option value="claude-opus-4-6-thinking">Claude Opus 4.6 (Thinking)</option>
                 <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
@@ -884,11 +969,101 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       }
     }
 
+    // Floating Toast Notification System
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      if (!container) return;
+      const toast = document.createElement('div');
+      toast.className = `pointer-events-auto px-4 py-2.5 rounded-xl text-xs font-semibold shadow-xl border backdrop-blur-md transition-all duration-300 transform translate-y-2 opacity-0 flex items-center space-x-2 ${
+        type === 'success' ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500/40' :
+        type === 'error' ? 'bg-red-950/90 text-red-300 border-red-500/40' :
+        'bg-slate-900/95 text-slate-200 border-slate-700/80'
+      }`;
+      const icon = type === 'success' ? 'fa-circle-check text-emerald-400' :
+                   type === 'error' ? 'fa-circle-xmark text-red-400' :
+                   'fa-circle-info text-indigo-400';
+      toast.innerHTML = `<i class="fa-solid ${icon}"></i><span>${message}</span>`;
+      container.appendChild(toast);
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      });
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 2800);
+    }
+
+    // Quick Connect Snippets Copy
+    function copySnippet(type) {
+      let text = '';
+      let name = '';
+      if (type === 'claude') {
+        text = `export ANTHROPIC_BASE_URL="http://127.0.0.1:8000" && claude --settings '{"availableModels": ["anthropic.gemini-3.8-flash-high", "anthropic.gemini-pro-agent", "anthropic.gemini-3.8-flash-tiered"]}'`;
+        name = 'Claude Code launcher';
+      } else if (type === 'agy') {
+        text = `agy --model gemini-pro-agent --dangerously-skip-permissions`;
+        name = 'AGY command';
+      } else if (type === 'baseurl') {
+        text = `http://127.0.0.1:8000/v1`;
+        name = 'Base URL';
+      }
+      navigator.clipboard.writeText(text).then(() => {
+        showToast(`${name} copied to clipboard!`, 'success');
+      }).catch(() => {
+        prompt('Copy snippet:', text);
+      });
+    }
+
+    // Auto-Refresh (Disabled by default per user request)
+    let autoRefreshIntervalId = null;
+    function initAutoRefresh() {
+      const saved = localStorage.getItem('agy_auto_refresh');
+      const isEnabled = saved === 'true'; // Defaults to false
+      setAutoRefreshState(isEnabled, false);
+    }
+
+    function toggleAutoRefresh() {
+      const isCurrentlyEnabled = autoRefreshIntervalId !== null;
+      setAutoRefreshState(!isCurrentlyEnabled, true);
+    }
+
+    function setAutoRefreshState(enable, showNotify = false) {
+      const btn = document.getElementById('autoRefreshBtn');
+      const label = document.getElementById('autoRefreshLabel');
+      const dot = document.getElementById('autoRefreshDot');
+
+      if (autoRefreshIntervalId) {
+        clearInterval(autoRefreshIntervalId);
+        autoRefreshIntervalId = null;
+      }
+
+      if (enable) {
+        localStorage.setItem('agy_auto_refresh', 'true');
+        if (label) label.innerText = 'Auto-refresh: 15s';
+        if (dot) dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+        if (btn) btn.className = 'flex items-center space-x-1.5 text-xs font-semibold px-2.5 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 transition';
+        autoRefreshIntervalId = setInterval(() => {
+          loadAccounts(true);
+        }, 15000);
+        if (showNotify) showToast('Auto-refresh enabled (every 15s)', 'success');
+      } else {
+        localStorage.setItem('agy_auto_refresh', 'false');
+        if (label) label.innerText = 'Auto-refresh: OFF';
+        if (dot) dot.className = 'w-2 h-2 rounded-full bg-slate-500';
+        if (btn) btn.className = 'flex items-center space-x-1.5 text-xs font-semibold px-2.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 transition';
+        if (showNotify) showToast('Auto-refresh disabled', 'info');
+      }
+    }
+
     document.getElementById('modelSelect').addEventListener('change', (e) => {
       document.getElementById('activeModelBadge').innerText = e.target.value;
     });
 
-    async function loadAccounts() {
+    async function loadAccounts(isSilent = false) {
+      const dot = document.getElementById('autoRefreshDot');
+      if (isSilent && dot && autoRefreshIntervalId) {
+        dot.className = 'w-2 h-2 rounded-full bg-amber-400 animate-ping';
+      }
       try {
         const res = await fetch('/api/accounts');
         const data = await res.json();
@@ -896,6 +1071,14 @@ https://your-tunnel.trycloudflare.com/v1</pre>
         renderAccounts();
       } catch (err) {
         console.error("Accounts load failed", err);
+      } finally {
+        if (isSilent && dot && autoRefreshIntervalId) {
+          setTimeout(() => {
+            if (autoRefreshIntervalId) {
+              dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+            }
+          }, 400);
+        }
       }
     }
 
@@ -904,26 +1087,47 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       const searchQ = (document.getElementById('accountSearchInput')?.value || '').toLowerCase().trim();
       const sortMode = document.getElementById('accountSortSelect')?.value || 'default';
 
-      // Calculate counts for filters
+      // Calculate counts for filters & KPI stats
       let totalAll = rawAccountsData.length;
       let totalOAuth = 0;
       let totalApiKey = 0;
       let totalExhausted = 0;
+      let totalRequests = 0;
+      let sumGeminiPct = 0;
+      let oauthWithQuotaCount = 0;
 
       rawAccountsData.forEach(acc => {
         const isApiKey = acc.auth_method === 'api_key';
-        if (isApiKey) totalApiKey++;
-        else totalOAuth++;
+        totalRequests += (acc.total_requests || 0);
 
         const qDetails = acc.quota_details || {};
         const geminiQ = qDetails.gemini || { percent: 100, fraction: 1.0 };
         const claudeQ = qDetails['3p'] || qDetails.claude || { percent: 100, fraction: 1.0 };
         const geminiPct = Math.round(geminiQ.percent ?? (geminiQ.fraction * 100));
         const claudePct = Math.round(claudeQ.percent ?? (claudeQ.fraction * 100));
+
+        if (isApiKey) {
+          totalApiKey++;
+        } else {
+          totalOAuth++;
+          sumGeminiPct += geminiPct;
+          oauthWithQuotaCount++;
+        }
+
         if (!isApiKey && (geminiPct <= 0 || claudePct <= 0)) {
           totalExhausted++;
         }
       });
+
+      // Update KPI overview stats
+      const avgPoolQuota = oauthWithQuotaCount > 0 ? Math.round(sumGeminiPct / oauthWithQuotaCount) : 100;
+      const kpiTotalReqs = document.getElementById('kpiTotalRequests');
+      const kpiPool = document.getElementById('kpiPoolHealth');
+      if (kpiTotalReqs) kpiTotalReqs.innerText = totalRequests.toLocaleString();
+      if (kpiPool) {
+        kpiPool.innerText = `${avgPoolQuota}%`;
+        kpiPool.className = `text-xl font-bold font-mono mt-0.5 ${avgPoolQuota > 50 ? 'text-emerald-400' : (avgPoolQuota > 20 ? 'text-amber-400' : 'text-red-400')}`;
+      }
 
       if (document.getElementById('countAll')) document.getElementById('countAll').innerText = totalAll;
       if (document.getElementById('countOAuth')) document.getElementById('countOAuth').innerText = totalOAuth;
@@ -1933,9 +2137,13 @@ ${data.stderr || data.stdout || data.error}`;
     loadAccounts();
     loadModels();
     loadCompactorSettings();
+    initAutoRefresh();
     checkForSoftwareUpdates();
     updateCacheStats();
     setInterval(updateCacheStats, 10000);
   </script>
+
+  <!-- Floating Toast Notifications Container -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none max-w-sm"></div>
 </body>
 </html>
