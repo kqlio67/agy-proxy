@@ -26,9 +26,9 @@ class CompactorSettings:
     def __init__(
         self,
         enabled: bool = True,
-        threshold_tokens: int = 90000,
-        keep_last_n: int = 6,
-        model: str = "gemini-3.1-flash-lite",
+        threshold_tokens: int = 95000,
+        keep_last_n: int = 24,
+        model: str = "gemini-3.8-flash-low",
     ):
         self.enabled = enabled
         self.threshold_tokens = threshold_tokens
@@ -42,9 +42,9 @@ class CompactorSettings:
                 with open(CONFIG_FILE, "r", encoding="utf-8") as f:
                     data = json.load(f)
                 self.enabled = bool(data.get("enabled", True))
-                self.threshold_tokens = int(data.get("threshold_tokens", 90000))
-                self.keep_last_n = int(data.get("keep_last_n", 6))
-                self.model = str(data.get("model", "gemini-3.1-flash-lite"))
+                self.threshold_tokens = int(data.get("threshold_tokens", 95000))
+                self.keep_last_n = int(data.get("keep_last_n", 24))
+                self.model = str(data.get("model", "gemini-3.8-flash-low"))
             except Exception as e:
                 logger.debug("Failed to load compactor config: %s", e)
 
@@ -322,10 +322,10 @@ async def compact_conversation_history(
                     if b_type == "text":
                         text_parts.append(str(b.get("text") or ""))
                     elif "tool_use" in b_type:
-                        text_parts.append(f"[Tool Call: {b.get('name')} args={json.dumps(b.get('input', {}))[:300]}]")
+                        text_parts.append(f"[Tool Call: {b.get('name')} args={json.dumps(b.get('input', {}))[:1200]}]")
                     elif "tool_result" in b_type:
                         res = b.get("content", "")
-                        text_parts.append(f"[Tool Result: {str(res)[:300]}]")
+                        text_parts.append(f"[Tool Result: {str(res)[:3500]}]")
                     elif b.get("text"):
                         text_parts.append(str(b.get("text")))
                 else:
@@ -335,7 +335,7 @@ async def compact_conversation_history(
                     elif "tool_use" in str(b_type) or hasattr(b, "name"):
                         text_parts.append(f"[Tool Call: {getattr(b, 'name', '')}]")
                     elif "tool_result" in str(b_type):
-                        text_parts.append(f"[Tool Result: {str(getattr(b, 'content', ''))[:300]}]")
+                        text_parts.append(f"[Tool Result: {str(getattr(b, 'content', ''))[:3500]}]")
             content_str = " ".join([p for p in text_parts if p])
         else:
             content_str = str(content or "")
@@ -429,10 +429,10 @@ async def generate_compact_summary(
                     if b_type == "text":
                         text_parts.append(str(b.get("text") or ""))
                     elif "tool_use" in b_type:
-                        text_parts.append(f"[Tool Call: {b.get('name')} args={json.dumps(b.get('input', {}))[:300]}]")
+                        text_parts.append(f"[Tool Call: {b.get('name')} args={json.dumps(b.get('input', {}))[:1200]}]")
                     elif "tool_result" in b_type:
                         res = b.get("content", "")
-                        text_parts.append(f"[Tool Result: {str(res)[:1000]}]")
+                        text_parts.append(f"[Tool Result: {str(res)[:3500]}]")
                     elif b.get("text"):
                         text_parts.append(str(b.get("text")))
                 else:
@@ -442,7 +442,7 @@ async def generate_compact_summary(
                     elif "tool_use" in str(b_type) or hasattr(b, "name"):
                         text_parts.append(f"[Tool Call: {getattr(b, 'name', '')}]")
                     elif "tool_result" in str(b_type):
-                        text_parts.append(f"[Tool Result: {str(getattr(b, 'content', ''))[:1000]}]")
+                        text_parts.append(f"[Tool Result: {str(getattr(b, 'content', ''))[:3500]}]")
             content_str = " ".join([p for p in text_parts if p])
         else:
             content_str = str(content or "")
@@ -490,7 +490,7 @@ async def _call_summarizer_llm(
                         "parts": [{"text": SUMMARIZER_PROMPT}],
                     },
                     "generationConfig": {
-                        "maxOutputTokens": 2048,
+                        "maxOutputTokens": 6144,
                         "temperature": 0.2,
                     },
                 }
@@ -523,11 +523,11 @@ async def _call_summarizer_llm(
                             "parts": [{"text": SUMMARIZER_PROMPT}],
                         },
                         "generationConfig": {
-                            "maxOutputTokens": 2048,
+                            "maxOutputTokens": 6144,
                             "temperature": 0.2,
                             "thinkingConfig": {
                                 "includeThoughts": False,
-                                "thinkingBudget": 0,
+                                "thinkingBudget": 1024,
                             },
                         },
                     },
