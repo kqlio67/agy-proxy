@@ -1008,6 +1008,10 @@ https://your-tunnel.trycloudflare.com/v1</pre>
           const claudePct = Math.round(claudeQ.percent ?? (claudeQ.fraction * 100));
           const geminiReset = formatResetTime(geminiQ.reset_time);
           const claudeReset = formatResetTime(claudeQ.reset_time);
+          const geminiWk = geminiQ['weekly'];
+          const claude5h = claudeQ['5h'];
+          const geminiWkPct = geminiWk ? Math.round(geminiWk.percent ?? (geminiWk.fraction * 100)) : null;
+          const claude5hPct = claude5h ? Math.round(claude5h.percent ?? (claude5h.fraction * 100)) : null;
           const geminiIsExhausted = geminiPct <= 0 || (acc.rate_limited_models && acc.rate_limited_models.gemini !== undefined);
           const claudeIsExhausted = claudePct <= 0 || (acc.rate_limited_models && acc.rate_limited_models['3p'] !== undefined);
 
@@ -1037,37 +1041,35 @@ https://your-tunnel.trycloudflare.com/v1</pre>
           } else {
             quotaSectionHtml = `
               <div class="grid grid-cols-2 gap-2 text-xs pt-1">
-                <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1.5 flex flex-col justify-between">
+                <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1.5 flex flex-col justify-between" title="${geminiQ.description || '5-hour rolling limit + weekly cap'}">
                   <div>
                     <div class="flex justify-between text-[11px] items-center">
-                      <span class="text-slate-400">Gemini</span>
+                      <span class="text-slate-400 font-medium">Gemini</span>
                       <span class="font-bold ${geminiIsExhausted ? 'text-red-400' : 'text-slate-200'}">${geminiPct}%</span>
                     </div>
                     <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mt-1">
                       <div class="h-full ${geminiIsExhausted ? 'bg-red-500' : (geminiPct > 30 ? 'bg-indigo-500' : 'bg-amber-500')}" style="width: ${geminiPct}%"></div>
                     </div>
                   </div>
-                  <div class="text-[10px] text-right">
-                    ${geminiIsExhausted
-                      ? `<span class="text-red-400 font-medium"><i class="fa-solid fa-triangle-exclamation mr-1"></i>${geminiReset ? 'Resets ' + geminiReset : 'Exhausted'}</span>`
-                      : `<span class="text-slate-400">${geminiReset ? 'Resets ' + geminiReset : 'Weekly limit'}</span>`}
+                  <div class="text-[10px] flex justify-between items-center text-slate-500">
+                    <span class="font-mono text-[9px] text-slate-500">${geminiWkPct !== null ? 'Wk:' + geminiWkPct + '%' : ''}</span>
+                    <span class="${geminiIsExhausted ? 'text-red-400 font-semibold' : 'text-slate-400'}">${geminiReset ? 'Resets in ' + geminiReset : '5h limit'}</span>
                   </div>
                 </div>
 
-                <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1.5 flex flex-col justify-between">
+                <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1.5 flex flex-col justify-between" title="${claudeQ.description || 'Weekly quota + 5-hour smoothing'}">
                   <div>
                     <div class="flex justify-between text-[11px] items-center">
-                      <span class="text-slate-400">Claude / 3P</span>
+                      <span class="text-slate-400 font-medium">Claude / 3P</span>
                       <span class="font-bold ${claudeIsExhausted ? 'text-red-400' : 'text-slate-200'}">${claudePct}%</span>
                     </div>
                     <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mt-1">
                       <div class="h-full ${claudeIsExhausted ? 'bg-red-500' : (claudePct > 30 ? 'bg-purple-500' : 'bg-amber-500')}" style="width: ${claudePct}%"></div>
                     </div>
                   </div>
-                  <div class="text-[10px] text-right">
-                    ${claudeIsExhausted
-                      ? `<span class="text-red-400 font-medium"><i class="fa-solid fa-triangle-exclamation mr-1"></i>${claudeReset ? 'Resets ' + claudeReset : '5h limit'}</span>`
-                      : `<span class="text-slate-400">${claudeReset ? 'Resets ' + claudeReset : '5h rolling'}</span>`}
+                  <div class="text-[10px] flex justify-between items-center text-slate-500">
+                    <span class="font-mono text-[9px] text-slate-500">${claude5hPct !== null ? '5h:' + claude5hPct + '%' : ''}</span>
+                    <span class="${claudeIsExhausted ? 'text-red-400 font-semibold' : 'text-slate-400'}">${claudeReset ? 'Resets in ' + claudeReset : '7d limit'}</span>
                   </div>
                 </div>
               </div>

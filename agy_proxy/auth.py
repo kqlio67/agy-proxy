@@ -424,33 +424,99 @@ class AccountSession:
         """Calculates structured quota fractions, window, reset times, and descriptions for Gemini and Claude/3P."""
         if self.auth_method == "api_key":
             return {
-                "gemini": {"fraction": 1.0, "percent": 100.0, "reset_time": None, "window": "unlimited", "description": "Google AI Studio API Key (PayG / Free)"},
-                "3p": {"fraction": 0.0, "percent": 0.0, "reset_time": None, "window": "n/a", "description": "API Key accounts do not support Claude / 3P models"},
+                "gemini": {
+                    "fraction": 1.0,
+                    "percent": 100.0,
+                    "reset_time": None,
+                    "window": "unlimited",
+                    "description": "Google AI Studio API Key (PayG / Free)",
+                    "5h": {"fraction": 1.0, "percent": 100.0, "reset_time": None, "description": ""},
+                    "weekly": {"fraction": 1.0, "percent": 100.0, "reset_time": None, "description": ""},
+                },
+                "3p": {
+                    "fraction": 0.0,
+                    "percent": 0.0,
+                    "reset_time": None,
+                    "window": "n/a",
+                    "description": "API Key accounts do not support Claude / 3P models",
+                    "5h": {"fraction": 0.0, "percent": 0.0, "reset_time": None, "description": ""},
+                    "weekly": {"fraction": 0.0, "percent": 0.0, "reset_time": None, "description": ""},
+                },
             }
 
         res = {
-            "gemini": {"fraction": 1.0, "percent": 100.0, "reset_time": None, "window": "weekly", "description": ""},
-            "3p": {"fraction": 1.0, "percent": 100.0, "reset_time": None, "window": "5h", "description": ""},
+            "gemini": {
+                "fraction": 1.0,
+                "percent": 100.0,
+                "reset_time": None,
+                "window": "5h",
+                "description": "",
+                "5h": {"fraction": 1.0, "percent": 100.0, "reset_time": None, "description": ""},
+                "weekly": {"fraction": 1.0, "percent": 100.0, "reset_time": None, "description": ""},
+            },
+            "3p": {
+                "fraction": 1.0,
+                "percent": 100.0,
+                "reset_time": None,
+                "window": "weekly",
+                "description": "",
+                "5h": {"fraction": 1.0, "percent": 100.0, "reset_time": None, "description": ""},
+                "weekly": {"fraction": 1.0, "percent": 100.0, "reset_time": None, "description": ""},
+            },
         }
 
         if self.quota_summary and isinstance(self.quota_summary, dict):
             for group in self.quota_summary.get("groups", []):
-                g_name = group.get("displayName", "").lower()
-                key = "3p" if ("claude" in g_name or "gpt" in g_name) else "gemini"
+                g_name = (group.get("displayName") or "").lower()
+                key = "3p" if ("claude" in g_name or "gpt" in g_name or "3p" in g_name) else "gemini"
                 buckets = group.get("buckets", [])
+
+                b_5h = None
+                b_wk = None
+                for b in buckets:
+                    wid = str(b.get("window", "")).lower()
+                    bid = str(b.get("bucketId", "")).lower()
+                    if wid == "5h" or "5h" in bid:
+                        b_5h = b
+                    elif wid == "weekly" or "weekly" in bid:
+                        b_wk = b
+
+                if b_5h:
+                    f_5h = float(b_5h.get("remainingFraction", 1.0))
+                    res[key]["5h"] = {
+                        "fraction": f_5h,
+                        "percent": round(f_5h * 100, 1),
+                        "reset_time": b_5h.get("resetTime"),
+                        "description": b_5h.get("description", ""),
+                    }
+                if b_wk:
+                    f_wk = float(b_wk.get("remainingFraction", 1.0))
+                    res[key]["weekly"] = {
+                        "fraction": f_wk,
+                        "percent": round(f_wk * 100, 1),
+                        "reset_time": b_wk.get("resetTime"),
+                        "description": b_wk.get("description", ""),
+                    }
+
+                # Primary operational bucket selection:
+                # For Gemini: 5h is operational working capacity (short refresh)
+                # For 3P: weekly is the primary bottleneck capacity
                 active_buckets = [b for b in buckets if not b.get("disabled", False)] or buckets
                 if active_buckets:
-                    limiting = min(active_buckets, key=lambda b: b.get("remainingFraction", 1.0))
-                    fraction = float(limiting.get("remainingFraction", 1.0))
+                    if key == "gemini":
+                        target = b_5h or b_wk or active_buckets[0]
+                    else:
+                        target = min(active_buckets, key=lambda b: float(b.get("remainingFraction", 1.0)))
+
+                    fraction = float(target.get("remainingFraction", 1.0))
                     if self.is_rate_limited("claude" if key == "3p" else "gemini"):
                         fraction = 0.0
-                    res[key] = {
-                        "fraction": fraction,
-                        "percent": round(fraction * 100, 1),
-                        "reset_time": limiting.get("resetTime"),
-                        "window": limiting.get("window"),
-                        "description": limiting.get("description", ""),
-                    }
+
+                    res[key]["fraction"] = fraction
+                    res[key]["percent"] = round(fraction * 100, 1)
+                    res[key]["reset_time"] = target.get("resetTime")
+                    res[key]["window"] = target.get("window", "5h" if key == "gemini" else "weekly")
+                    res[key]["description"] = target.get("description", "")
 
         return res
 
