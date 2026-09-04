@@ -30,7 +30,7 @@ from agy_proxy.models import (
     DEFAULT_MODEL,
     ModelCard,
     ModelListResponse,
-    MODEL_ALIASES,
+    VALID_CLOUDCODE_MODELS,
     OpenAIChatRequest,
     normalize_model_name,
 )
@@ -492,11 +492,20 @@ def create_app(
     @app.get("/v1/models")
     async def list_openai_models():
         models_dict = await pool.get_pool_models() if pool.accounts else {}
+        if not models_dict:
+            models_dict = {
+                m_id: {"displayName": m_id, "maxTokens": 65536, "quotaInfo": {}}
+                for m_id in sorted(VALID_CLOUDCODE_MODELS)
+            }
 
         model_cards: List[ModelCard] = []
         seen_ids = set()
 
         for m_id, info in models_dict.items():
+            # Filter internal code-completion or hash models from public chat catalog
+            if m_id.startswith(("tab_", "chat_")):
+                continue
+
             seen_ids.add(m_id)
             quota_info = info.get("quotaInfo", {})
             pool_rem = info.get("pool_remaining_fraction", quota_info.get("remainingFraction", 1.0))
@@ -523,17 +532,6 @@ def create_app(
                         )
                     )
 
-        for alias, target in MODEL_ALIASES.items():
-            for m_key in (alias, f"anthropic/{alias}", f"anthropic.{alias}"):
-                if m_key not in seen_ids:
-                    seen_ids.add(m_key)
-                    model_cards.append(
-                        ModelCard(
-                            id=m_key,
-                            display_name=f"{m_key} (-> {target})",
-                        )
-                    )
-
         return ModelListResponse(data=model_cards)
 
     @app.get("/v1/models/{model_id}")
@@ -543,6 +541,11 @@ def create_app(
         if pool.accounts:
             acc = next(iter(pool.accounts.values()))
             models_dict = acc.available_models
+        if not models_dict:
+            models_dict = {
+                m_id: {"displayName": m_id, "maxTokens": 65536, "quotaInfo": {}}
+                for m_id in sorted(VALID_CLOUDCODE_MODELS)
+            }
         info = models_dict.get(normalized, {})
         return ModelCard(
             id=model_id,

@@ -104,6 +104,25 @@ class TestServerRoutes(unittest.IsolatedAsyncioTestCase):
         resp = await self.client.get("/api/fetch-url")
         self.assertEqual(resp.status_code, 400)
 
+    async def test_v1_models_returns_only_authentic_models(self):
+        resp = await self.client.get("/v1/models")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        model_ids = {m["id"] for m in data.get("data", [])}
+
+        # Real models should be present
+        self.assertIn("gemini-3.8-flash-high", model_ids)
+        self.assertIn("anthropic.claude-sonnet-4-6", model_ids)
+
+        # Fake models / synthetic aliases should NOT be advertised in /v1/models
+        self.assertNotIn("claude-5-fable", model_ids)
+        self.assertNotIn("anthropic.claude-5-fable", model_ids)
+        self.assertNotIn("claude-opus-5", model_ids)
+        self.assertNotIn("anthropic.claude-opus-5", model_ids)
+        self.assertNotIn("gpt-4o", model_ids)
+        self.assertNotIn("anthropic.gpt-4o", model_ids)
+        self.assertNotIn("deepseek-r1", model_ids)
+
 
 if __name__ == "__main__":
     unittest.main()

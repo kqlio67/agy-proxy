@@ -75,18 +75,6 @@ MODEL_ALIASES: Dict[str, str] = {
     "claude-3-opus-20240229": "claude-opus-4-6-thinking",
     "claude-3-5-haiku": "gemini-3.1-flash-lite",
     "claude-3-haiku": "gemini-3.1-flash-lite",
-    "claude-sonnet-5": "claude-sonnet-4-6",
-    "claude-sonnet-5-latest": "claude-sonnet-4-6",
-    "claude-5-sonnet": "claude-sonnet-4-6",
-    "claude-fable-5": "claude-sonnet-4-6",
-    "claude-fable-5-latest": "claude-sonnet-4-6",
-    "claude-5-fable": "claude-sonnet-4-6",
-    "claude-opus-5": "claude-opus-4-6-thinking",
-    "claude-opus-5-latest": "claude-opus-4-6-thinking",
-    "claude-5-opus": "claude-opus-4-6-thinking",
-    "claude-haiku-4-5": "gemini-3.1-flash-lite",
-    "claude-haiku-4-5-20251001": "gemini-3.1-flash-lite",
-    "claude-4-5-haiku": "gemini-3.1-flash-lite",
 
     # OpenAI Aliases -> mapped to highest reasoning default (Gemini 3.8 Flash High)
     "gpt-4o": "gemini-3.8-flash-high",
