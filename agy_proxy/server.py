@@ -118,6 +118,10 @@ def create_app(
         return HTMLResponse(content=get_dashboard_html())
 
     @app.get("/dashboard", response_class=HTMLResponse)
+    @app.get("/playground", response_class=HTMLResponse)
+    @app.get("/analytics", response_class=HTMLResponse)
+    @app.get("/integrations", response_class=HTMLResponse)
+    @app.get("/settings", response_class=HTMLResponse)
     async def dashboard_page():
         return HTMLResponse(content=get_dashboard_html())
 

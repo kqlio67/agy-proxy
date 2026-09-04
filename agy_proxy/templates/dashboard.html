@@ -66,8 +66,32 @@
         </a>
       </div>
 
+      <!-- Center Navigation Tabs -->
+      <nav class="hidden lg:flex items-center space-x-1 bg-slate-950/70 p-1 rounded-xl border border-slate-800/80 text-xs font-medium" id="mainNavTabs">
+        <button onclick="switchTab('accounts')" id="tabBtn-accounts" class="nav-tab-btn px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition bg-indigo-600 text-white font-semibold shadow-sm">
+          <i class="fa-solid fa-users text-[11px]"></i>
+          <span>Accounts</span>
+        </button>
+        <button onclick="switchTab('analytics')" id="tabBtn-analytics" class="nav-tab-btn px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition text-slate-400 hover:text-white hover:bg-slate-800">
+          <i class="fa-solid fa-chart-pie text-[11px]"></i>
+          <span>Analytics</span>
+        </button>
+        <button onclick="switchTab('playground')" id="tabBtn-playground" class="nav-tab-btn px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition text-slate-400 hover:text-white hover:bg-slate-800">
+          <i class="fa-solid fa-terminal text-[11px]"></i>
+          <span>Playground</span>
+        </button>
+        <button onclick="switchTab('integrations')" id="tabBtn-integrations" class="nav-tab-btn px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition text-slate-400 hover:text-white hover:bg-slate-800">
+          <i class="fa-solid fa-plug text-[11px]"></i>
+          <span>Integrations</span>
+        </button>
+        <button onclick="switchTab('settings')" id="tabBtn-settings" class="nav-tab-btn px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition text-slate-400 hover:text-white hover:bg-slate-800">
+          <i class="fa-solid fa-sliders text-[11px]"></i>
+          <span>Settings</span>
+        </button>
+      </nav>
+
       <!-- Quick Nav / Links -->
-      <div class="flex items-center space-x-3">
+      <div class="flex items-center space-x-2.5">
         <!-- Update Available Badge (dynamic) -->
         <div id="updateBadgeContainer" class="hidden">
           <button onclick="openUpdateModal()" class="flex items-center space-x-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 hover:bg-indigo-500/30 transition animate-pulse">
@@ -76,22 +100,38 @@
           </button>
         </div>
 
-        <button onclick="openAddAccountModal()" class="flex items-center space-x-2 text-xs font-semibold px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-sm">
-          <i class="fa-solid fa-user-plus"></i>
-          <span>Add Account</span>
+        <button onclick="openAddAccountModal()" class="flex items-center space-x-1.5 text-xs font-semibold px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-sm">
+          <i class="fa-solid fa-user-plus text-[11px]"></i>
+          <span class="hidden sm:inline">Add Account</span>
         </button>
         <button onclick="toggleAutoRefresh()" id="autoRefreshBtn" class="flex items-center space-x-1.5 text-xs font-semibold px-2.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 transition" title="Auto-refresh accounts every 15s (Disabled by default)">
           <span class="w-2 h-2 rounded-full bg-slate-500" id="autoRefreshDot"></span>
           <span id="autoRefreshLabel">Auto-refresh: OFF</span>
         </button>
-        <button onclick="refreshAllAccounts()" id="refreshBtn" class="flex items-center space-x-2 text-xs font-semibold px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 transition">
-          <i class="fa-solid fa-rotate" id="refreshIcon"></i>
-          <span>Refresh All</span>
+        <button onclick="refreshAllAccounts()" id="refreshBtn" class="flex items-center space-x-1.5 text-xs font-semibold px-2.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 transition" title="Refresh accounts and models">
+          <i class="fa-solid fa-rotate text-[11px]" id="refreshIcon"></i>
+          <span class="hidden sm:inline">Refresh All</span>
         </button>
-        <a href="#playground" class="text-xs font-semibold px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition shadow-sm">
-          <i class="fa-solid fa-terminal mr-1"></i> Playground
-        </a>
       </div>
+    </div>
+
+    <!-- Mobile Sub-Navigation Bar -->
+    <div class="lg:hidden border-t border-slate-800/80 bg-slate-950/90 px-4 py-2 flex items-center space-x-1.5 overflow-x-auto custom-scrollbar text-xs">
+      <button onclick="switchTab('accounts')" id="mTabBtn-accounts" class="px-2.5 py-1 rounded-lg flex items-center space-x-1 whitespace-nowrap bg-indigo-600 text-white font-semibold shadow-sm">
+        <i class="fa-solid fa-users text-[10px]"></i><span>Accounts</span>
+      </button>
+      <button onclick="switchTab('analytics')" id="mTabBtn-analytics" class="px-2.5 py-1 rounded-lg flex items-center space-x-1 whitespace-nowrap text-slate-400 hover:text-white">
+        <i class="fa-solid fa-chart-pie text-[10px]"></i><span>Analytics</span>
+      </button>
+      <button onclick="switchTab('playground')" id="mTabBtn-playground" class="px-2.5 py-1 rounded-lg flex items-center space-x-1 whitespace-nowrap text-slate-400 hover:text-white">
+        <i class="fa-solid fa-terminal text-[10px]"></i><span>Playground</span>
+      </button>
+      <button onclick="switchTab('integrations')" id="mTabBtn-integrations" class="px-2.5 py-1 rounded-lg flex items-center space-x-1 whitespace-nowrap text-slate-400 hover:text-white">
+        <i class="fa-solid fa-plug text-[10px]"></i><span>Integrations</span>
+      </button>
+      <button onclick="switchTab('settings')" id="mTabBtn-settings" class="px-2.5 py-1 rounded-lg flex items-center space-x-1 whitespace-nowrap text-slate-400 hover:text-white">
+        <i class="fa-solid fa-sliders text-[10px]"></i><span>Settings</span>
+      </button>
     </div>
   </header>
 
@@ -123,8 +163,10 @@
       </div>
     </div>
 
-    <!-- Global Overview KPI Cards -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="overviewKpiRow">
+    <!-- TAB 1: ACCOUNTS -->
+    <div id="tabContent-accounts" class="space-y-6">
+      <!-- Global Overview KPI Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="overviewKpiRow">
       <!-- Total Requests -->
       <div class="p-4 rounded-2xl bg-dark-card border border-dark-border flex items-center space-x-3.5 shadow-sm">
         <div class="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 text-lg flex-shrink-0">
@@ -277,7 +319,20 @@
         </div>
       </div>
     </div>
+  </div> <!-- End #tabContent-accounts -->
 
+  <!-- TAB 2: ANALYTICS -->
+  <div id="tabContent-analytics" class="hidden space-y-6">
+    <div id="analyticsContent" class="space-y-6">
+      <div class="p-8 rounded-2xl bg-dark-card border border-dark-border text-center text-slate-500 text-sm">
+        <i class="fa-solid fa-circle-notch fa-spin text-indigo-400 text-2xl mb-3 block"></i>
+        Loading pool telemetry and quota analytics...
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 3: PLAYGROUND -->
+  <div id="tabContent-playground" class="hidden space-y-6">
     <!-- Playground & Models Layout -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8" id="playground">
 
@@ -360,63 +415,7 @@
 
           <div class="space-y-2.5 max-h-80 overflow-y-auto pr-1 custom-scrollbar" id="modelList">
             <div class="text-center py-6 text-slate-500 text-sm">Loading model catalog...</div>
-          </div>
         </div>
-
-        <!-- Context Auto-Compactor & Summarizer Card -->
-        <div class="p-6 rounded-2xl bg-dark-card border border-dark-border space-y-4">
-          <div class="flex items-center justify-between">
-            <h2 class="text-base font-bold text-white flex items-center">
-              <i class="fa-solid fa-compress-alt mr-2 text-purple-400"></i> Context Compactor
-            </h2>
-            <label class="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" id="compactorEnabledToggle" class="sr-only peer" checked onchange="updateCompactorSettings()">
-              <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
-            </label>
-          </div>
-          <p class="text-xs text-slate-400 leading-relaxed">
-            Auto-compresses long chat histories using <span class="font-mono text-purple-300">gemini-3.8-flash-low</span> when full, saving 80%+ tokens and preventing overflow.
-          </p>
-          <div class="space-y-3 pt-1">
-            <div>
-              <div class="flex justify-between text-xs text-slate-400 mb-1">
-                <span>Auto-Summarize Threshold</span>
-                <span id="compactThresholdDisplay" class="font-mono text-purple-300 font-semibold">95,000 tokens</span>
-              </div>
-              <input type="range" id="compactThresholdSlider" min="30000" max="200000" step="5000" value="95000" class="w-full accent-purple-500" oninput="onCompactSliderInput(this.value)" onchange="updateCompactorSettings()">
-              <div class="flex justify-between text-[10px] text-slate-500 mt-0.5 font-mono">
-                <span>30k</span>
-                <span>95k (Optimal)</span>
-                <span>200k</span>
-              </div>
-            </div>
-            <div class="flex items-center justify-between text-xs text-slate-400 pt-1">
-              <span>Preserve Last Messages:</span>
-              <select id="compactKeepLastSelect" onchange="updateCompactorSettings()" class="bg-slate-900 border border-slate-700/80 rounded-lg px-2 py-1 text-slate-200 text-xs focus:outline-none focus:border-purple-500 font-mono">
-                <option value="6">6 msgs</option>
-                <option value="12">12 msgs</option>
-                <option value="16">16 msgs</option>
-                <option value="24" selected>24 msgs (Recommended)</option>
-              </select>
-            </div>
-
-            <div class="border-t border-slate-800/80 pt-3 mt-2">
-              <div class="flex items-center justify-between mb-1">
-                <span class="text-xs text-slate-300 font-medium flex items-center">
-                  <i class="fa-solid fa-scissors mr-1.5 text-cyan-400"></i> Smart Tool Pruning
-                </span>
-                <label class="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" id="pruningEnabledToggle" class="sr-only peer" checked onchange="updateCompactorSettings()">
-                  <div class="w-8 h-4 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-cyan-600"></div>
-                </label>
-              </div>
-              <p class="text-[11px] text-slate-400 leading-relaxed">
-                Truncates older bulky command & tool outputs to save 50%+ tokens while preserving the last 6 tools intact.
-              </p>
-            </div>
-          </div>
-        </div>
-
       </div>
 
       <!-- Right Column: Interactive Chat Interface -->
@@ -464,9 +463,11 @@
         </div>
 
       </div>
-
     </div>
+  </div> <!-- End #tabContent-playground -->
 
+  <!-- TAB 4: CLIENT INTEGRATIONS -->
+  <div id="tabContent-integrations" class="hidden space-y-6">
     <!-- Quick Integrations Guide -->
     <div class="p-6 rounded-2xl bg-dark-card border border-dark-border space-y-5">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
@@ -715,6 +716,154 @@ https://your-tunnel.trycloudflare.com/v1</pre>
 
       </div>
     </div>
+  </div> <!-- End #tabContent-integrations -->
+
+  <!-- TAB 5: SETTINGS -->
+  <div id="tabContent-settings" class="hidden space-y-6">
+
+    <!-- Context Auto-Compactor & Summarizer Card -->
+    <div class="p-6 rounded-2xl bg-dark-card border border-dark-border space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="text-base font-bold text-white flex items-center">
+          <i class="fa-solid fa-compress-alt mr-2 text-purple-400"></i> Context Auto-Compactor
+        </h2>
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" id="compactorEnabledToggle" class="sr-only peer" checked onchange="updateCompactorSettings()">
+          <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+        </label>
+      </div>
+      <p class="text-xs text-slate-400 leading-relaxed">
+        Auto-compresses long chat histories using <span class="font-mono text-purple-300">gemini-3.8-flash-low</span> when full, saving 80%+ tokens and preventing context window overflow.
+      </p>
+      <div class="space-y-4 pt-2">
+        <div>
+          <div class="flex justify-between text-xs text-slate-400 mb-1">
+            <span>Auto-Summarize Threshold</span>
+            <span id="compactThresholdDisplay" class="font-mono text-purple-300 font-semibold">95,000 tokens</span>
+          </div>
+          <input type="range" id="compactThresholdSlider" min="30000" max="200000" step="5000" value="95000" class="w-full accent-purple-500" oninput="onCompactSliderInput(this.value)" onchange="updateCompactorSettings()">
+          <div class="flex justify-between text-[10px] text-slate-500 mt-0.5 font-mono">
+            <span>30k</span>
+            <span>95k (Recommended)</span>
+            <span>200k</span>
+          </div>
+        </div>
+        <div class="flex items-center justify-between text-xs text-slate-400">
+          <span>Preserve Last Messages:</span>
+          <select id="compactKeepLastSelect" onchange="updateCompactorSettings()" class="bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-slate-200 text-xs focus:outline-none focus:border-purple-500 font-mono">
+            <option value="6">6 msgs</option>
+            <option value="12">12 msgs</option>
+            <option value="16">16 msgs</option>
+            <option value="24" selected>24 msgs (Recommended)</option>
+          </select>
+        </div>
+
+        <div class="border-t border-slate-800/80 pt-3">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-xs text-slate-300 font-medium flex items-center">
+              <i class="fa-solid fa-scissors mr-1.5 text-cyan-400"></i> Smart Tool Pruning
+            </span>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="pruningEnabledToggle" class="sr-only peer" checked onchange="updateCompactorSettings()">
+              <div class="w-8 h-4 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-cyan-600"></div>
+            </label>
+          </div>
+          <p class="text-[11px] text-slate-400 leading-relaxed">
+            Truncates older bulky command & tool outputs to save 50%+ tokens while preserving the last 6 tools intact.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gateway Server & Endpoints Card -->
+    <div class="p-6 rounded-2xl bg-dark-card border border-dark-border space-y-4">
+      <h3 class="text-base font-bold text-white flex items-center">
+        <i class="fa-solid fa-network-wired mr-2 text-indigo-400"></i> Gateway Server & Endpoints
+      </h3>
+      <p class="text-xs text-slate-400">Connection details for IDE extensions, terminal coding agents, and SDK clients.</p>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-1">
+        <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-300">OpenAI Compatible Endpoint</span>
+            <button onclick="copySnippet('codeOpenAiEndpoint', this)" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] transition flex items-center space-x-1">
+              <i class="fa-regular fa-copy"></i><span>Copy</span>
+            </button>
+          </div>
+          <code id="codeOpenAiEndpoint" class="text-xs font-mono text-indigo-400 block truncate">http://localhost:8000/v1</code>
+          <p class="text-[10px] text-slate-500">Cursor, Windsurf, Cline, Continue.dev, and OpenAI SDK.</p>
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-300">Anthropic Messages Base URL</span>
+            <button onclick="copySnippet('codeAnthropicEndpoint', this)" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] transition flex items-center space-x-1">
+              <i class="fa-regular fa-copy"></i><span>Copy</span>
+            </button>
+          </div>
+          <code id="codeAnthropicEndpoint" class="text-xs font-mono text-purple-400 block truncate">http://localhost:8000</code>
+          <p class="text-[10px] text-slate-500">ANTHROPIC_BASE_URL for Claude Code CLI and Anthropic SDK.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- UI & Sync Preferences Card -->
+    <div class="p-6 rounded-2xl bg-dark-card border border-dark-border space-y-4">
+      <h3 class="text-base font-bold text-white flex items-center">
+        <i class="fa-solid fa-sliders mr-2 text-emerald-400"></i> Dashboard Preferences
+      </h3>
+
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-slate-900 border border-slate-800">
+        <div>
+          <div class="font-semibold text-white text-xs">Auto-refresh Account Pool (15s)</div>
+          <div class="text-[11px] text-slate-400">Background quota polling. Disabled by default to save network bandwidth.</div>
+        </div>
+        <button onclick="toggleAutoRefresh()" class="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-300 transition flex items-center space-x-1.5 self-start sm:self-auto">
+          <i class="fa-solid fa-rotate text-indigo-400"></i>
+          <span id="settingsAutoRefreshBtnText">Toggle Auto-Refresh</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Pool Maintenance Operations Card -->
+    <div class="p-6 rounded-2xl bg-dark-card border border-dark-border space-y-4">
+      <h3 class="text-base font-bold text-white flex items-center">
+        <i class="fa-solid fa-wrench mr-2 text-amber-400"></i> Pool Maintenance & Fast Actions
+      </h3>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+        <button onclick="toggleAllAccounts(true)" class="p-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-left transition flex items-center space-x-3 group">
+          <div class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center text-sm group-hover:scale-105 transition">
+            <i class="fa-solid fa-play"></i>
+          </div>
+          <div>
+            <div class="text-xs font-bold text-white">Enable All</div>
+            <div class="text-[10px] text-slate-400">Resume routing to all accounts</div>
+          </div>
+        </button>
+
+        <button onclick="toggleAllAccounts(false)" class="p-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-left transition flex items-center space-x-3 group">
+          <div class="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center text-sm group-hover:scale-105 transition">
+            <i class="fa-solid fa-pause"></i>
+          </div>
+          <div>
+            <div class="text-xs font-bold text-white">Pause All</div>
+            <div class="text-[10px] text-slate-400">Temporarily disable account pool</div>
+          </div>
+        </button>
+
+        <button onclick="refreshAllAccounts()" class="p-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-left transition flex items-center space-x-3 group">
+          <div class="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center justify-center text-sm group-hover:scale-105 transition">
+            <i class="fa-solid fa-rotate"></i>
+          </div>
+          <div>
+            <div class="text-xs font-bold text-white">Force Refresh</div>
+            <div class="text-[10px] text-slate-400">Sync all Google quotas now</div>
+          </div>
+        </button>
+      </div>
+    </div>
+
+  </div> <!-- End #tabContent-settings -->
 
     <!-- Footer with Version & GitHub Links -->
     <footer class="border-t border-slate-800/80 pt-6 pb-2 text-center text-xs text-slate-500 space-y-2">
@@ -993,26 +1142,122 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       }, 2800);
     }
 
-    // Quick Connect Snippets Copy
-    function copySnippet(type) {
-      let text = '';
-      let name = '';
-      if (type === 'claude') {
-        text = `export ANTHROPIC_BASE_URL="http://127.0.0.1:8000" && claude --settings '{"availableModels": ["anthropic.gemini-3.8-flash-high", "anthropic.gemini-pro-agent", "anthropic.gemini-3.8-flash-tiered"]}'`;
-        name = 'Claude Code launcher';
-      } else if (type === 'agy') {
-        text = `agy --model gemini-pro-agent --dangerously-skip-permissions`;
-        name = 'AGY command';
-      } else if (type === 'baseurl') {
-        text = `http://127.0.0.1:8000/v1`;
-        name = 'Base URL';
+    // Unified Snippet & Command Copying
+    async function copySnippet(param, btn) {
+      if (btn && document.getElementById(param)) {
+        const textElem = document.getElementById(param);
+        const text = textElem.innerText || textElem.textContent;
+        try {
+          await navigator.clipboard.writeText(text);
+          const originalHtml = btn.innerHTML;
+          btn.innerHTML = '<i class="fa-solid fa-check text-emerald-400"></i> <span class="text-emerald-300">Copied!</span>';
+          btn.classList.add('bg-emerald-600/30', 'border-emerald-500/50');
+          showToast('Copied to clipboard!', 'success');
+          setTimeout(() => {
+            btn.innerHTML = originalHtml;
+            btn.classList.remove('bg-emerald-600/30', 'border-emerald-500/50');
+          }, 1800);
+        } catch (e) {
+          console.error('Copy failed:', e);
+        }
+      } else {
+        let text = '';
+        let name = '';
+        if (param === 'claude') {
+          text = `export ANTHROPIC_BASE_URL="http://127.0.0.1:8000" && claude --settings '{"availableModels": ["anthropic.gemini-3.8-flash-high", "anthropic.gemini-pro-agent", "anthropic.gemini-3.8-flash-tiered"]}'`;
+          name = 'Claude Code launcher';
+        } else if (param === 'agy') {
+          text = `agy --model gemini-pro-agent --dangerously-skip-permissions`;
+          name = 'AGY command';
+        } else if (param === 'baseurl') {
+          text = `http://127.0.0.1:8000/v1`;
+          name = 'Base URL';
+        } else if (document.getElementById(param)) {
+          text = document.getElementById(param).innerText || document.getElementById(param).textContent;
+          name = 'Endpoint';
+        } else {
+          text = param;
+          name = 'Snippet';
+        }
+        navigator.clipboard.writeText(text).then(() => {
+          showToast(`${name} copied to clipboard!`, 'success');
+        }).catch(() => {
+          prompt('Copy snippet:', text);
+        });
       }
-      navigator.clipboard.writeText(text).then(() => {
-        showToast(`${name} copied to clipboard!`, 'success');
-      }).catch(() => {
-        prompt('Copy snippet:', text);
-      });
     }
+
+    // Tab Navigation System
+    let currentActiveTab = 'accounts';
+
+    function switchTab(tabId) {
+      const tabs = ['accounts', 'analytics', 'playground', 'integrations', 'settings'];
+      if (!tabs.includes(tabId)) tabId = 'accounts';
+      currentActiveTab = tabId;
+
+      // 1. Toggle tab content panels
+      tabs.forEach(t => {
+        const el = document.getElementById(`tabContent-${t}`);
+        if (el) {
+          if (t === tabId) {
+            el.classList.remove('hidden');
+          } else {
+            el.classList.add('hidden');
+          }
+        }
+
+        // 2. Desktop navbar buttons
+        const btn = document.getElementById(`tabBtn-${t}`);
+        if (btn) {
+          if (t === tabId) {
+            btn.className = 'nav-tab-btn px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition bg-indigo-600 text-white font-semibold shadow-sm';
+          } else {
+            btn.className = 'nav-tab-btn px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition text-slate-400 hover:text-white hover:bg-slate-800';
+          }
+        }
+
+        // 3. Mobile navbar buttons
+        const mBtn = document.getElementById(`mTabBtn-${t}`);
+        if (mBtn) {
+          if (t === tabId) {
+            mBtn.className = 'px-2.5 py-1 rounded-lg flex items-center space-x-1 whitespace-nowrap bg-indigo-600 text-white font-semibold shadow-sm';
+          } else {
+            mBtn.className = 'px-2.5 py-1 rounded-lg flex items-center space-x-1 whitespace-nowrap text-slate-400 hover:text-white';
+          }
+        }
+      });
+
+      // 4. Tab specific actions
+      if (tabId === 'analytics') {
+        renderAnalytics();
+      }
+
+      // 5. Update browser history / hash seamlessly without reload
+      if (window.location.hash !== '#' + tabId) {
+        history.replaceState(null, '', '#' + tabId);
+      }
+    }
+
+    function initTabFromHash() {
+      const path = window.location.pathname.replace(/^\/+|\/+$/g, '');
+      const hash = window.location.hash.replace(/^#/, '');
+
+      const validTabs = ['accounts', 'analytics', 'playground', 'integrations', 'settings'];
+      if (validTabs.includes(path)) {
+        switchTab(path);
+      } else if (validTabs.includes(hash)) {
+        switchTab(hash);
+      } else {
+        switchTab('accounts');
+      }
+    }
+
+    window.addEventListener('hashchange', () => {
+      const hash = window.location.hash.replace(/^#/, '');
+      if (['accounts', 'analytics', 'playground', 'integrations', 'settings'].includes(hash)) {
+        switchTab(hash);
+      }
+    });
 
     // Auto-Refresh (Disabled by default per user request)
     let autoRefreshIntervalId = null;
@@ -1031,6 +1276,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       const btn = document.getElementById('autoRefreshBtn');
       const label = document.getElementById('autoRefreshLabel');
       const dot = document.getElementById('autoRefreshDot');
+      const settingsLabel = document.getElementById('settingsAutoRefreshBtnText');
 
       if (autoRefreshIntervalId) {
         clearInterval(autoRefreshIntervalId);
@@ -1040,6 +1286,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       if (enable) {
         localStorage.setItem('agy_auto_refresh', 'true');
         if (label) label.innerText = 'Auto-refresh: 15s';
+        if (settingsLabel) settingsLabel.innerText = 'Disable Auto-Refresh (Active: 15s)';
         if (dot) dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
         if (btn) btn.className = 'flex items-center space-x-1.5 text-xs font-semibold px-2.5 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 transition';
         autoRefreshIntervalId = setInterval(() => {
@@ -1049,6 +1296,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       } else {
         localStorage.setItem('agy_auto_refresh', 'false');
         if (label) label.innerText = 'Auto-refresh: OFF';
+        if (settingsLabel) settingsLabel.innerText = 'Enable Auto-Refresh (Currently OFF)';
         if (dot) dot.className = 'w-2 h-2 rounded-full bg-slate-500';
         if (btn) btn.className = 'flex items-center space-x-1.5 text-xs font-semibold px-2.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 transition';
         if (showNotify) showToast('Auto-refresh disabled', 'info');
@@ -1069,6 +1317,9 @@ https://your-tunnel.trycloudflare.com/v1</pre>
         const data = await res.json();
         rawAccountsData = data.accounts || [];
         renderAccounts();
+        if (currentActiveTab === 'analytics') {
+          renderAnalytics();
+        }
       } catch (err) {
         console.error("Accounts load failed", err);
       } finally {
@@ -1080,6 +1331,223 @@ https://your-tunnel.trycloudflare.com/v1</pre>
           }, 400);
         }
       }
+    }
+
+    // Render Analytics Dashboard Tab
+    function renderAnalytics() {
+      const container = document.getElementById('analyticsContent');
+      if (!container) return;
+
+      if (!rawAccountsData || rawAccountsData.length === 0) {
+        container.innerHTML = `
+          <div class="p-8 rounded-2xl bg-dark-card border border-dark-border text-center text-slate-500 text-sm">
+            <i class="fa-solid fa-circle-notch fa-spin text-indigo-400 text-2xl mb-3 block"></i>
+            Loading pool telemetry and quota analytics...
+          </div>
+        `;
+        return;
+      }
+
+      let totalReqs = 0;
+      let totalActive = 0;
+      let totalPaused = 0;
+      let totalExhausted = 0;
+      let sumGemini = 0;
+      let countGemini = 0;
+      let sumClaude = 0;
+      let countClaude = 0;
+
+      rawAccountsData.forEach(acc => {
+        const isEnabled = acc.enabled !== false;
+        if (isEnabled) totalActive++; else totalPaused++;
+        const reqs = acc.total_requests || 0;
+        totalReqs += reqs;
+
+        if (acc.auth_method !== 'api_key') {
+          const q = acc.quota_details || {};
+          const g = q.gemini ? Math.round(q.gemini.percent ?? (q.gemini.fraction * 100)) : 100;
+          const c = (q['3p'] || q.claude) ? Math.round((q['3p']||q.claude).percent ?? ((q['3p']||q.claude).fraction * 100)) : 100;
+          sumGemini += g;
+          countGemini++;
+          sumClaude += c;
+          countClaude++;
+          if (g <= 0 || c <= 0) totalExhausted++;
+        }
+      });
+
+      const avgGemini = countGemini > 0 ? Math.round(sumGemini / countGemini) : 100;
+      const avgClaude = countClaude > 0 ? Math.round(sumClaude / countClaude) : 100;
+
+      let html = `
+        <!-- Top Analytics KPI Grid -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="p-5 rounded-2xl bg-dark-card border border-dark-border space-y-1">
+            <div class="text-[11px] font-mono text-slate-400 uppercase tracking-wider flex items-center justify-between">
+              <span>Total Requests</span>
+              <i class="fa-solid fa-bolt text-indigo-400"></i>
+            </div>
+            <div class="text-2xl font-bold font-mono text-white">${totalReqs.toLocaleString()}</div>
+            <div class="text-[11px] text-slate-400">Processed across ${rawAccountsData.length} accounts</div>
+          </div>
+
+          <div class="p-5 rounded-2xl bg-dark-card border border-dark-border space-y-1">
+            <div class="text-[11px] font-mono text-slate-400 uppercase tracking-wider flex items-center justify-between">
+              <span>Gemini Pool Quota</span>
+              <i class="fa-brands fa-google text-blue-400"></i>
+            </div>
+            <div class="text-2xl font-bold font-mono ${avgGemini > 50 ? 'text-emerald-400' : (avgGemini > 20 ? 'text-amber-400' : 'text-red-400')}">${avgGemini}%</div>
+            <div class="text-[11px] text-slate-400">5-Hour rolling average</div>
+          </div>
+
+          <div class="p-5 rounded-2xl bg-dark-card border border-dark-border space-y-1">
+            <div class="text-[11px] font-mono text-slate-400 uppercase tracking-wider flex items-center justify-between">
+              <span>Claude / 3P Quota</span>
+              <i class="fa-solid fa-sparkles text-purple-400"></i>
+            </div>
+            <div class="text-2xl font-bold font-mono ${avgClaude > 50 ? 'text-emerald-400' : (avgClaude > 20 ? 'text-amber-400' : 'text-red-400')}">${avgClaude}%</div>
+            <div class="text-[11px] text-slate-400">Weekly smoothing average</div>
+          </div>
+
+          <div class="p-5 rounded-2xl bg-dark-card border border-dark-border space-y-1">
+            <div class="text-[11px] font-mono text-slate-400 uppercase tracking-wider flex items-center justify-between">
+              <span>Pool Availability</span>
+              <i class="fa-solid fa-shield-check text-emerald-400"></i>
+            </div>
+            <div class="text-2xl font-bold font-mono text-emerald-400">${totalActive} / ${rawAccountsData.length}</div>
+            <div class="text-[11px] text-slate-400">${totalExhausted} rate-limited, ${totalPaused} paused</div>
+          </div>
+        </div>
+
+        <!-- Request Distribution Across Accounts -->
+        <div class="p-6 rounded-2xl bg-dark-card border border-dark-border space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-base font-bold text-white flex items-center">
+              <i class="fa-solid fa-chart-pie mr-2 text-indigo-400"></i> Traffic Distribution & Load Balancing
+            </h3>
+            <span class="text-xs font-mono text-slate-400">${totalReqs} total requests</span>
+          </div>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Live telemetry of how incoming requests are distributed across active pool accounts via intelligent round-robin and quota prioritization.
+          </p>
+
+          <div class="space-y-3 pt-2">
+      `;
+
+      rawAccountsData.forEach(acc => {
+        const reqs = acc.total_requests || 0;
+        const pct = totalReqs > 0 ? Math.round((reqs / totalReqs) * 100) : 0;
+        const isApiKey = acc.auth_method === 'api_key';
+        const isEnabled = acc.enabled !== false;
+
+        html += `
+          <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+            <div class="flex items-center justify-between text-xs">
+              <div class="flex items-center space-x-2.5 min-w-0">
+                <img src="${acc.picture || 'https://lh3.googleusercontent.com/a/default-user=s96-c'}" class="w-6 h-6 rounded-full bg-slate-800 border border-slate-700" onerror="this.src='https://ui-avatars.com/api/?name=' + encodeURIComponent('${(acc.name || 'User').replace(/'/g, "\\'")}')">
+                <span class="font-bold text-slate-200 truncate">${acc.name || acc.email}</span>
+                ${acc.is_primary ? '<span class="text-[9px] px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30">Primary</span>' : ''}
+                ${isApiKey ? '<span class="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-semibold border border-amber-500/30">API Key</span>' : ''}
+                ${!isEnabled ? '<span class="text-[9px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700">Paused</span>' : ''}
+              </div>
+              <div class="flex items-center space-x-3 font-mono">
+                <span class="text-slate-400 font-medium">${reqs.toLocaleString()} reqs</span>
+                <span class="font-bold text-indigo-400">${pct}%</span>
+              </div>
+            </div>
+            <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+              <div class="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-500" style="width: ${pct}%"></div>
+            </div>
+          </div>
+        `;
+      });
+
+      html += `
+          </div>
+        </div>
+
+        <!-- Dual Quota Telemetry Matrix -->
+        <div class="p-6 rounded-2xl bg-dark-card border border-dark-border space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-base font-bold text-white flex items-center">
+              <i class="fa-solid fa-gauge-high mr-2 text-purple-400"></i> Dual Quota & Rolling Window Status
+            </h3>
+            <span class="text-xs text-slate-400 font-mono">Real-time Google CloudCode sync</span>
+          </div>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Antigravity enforces dual limits: a 5-hour rolling request window and a 7-day weekly reset cap. When an account depletes its 5h window, the proxy seamlessly fails over to other accounts.
+          </p>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+      `;
+
+      rawAccountsData.forEach(acc => {
+        const isApiKey = acc.auth_method === 'api_key';
+        if (isApiKey) return;
+        const qDetails = acc.quota_details || {};
+        const geminiQ = qDetails.gemini || { percent: 100, fraction: 1.0 };
+        const claudeQ = qDetails['3p'] || qDetails.claude || { percent: 100, fraction: 1.0 };
+        const geminiPct = Math.round(geminiQ.percent ?? (geminiQ.fraction * 100));
+        const claudePct = Math.round(claudeQ.percent ?? (claudeQ.fraction * 100));
+        const geminiReset = formatResetTime(geminiQ.reset_time);
+        const claudeReset = formatResetTime(claudeQ.reset_time);
+
+        html += `
+          <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
+            <div class="flex items-center justify-between text-xs border-b border-slate-800 pb-2">
+              <div class="flex items-center space-x-2 min-w-0">
+                <img src="${acc.picture || 'https://lh3.googleusercontent.com/a/default-user=s96-c'}" class="w-6 h-6 rounded-full bg-slate-800 border border-slate-700" onerror="this.src='https://ui-avatars.com/api/?name=' + encodeURIComponent('${(acc.name || 'User').replace(/'/g, "\\'")}')">
+                <span class="font-bold text-slate-200 truncate">${acc.name || acc.email}</span>
+              </div>
+              <span class="text-[10px] font-mono px-2 py-0.5 rounded-full ${geminiPct > 20 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}">
+                ${geminiPct > 20 ? 'Ready' : 'Depleted'}
+              </span>
+            </div>
+
+            <!-- Gemini 5h Limit -->
+            <div class="space-y-1">
+              <div class="flex justify-between text-xs text-slate-400">
+                <span class="flex items-center space-x-1.5">
+                  <i class="fa-brands fa-google text-blue-400 text-[11px]"></i>
+                  <span class="font-medium text-slate-300">Gemini (5h Window)</span>
+                </span>
+                <span class="font-bold font-mono ${geminiPct > 20 ? 'text-slate-200' : 'text-red-400'}">${geminiPct}%</span>
+              </div>
+              <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                <div class="h-full ${geminiPct > 20 ? 'bg-indigo-500' : 'bg-red-500'} rounded-full transition-all" style="width: ${geminiPct}%"></div>
+              </div>
+              <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+                <span>Rolling window</span>
+                <span>${geminiReset ? 'Resets in ' + geminiReset : 'Full'}</span>
+              </div>
+            </div>
+
+            <!-- Claude 3P Limit -->
+            <div class="space-y-1 pt-1">
+              <div class="flex justify-between text-xs text-slate-400">
+                <span class="flex items-center space-x-1.5">
+                  <i class="fa-solid fa-sparkles text-purple-400 text-[11px]"></i>
+                  <span class="font-medium text-slate-300">Claude / 3P (Weekly Cap)</span>
+                </span>
+                <span class="font-bold font-mono ${claudePct > 20 ? 'text-slate-200' : 'text-red-400'}">${claudePct}%</span>
+              </div>
+              <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                <div class="h-full ${claudePct > 20 ? 'bg-purple-500' : 'bg-red-500'} rounded-full transition-all" style="width: ${claudePct}%"></div>
+              </div>
+              <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+                <span>Weekly allowance</span>
+                <span>${claudeReset ? 'Resets in ' + claudeReset : 'Full'}</span>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+
+      html += `
+          </div>
+        </div>
+      `;
+
+      container.innerHTML = html;
     }
 
     function renderAccounts() {
@@ -2053,24 +2521,6 @@ ${data.stderr || data.stdout || data.error}`;
       }
     }
 
-    async function copySnippet(elementId, btn) {
-      const textElem = document.getElementById(elementId);
-      if (!textElem) return;
-      const text = textElem.innerText || textElem.textContent;
-      try {
-        await navigator.clipboard.writeText(text);
-        const originalHtml = btn.innerHTML;
-        btn.innerHTML = '<i class="fa-solid fa-check text-emerald-400"></i> <span class="text-emerald-300">Copied!</span>';
-        btn.classList.add('bg-emerald-600/30', 'border-emerald-500/50');
-        setTimeout(() => {
-          btn.innerHTML = originalHtml;
-          btn.classList.remove('bg-emerald-600/30', 'border-emerald-500/50');
-        }, 1800);
-      } catch (e) {
-        console.error('Copy failed:', e);
-      }
-    }
-
     async function updateCacheStats() {
       try {
         const res = await fetch('/api/cache/stats');
@@ -2134,6 +2584,7 @@ ${data.stderr || data.stdout || data.error}`;
     }
 
     // Init
+    initTabFromHash();
     loadAccounts();
     loadModels();
     loadCompactorSettings();
