@@ -455,10 +455,9 @@ def openai_to_cloudcode_payload(
             inner_request["tools"] = [{"functionDeclarations": function_declarations}]
 
     sys_text = "".join(str(p.get("text", "")) for p in system_parts if isinstance(p, dict) and p.get("text")).lower()
+    is_title_gen = "title generator" in sys_text or "conversation title" in sys_text
     is_checkpoint_or_compact = False
-    if "title generator" in sys_text or "conversation title" in sys_text:
-        is_checkpoint_or_compact = True
-    else:
+    if not is_title_gen:
         for m in req.messages[-4:]:
             c_text = _extract_message_text(m)
             c_lower = c_text.lower()
@@ -470,10 +469,18 @@ def openai_to_cloudcode_payload(
                 is_checkpoint_or_compact = True
                 break
 
-    if is_checkpoint_or_compact:
+    if is_title_gen:
         backend_model = "gemini-3.1-flash-lite"
         generation_config["thinkingConfig"] = {"includeThoughts": False, "thinkingBudget": 0}
-        generation_config["maxOutputTokens"] = min(max_tokens, 4096)
+        generation_config["maxOutputTokens"] = min(max_tokens, 1024)
+        req_type = "title"
+        if "tools" in inner_request:
+            inner_request.pop("tools", None)
+    elif is_checkpoint_or_compact:
+        from agy_proxy.compactor import compactor_settings
+        backend_model = compactor_settings.model or "gemini-3.8-flash-low"
+        generation_config["thinkingConfig"] = {"includeThoughts": False, "thinkingBudget": 1024}
+        generation_config["maxOutputTokens"] = min(max_tokens, 6144)
         req_type = "checkpoint"
         if "tools" in inner_request:
             inner_request.pop("tools", None)
@@ -682,10 +689,9 @@ def anthropic_to_cloudcode_payload(
             inner_request["tools"] = [{"functionDeclarations": function_declarations}]
 
     sys_text = "".join(str(p.get("text", "")) for p in system_parts if isinstance(p, dict) and p.get("text")).lower()
+    is_title_gen = "title generator" in sys_text or "conversation title" in sys_text
     is_checkpoint_or_compact = False
-    if "title generator" in sys_text or "conversation title" in sys_text:
-        is_checkpoint_or_compact = True
-    else:
+    if not is_title_gen:
         for m in req.messages[-4:]:
             c_text = _extract_message_text(m)
             c_lower = c_text.lower()
@@ -697,10 +703,18 @@ def anthropic_to_cloudcode_payload(
                 is_checkpoint_or_compact = True
                 break
 
-    if is_checkpoint_or_compact:
+    if is_title_gen:
         backend_model = "gemini-3.1-flash-lite"
         generation_config["thinkingConfig"] = {"includeThoughts": False, "thinkingBudget": 0}
-        generation_config["maxOutputTokens"] = min(req.max_tokens or 4096, 4096)
+        generation_config["maxOutputTokens"] = min(req.max_tokens or 1024, 1024)
+        req_type = "title"
+        if "tools" in inner_request:
+            inner_request.pop("tools", None)
+    elif is_checkpoint_or_compact:
+        from agy_proxy.compactor import compactor_settings
+        backend_model = compactor_settings.model or "gemini-3.8-flash-low"
+        generation_config["thinkingConfig"] = {"includeThoughts": False, "thinkingBudget": 1024}
+        generation_config["maxOutputTokens"] = min(req.max_tokens or 6144, 6144)
         req_type = "checkpoint"
         if "tools" in inner_request:
             inner_request.pop("tools", None)

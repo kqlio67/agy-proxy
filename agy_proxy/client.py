@@ -23,8 +23,12 @@ from agy_proxy.converter import (
     sanitize_gemini_contents_thought_signatures,
 )
 from agy_proxy.models import AnthropicMessage, AnthropicRequest, OpenAIChatRequest, normalize_model_name, DEFAULT_MODEL
-from agy_proxy.search import search_multi_engine, search_duckduckgo
-from agy_proxy.compactor import generate_compact_summary, should_auto_compact, compact_conversation_history
+from agy_proxy.compactor import (
+    generate_compact_summary,
+    should_auto_compact,
+    compact_conversation_history,
+    compactor_settings,
+)
 
 logger = logging.getLogger("agy_proxy.client")
 
@@ -641,7 +645,7 @@ class CloudCodeClient:
 
         if is_explicit_compact:
             compact_targets = req.messages[:compact_idx] if compact_idx > 0 else req.messages
-            logger.info("[Claude Code] [Compact] Executing summarization on %d messages via gemini-3.1-flash-lite", len(compact_targets))
+            logger.info("[Claude Code] [Compact] Executing summarization on %d messages via %s", len(compact_targets), compactor_settings.model)
             summary_txt = await generate_compact_summary(self.pool, compact_targets)
             if not summary_txt:
                 summary_txt = "<summary>\n1. Primary Request and Intent:\n   Session context compacted.\n</summary>"
@@ -868,7 +872,7 @@ class CloudCodeClient:
 
         if is_explicit_compact:
             compact_targets = req.messages[:compact_idx] if compact_idx > 0 else req.messages
-            logger.info("[Claude Code] [Compact] Executing summarization on %d messages via gemini-3.1-flash-lite", len(compact_targets))
+            logger.info("[Claude Code] [Compact] Executing summarization on %d messages via %s", len(compact_targets), compactor_settings.model)
             summary_txt = await generate_compact_summary(self.pool, compact_targets)
             if not summary_txt:
                 summary_txt = "<summary>\n1. Primary Request and Intent:\n   Session context compacted.\n</summary>"

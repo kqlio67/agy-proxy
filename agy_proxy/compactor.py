@@ -1,6 +1,6 @@
 """
 Context Compactor and Auto-Summarizer for Antigravity Proxy.
-Automatically compresses long conversation histories using gemini-3.1-flash-lite
+Automatically compresses long conversation histories using gemini-3.8-flash-low
 to prevent context overflow, reduce token consumption by 80%+, and optimize response latency.
 """
 
@@ -344,7 +344,7 @@ async def compact_conversation_history(
 
     transcript_text = "\n\n".join(transcript_lines)
 
-    # Generate summary using gemini-3.1-flash-lite
+    # Generate summary using gemini-3.8-flash-low
     summary_text = await _call_summarizer_llm(
         account_pool=account_pool,
         transcript=transcript_text,
@@ -450,17 +450,17 @@ async def generate_compact_summary(
         transcript_lines.append(f"[{role} #{idx+1}]: {content_str}")
 
     transcript_text = "\n\n".join(transcript_lines)
-    summary_model = model or compactor_settings.model or "gemini-3.1-flash-lite"
+    summary_model = model or compactor_settings.model or "gemini-3.8-flash-low"
     return await _call_summarizer_llm(account_pool, transcript_text, model=summary_model, timeout=timeout)
 
 
 async def _call_summarizer_llm(
     account_pool: Any,
     transcript: str,
-    model: str = "gemini-3.1-flash-lite",
+    model: str = "gemini-3.8-flash-low",
     timeout: float = 35.0,
 ) -> Optional[str]:
-    """Invokes gemini-3.1-flash-lite via active AccountSession for fast compaction."""
+    """Invokes summarizer model via active AccountSession for fast compaction."""
     if not account_pool or not getattr(account_pool, "accounts", None):
         return None
 
