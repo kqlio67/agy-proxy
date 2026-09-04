@@ -1145,6 +1145,10 @@ https://your-tunnel.trycloudflare.com/v1</pre>
           const claudePct = Math.round(claudeQ.percent ?? (claudeQ.fraction * 100));
           const geminiReset = formatResetTime(geminiQ.reset_time);
           const claudeReset = formatResetTime(claudeQ.reset_time);
+          const geminiWk = geminiQ['weekly'];
+          const claude5h = claudeQ['5h'];
+          const geminiWkPct = geminiWk ? Math.round(geminiWk.percent ?? (geminiWk.fraction * 100)) : null;
+          const claude5hPct = claude5h ? Math.round(claude5h.percent ?? (claude5h.fraction * 100)) : null;
           const geminiIsExhausted = geminiPct <= 0 || (acc.rate_limited_models && acc.rate_limited_models.gemini !== undefined);
           const claudeIsExhausted = claudePct <= 0 || (acc.rate_limited_models && acc.rate_limited_models['3p'] !== undefined);
 
@@ -1174,12 +1178,12 @@ https://your-tunnel.trycloudflare.com/v1</pre>
                 <code class="text-[11px] font-mono ${acc.last_used_model ? 'text-indigo-400 font-semibold' : 'text-slate-500'}">${acc.last_used_model || '—'}</code>
               </td>
 
-              <td class="px-4 py-3 min-w-[140px]">
+              <td class="px-4 py-3 min-w-[140px]" title="${geminiQ.description || '5-hour rolling limit + weekly cap'}">
                 ${isApiKey ? '<span class="text-emerald-400 font-semibold text-[11px]">PayG Active</span>' : `
                   <div>
                     <div class="flex justify-between items-center text-[10px] mb-1">
                       <span class="font-bold ${geminiIsExhausted ? 'text-red-400' : 'text-slate-300'}">${geminiPct}%</span>
-                      <span class="text-[9px] text-slate-500">${geminiReset || ''}</span>
+                      <span class="text-[9px] text-slate-400">${geminiWkPct !== null ? 'Wk:' + geminiWkPct + '%' : ''} · ${geminiReset ? 'in ' + geminiReset : '5h'}</span>
                     </div>
                     <div class="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
                       <div class="h-full ${geminiIsExhausted ? 'bg-red-500' : (geminiPct > 30 ? 'bg-indigo-500' : 'bg-amber-500')}" style="width: ${geminiPct}%"></div>
@@ -1188,12 +1192,12 @@ https://your-tunnel.trycloudflare.com/v1</pre>
                 `}
               </td>
 
-              <td class="px-4 py-3 min-w-[140px]">
+              <td class="px-4 py-3 min-w-[140px]" title="${claudeQ.description || 'Weekly quota + 5-hour smoothing'}">
                 ${isApiKey ? '<span class="text-slate-500 text-[11px]">—</span>' : `
                   <div>
                     <div class="flex justify-between items-center text-[10px] mb-1">
                       <span class="font-bold ${claudeIsExhausted ? 'text-red-400' : 'text-slate-300'}">${claudePct}%</span>
-                      <span class="text-[9px] text-slate-500">${claudeReset || ''}</span>
+                      <span class="text-[9px] text-slate-400">${claude5hPct !== null ? '5h:' + claude5hPct + '%' : ''} · ${claudeReset ? 'in ' + claudeReset : '7d'}</span>
                     </div>
                     <div class="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
                       <div class="h-full ${claudeIsExhausted ? 'bg-red-500' : (claudePct > 30 ? 'bg-purple-500' : 'bg-amber-500')}" style="width: ${claudePct}%"></div>
