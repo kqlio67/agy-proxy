@@ -28,6 +28,7 @@ from agy_proxy.compactor import (
     should_auto_compact,
     compact_conversation_history,
     compactor_settings,
+    prune_tool_results,
 )
 
 logger = logging.getLogger("agy_proxy.client")
@@ -365,7 +366,12 @@ class CloudCodeClient:
         req_id = f"chatcmpl-{uuid.uuid4().hex[:16]}"
         model = req.model or DEFAULT_MODEL
 
-        # 0. Check and apply context auto-compaction if threshold is reached
+        # 0. Apply Smart Tool Pruning and context auto-compaction
+        if compactor_settings.pruning_enabled:
+            req.messages, pruned_count, tokens_saved = prune_tool_results(req.messages)
+            if pruned_count > 0:
+                logger.info("[Smart Pruner] Pruned %d older tool outputs, saved ~%d tokens", pruned_count, tokens_saved)
+
         if should_auto_compact(req.messages):
             try:
                 compacted, _, _ = await compact_conversation_history(self.pool, req.messages)
@@ -479,7 +485,12 @@ class CloudCodeClient:
         req_id = f"chatcmpl-{uuid.uuid4().hex[:16]}"
         model = req.model
 
-        # 0. Check and apply context auto-compaction if threshold is reached
+        # 0. Apply Smart Tool Pruning and context auto-compaction
+        if compactor_settings.pruning_enabled:
+            req.messages, pruned_count, tokens_saved = prune_tool_results(req.messages)
+            if pruned_count > 0:
+                logger.info("[Smart Pruner] Pruned %d older tool outputs, saved ~%d tokens", pruned_count, tokens_saved)
+
         if should_auto_compact(req.messages):
             try:
                 compacted, _, _ = await compact_conversation_history(self.pool, req.messages)
@@ -659,7 +670,12 @@ class CloudCodeClient:
             yield f"event: message_stop\ndata: {json.dumps({'type': 'message_stop'})}\n\n"
             return
 
-        # Apply background context auto-compaction if threshold is reached
+        # Apply Smart Tool Pruning and background context auto-compaction
+        if compactor_settings.pruning_enabled:
+            req.messages, pruned_count, tokens_saved = prune_tool_results(req.messages)
+            if pruned_count > 0:
+                logger.info("[Smart Pruner] Pruned %d older tool outputs, saved ~%d tokens", pruned_count, tokens_saved)
+
         if should_auto_compact(req.messages, system=req.system):
             try:
                 compacted, _, _ = await compact_conversation_history(self.pool, req.messages)
@@ -895,7 +911,12 @@ class CloudCodeClient:
                 },
             }
 
-        # Apply background context auto-compaction if threshold is reached
+        # Apply Smart Tool Pruning and background context auto-compaction
+        if compactor_settings.pruning_enabled:
+            req.messages, pruned_count, tokens_saved = prune_tool_results(req.messages)
+            if pruned_count > 0:
+                logger.info("[Smart Pruner] Pruned %d older tool outputs, saved ~%d tokens", pruned_count, tokens_saved)
+
         if should_auto_compact(req.messages, system=req.system):
             try:
                 compacted, _, _ = await compact_conversation_history(self.pool, req.messages)

@@ -401,8 +401,36 @@ def create_app(
             compactor_settings.keep_last_n = int(body["keep_last_n"])
         if "model" in body:
             compactor_settings.model = str(body["model"])
+        if "pruning_enabled" in body:
+            compactor_settings.pruning_enabled = bool(body["pruning_enabled"])
+        if "prune_keep_tools" in body:
+            compactor_settings.prune_keep_tools = int(body["prune_keep_tools"])
+        if "prune_max_chars" in body:
+            compactor_settings.prune_max_chars = int(body["prune_max_chars"])
         compactor_settings.save()
         return {"status": "ok", "settings": compactor_settings.to_dict()}
+
+    @app.post("/api/context/prune")
+    async def manual_prune_context(request: Request):
+        from agy_proxy.compactor import prune_tool_results
+        body = await request.json()
+        messages = body.get("messages", [])
+        if not messages or not isinstance(messages, list):
+            raise HTTPException(status_code=400, detail="Messages array is required.")
+        keep_last_tools = body.get("keep_last_tools")
+        max_chars = body.get("max_chars")
+        pruned_msgs, count, tokens_saved = prune_tool_results(
+            messages,
+            keep_last_tools=keep_last_tools,
+            max_chars=max_chars,
+            enabled=True,
+        )
+        return {
+            "status": "pruned",
+            "messages": pruned_msgs,
+            "pruned_count": count,
+            "tokens_saved": tokens_saved,
+        }
 
     @app.post("/api/context/compact")
     async def manual_compact_context(request: Request):

@@ -290,29 +290,44 @@
             </label>
           </div>
           <p class="text-xs text-slate-400 leading-relaxed">
-            Auto-compresses long chat histories using <span class="font-mono text-purple-300">gemini-3.1-flash-lite</span> when full, saving 80%+ tokens and preventing overflow.
+            Auto-compresses long chat histories using <span class="font-mono text-purple-300">gemini-3.8-flash-low</span> when full, saving 80%+ tokens and preventing overflow.
           </p>
           <div class="space-y-3 pt-1">
             <div>
               <div class="flex justify-between text-xs text-slate-400 mb-1">
                 <span>Auto-Summarize Threshold</span>
-                <span id="compactThresholdDisplay" class="font-mono text-purple-300 font-semibold">90,000 tokens</span>
+                <span id="compactThresholdDisplay" class="font-mono text-purple-300 font-semibold">95,000 tokens</span>
               </div>
-              <input type="range" id="compactThresholdSlider" min="30000" max="200000" step="5000" value="90000" class="w-full accent-purple-500" oninput="onCompactSliderInput(this.value)" onchange="updateCompactorSettings()">
+              <input type="range" id="compactThresholdSlider" min="30000" max="200000" step="5000" value="95000" class="w-full accent-purple-500" oninput="onCompactSliderInput(this.value)" onchange="updateCompactorSettings()">
               <div class="flex justify-between text-[10px] text-slate-500 mt-0.5 font-mono">
                 <span>30k</span>
-                <span>90k (Optimal)</span>
+                <span>95k (Optimal)</span>
                 <span>200k</span>
               </div>
             </div>
             <div class="flex items-center justify-between text-xs text-slate-400 pt-1">
               <span>Preserve Last Messages:</span>
               <select id="compactKeepLastSelect" onchange="updateCompactorSettings()" class="bg-slate-900 border border-slate-700/80 rounded-lg px-2 py-1 text-slate-200 text-xs focus:outline-none focus:border-purple-500 font-mono">
-                <option value="4">4 msgs</option>
-                <option value="6" selected>6 msgs</option>
-                <option value="10">10 msgs</option>
+                <option value="6">6 msgs</option>
+                <option value="12">12 msgs</option>
                 <option value="16">16 msgs</option>
+                <option value="24" selected>24 msgs (Recommended)</option>
               </select>
+            </div>
+
+            <div class="border-t border-slate-800/80 pt-3 mt-2">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-xs text-slate-300 font-medium flex items-center">
+                  <i class="fa-solid fa-scissors mr-1.5 text-cyan-400"></i> Smart Tool Pruning
+                </span>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="pruningEnabledToggle" class="sr-only peer" checked onchange="updateCompactorSettings()">
+                  <div class="w-8 h-4 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-cyan-600"></div>
+                </label>
+              </div>
+              <p class="text-[11px] text-slate-400 leading-relaxed">
+                Truncates older bulky command & tool outputs to save 50%+ tokens while preserving the last 6 tools intact.
+              </p>
             </div>
           </div>
         </div>
@@ -1858,19 +1873,24 @@ ${data.stderr || data.stdout || data.error}`;
       } catch (e) {}
     }
 
+    let currentCompactorModel = 'gemini-3.8-flash-low';
+
     async function loadCompactorSettings() {
       try {
         const res = await fetch('/api/context/settings');
         if (!res.ok) return;
         const data = await res.json();
         const toggle = document.getElementById('compactorEnabledToggle');
+        const pruneToggle = document.getElementById('pruningEnabledToggle');
         const slider = document.getElementById('compactThresholdSlider');
         const display = document.getElementById('compactThresholdDisplay');
         const select = document.getElementById('compactKeepLastSelect');
         if (toggle) toggle.checked = !!data.enabled;
-        if (slider) slider.value = data.threshold_tokens || 90000;
-        if (display) display.innerText = (data.threshold_tokens || 90000).toLocaleString() + ' tokens';
-        if (select) select.value = data.keep_last_n || 6;
+        if (pruneToggle) pruneToggle.checked = data.pruning_enabled !== false;
+        if (slider) slider.value = data.threshold_tokens || 95000;
+        if (display) display.innerText = (data.threshold_tokens || 95000).toLocaleString() + ' tokens';
+        if (select) select.value = data.keep_last_n || 24;
+        if (data.model) currentCompactorModel = data.model;
       } catch(e) {
         console.debug('Failed to load compactor settings', e);
       }
@@ -1883,6 +1903,7 @@ ${data.stderr || data.stdout || data.error}`;
 
     async function updateCompactorSettings() {
       const toggle = document.getElementById('compactorEnabledToggle');
+      const pruneToggle = document.getElementById('pruningEnabledToggle');
       const slider = document.getElementById('compactThresholdSlider');
       const select = document.getElementById('compactKeepLastSelect');
       try {
@@ -1891,9 +1912,10 @@ ${data.stderr || data.stdout || data.error}`;
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             enabled: toggle ? toggle.checked : true,
-            threshold_tokens: slider ? parseInt(slider.value, 10) : 90000,
-            keep_last_n: select ? parseInt(select.value, 10) : 6,
-            model: 'gemini-3.1-flash-lite'
+            pruning_enabled: pruneToggle ? pruneToggle.checked : true,
+            threshold_tokens: slider ? parseInt(slider.value, 10) : 95000,
+            keep_last_n: select ? parseInt(select.value, 10) : 24,
+            model: currentCompactorModel || 'gemini-3.8-flash-low'
           })
         });
       } catch(e) {

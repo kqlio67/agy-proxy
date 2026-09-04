@@ -21,7 +21,7 @@ CONFIG_FILE = Path.home() / ".config" / "agy-proxy" / "compactor_config.json"
 
 
 class CompactorSettings:
-    """Manages context auto-compaction settings with local persistence."""
+    """Manages context auto-compaction and smart tool pruning settings with local persistence."""
 
     def __init__(
         self,
@@ -29,11 +29,17 @@ class CompactorSettings:
         threshold_tokens: int = 95000,
         keep_last_n: int = 24,
         model: str = "gemini-3.8-flash-low",
+        pruning_enabled: bool = True,
+        prune_keep_tools: int = 6,
+        prune_max_chars: int = 500,
     ):
         self.enabled = enabled
         self.threshold_tokens = threshold_tokens
         self.keep_last_n = keep_last_n
         self.model = model
+        self.pruning_enabled = pruning_enabled
+        self.prune_keep_tools = prune_keep_tools
+        self.prune_max_chars = prune_max_chars
         self.load()
 
     def load(self):
@@ -45,6 +51,9 @@ class CompactorSettings:
                 self.threshold_tokens = int(data.get("threshold_tokens", 95000))
                 self.keep_last_n = int(data.get("keep_last_n", 24))
                 self.model = str(data.get("model", "gemini-3.8-flash-low"))
+                self.pruning_enabled = bool(data.get("pruning_enabled", True))
+                self.prune_keep_tools = int(data.get("prune_keep_tools", 6))
+                self.prune_max_chars = int(data.get("prune_max_chars", 500))
             except Exception as e:
                 logger.debug("Failed to load compactor config: %s", e)
 
@@ -58,6 +67,9 @@ class CompactorSettings:
                         "threshold_tokens": self.threshold_tokens,
                         "keep_last_n": self.keep_last_n,
                         "model": self.model,
+                        "pruning_enabled": self.pruning_enabled,
+                        "prune_keep_tools": self.prune_keep_tools,
+                        "prune_max_chars": self.prune_max_chars,
                     },
                     f,
                     indent=2,
@@ -71,6 +83,9 @@ class CompactorSettings:
             "threshold_tokens": self.threshold_tokens,
             "keep_last_n": self.keep_last_n,
             "model": self.model,
+            "pruning_enabled": self.pruning_enabled,
+            "prune_keep_tools": self.prune_keep_tools,
+            "prune_max_chars": self.prune_max_chars,
         }
 
 
@@ -162,6 +177,114 @@ def estimate_total_tokens(messages: List[Any], system: Optional[Union[str, List[
     for m in messages:
         total += estimate_message_tokens(m)
     return total
+
+
+def prune_tool_results(
+    messages: List[Any],
+    keep_last_tools: Optional[int] = None,
+    max_chars: Optional[int] = None,
+    enabled: Optional[bool] = None,
+) -> Tuple[List[Any], int, int]:
+    """
+    Performs Smart Tool Pruning on conversation history:
+    Keeps the most recent `keep_last_tools` outputs completely intact.
+    For older tool outputs exceeding `max_chars`, truncates the middle bulk
+    while preserving the head (command / setup) and tail (exit code / outcome).
+
+    Returns:
+        (pruned_messages, pruned_count, estimated_tokens_saved)
+    """
+    is_enabled = compactor_settings.pruning_enabled if enabled is None else enabled
+    if not is_enabled or not messages:
+        return messages, 0, 0
+
+    keep_n = compactor_settings.prune_keep_tools if keep_last_tools is None else keep_last_tools
+    max_len = compactor_settings.prune_max_chars if max_chars is None else max_chars
+
+    tool_counter = 0
+    pruned_count = 0
+    total_chars_saved = 0
+
+    def truncate_content_str(content_str: str) -> Tuple[str, int]:
+        if not content_str or len(content_str) <= max_len:
+            return content_str, 0
+        keep_head = max(80, int(max_len * 0.6))
+        keep_tail = max(40, int(max_len * 0.4))
+        if len(content_str) <= keep_head + keep_tail + 60:
+            return content_str, 0
+        chars_omitted = len(content_str) - (keep_head + keep_tail)
+        replacement = (
+            f"{content_str[:keep_head]}\n\n"
+            f"... [agy-proxy: {chars_omitted:,} chars pruned from earlier tool output to save tokens] ...\n\n"
+            f"{content_str[-keep_tail:]}"
+        )
+        saved = len(content_str) - len(replacement)
+        return replacement, max(0, saved)
+
+    for i in range(len(messages) - 1, -1, -1):
+        m = messages[i]
+
+        # Case A: OpenAI style message: role == "tool" or role == "function"
+        role = m.get("role", "") if isinstance(m, dict) else getattr(m, "role", "")
+        if role in ("tool", "function"):
+            tool_counter += 1
+            if tool_counter > keep_n:
+                raw_c = m.get("content", "") if isinstance(m, dict) else getattr(m, "content", "")
+                if isinstance(raw_c, str):
+                    new_c, saved = truncate_content_str(raw_c)
+                    if saved > 0:
+                        pruned_count += 1
+                        total_chars_saved += saved
+                        if isinstance(m, dict):
+                            m["content"] = new_c
+                        else:
+                            try:
+                                m.content = new_c
+                            except Exception:
+                                pass
+            continue
+
+        # Case B: Anthropic style message with content blocks
+        content = m.get("content", []) if isinstance(m, dict) else getattr(m, "content", [])
+        if isinstance(content, list):
+            for b in reversed(content):
+                b_type = b.get("type", "") if isinstance(b, dict) else getattr(b, "type", "")
+                if b_type == "tool_result":
+                    tool_counter += 1
+                    if tool_counter > keep_n:
+                        block_content = b.get("content", "") if isinstance(b, dict) else getattr(b, "content", "")
+                        if isinstance(block_content, str):
+                            new_c, saved = truncate_content_str(block_content)
+                            if saved > 0:
+                                pruned_count += 1
+                                total_chars_saved += saved
+                                if isinstance(b, dict):
+                                    b["content"] = new_c
+                                else:
+                                    try:
+                                        b.content = new_c
+                                    except Exception:
+                                        pass
+                        elif isinstance(block_content, list):
+                            for sub in block_content:
+                                sub_type = sub.get("type", "") if isinstance(sub, dict) else getattr(sub, "type", "")
+                                if sub_type == "text":
+                                    sub_text = sub.get("text", "") if isinstance(sub, dict) else getattr(sub, "text", "")
+                                    if isinstance(sub_text, str):
+                                        new_text, saved = truncate_content_str(sub_text)
+                                        if saved > 0:
+                                            pruned_count += 1
+                                            total_chars_saved += saved
+                                            if isinstance(sub, dict):
+                                                sub["text"] = new_text
+                                            else:
+                                                try:
+                                                    sub.text = new_text
+                                                except Exception:
+                                                    pass
+
+    tokens_saved = int(total_chars_saved / 3.6)
+    return messages, pruned_count, tokens_saved
 
 
 def should_auto_compact(
