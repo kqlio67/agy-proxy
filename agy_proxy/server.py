@@ -27,12 +27,14 @@ from agy_proxy.auth import AccountPool, AuthManager
 from agy_proxy.client import CloudCodeClient
 from agy_proxy.models import (
     AnthropicRequest,
+    DEFAULT_MODEL,
     ModelCard,
     ModelListResponse,
     MODEL_ALIASES,
     OpenAIChatRequest,
     normalize_model_name,
 )
+from agy_proxy.converter import anthropic_to_cloudcode_payload
 from agy_proxy.ui import DASHBOARD_HTML, get_dashboard_html
 
 logger = logging.getLogger("agy_proxy.server")
@@ -197,15 +199,80 @@ def create_app(
     @app.post("/v1/messages/count_tokens")
     @app.post("/messages/count_tokens")
     async def count_tokens(request: Request):
+        body: Dict[str, Any] = {}
         try:
             body = await request.json()
-            # Serialize the entire request body to capture system instructions, tools, tool results, and history
-            serialized = json.dumps(body)
-            # Standard ~3.7 characters per token estimation for Gemini/Anthropic mixed content
-            est_tokens = int(len(serialized) / 3.7)
-            return {"input_tokens": max(1, est_tokens)}
         except Exception:
             return {"input_tokens": 10}
+
+        # Fast heuristic fallback
+        serialized = json.dumps(body)
+        fallback_tokens = max(1, int(len(serialized) / 3.7))
+
+        # Attempt exact native counting via Google CloudCode API
+        if pool and pool.accounts:
+            try:
+                acc = next((a for a in pool.accounts.values() if getattr(a, "enabled", True)), None)
+                if acc:
+                    req_model = normalize_model_name(body.get("model", DEFAULT_MODEL))
+                    anthropic_req = AnthropicRequest.model_validate(body)
+                    cloud_payload = anthropic_to_cloudcode_payload(anthropic_req, project_id="aicode-consumers")
+                    contents = cloud_payload.get("request", {}).get("contents", [])
+                    if contents:
+                        token = await acc.get_valid_token()
+                        headers = {
+                            "Authorization": f"Bearer {token}",
+                            "Content-Type": "application/json",
+                            "User-Agent": "antigravity/cli/1.1.25 (aidev_client; os_type=linux; arch=amd64; cl=974782877; auth_method=consumer)",
+                        }
+                        post_data = {
+                            "request": {
+                                "model": req_model,
+                                "contents": contents,
+                            }
+                        }
+                        async with httpx.AsyncClient(timeout=1.5) as http_client:
+                            resp = await http_client.post(
+                                "https://daily-cloudcode-pa.googleapis.com/v1internal:countTokens",
+                                headers=headers,
+                                json=post_data,
+                            )
+                            if resp.status_code == 200:
+                                exact_tokens = resp.json().get("totalTokens")
+                                if exact_tokens is not None:
+                                    return {"input_tokens": int(exact_tokens)}
+            except Exception as e:
+                logger.debug("Native countTokens error, falling back to estimation: %s", e)
+
+        return {"input_tokens": fallback_tokens}
+
+    @app.api_route("/api/fetch-url", methods=["GET", "POST"])
+    async def fetch_url_endpoint(request: Request):
+        """Fetches web page content using Google's native crawler (Trawler / Googlebot)."""
+        url = ""
+        if request.method == "GET":
+            url = request.query_params.get("url", "")
+        else:
+            try:
+                body = await request.json()
+                url = body.get("url", "")
+            except Exception:
+                pass
+        if not url:
+            raise HTTPException(status_code=400, detail="Missing 'url' parameter")
+
+        from agy_proxy.search import fetch_url_via_trawler
+        content = await fetch_url_via_trawler(url, account_pool=pool)
+        if content is not None:
+            return {"status": "ok", "url": url, "content": content, "source": "google-trawler"}
+
+        # Fallback to direct fetch
+        try:
+            async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as http_client:
+                r = await http_client.get(url)
+                return {"status": "ok", "url": url, "content": r.text, "source": "direct"}
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Failed to fetch URL: {str(e)}")
 
     @app.get("/health")
     async def health_check():

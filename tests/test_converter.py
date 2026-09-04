@@ -122,6 +122,37 @@ class TestOpenAIToCloudCode(unittest.TestCase):
         self.assertEqual(func["name"], "get_weather")
         self.assertEqual(func["description"], "Get current weather for a city")
 
+    def test_openai_structured_outputs_json_schema(self):
+        req = OpenAIChatRequest(
+            model="gemini-3.8-flash-high",
+            messages=[{"role": "user", "content": "Extract data"}],
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "data_extraction",
+                    "strict": True,
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string"},
+                            "age": {"type": "integer"}
+                        },
+                        "required": ["name", "age"],
+                        "additionalProperties": False
+                    }
+                }
+            }
+        )
+        payload = openai_to_cloudcode_payload(req, project_id="test-project")
+        gen_config = payload["request"]["generationConfig"]
+        self.assertEqual(gen_config.get("responseMimeType"), "application/json")
+        self.assertIn("responseSchema", gen_config)
+        resp_schema = gen_config["responseSchema"]
+        self.assertEqual(resp_schema["type"], "object")
+        self.assertEqual(resp_schema["properties"]["name"]["type"], "string")
+        self.assertEqual(resp_schema["properties"]["age"]["type"], "integer")
+        self.assertNotIn("additionalProperties", resp_schema)
+
 
 class TestAnthropicToCloudCode(unittest.TestCase):
     def test_anthropic_payload_conversion(self):

@@ -90,6 +90,20 @@ class TestServerRoutes(unittest.IsolatedAsyncioTestCase):
             )
             self.assertEqual(resp_valid.status_code, 200)
 
+    async def test_count_tokens_fallback(self):
+        resp = await self.client.post(
+            "/v1/messages/count_tokens",
+            json={"messages": [{"role": "user", "content": "hello world"}]}
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertIn("input_tokens", data)
+        self.assertGreater(data["input_tokens"], 0)
+
+    async def test_fetch_url_missing_param(self):
+        resp = await self.client.get("/api/fetch-url")
+        self.assertEqual(resp.status_code, 400)
+
 
 if __name__ == "__main__":
     unittest.main()

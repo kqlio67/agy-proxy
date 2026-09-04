@@ -304,3 +304,38 @@ async def search_multi_engine(
 
 # Backward compatibility alias
 search_duckduckgo = search_multi_engine
+
+
+async def fetch_url_via_trawler(url: str, account_pool: Optional[Any] = None, timeout: float = 12.0) -> Optional[str]:
+    """
+    Fetches web content using Google's native internal crawler endpoint (v1internal:fetchFromTrawlerCache).
+    Requests are made directly from Googlebot / Jetski crawler infrastructure, bypassing Cloudflare,
+    captchas, and residential IP rate limits.
+    """
+    if not account_pool or not getattr(account_pool, "accounts", None):
+        return None
+    try:
+        acc = next((a for a in account_pool.accounts.values() if getattr(a, "enabled", True)), None)
+        if not acc:
+            return None
+        token = await acc.get_valid_token()
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+            "User-Agent": "antigravity/cli/1.1.25 (aidev_client; os_type=linux; arch=amd64; cl=974782877; auth_method=consumer)",
+        }
+        payload = {"url": url, "liveFetch": True}
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            resp = await client.post(
+                "https://daily-cloudcode-pa.googleapis.com/v1internal:fetchFromTrawlerCache",
+                headers=headers,
+                json=payload,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                content = data.get("content")
+                if content:
+                    return str(content)
+    except Exception as e:
+        logger.debug("fetchFromTrawlerCache error for %s: %s", url, e)
+    return None

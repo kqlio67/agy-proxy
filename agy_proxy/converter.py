@@ -419,6 +419,13 @@ def openai_to_cloudcode_payload(
         rf_type = req.response_format.get("type")
         if rf_type == "json_object":
             generation_config["responseMimeType"] = "application/json"
+        elif rf_type == "json_schema":
+            generation_config["responseMimeType"] = "application/json"
+            schema_data = req.response_format.get("json_schema")
+            if isinstance(schema_data, dict):
+                raw_schema = schema_data.get("schema", schema_data)
+                if isinstance(raw_schema, dict):
+                    generation_config["responseSchema"] = sanitize_gemini_schema(raw_schema)
 
     inner_request: Dict[str, Any] = {
         "contents": contents,
