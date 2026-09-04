@@ -154,18 +154,27 @@ export ANTHROPIC_SMALL_FAST_MODEL="${ANTHROPIC_SMALL_FAST_MODEL:-${DEFAULT_MODEL
 AGY_SETTINGS=$(cat <<'SETTINGS_EOF'
 {
   "availableModels": [
+    "anthropic.gemini-3.8-flash-high",
+    "anthropic.gemini-3.8-flash-medium",
+    "anthropic.gemini-3.8-flash-low",
+    "anthropic.gemini-3.8-flash-tiered",
+    "anthropic.gemini-3.8-flash",
     "anthropic.gemini-3.7-flash-high",
     "anthropic.gemini-3.7-flash-medium",
     "anthropic.gemini-3.7-flash-low",
+    "anthropic.gemini-3.7-flash-tiered",
     "anthropic.gemini-3.6-flash-high",
     "anthropic.gemini-3.6-flash-medium",
     "anthropic.gemini-3.6-flash-low",
+    "anthropic.gemini-3.6-flash-tiered",
     "anthropic.gemini-3.5-flash-low",
     "anthropic.gemini-pro-agent",
+    "anthropic.gemini-3.1-pro-high",
     "anthropic.gemini-3.1-pro-low",
     "anthropic.gemini-3.1-flash-lite",
     "anthropic.gemini-3.1-flash-image",
     "anthropic.gemini-3-flash",
+    "anthropic.gemini-3-flash-agent",
     "anthropic.gemini-2.5-pro",
     "anthropic.gemini-2.5-flash",
     "anthropic.claude-sonnet-4-6",
@@ -175,6 +184,9 @@ AGY_SETTINGS=$(cat <<'SETTINGS_EOF'
 }
 SETTINGS_EOF
 )
+
+# Enable dynamic model discovery from proxy
+export CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1
 
 # Reduce non-essential traffic
 export DISABLE_TELEMETRY=1

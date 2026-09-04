@@ -416,14 +416,15 @@ def create_app(
                     )
 
         for alias, target in MODEL_ALIASES.items():
-            if alias not in seen_ids:
-                seen_ids.add(alias)
-                model_cards.append(
-                    ModelCard(
-                        id=alias,
-                        display_name=f"{alias} (-> {target})",
+            for m_key in (alias, f"anthropic/{alias}", f"anthropic.{alias}"):
+                if m_key not in seen_ids:
+                    seen_ids.add(m_key)
+                    model_cards.append(
+                        ModelCard(
+                            id=m_key,
+                            display_name=f"{m_key} (-> {target})",
+                        )
                     )
-                )
 
         return ModelListResponse(data=model_cards)
 

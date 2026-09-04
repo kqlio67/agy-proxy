@@ -57,6 +57,7 @@ if defined CUSTOM_URL (
 set "ANTHROPIC_API_KEY=dummy"
 set "ANTHROPIC_MODEL=%MODEL%"
 set "ANTHROPIC_SMALL_FAST_MODEL=%MODEL%"
+set "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1"
 
 rem Check if user passed permission skip args
 echo %CLAUDE_ARGS% | findstr /i /c:"--dangerously-skip-permissions" /c:"--permission-mode" >nul
