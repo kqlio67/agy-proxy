@@ -372,6 +372,15 @@ def create_app(
             raise HTTPException(status_code=404, detail="Account not found.")
         return {"status": "deleted", "account_id": account_id}
 
+    @app.post("/api/accounts/{account_id}/primary")
+    async def set_primary_account(account_id: str):
+        if account_id not in pool.accounts:
+            raise HTTPException(status_code=404, detail="Account not found.")
+        success = pool.set_primary(account_id)
+        if not success:
+            raise HTTPException(status_code=400, detail="Failed to set primary account.")
+        return {"status": "ok", "account_id": account_id, "is_primary": True}
+
     @app.post("/api/accounts/refresh_all")
     async def refresh_all_accounts():
         await pool.initialize_all()

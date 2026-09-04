@@ -1144,6 +1144,15 @@ class AccountPool:
             return True
         return False
 
+    def set_primary(self, account_id: str) -> bool:
+        if account_id not in self.accounts:
+            return False
+        for acc in self.accounts.values():
+            acc.is_primary = False
+        self.accounts[account_id].is_primary = True
+        self.save_accounts()
+        return True
+
 
 # Compatibility shim for AuthManager
 class AuthManager:

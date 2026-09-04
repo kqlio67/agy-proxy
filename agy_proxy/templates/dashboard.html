@@ -45,29 +45,29 @@
 <body class="min-h-screen flex flex-col custom-scrollbar">
 
   <!-- Header -->
-  <header class="border-b border-dark-border bg-slate-900/80 backdrop-blur sticky top-0 z-40">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-      <div class="flex items-center space-x-3">
+  <header class="border-b border-dark-border bg-slate-900/95 backdrop-blur-md sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[4.5rem] py-2.5 flex items-center justify-between gap-4">
+      <div class="flex items-center space-x-3 shrink-0">
         <a href="/" class="flex items-center space-x-3 group">
-          <div class="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700/60 p-1 flex items-center justify-center shadow-lg group-hover:border-indigo-500/50 transition">
+          <div class="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700/80 p-1 flex items-center justify-center shadow-lg group-hover:border-indigo-500/50 transition shrink-0">
             <img src="/assets/image/antigravity-logo.png" alt="Google Antigravity" class="w-full h-full object-contain">
           </div>
-          <div>
-            <div class="flex items-center space-x-2">
-              <span class="text-lg font-black tracking-tight text-white">Google <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400">Antigravity</span> Proxy</span>
-              <span class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono font-bold border border-indigo-500/30">v1.1.0</span>
-              <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-semibold border border-emerald-500/20 flex items-center space-x-1" title="Context Caching & Session Affinity Enabled">
+          <div class="flex flex-col justify-center">
+            <div class="flex items-center space-x-2 leading-none">
+              <span class="text-base sm:text-lg font-black tracking-tight text-white">Google <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400">Antigravity</span> Proxy</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono font-bold border border-indigo-500/30">v1.2.0</span>
+              <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-semibold border border-emerald-500/20 hidden md:flex items-center space-x-1" title="Context Caching & Session Affinity Enabled">
                 <i class="fa-solid fa-bolt text-[9px]"></i>
                 <span id="cacheBadgeText">Cache Active</span>
               </span>
             </div>
-            <p class="text-[11px] text-slate-400 font-mono">OpenAI · Anthropic · Gemini Multi-Account Gateway</p>
+            <p class="text-[11px] text-slate-400 font-mono tracking-tight leading-normal mt-1 hidden sm:block">OpenAI · Anthropic · Gemini Multi-Account Gateway</p>
           </div>
         </a>
       </div>
 
       <!-- Center Navigation Tabs -->
-      <nav class="hidden lg:flex items-center space-x-1 bg-slate-950/70 p-1 rounded-xl border border-slate-800/80 text-xs font-medium" id="mainNavTabs">
+      <nav class="hidden lg:flex items-center space-x-1 bg-slate-950/80 p-1.5 rounded-xl border border-slate-800/80 text-xs font-medium shrink-0" id="mainNavTabs">
         <button onclick="switchTab('accounts')" id="tabBtn-accounts" class="nav-tab-btn px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition bg-indigo-600 text-white font-semibold shadow-sm">
           <i class="fa-solid fa-users text-[11px]"></i>
           <span>Accounts</span>
@@ -91,26 +91,26 @@
       </nav>
 
       <!-- Quick Nav / Links -->
-      <div class="flex items-center space-x-2.5">
+      <div class="flex items-center space-x-2 shrink-0">
         <!-- Update Available Badge (dynamic) -->
         <div id="updateBadgeContainer" class="hidden">
           <button onclick="openUpdateModal()" class="flex items-center space-x-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 hover:bg-indigo-500/30 transition animate-pulse">
             <i class="fa-solid fa-sparkles text-amber-400"></i>
-            <span id="updateBadgeText">Update v1.0.3</span>
+            <span id="updateBadgeText">Update</span>
           </button>
         </div>
 
-        <button onclick="openAddAccountModal()" class="flex items-center space-x-1.5 text-xs font-semibold px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-sm">
+        <button onclick="openAddAccountModal()" class="flex items-center space-x-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-sm">
           <i class="fa-solid fa-user-plus text-[11px]"></i>
           <span class="hidden sm:inline">Add Account</span>
         </button>
-        <button onclick="toggleAutoRefresh()" id="autoRefreshBtn" class="flex items-center space-x-1.5 text-xs font-semibold px-2.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 transition" title="Auto-refresh accounts every 15s (Disabled by default)">
+        <button onclick="toggleAutoRefresh()" id="autoRefreshBtn" class="flex items-center space-x-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 transition" title="Auto-refresh accounts every 15s (Disabled by default)">
           <span class="w-2 h-2 rounded-full bg-slate-500" id="autoRefreshDot"></span>
           <span id="autoRefreshLabel">Auto-refresh: OFF</span>
         </button>
-        <button onclick="refreshAllAccounts()" id="refreshBtn" class="flex items-center space-x-1.5 text-xs font-semibold px-2.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 transition" title="Refresh accounts and models">
+        <button onclick="refreshAllAccounts()" id="refreshBtn" class="flex items-center space-x-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 transition" title="Refresh accounts and models">
           <i class="fa-solid fa-rotate text-[11px]" id="refreshIcon"></i>
-          <span class="hidden sm:inline">Refresh All</span>
+          <span class="hidden sm:inline">Refresh</span>
         </button>
       </div>
     </div>
@@ -333,67 +333,88 @@
 
   <!-- TAB 3: PLAYGROUND -->
   <div id="tabContent-playground" class="hidden space-y-6">
-    <!-- Playground & Models Layout -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8" id="playground">
 
-      <!-- Left Column: Controls & Models -->
-      <div class="lg:col-span-1 space-y-6">
+    <!-- Playground Header Banner -->
+    <div class="p-4 rounded-2xl bg-dark-card border border-dark-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center text-lg shadow-sm">
+          <i class="fa-solid fa-terminal"></i>
+        </div>
+        <div>
+          <div class="font-bold text-white text-sm flex items-center space-x-2">
+            <span>Model Playground Studio</span>
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-semibold" id="activeModelBadgeTop">gemini-3.8-flash-high</span>
+          </div>
+          <p class="text-xs text-slate-400 mt-0.5">Interactive testing studio with live streaming SSE, multi-account rotation, and reasoning chain inspection.</p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-2">
+        <button onclick="clearChat()" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-red-500/20 hover:text-red-300 border border-slate-700 text-slate-300 transition flex items-center space-x-1.5">
+          <i class="fa-solid fa-trash-can text-[11px]"></i>
+          <span>Clear Chat</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Playground & Models Layout (1/3 Controls, 2/3 Full Chat) -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6" id="playground">
+
+      <!-- Left Column: Controls & Models (1 Col) -->
+      <div class="lg:col-span-1 space-y-5 flex flex-col">
 
         <!-- Config Panel -->
-        <div class="p-6 rounded-2xl bg-dark-card border border-dark-border space-y-4">
+        <div class="p-5 rounded-2xl bg-dark-card border border-dark-border space-y-4 shadow-sm">
           <h2 class="text-base font-bold text-white flex items-center">
             <i class="fa-solid fa-sliders mr-2 text-indigo-400"></i> Playground Settings
           </h2>
 
           <div class="space-y-3 text-sm">
             <div>
-              <label class="block text-xs font-medium text-slate-400 mb-1">Model</label>
-              <select id="modelSelect" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition">
-                <option value="gemini-3.8-flash-high" selected>Gemini 3.8 Flash (High Reasoning)</option>
-                <option value="gemini-3.8-flash-medium">Gemini 3.8 Flash (Medium Reasoning)</option>
-                <option value="gemini-3.8-flash-low">Gemini 3.8 Flash (Low Reasoning)</option>
-                <option value="gemini-3.8-flash-tiered">Gemini 3.8 Flash Tiered (Dynamic 1M Context)</option>
-                <option value="gemini-3.7-flash-high">Gemini 3.7 Flash (High Reasoning)</option>
-                <option value="gemini-pro-agent">Gemini Pro Agent (Deep Reasoning 3.1 Pro)</option>
-                <option value="gemini-3-flash-agent">Gemini 3 Flash Agent (Fast Tooling)</option>
-                <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite (Zero-Thinking)</option>
-                <option value="claude-sonnet-4-6">Claude Sonnet 4.6 (Thinking)</option>
-                <option value="claude-opus-4-6-thinking">Claude Opus 4.6 (Thinking)</option>
-                <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-                <option value="gpt-oss-120b-medium">GPT-OSS 120B</option>
+              <label class="block text-xs font-medium text-slate-400 mb-1">Target Model</label>
+              <select id="modelSelect" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 transition font-mono">
+                <option value="gemini-3.8-flash-high" selected>gemini-3.8-flash-high (Thinking)</option>
+                <option value="gemini-3.8-flash-medium">gemini-3.8-flash-medium</option>
+                <option value="gemini-3.8-flash-low">gemini-3.8-flash-low</option>
+                <option value="gemini-3.8-flash-tiered">gemini-3.8-flash-tiered (1M Context)</option>
+                <option value="gemini-3.7-flash-high">gemini-3.7-flash-high (Thinking)</option>
+                <option value="gemini-pro-agent">gemini-pro-agent (Deep Reasoning)</option>
+                <option value="gemini-3-flash-agent">gemini-3-flash-agent (Fast Tooling)</option>
+                <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite (Zero Thinking)</option>
+                <option value="claude-sonnet-4-6">claude-sonnet-4-6 (Anthropic Protocol)</option>
+                <option value="claude-opus-4-6-thinking">claude-opus-4-6-thinking</option>
+                <option value="gemini-2.5-pro">gemini-2.5-pro</option>
+                <option value="gpt-oss-120b-medium">gpt-oss-120b-medium</option>
               </select>
             </div>
 
             <div>
               <label class="block text-xs font-medium text-slate-400 mb-1">System Prompt</label>
-              <textarea id="systemPrompt" rows="2" placeholder="You are a helpful coding assistant..." class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 custom-scrollbar transition"></textarea>
+              <textarea id="systemPrompt" rows="2" placeholder="You are a helpful coding assistant..." class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 custom-scrollbar transition"></textarea>
             </div>
 
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="block text-xs font-medium text-slate-400 mb-1">Temperature (<span id="tempVal">0.7</span>)</label>
+                <label class="block text-xs font-medium text-slate-400 mb-1">Temperature (<span id="tempVal" class="font-mono text-indigo-400">0.7</span>)</label>
                 <input type="range" id="tempSlider" min="0" max="2" step="0.1" value="0.7" class="w-full accent-indigo-500" oninput="document.getElementById('tempVal').innerText=this.value">
               </div>
               <div>
                 <label class="block text-xs font-medium text-slate-400 mb-1">Max Output Tokens</label>
-                <input type="number" id="maxTokens" value="2048" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-500">
+                <input type="number" id="maxTokens" value="2048" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono">
               </div>
             </div>
 
-            <div class="pt-2 flex items-center justify-between">
+            <div class="pt-2 flex items-center justify-between border-t border-slate-800">
               <label class="text-xs font-medium text-slate-300 flex items-center cursor-pointer">
                 <input type="checkbox" id="streamToggle" checked class="mr-2 accent-indigo-500 rounded">
                 Stream Response (SSE)
               </label>
-              <button onclick="clearChat()" class="text-xs text-slate-400 hover:text-red-400 transition">
-                <i class="fa-solid fa-trash-can mr-1"></i> Clear Chat
-              </button>
+              <span class="text-[10px] text-slate-500 font-mono">SSE enabled</span>
             </div>
           </div>
         </div>
 
         <!-- Available Models Catalog -->
-        <div class="p-6 rounded-2xl bg-dark-card border border-dark-border space-y-3.5">
+        <div class="p-5 rounded-2xl bg-dark-card border border-dark-border space-y-3 flex-1 flex flex-col min-h-[380px] shadow-sm">
           <div class="flex items-center justify-between">
             <h2 class="text-base font-bold text-white flex items-center">
               <i class="fa-solid fa-cubes mr-2 text-purple-400"></i> Model Catalog & Quota
@@ -408,37 +429,39 @@
               type="text" 
               id="modelSearchInput" 
               placeholder="Search 50+ models (e.g. flash, claude, 3.7)..." 
-              class="w-full bg-slate-900 border border-slate-700/80 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition"
+              class="w-full bg-slate-900 border border-slate-700/80 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition font-mono"
               oninput="filterModelCatalog()"
             >
           </div>
 
-          <div class="space-y-2.5 max-h-80 overflow-y-auto pr-1 custom-scrollbar" id="modelList">
-            <div class="text-center py-6 text-slate-500 text-sm">Loading model catalog...</div>
+          <div class="space-y-2.5 max-h-[380px] overflow-y-auto pr-1 custom-scrollbar flex-1" id="modelList">
+            <div class="text-center py-8 text-slate-500 text-xs">Loading model catalog...</div>
+          </div>
         </div>
-      </div>
 
-      <!-- Right Column: Interactive Chat Interface -->
-      <div class="lg:col-span-2 flex flex-col h-[720px] rounded-2xl bg-dark-card border border-dark-border overflow-hidden">
+      </div> <!-- End Left Column (lg:col-span-1) -->
+
+      <!-- Right Column: Interactive Chat Interface (2 Cols) -->
+      <div class="lg:col-span-2 flex flex-col h-[740px] rounded-2xl bg-dark-card border border-dark-border overflow-hidden shadow-lg">
 
         <!-- Chat Header -->
-        <div class="p-4 border-b border-dark-border bg-slate-900/60 flex items-center justify-between">
+        <div class="p-4 border-b border-dark-border bg-slate-900/70 flex items-center justify-between">
           <div class="flex items-center space-x-2">
             <i class="fa-solid fa-comments text-indigo-400"></i>
             <span class="font-bold text-sm text-white">Live Playground</span>
             <span class="text-xs font-mono text-indigo-300 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20" id="activeModelBadge">gemini-3.8-flash-high</span>
           </div>
-          <div class="text-xs text-slate-400" id="tokenUsageBadge"></div>
+          <div class="text-xs text-slate-400 font-mono" id="tokenUsageBadge"></div>
         </div>
 
         <!-- Chat Messages Container -->
         <div class="flex-1 p-6 overflow-y-auto space-y-6 custom-scrollbar" id="chatContainer">
-          <div class="text-center py-16 text-slate-500">
-            <div class="w-12 h-12 mx-auto rounded-full bg-slate-800 flex items-center justify-center text-slate-400 mb-3">
-              <i class="fa-solid fa-wand-magic-sparkles text-xl"></i>
+          <div class="text-center py-20 text-slate-500">
+            <div class="w-14 h-14 mx-auto rounded-2xl bg-slate-800/80 border border-slate-700/60 flex items-center justify-center text-slate-400 mb-3.5 shadow-sm">
+              <i class="fa-solid fa-wand-magic-sparkles text-2xl text-indigo-400"></i>
             </div>
-            <p class="text-sm font-medium">Type a message below to start chatting with Antigravity backend.</p>
-            <p class="text-xs text-slate-600 mt-1">Multi-account routing and thought extraction are handled automatically.</p>
+            <p class="text-sm font-semibold text-slate-300">Start chatting with Antigravity AI Gateway</p>
+            <p class="text-xs text-slate-500 mt-1">Multi-account quota rotation, thought chain extraction, and context compaction run automatically.</p>
           </div>
         </div>
 
@@ -448,22 +471,24 @@
             <textarea
               id="userInput"
               rows="2"
-              placeholder="Ask anything or request code..."
+              placeholder="Ask anything or request code (Enter to send, Shift+Enter for newline)..."
               class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 custom-scrollbar resize-none transition"
               onkeydown="if(event.key === 'Enter' && !event.shiftKey){ event.preventDefault(); sendMessage(event); }"
             ></textarea>
             <button
               type="submit"
               id="sendBtn"
-              class="px-5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium flex items-center justify-center transition shadow-lg shadow-indigo-600/30 disabled:opacity-50"
+              class="px-5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium flex items-center justify-center transition shadow-lg shadow-indigo-600/30 disabled:opacity-50 flex-shrink-0"
             >
               <i class="fa-solid fa-paper-plane text-base" id="sendIcon"></i>
             </button>
           </form>
         </div>
 
-      </div>
-    </div>
+      </div> <!-- End Right Column (lg:col-span-2) -->
+
+    </div> <!-- End #playground Grid -->
+
   </div> <!-- End #tabContent-playground -->
 
   <!-- TAB 4: CLIENT INTEGRATIONS -->
@@ -1142,48 +1167,96 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       }, 2800);
     }
 
-    // Unified Snippet & Command Copying
-    async function copySnippet(param, btn) {
-      if (btn && document.getElementById(param)) {
-        const textElem = document.getElementById(param);
-        const text = textElem.innerText || textElem.textContent;
+    // Robust, foolproof clipboard copying (works over HTTP, HTTPS, localhost, LAN)
+    function fallbackCopyText(text) {
+      return new Promise((resolve, reject) => {
+        try {
+          const textArea = document.createElement('textarea');
+          textArea.value = text;
+          textArea.style.position = 'fixed';
+          textArea.style.left = '-9999px';
+          textArea.style.top = '0';
+          textArea.style.opacity = '0';
+          document.body.appendChild(textArea);
+          textArea.focus();
+          textArea.select();
+          const successful = document.execCommand('copy');
+          document.body.removeChild(textArea);
+          if (successful) {
+            resolve();
+          } else {
+            reject(new Error('execCommand copy returned false'));
+          }
+        } catch (err) {
+          reject(err);
+        }
+      });
+    }
+
+    async function copyToClipboard(text) {
+      if (navigator.clipboard && window.isSecureContext) {
         try {
           await navigator.clipboard.writeText(text);
+          return true;
+        } catch (err) {
+          // Modern clipboard failed, fall back
+        }
+      }
+      return fallbackCopyText(text);
+    }
+
+    // Unified Snippet & Command Copying
+    async function copySnippet(param, btn) {
+      let text = '';
+      let name = 'Snippet';
+
+      if (param === 'claude') {
+        text = `export ANTHROPIC_BASE_URL="http://127.0.0.1:8000" && claude --settings '{"availableModels": ["anthropic.gemini-3.8-flash-high", "anthropic.gemini-pro-agent", "anthropic.gemini-3.8-flash-tiered"]}'`;
+        name = 'Claude Code launcher';
+      } else if (param === 'agy') {
+        text = `agy --model gemini-pro-agent --dangerously-skip-permissions`;
+        name = 'AGY command';
+      } else if (param === 'baseurl') {
+        text = `http://127.0.0.1:8000/v1`;
+        name = 'Base URL';
+      } else if (document.getElementById(param)) {
+        const textElem = document.getElementById(param);
+        text = (textElem.innerText || textElem.textContent || '').trim();
+        name = 'Code snippet';
+      } else {
+        text = param;
+        name = 'Command';
+      }
+
+      try {
+        await copyToClipboard(text);
+        showToast(`${name} copied to clipboard!`, 'success');
+        if (btn) {
           const originalHtml = btn.innerHTML;
           btn.innerHTML = '<i class="fa-solid fa-check text-emerald-400"></i> <span class="text-emerald-300">Copied!</span>';
           btn.classList.add('bg-emerald-600/30', 'border-emerald-500/50');
-          showToast('Copied to clipboard!', 'success');
           setTimeout(() => {
             btn.innerHTML = originalHtml;
             btn.classList.remove('bg-emerald-600/30', 'border-emerald-500/50');
-          }, 1800);
-        } catch (e) {
-          console.error('Copy failed:', e);
+          }, 1600);
         }
-      } else {
-        let text = '';
-        let name = '';
-        if (param === 'claude') {
-          text = `export ANTHROPIC_BASE_URL="http://127.0.0.1:8000" && claude --settings '{"availableModels": ["anthropic.gemini-3.8-flash-high", "anthropic.gemini-pro-agent", "anthropic.gemini-3.8-flash-tiered"]}'`;
-          name = 'Claude Code launcher';
-        } else if (param === 'agy') {
-          text = `agy --model gemini-pro-agent --dangerously-skip-permissions`;
-          name = 'AGY command';
-        } else if (param === 'baseurl') {
-          text = `http://127.0.0.1:8000/v1`;
-          name = 'Base URL';
-        } else if (document.getElementById(param)) {
-          text = document.getElementById(param).innerText || document.getElementById(param).textContent;
-          name = 'Endpoint';
+      } catch (e) {
+        prompt('Copy command manually:', text);
+      }
+    }
+
+    // Promote Account to Primary
+    async function setPrimaryAccount(accountId) {
+      try {
+        const res = await fetch(`/api/accounts/${encodeURIComponent(accountId)}/primary`, { method: 'POST' });
+        if (res.ok) {
+          showToast('Account set as primary!', 'success');
+          loadAccounts();
         } else {
-          text = param;
-          name = 'Snippet';
+          showToast('Failed to set primary account', 'error');
         }
-        navigator.clipboard.writeText(text).then(() => {
-          showToast(`${name} copied to clipboard!`, 'success');
-        }).catch(() => {
-          prompt('Copy snippet:', text);
-        });
+      } catch (err) {
+        showToast(`Error: ${err.message}`, 'error');
       }
     }
 
@@ -1763,10 +1836,15 @@ https://your-tunnel.trycloudflare.com/v1</pre>
                       <button onclick="openRenameModal('${acc.account_id}', '${(acc.name || acc.email).replace(/'/g, "\'")}')" class="text-slate-500 hover:text-indigo-400 p-0.5 transition" title="Rename account / key">
                         <i class="fa-solid fa-pen-to-square text-[11px]"></i>
                       </button>
-                      ${acc.is_primary ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30">Primary</span>' : ''}
+                      ${acc.is_primary 
+                        ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30 flex items-center space-x-1 shadow-sm"><i class="fa-solid fa-star text-amber-400 text-[9px]"></i><span>Primary</span></span>' 
+                        : `<button onclick="setPrimaryAccount('${acc.account_id}')" class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800/90 hover:bg-indigo-600 hover:text-white text-slate-400 border border-slate-700 transition flex items-center space-x-1" title="Set as primary active account"><i class="fa-regular fa-star text-[9px]"></i><span>Set Primary</span></button>`}
                       ${!isEnabled ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-medium border border-slate-700">Paused</span>' : ''}
                     </div>
-                    <div class="text-[11px] text-slate-400 font-mono truncate" title="${acc.email}">${acc.email}</div>
+                    <div class="text-xs text-slate-300 font-mono truncate flex items-center space-x-1.5 mt-0.5" title="${acc.email}">
+                      <i class="fa-regular fa-envelope text-slate-500 text-[11px] shrink-0"></i>
+                      <span class="truncate select-all">${acc.email}</span>
+                    </div>
                   </div>
                 </div>
                 <div class="flex items-center space-x-1.5 flex-shrink-0">
@@ -1833,9 +1911,14 @@ https://your-tunnel.trycloudflare.com/v1</pre>
                     <div class="font-bold text-white flex items-center space-x-1.5">
                       <span class="truncate max-w-[180px]" title="${acc.name || acc.email}">${acc.name || acc.email}</span>
                       <button onclick="openRenameModal('${acc.account_id}', '${(acc.name || acc.email).replace(/'/g, "\'")}')" class="text-slate-500 hover:text-indigo-400 transition" title="Rename"><i class="fa-solid fa-pen-to-square text-[10px]"></i></button>
-                      ${acc.is_primary ? '<span class="text-[9px] px-1 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30">Primary</span>' : ''}
+                      ${acc.is_primary 
+                        ? '<span class="text-[9px] px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30"><i class="fa-solid fa-star text-amber-400 mr-1 text-[8px]"></i>Primary</span>' 
+                        : `<button onclick="setPrimaryAccount('${acc.account_id}')" class="text-[9px] px-1.5 py-0.2 rounded bg-slate-800 hover:bg-indigo-600 text-slate-400 hover:text-white border border-slate-700 transition" title="Set as primary"><i class="fa-regular fa-star mr-1 text-[8px]"></i>Set Primary</button>`}
                     </div>
-                    <div class="text-[10px] text-slate-400 font-mono truncate max-w-[200px]" title="${acc.email}">${acc.email}</div>
+                    <div class="text-[11px] text-slate-300 font-mono truncate max-w-[220px] flex items-center space-x-1 mt-0.5" title="${acc.email}">
+                      <i class="fa-regular fa-envelope text-slate-500 text-[10px] shrink-0"></i>
+                      <span class="truncate select-all">${acc.email}</span>
+                    </div>
                   </div>
                 </div>
               </td>
