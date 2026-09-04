@@ -9,6 +9,8 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -47,17 +49,17 @@
 
   <!-- Header -->
   <header class="border-b border-dark-border bg-slate-900/95 backdrop-blur-md sticky top-0 z-40">
-    <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 min-h-[3.75rem] sm:min-h-[4.5rem] py-2 sm:py-2.5 flex items-center justify-between gap-2 sm:gap-4">
-      <div class="flex items-center space-x-2 sm:space-x-3 shrink-0 min-w-0">
+    <div class="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 xl:px-8 min-h-[3.75rem] sm:min-h-[4.5rem] py-2 sm:py-2.5 flex items-center justify-between gap-2 sm:gap-3">
+      <div class="flex items-center space-x-2 sm:space-x-3 shrink min-w-0">
         <a href="/" class="flex items-center space-x-2 sm:space-x-3 group min-w-0">
           <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-slate-800 border border-slate-700/80 p-1 flex items-center justify-center shadow-lg group-hover:border-indigo-500/50 transition shrink-0">
             <img src="/assets/image/antigravity-logo.png" alt="Google Antigravity" class="w-full h-full object-contain">
           </div>
           <div class="flex flex-col justify-center min-w-0">
             <div class="flex items-center space-x-1.5 sm:space-x-2 leading-none">
-              <span class="text-sm sm:text-base md:text-lg font-black tracking-tight text-white truncate">Google <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400">Antigravity</span> Proxy</span>
+              <span class="text-sm sm:text-base font-black tracking-tight text-white truncate">Google <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400">Antigravity</span> Proxy</span>
               <span class="text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono font-bold border border-indigo-500/30 shrink-0">v1.2.0</span>
-              <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-semibold border border-emerald-500/20 hidden md:flex items-center space-x-1 shrink-0" title="Context Caching & Session Affinity Enabled">
+              <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-semibold border border-emerald-500/20 hidden 2xl:flex items-center space-x-1 shrink-0" title="Context Caching & Session Affinity Enabled">
                 <i class="fa-solid fa-bolt text-[9px]"></i>
                 <span id="cacheBadgeText">Cache Active</span>
               </span>
@@ -68,30 +70,30 @@
       </div>
 
       <!-- Center Navigation Tabs -->
-      <nav class="hidden lg:flex items-center space-x-0.5 xl:space-x-1 bg-slate-950/80 p-1 xl:p-1.5 rounded-xl border border-slate-800/80 text-xs font-medium shrink" id="mainNavTabs">
-        <button onclick="switchTab('accounts')" id="tabBtn-accounts" class="nav-tab-btn px-2.5 xl:px-3 py-1.5 rounded-lg flex items-center space-x-1 xl:space-x-1.5 transition bg-indigo-600 text-white font-semibold shadow-sm">
+      <nav class="hidden lg:flex items-center space-x-0.5 xl:space-x-1 bg-slate-950/80 p-1 rounded-xl border border-slate-800/80 text-xs font-medium shrink-0" id="mainNavTabs">
+        <button onclick="switchTab('accounts')" id="tabBtn-accounts" class="nav-tab-btn px-2 xl:px-3 py-1.5 rounded-lg flex items-center space-x-1 xl:space-x-1.5 transition bg-indigo-600 text-white font-semibold shadow-sm">
           <i class="fa-solid fa-users text-[11px]"></i>
           <span>Accounts</span>
         </button>
-        <button onclick="switchTab('analytics')" id="tabBtn-analytics" class="nav-tab-btn px-2.5 xl:px-3 py-1.5 rounded-lg flex items-center space-x-1 xl:space-x-1.5 transition text-slate-400 hover:text-white hover:bg-slate-800">
+        <button onclick="switchTab('analytics')" id="tabBtn-analytics" class="nav-tab-btn px-2 xl:px-3 py-1.5 rounded-lg flex items-center space-x-1 xl:space-x-1.5 transition text-slate-400 hover:text-white hover:bg-slate-800">
           <i class="fa-solid fa-chart-pie text-[11px]"></i>
           <span>Analytics</span>
         </button>
-        <button onclick="switchTab('playground')" id="tabBtn-playground" class="nav-tab-btn px-2.5 xl:px-3 py-1.5 rounded-lg flex items-center space-x-1 xl:space-x-1.5 transition text-slate-400 hover:text-white hover:bg-slate-800">
+        <button onclick="switchTab('playground')" id="tabBtn-playground" class="nav-tab-btn px-2 xl:px-3 py-1.5 rounded-lg flex items-center space-x-1 xl:space-x-1.5 transition text-slate-400 hover:text-white hover:bg-slate-800">
           <i class="fa-solid fa-terminal text-[11px]"></i>
           <span>Playground</span>
         </button>
-        <button onclick="switchTab('integrations')" id="tabBtn-integrations" class="nav-tab-btn px-2.5 xl:px-3 py-1.5 rounded-lg flex items-center space-x-1 xl:space-x-1.5 transition text-slate-400 hover:text-white hover:bg-slate-800">
+        <button onclick="switchTab('integrations')" id="tabBtn-integrations" class="nav-tab-btn px-2 xl:px-3 py-1.5 rounded-lg flex items-center space-x-1 xl:space-x-1.5 transition text-slate-400 hover:text-white hover:bg-slate-800">
           <i class="fa-solid fa-plug text-[11px]"></i>
           <span>Integrations</span>
         </button>
-        <button onclick="switchTab('settings')" id="tabBtn-settings" class="nav-tab-btn px-2.5 xl:px-3 py-1.5 rounded-lg flex items-center space-x-1 xl:space-x-1.5 transition text-slate-400 hover:text-white hover:bg-slate-800">
+        <button onclick="switchTab('settings')" id="tabBtn-settings" class="nav-tab-btn px-2 xl:px-3 py-1.5 rounded-lg flex items-center space-x-1 xl:space-x-1.5 transition text-slate-400 hover:text-white hover:bg-slate-800">
           <i class="fa-solid fa-sliders text-[11px]"></i>
           <span>Settings</span>
         </button>
       </nav>
 
-      <!-- Quick Nav / Links -->
+      <!-- Quick Nav / Action Buttons -->
       <div class="flex items-center space-x-1.5 sm:space-x-2 shrink-0">
         <!-- Update Available Badge (dynamic) -->
         <div id="updateBadgeContainer" class="hidden">
@@ -101,17 +103,17 @@
           </button>
         </div>
 
-        <button onclick="openAddAccountModal()" class="flex items-center space-x-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-sm" title="Add Account or AI Studio Key">
+        <button onclick="openAddAccountModal()" class="flex items-center space-x-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-sm shrink-0" title="Add Account or AI Studio Key">
           <i class="fa-solid fa-user-plus text-[11px]"></i>
-          <span class="hidden xl:inline">Add Account</span>
+          <span class="hidden 2xl:inline">Add Account</span>
+          <span class="hidden sm:inline 2xl:hidden">Add</span>
         </button>
-        <button onclick="toggleAutoRefresh()" id="autoRefreshBtn" class="flex items-center space-x-1.5 text-xs font-semibold px-2 py-1.5 sm:px-2.5 sm:py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 transition" title="Auto-refresh accounts every 15s (Disabled by default)">
+        <button onclick="toggleAutoRefresh()" id="autoRefreshBtn" class="flex items-center space-x-1.5 text-xs font-semibold px-2 py-1.5 sm:px-2.5 sm:py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 transition shrink-0" title="Auto-refresh accounts every 15s (Disabled by default)">
           <span class="w-2 h-2 rounded-full bg-slate-500 shrink-0" id="autoRefreshDot"></span>
-          <span id="autoRefreshLabel" class="hidden xl:inline">Auto-refresh: OFF</span>
-          <span id="autoRefreshLabelShort" class="hidden sm:inline xl:hidden text-[11px] font-mono">Auto: OFF</span>
+          <span id="autoRefreshLabel" class="hidden sm:inline text-xs font-mono">Auto: OFF</span>
           <span id="autoRefreshLabelMobile" class="sm:hidden text-[10px] font-mono">OFF</span>
         </button>
-        <button onclick="refreshAllAccounts()" id="refreshBtn" class="flex items-center space-x-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 transition" title="Refresh accounts and models">
+        <button onclick="refreshAllAccounts()" id="refreshBtn" class="flex items-center space-x-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 transition shrink-0" title="Refresh accounts and models">
           <i class="fa-solid fa-rotate text-[11px]" id="refreshIcon"></i>
           <span class="hidden xl:inline">Refresh</span>
         </button>
@@ -311,28 +313,6 @@
 
   <!-- TAB 3: PLAYGROUND -->
   <div id="tabContent-playground" class="hidden space-y-6">
-
-    <!-- Playground Header Banner -->
-    <div class="p-4 rounded-2xl bg-dark-card border border-dark-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
-      <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center text-lg shadow-sm">
-          <i class="fa-solid fa-terminal"></i>
-        </div>
-        <div>
-          <div class="font-bold text-white text-sm flex items-center space-x-2">
-            <span>Model Playground Studio</span>
-            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-semibold" id="activeModelBadgeTop">gemini-3.8-flash-high</span>
-          </div>
-          <p class="text-xs text-slate-400 mt-0.5">Interactive testing studio with live streaming SSE, multi-account rotation, and reasoning chain inspection.</p>
-        </div>
-      </div>
-      <div class="flex items-center space-x-2">
-        <button onclick="clearChat()" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-red-500/20 hover:text-red-300 border border-slate-700 text-slate-300 transition flex items-center space-x-1.5">
-          <i class="fa-solid fa-trash-can text-[11px]"></i>
-          <span>Clear Chat</span>
-        </button>
-      </div>
-    </div>
 
     <!-- Playground & Models Layout (1/3 Controls, 2/3 Full Chat) -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6" id="playground">
@@ -862,7 +842,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
     <!-- Footer with Version & GitHub Links -->
     <footer class="border-t border-slate-800/80 pt-6 pb-2 text-center text-xs text-slate-500 space-y-2">
       <div class="flex items-center justify-center space-x-4">
-        <span class="font-mono text-slate-400">Antigravity Proxy <b class="text-indigo-400">v1.1.0</b></span>
+        <span class="font-mono text-slate-400">Antigravity Proxy <b class="text-indigo-400">v1.2.0</b></span>
         <span>•</span>
         <a href="https://github.com/kqlio67/agy-proxy" target="_blank" class="hover:text-slate-300 transition flex items-center space-x-1">
           <i class="fa-brands fa-github"></i>
@@ -1084,6 +1064,101 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       renderAccounts();
     }
 
+    function getAccountInitials(acc) {
+      const name = (acc.name || acc.email || 'User').trim();
+      const parts = name.split(/\s+/).filter(Boolean);
+      if (parts.length >= 2) {
+        return (parts[0][0] + parts[1][0]).toUpperCase();
+      }
+      return (name.slice(0, 2) || 'U').toUpperCase();
+    }
+
+    function getAccountGradient(acc) {
+      const gradients = [
+        'from-indigo-600 to-purple-600',
+        'from-blue-600 to-cyan-600',
+        'from-emerald-600 to-teal-600',
+        'from-violet-600 to-fuchsia-600',
+        'from-amber-600 to-orange-600',
+        'from-rose-600 to-pink-600',
+      ];
+      const str = acc.name || acc.email || acc.account_id || '';
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        hash = (hash << 5) - hash + str.charCodeAt(i);
+        hash |= 0;
+      }
+      return gradients[Math.abs(hash) % gradients.length];
+    }
+
+    function renderAvatar(acc, sizeClass = 'w-8 h-8 sm:w-9 sm:h-9', textClass = 'text-xs') {
+      if (acc.auth_method === 'api_key') {
+        return `
+          <div class="${sizeClass} rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0 shadow-sm" title="Google AI Studio Key">
+            <i class="fa-solid fa-key ${textClass}"></i>
+          </div>
+        `;
+      }
+      const initials = getAccountInitials(acc);
+      const gradient = getAccountGradient(acc);
+      if (acc.picture) {
+        return `
+          <div class="relative ${sizeClass} rounded-full overflow-hidden shrink-0 flex items-center justify-center bg-gradient-to-br ${gradient} text-white font-bold ${textClass} border border-white/10 shadow-sm">
+            <span>${initials}</span>
+            <img src="${acc.picture}" crossorigin="anonymous" referrerpolicy="no-referrer" class="absolute inset-0 w-full h-full object-cover rounded-full opacity-0 transition-opacity duration-200" onload="onAvatarLoad(this)" onerror="this.remove()">
+          </div>
+        `;
+      }
+      return `
+        <div class="${sizeClass} rounded-full bg-gradient-to-br ${gradient} text-white font-bold ${textClass} flex items-center justify-center border border-white/10 shrink-0 shadow-sm">
+          ${initials}
+        </div>
+      `;
+    }
+
+    function onAvatarLoad(img) {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth || 96;
+        canvas.height = img.naturalHeight || 96;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        const center = ctx.getImageData(Math.floor(canvas.width / 2), Math.floor(canvas.height / 2), 1, 1).data;
+        // If center pixel alpha is 0 (Google empty transparent placeholder), remove img to show initials
+        if (center[3] === 0) {
+          img.remove();
+          return;
+        }
+      } catch (e) {}
+      img.classList.remove('opacity-0');
+      img.classList.add('opacity-100');
+    }
+
+    function formatMarkdownAndMath(text) {
+      if (!text) return '';
+      let rendered = marked.parse(text);
+      if (typeof katex !== 'undefined') {
+        rendered = rendered.replace(/\$\$([\s\S]+?)\$\$/g, (match, expr) => {
+          try {
+            return `<div class="my-2 overflow-x-auto text-indigo-300 font-mono py-1">${katex.renderToString(expr.trim(), { displayMode: true, throwOnError: false })}</div>`;
+          } catch (e) { return match; }
+        });
+        rendered = rendered.replace(/\$([^\$\n]+?)\$/g, (match, expr) => {
+          if (/^\s*[\d,.]+\s*$/.test(expr)) return match;
+          try {
+            return katex.renderToString(expr.trim(), { displayMode: false, throwOnError: false });
+          } catch (e) { return match; }
+        });
+      } else {
+        rendered = rendered.replace(/\$([^\$\n]+?)\$/g, (match, expr) => {
+          if (/^\s*[\d,.]+\s*$/.test(expr)) return match;
+          let clean = expr.replace(/\\times/g, '×').replace(/\\cdot/g, '·').replace(/_([0-9a-zA-Z]+)/g, '<sub>$1</sub>');
+          return `<code class="bg-slate-800 text-indigo-300 px-1 py-0.5 rounded font-mono text-[11px]">${clean}</code>`;
+        });
+      }
+      return rendered;
+    }
+
     function formatResetTime(isoStr) {
       if (!isoStr) return '';
       try {
@@ -1096,16 +1171,14 @@ https://your-tunnel.trycloudflare.com/v1</pre>
         const diffHours = Math.floor(diffMins / 60);
         const diffDays = Math.floor(diffHours / 24);
 
-        const timeStr = resetDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
         if (diffDays > 0) {
           const remHours = diffHours % 24;
-          return remHours > 0 ? `in ${diffDays}d ${remHours}h` : `in ${diffDays}d`;
+          return remHours > 0 ? `${diffDays}d ${remHours}h` : `${diffDays}d`;
         } else if (diffHours > 0) {
           const remMins = diffMins % 60;
-          return remMins > 0 ? `in ${diffHours}h ${remMins}m` : `in ${diffHours}h`;
+          return remMins > 0 ? `${diffHours}h ${remMins}m` : `${diffHours}h`;
         } else {
-          return `in ${Math.max(1, diffMins)}m`;
+          return `${Math.max(1, diffMins)}m`;
         }
       } catch (e) {
         return '';
@@ -1329,24 +1402,24 @@ https://your-tunnel.trycloudflare.com/v1</pre>
 
       if (enable) {
         localStorage.setItem('agy_auto_refresh', 'true');
-        if (label) label.innerText = 'Auto-refresh: 15s';
+        if (label) label.innerText = 'Auto: 15s';
         if (shortLabel) shortLabel.innerText = 'Auto: 15s';
         if (mobileLabel) mobileLabel.innerText = '15s';
         if (settingsLabel) settingsLabel.innerText = 'Disable Auto-Refresh (Active: 15s)';
         if (dot) dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0';
-        if (btn) btn.className = 'flex items-center space-x-1.5 text-xs font-semibold px-2 py-1.5 sm:px-2.5 sm:py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 transition';
+        if (btn) btn.className = 'flex items-center space-x-1.5 text-xs font-semibold px-2 py-1.5 sm:px-2.5 sm:py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 transition shrink-0';
         autoRefreshIntervalId = setInterval(() => {
           loadAccounts(true);
         }, 15000);
         if (showNotify) showToast('Auto-refresh enabled (every 15s)', 'success');
       } else {
         localStorage.setItem('agy_auto_refresh', 'false');
-        if (label) label.innerText = 'Auto-refresh: OFF';
+        if (label) label.innerText = 'Auto: OFF';
         if (shortLabel) shortLabel.innerText = 'Auto: OFF';
         if (mobileLabel) mobileLabel.innerText = 'OFF';
         if (settingsLabel) settingsLabel.innerText = 'Enable Auto-Refresh (Currently OFF)';
         if (dot) dot.className = 'w-2 h-2 rounded-full bg-slate-500 shrink-0';
-        if (btn) btn.className = 'flex items-center space-x-1.5 text-xs font-semibold px-2 py-1.5 sm:px-2.5 sm:py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 transition';
+        if (btn) btn.className = 'flex items-center space-x-1.5 text-xs font-semibold px-2 py-1.5 sm:px-2.5 sm:py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 transition shrink-0';
         if (showNotify) showToast('Auto-refresh disabled', 'info');
       }
     }
@@ -1511,27 +1584,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
         const geminiPct = Math.round(geminiQ.percent ?? (geminiQ.fraction * 100));
 
         // Robust Avatar / Initial Badge
-        let avatarHtml = '';
-        if (isApiKey) {
-          avatarHtml = `
-            <div class="w-7 h-7 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 text-xs shrink-0 shadow-sm" title="Google AI Studio Key">
-              <i class="fa-solid fa-key"></i>
-            </div>
-          `;
-        } else if (acc.picture) {
-          const initial = ((acc.name || acc.email || 'User')[0] || 'U').toUpperCase();
-          avatarHtml = `
-            <div class="relative w-7 h-7 shrink-0">
-              <img src="${acc.picture}" class="w-7 h-7 rounded-full bg-slate-800 border border-slate-700 object-cover" onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden'); this.nextElementSibling.classList.add('flex');">
-              <div class="hidden w-7 h-7 rounded-full bg-gradient-to-br from-indigo-600 to-purple-700 text-white font-bold text-xs items-center justify-center border border-indigo-400/40 shadow-sm">${initial}</div>
-            </div>
-          `;
-        } else {
-          const initial = ((acc.name || acc.email || 'User')[0] || 'U').toUpperCase();
-          avatarHtml = `
-            <div class="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-600 to-purple-700 text-white font-bold text-xs flex items-center justify-center border border-indigo-400/40 shrink-0 shadow-sm">${initial}</div>
-          `;
-        }
+        const avatarHtml = renderAvatar(acc, 'w-7 h-7', 'text-xs');
 
         // Role & Routing Label
         let roleBadge = '';
@@ -1604,7 +1657,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
           <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
             <div class="flex items-center justify-between text-xs border-b border-slate-800 pb-2">
               <div class="flex items-center space-x-2 min-w-0">
-                <img src="${acc.picture || 'https://lh3.googleusercontent.com/a/default-user=s96-c'}" class="w-6 h-6 rounded-full bg-slate-800 border border-slate-700" onerror="this.src='https://ui-avatars.com/api/?name=' + encodeURIComponent('${(acc.name || 'User').replace(/'/g, "\\'")}')">
+                ${renderAvatar(acc, 'w-6 h-6', 'text-[10px]')}
                 <span class="font-bold text-slate-200 truncate">${acc.name || acc.email}</span>
               </div>
               <span class="text-[10px] font-mono px-2 py-0.5 rounded-full ${geminiPct > 20 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}">
@@ -1865,7 +1918,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
             }">
               <div class="flex items-start justify-between gap-2">
                 <div class="flex items-center space-x-2.5 sm:space-x-3 min-w-0 flex-1">
-                  <img src="${acc.picture || 'https://lh3.googleusercontent.com/a/default-user=s96-c'}" class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-800 border border-slate-700 shrink-0" onerror="this.src='https://ui-avatars.com/api/?name=' + encodeURIComponent('${(acc.name || 'User').replace(/'/g, "\'")}')">
+                  ${renderAvatar(acc, 'w-8 h-8 sm:w-9 sm:h-9', 'text-xs sm:text-sm')}
                   <div class="min-w-0 flex-1">
                     <div class="font-bold text-white text-xs sm:text-sm flex items-center flex-wrap gap-1">
                       <span class="truncate max-w-[120px] sm:max-w-[170px]" title="${acc.name || acc.email}">${acc.name || acc.email}</span>
@@ -1942,7 +1995,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
             <tr class="hover:bg-slate-800/40 transition ${!isEnabled ? 'opacity-50' : ''}">
               <td class="px-4 py-3">
                 <div class="flex items-center space-x-2.5">
-                  <img src="${acc.picture || 'https://lh3.googleusercontent.com/a/default-user=s96-c'}" class="w-7 h-7 rounded-full bg-slate-800 border border-slate-700 flex-shrink-0" onerror="this.src='https://ui-avatars.com/api/?name=' + encodeURIComponent('${(acc.name || 'User').replace(/'/g, "\'")}')">
+                  ${renderAvatar(acc, 'w-7 h-7', 'text-xs')}
                   <div class="min-w-0">
                     <div class="font-bold text-white flex items-center space-x-1.5">
                       <span class="truncate max-w-[180px]" title="${acc.name || acc.email}">${acc.name || acc.email}</span>
@@ -2125,7 +2178,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
             const accReset = formatResetTime(accData.resetTime);
             const dotColor = accPct > 50 ? 'bg-emerald-400' : (accPct > 0 ? 'bg-amber-400' : 'bg-red-500');
             const shortEmail = email.split('@')[0];
-            const tooltip = `${email}: ${accPct}%${accReset ? ' (Resets ' + accReset + ')' : ''}`;
+            const tooltip = `${email}: ${accPct}%${accReset ? ' (Resets in ' + accReset + ')' : ''}`;
             return `<span class="inline-flex items-center text-[10px] text-slate-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800" title="${tooltip}">
               <span class="w-1.5 h-1.5 rounded-full ${dotColor} mr-1"></span>${shortEmail}: ${accPct}%
             </span>`;
@@ -2143,7 +2196,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
               <span class="font-bold ${poolQuota > 0 ? 'text-indigo-300' : 'text-red-400'}">Pool: ${poolQuota}%</span>
               <span class="text-[10px] ${readyAccs > 0 ? 'text-slate-500' : 'text-red-400 font-medium'}">(${readyAccs}/${totalAccs} ready)</span>
             </span>
-            <span>${resetStr ? `<span class="text-amber-400/90 text-[10px] font-mono mr-2"><i class="fa-regular fa-clock mr-0.5"></i>${resetStr}</span>` : ''}Max: ${(info.maxTokens || 0).toLocaleString()} tok</span>
+            <span>${resetStr ? `<span class="text-amber-400/90 text-[10px] font-mono mr-2"><i class="fa-regular fa-clock mr-0.5"></i>in ${resetStr}</span>` : ''}Max: ${(info.maxTokens || 0).toLocaleString()} tok</span>
           </div>
           <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
             <div class="h-full ${quotaColor}" style="width: ${poolQuota}%"></div>
@@ -2487,7 +2540,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
                       thoughtElem.removeAttribute('open'); // Auto-collapse for clean view
                     }
                     fullText += delta.content;
-                    contentElem.innerHTML = marked.parse(fullText);
+                    contentElem.innerHTML = formatMarkdownAndMath(fullText);
                   }
                 } catch (pe) {}
               }
@@ -2518,7 +2571,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
             thoughtElem.removeAttribute('open');
           }
           fullText = msg.content || '';
-          contentElem.innerHTML = marked.parse(fullText);
+          contentElem.innerHTML = formatMarkdownAndMath(fullText);
         }
 
         // Finalize assistant message
@@ -2608,8 +2661,10 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       } else {
         msgDiv.innerHTML = `
           <div class="flex items-start space-x-3 max-w-4xl w-full msg-assistant-wrapper" data-raw-content="">
-            <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-600 to-indigo-700 text-white flex items-center justify-center text-xs shadow-md shrink-0 mt-1 border border-indigo-400/30">
-              <i class="fa-solid fa-wand-magic-sparkles"></i>
+            <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-600 to-indigo-700 text-white flex items-center justify-center shadow-md shrink-0 mt-1 border border-indigo-400/30">
+              <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2l2.4 7.2L21.6 12l-7.2 2.4L12 21.6l-2.4-7.2L2.4 12l7.2-2.4L12 2z"/>
+              </svg>
             </div>
             <div class="flex-1 min-w-0 space-y-2">
               <!-- Thinking Process Collapsible Accordion -->
@@ -2632,7 +2687,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
 
               <!-- Main Assistant Message Card -->
               <div class="p-4 sm:p-5 rounded-2xl bg-slate-900 border border-slate-800 text-slate-100 text-xs sm:text-sm shadow-md">
-                <div class="msg-content prose prose-invert max-w-none">${text ? marked.parse(text) : '<span class="text-slate-500 animate-pulse flex items-center"><i class="fa-solid fa-circle-notch fa-spin mr-2 text-indigo-400"></i> Generating response...</span>'}</div>
+                <div class="msg-content prose prose-invert max-w-none">${text ? formatMarkdownAndMath(text) : '<span class="text-slate-500 animate-pulse flex items-center"><i class="fa-solid fa-circle-notch fa-spin mr-2 text-indigo-400"></i> Generating response...</span>'}</div>
               </div>
 
               <!-- Message Action Bar -->

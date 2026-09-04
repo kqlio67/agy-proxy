@@ -1150,6 +1150,7 @@ class AccountPool:
         for acc in self.accounts.values():
             acc.is_primary = False
         self.accounts[account_id].is_primary = True
+        self.accounts[account_id].enabled = True
         self.save_accounts()
         return True
 
