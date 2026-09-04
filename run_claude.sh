@@ -149,41 +149,27 @@ export ANTHROPIC_MODEL="${DEFAULT_MODEL}"
 # Route auxiliary / haiku model requests through proxy
 export ANTHROPIC_SMALL_FAST_MODEL="${ANTHROPIC_SMALL_FAST_MODEL:-${DEFAULT_MODEL}}"
 
-# Expose proxy models in Claude Code /model picker
-# anthropic.<model> prefix required so Claude Code registers them as separate selectable entries
-AGY_SETTINGS=$(cat <<'SETTINGS_EOF'
-{
-  "availableModels": [
-    "anthropic.gemini-3.8-flash-high",
-    "anthropic.gemini-3.8-flash-medium",
-    "anthropic.gemini-3.8-flash-low",
-    "anthropic.gemini-3.8-flash-tiered",
-    "anthropic.gemini-3.8-flash",
-    "anthropic.gemini-3.7-flash-high",
-    "anthropic.gemini-3.7-flash-medium",
-    "anthropic.gemini-3.7-flash-low",
-    "anthropic.gemini-3.7-flash-tiered",
-    "anthropic.gemini-3.6-flash-high",
-    "anthropic.gemini-3.6-flash-medium",
-    "anthropic.gemini-3.6-flash-low",
-    "anthropic.gemini-3.6-flash-tiered",
-    "anthropic.gemini-3.5-flash-low",
-    "anthropic.gemini-pro-agent",
-    "anthropic.gemini-3.1-pro-high",
-    "anthropic.gemini-3.1-pro-low",
-    "anthropic.gemini-3.1-flash-lite",
-    "anthropic.gemini-3.1-flash-image",
-    "anthropic.gemini-3-flash",
-    "anthropic.gemini-3-flash-agent",
-    "anthropic.gemini-2.5-pro",
-    "anthropic.gemini-2.5-flash",
-    "anthropic.claude-sonnet-4-6",
-    "anthropic.claude-opus-4-6-thinking",
-    "anthropic.gpt-oss-120b-medium"
-  ]
-}
-SETTINGS_EOF
-)
+# Dynamically fetch available proxy models for Claude Code /model picker
+DYNAMIC_SETTINGS=$(python3 -c '
+import urllib.request, json, sys
+try:
+    with urllib.request.urlopen("'"http://${HOST}:${PORT}/v1/models"'", timeout=1.5) as r:
+        data = json.loads(r.read())
+        models = [m["id"] for m in data.get("data", []) if m["id"].startswith("anthropic.")]
+        if models:
+            print(json.dumps({"availableModels": models}))
+            sys.exit(0)
+except Exception:
+    pass
+sys.exit(1)
+' 2>/dev/null)
+
+if [[ $? -eq 0 && -n "$DYNAMIC_SETTINGS" ]]; then
+    AGY_SETTINGS="$DYNAMIC_SETTINGS"
+else
+    # Graceful fallback if proxy is starting up
+    AGY_SETTINGS='{"availableModels":["anthropic.gemini-3.8-flash-high","anthropic.gemini-3.8-flash","anthropic.gemini-3.7-flash-high"]}'
+fi
 
 # Enable dynamic model discovery from proxy
 export CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1
