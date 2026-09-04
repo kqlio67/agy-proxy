@@ -68,24 +68,24 @@
       </div>
 
       <!-- Center Navigation Tabs -->
-      <nav class="hidden lg:flex items-center space-x-1 bg-slate-950/80 p-1.5 rounded-xl border border-slate-800/80 text-xs font-medium shrink-0" id="mainNavTabs">
-        <button onclick="switchTab('accounts')" id="tabBtn-accounts" class="nav-tab-btn px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition bg-indigo-600 text-white font-semibold shadow-sm">
+      <nav class="hidden lg:flex items-center space-x-0.5 xl:space-x-1 bg-slate-950/80 p-1 xl:p-1.5 rounded-xl border border-slate-800/80 text-xs font-medium shrink" id="mainNavTabs">
+        <button onclick="switchTab('accounts')" id="tabBtn-accounts" class="nav-tab-btn px-2.5 xl:px-3 py-1.5 rounded-lg flex items-center space-x-1 xl:space-x-1.5 transition bg-indigo-600 text-white font-semibold shadow-sm">
           <i class="fa-solid fa-users text-[11px]"></i>
           <span>Accounts</span>
         </button>
-        <button onclick="switchTab('analytics')" id="tabBtn-analytics" class="nav-tab-btn px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition text-slate-400 hover:text-white hover:bg-slate-800">
+        <button onclick="switchTab('analytics')" id="tabBtn-analytics" class="nav-tab-btn px-2.5 xl:px-3 py-1.5 rounded-lg flex items-center space-x-1 xl:space-x-1.5 transition text-slate-400 hover:text-white hover:bg-slate-800">
           <i class="fa-solid fa-chart-pie text-[11px]"></i>
           <span>Analytics</span>
         </button>
-        <button onclick="switchTab('playground')" id="tabBtn-playground" class="nav-tab-btn px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition text-slate-400 hover:text-white hover:bg-slate-800">
+        <button onclick="switchTab('playground')" id="tabBtn-playground" class="nav-tab-btn px-2.5 xl:px-3 py-1.5 rounded-lg flex items-center space-x-1 xl:space-x-1.5 transition text-slate-400 hover:text-white hover:bg-slate-800">
           <i class="fa-solid fa-terminal text-[11px]"></i>
           <span>Playground</span>
         </button>
-        <button onclick="switchTab('integrations')" id="tabBtn-integrations" class="nav-tab-btn px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition text-slate-400 hover:text-white hover:bg-slate-800">
+        <button onclick="switchTab('integrations')" id="tabBtn-integrations" class="nav-tab-btn px-2.5 xl:px-3 py-1.5 rounded-lg flex items-center space-x-1 xl:space-x-1.5 transition text-slate-400 hover:text-white hover:bg-slate-800">
           <i class="fa-solid fa-plug text-[11px]"></i>
           <span>Integrations</span>
         </button>
-        <button onclick="switchTab('settings')" id="tabBtn-settings" class="nav-tab-btn px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition text-slate-400 hover:text-white hover:bg-slate-800">
+        <button onclick="switchTab('settings')" id="tabBtn-settings" class="nav-tab-btn px-2.5 xl:px-3 py-1.5 rounded-lg flex items-center space-x-1 xl:space-x-1.5 transition text-slate-400 hover:text-white hover:bg-slate-800">
           <i class="fa-solid fa-sliders text-[11px]"></i>
           <span>Settings</span>
         </button>
@@ -97,22 +97,23 @@
         <div id="updateBadgeContainer" class="hidden">
           <button onclick="openUpdateModal()" class="flex items-center space-x-1.5 text-xs font-semibold px-2 py-1.5 sm:px-2.5 sm:py-1.5 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 hover:bg-indigo-500/30 transition animate-pulse">
             <i class="fa-solid fa-sparkles text-amber-400 text-[11px]"></i>
-            <span id="updateBadgeText" class="hidden sm:inline">Update</span>
+            <span id="updateBadgeText" class="hidden xl:inline">Update</span>
           </button>
         </div>
 
-        <button onclick="openAddAccountModal()" class="flex items-center space-x-1.5 text-xs font-semibold px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-sm" title="Add Account or AI Studio Key">
+        <button onclick="openAddAccountModal()" class="flex items-center space-x-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-sm" title="Add Account or AI Studio Key">
           <i class="fa-solid fa-user-plus text-[11px]"></i>
-          <span class="hidden sm:inline">Add Account</span>
+          <span class="hidden xl:inline">Add Account</span>
         </button>
-        <button onclick="toggleAutoRefresh()" id="autoRefreshBtn" class="flex items-center space-x-1.5 text-xs font-semibold px-2.5 py-1.5 sm:px-2.5 sm:py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 transition" title="Auto-refresh accounts every 15s (Disabled by default)">
+        <button onclick="toggleAutoRefresh()" id="autoRefreshBtn" class="flex items-center space-x-1.5 text-xs font-semibold px-2 py-1.5 sm:px-2.5 sm:py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 transition" title="Auto-refresh accounts every 15s (Disabled by default)">
           <span class="w-2 h-2 rounded-full bg-slate-500 shrink-0" id="autoRefreshDot"></span>
-          <span id="autoRefreshLabel" class="hidden sm:inline">Auto-refresh: OFF</span>
+          <span id="autoRefreshLabel" class="hidden xl:inline">Auto-refresh: OFF</span>
+          <span id="autoRefreshLabelShort" class="hidden sm:inline xl:hidden text-[11px] font-mono">Auto: OFF</span>
           <span id="autoRefreshLabelMobile" class="sm:hidden text-[10px] font-mono">OFF</span>
         </button>
-        <button onclick="refreshAllAccounts()" id="refreshBtn" class="flex items-center space-x-1.5 text-xs font-semibold px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 transition" title="Refresh accounts and models">
+        <button onclick="refreshAllAccounts()" id="refreshBtn" class="flex items-center space-x-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 transition" title="Refresh accounts and models">
           <i class="fa-solid fa-rotate text-[11px]" id="refreshIcon"></i>
-          <span class="hidden sm:inline">Refresh</span>
+          <span class="hidden xl:inline">Refresh</span>
         </button>
       </div>
     </div>
@@ -214,37 +215,6 @@
           <div class="text-[10px] sm:text-[11px] font-medium text-slate-400 uppercase tracking-wider font-mono truncate">Context Optimizer</div>
           <div class="text-[11px] sm:text-xs font-bold text-purple-300 font-mono mt-0.5 truncate" id="kpiPruningStatus">Smart Pruning Active</div>
         </div>
-      </div>
-    </div>
-
-    <!-- Quick Connect / Client Launch Commands Bar -->
-    <div class="p-3 sm:p-3.5 rounded-2xl bg-slate-900/80 border border-dark-border text-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-sm min-w-0">
-      <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2.5 min-w-0 w-full md:w-auto">
-        <div class="flex items-center space-x-2 shrink-0">
-          <span class="w-7 h-7 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0 text-xs font-bold">
-            <i class="fa-solid fa-terminal"></i>
-          </span>
-          <span class="text-slate-300 font-semibold shrink-0">Quick Connect:</span>
-        </div>
-        <div class="flex flex-wrap sm:flex-nowrap items-center gap-1.5 overflow-x-auto custom-scrollbar py-0.5 max-w-full">
-          <button onclick="copySnippet('claude')" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[11px] font-mono transition flex items-center space-x-1 shrink-0" title="Copy Claude Code launcher command">
-            <i class="fa-solid fa-copy text-indigo-400 text-[10px]"></i>
-            <span>Claude Code</span>
-          </button>
-          <button onclick="copySnippet('agy')" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[11px] font-mono transition flex items-center space-x-1 shrink-0" title="Copy Antigravity CLI command">
-            <i class="fa-solid fa-copy text-emerald-400 text-[10px]"></i>
-            <span>AGY (Antigravity)</span>
-          </button>
-          <button onclick="copySnippet('baseurl')" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[11px] font-mono transition flex items-center space-x-1 shrink-0" title="Copy API Base URL for Cursor/Cline">
-            <i class="fa-solid fa-link text-cyan-400 text-[10px]"></i>
-            <span>Base URL (:8000/v1)</span>
-          </button>
-        </div>
-      </div>
-      <div class="flex items-center space-x-2 text-[10px] sm:text-[11px] text-slate-400 self-start md:self-auto shrink-0 w-full md:w-auto justify-between md:justify-end pt-1 md:pt-0 border-t border-slate-800/60 md:border-t-0">
-        <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold font-mono">
-          <i class="fa-solid fa-check-double mr-1 text-[9px]"></i> OpenAI · Anthropic Ready
-        </span>
       </div>
     </div>
 
@@ -459,7 +429,13 @@
             <span class="font-bold text-xs sm:text-sm text-white shrink-0">Live Playground</span>
             <span class="text-[10px] sm:text-xs font-mono text-indigo-300 bg-indigo-500/10 px-1.5 sm:px-2 py-0.5 rounded border border-indigo-500/20 truncate" id="activeModelBadge">gemini-3.8-flash-high</span>
           </div>
-          <div class="text-[10px] sm:text-xs text-slate-400 font-mono shrink-0" id="tokenUsageBadge"></div>
+          <div class="flex items-center space-x-2 shrink-0">
+            <div class="text-[10px] sm:text-xs text-slate-400 font-mono" id="tokenUsageBadge"></div>
+            <button type="button" onclick="clearChat()" class="text-xs px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-red-500/20 hover:text-red-300 border border-slate-700 text-slate-400 transition flex items-center space-x-1" title="Clear conversation">
+              <i class="fa-solid fa-trash-can text-[10px]"></i>
+              <span class="hidden sm:inline">Clear</span>
+            </button>
+          </div>
         </div>
 
         <!-- Chat Messages Container -->
@@ -501,6 +477,77 @@
 
   <!-- TAB 4: CLIENT INTEGRATIONS -->
   <div id="tabContent-integrations" class="hidden space-y-6">
+
+    <!-- Gateway Server & Endpoints + Quick Connect Card -->
+    <div class="p-6 rounded-2xl bg-dark-card border border-dark-border space-y-5">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
+        <div>
+          <h2 class="text-base font-bold text-white flex items-center">
+            <i class="fa-solid fa-network-wired mr-2 text-indigo-400"></i> Gateway Server & Fast Endpoints
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">Direct connection endpoints and 1-click terminal launch commands.</p>
+        </div>
+        <div class="flex items-center space-x-2">
+          <span class="inline-flex items-center px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold font-mono text-xs">
+            <i class="fa-solid fa-bolt mr-1.5 text-[10px]"></i> OpenAI · Anthropic Ready
+          </span>
+        </div>
+      </div>
+
+      <!-- Quick Connect 1-Click Launchers -->
+      <div class="space-y-2">
+        <div class="text-xs font-semibold text-slate-300 flex items-center space-x-1.5">
+          <i class="fa-solid fa-terminal text-indigo-400"></i>
+          <span>Quick Connect Launchers:</span>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button onclick="copySnippet('claude')" class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700/80 text-xs font-mono transition flex items-center space-x-2 group shadow-sm" title="Copy Claude Code launcher command">
+            <i class="fa-solid fa-copy text-indigo-400 group-hover:scale-110 transition text-xs"></i>
+            <span class="font-bold text-white">Claude Code CLI</span>
+          </button>
+          <button onclick="copySnippet('agy')" class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700/80 text-xs font-mono transition flex items-center space-x-2 group shadow-sm" title="Copy Antigravity CLI command">
+            <i class="fa-solid fa-copy text-emerald-400 group-hover:scale-110 transition text-xs"></i>
+            <span class="font-bold text-white">AGY CLI</span>
+          </button>
+          <button onclick="copySnippet('baseurl')" class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700/80 text-xs font-mono transition flex items-center space-x-2 group shadow-sm" title="Copy API Base URL for Cursor/Cline">
+            <i class="fa-solid fa-link text-cyan-400 group-hover:scale-110 transition text-xs"></i>
+            <span class="font-bold text-white">Base URL (:8000/v1)</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Endpoints Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-1">
+        <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-300 flex items-center space-x-1.5">
+              <i class="fa-solid fa-cube text-indigo-400 text-xs"></i>
+              <span>OpenAI Compatible Base URL</span>
+            </span>
+            <button onclick="copySnippet('codeOpenAiEndpoint', this)" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] transition flex items-center space-x-1">
+              <i class="fa-regular fa-copy"></i><span>Copy</span>
+            </button>
+          </div>
+          <code id="codeOpenAiEndpoint" class="text-xs font-mono text-indigo-400 block truncate select-all">http://localhost:8000/v1</code>
+          <p class="text-[10px] text-slate-500">For Cursor, Windsurf, Cline, Continue.dev, Aider, and standard OpenAI SDK.</p>
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-300 flex items-center space-x-1.5">
+              <i class="fa-solid fa-sparkles text-purple-400 text-xs"></i>
+              <span>Anthropic Messages Base URL</span>
+            </span>
+            <button onclick="copySnippet('codeAnthropicEndpoint', this)" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] transition flex items-center space-x-1">
+              <i class="fa-regular fa-copy"></i><span>Copy</span>
+            </button>
+          </div>
+          <code id="codeAnthropicEndpoint" class="text-xs font-mono text-purple-400 block truncate select-all">http://localhost:8000</code>
+          <p class="text-[10px] text-slate-500">Use with ANTHROPIC_BASE_URL for Claude Code CLI and Anthropic SDK.</p>
+        </div>
+      </div>
+    </div>
+
     <!-- Quick Integrations Guide -->
     <div class="p-6 rounded-2xl bg-dark-card border border-dark-border space-y-5">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
@@ -808,53 +855,6 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       </div>
     </div>
 
-    <!-- Gateway Server & Endpoints Card -->
-    <div class="p-6 rounded-2xl bg-dark-card border border-dark-border space-y-4">
-      <h3 class="text-base font-bold text-white flex items-center">
-        <i class="fa-solid fa-network-wired mr-2 text-indigo-400"></i> Gateway Server & Endpoints
-      </h3>
-      <p class="text-xs text-slate-400">Connection details for IDE extensions, terminal coding agents, and SDK clients.</p>
-      
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-1">
-        <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold text-slate-300">OpenAI Compatible Endpoint</span>
-            <button onclick="copySnippet('codeOpenAiEndpoint', this)" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] transition flex items-center space-x-1">
-              <i class="fa-regular fa-copy"></i><span>Copy</span>
-            </button>
-          </div>
-          <code id="codeOpenAiEndpoint" class="text-xs font-mono text-indigo-400 block truncate">http://localhost:8000/v1</code>
-          <p class="text-[10px] text-slate-500">Cursor, Windsurf, Cline, Continue.dev, and OpenAI SDK.</p>
-        </div>
-
-        <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold text-slate-300">Anthropic Messages Base URL</span>
-            <button onclick="copySnippet('codeAnthropicEndpoint', this)" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] transition flex items-center space-x-1">
-              <i class="fa-regular fa-copy"></i><span>Copy</span>
-            </button>
-          </div>
-          <code id="codeAnthropicEndpoint" class="text-xs font-mono text-purple-400 block truncate">http://localhost:8000</code>
-          <p class="text-[10px] text-slate-500">ANTHROPIC_BASE_URL for Claude Code CLI and Anthropic SDK.</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- UI & Sync Preferences Card -->
-    <div class="p-6 rounded-2xl bg-dark-card border border-dark-border space-y-4">
-      <h3 class="text-base font-bold text-white flex items-center">
-        <i class="fa-solid fa-sliders mr-2 text-emerald-400"></i> Dashboard Preferences
-      </h3>
-
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-slate-900 border border-slate-800">
-        <div>
-          <div class="font-semibold text-white text-xs">Auto-refresh Account Pool (15s)</div>
-          <div class="text-[11px] text-slate-400">Background quota polling. Disabled by default to save network bandwidth.</div>
-        </div>
-        <button onclick="toggleAutoRefresh()" class="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-300 transition flex items-center space-x-1.5 self-start sm:self-auto">
-          <i class="fa-solid fa-rotate text-indigo-400"></i>
-          <span id="settingsAutoRefreshBtnText">Toggle Auto-Refresh</span>
-        </button>
     </div>
 
   </div> <!-- End #tabContent-settings -->
@@ -1317,6 +1317,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
     function setAutoRefreshState(enable, showNotify = false) {
       const btn = document.getElementById('autoRefreshBtn');
       const label = document.getElementById('autoRefreshLabel');
+      const shortLabel = document.getElementById('autoRefreshLabelShort');
       const mobileLabel = document.getElementById('autoRefreshLabelMobile');
       const dot = document.getElementById('autoRefreshDot');
       const settingsLabel = document.getElementById('settingsAutoRefreshBtnText');
@@ -1329,6 +1330,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       if (enable) {
         localStorage.setItem('agy_auto_refresh', 'true');
         if (label) label.innerText = 'Auto-refresh: 15s';
+        if (shortLabel) shortLabel.innerText = 'Auto: 15s';
         if (mobileLabel) mobileLabel.innerText = '15s';
         if (settingsLabel) settingsLabel.innerText = 'Disable Auto-Refresh (Active: 15s)';
         if (dot) dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0';
@@ -1340,6 +1342,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       } else {
         localStorage.setItem('agy_auto_refresh', 'false');
         if (label) label.innerText = 'Auto-refresh: OFF';
+        if (shortLabel) shortLabel.innerText = 'Auto: OFF';
         if (mobileLabel) mobileLabel.innerText = 'OFF';
         if (settingsLabel) settingsLabel.innerText = 'Enable Auto-Refresh (Currently OFF)';
         if (dot) dot.className = 'w-2 h-2 rounded-full bg-slate-500 shrink-0';
@@ -1465,17 +1468,37 @@ https://your-tunnel.trycloudflare.com/v1</pre>
 
         <!-- Request Distribution Across Accounts -->
         <div class="p-6 rounded-2xl bg-dark-card border border-dark-border space-y-4">
-          <div class="flex items-center justify-between">
-            <h3 class="text-base font-bold text-white flex items-center">
-              <i class="fa-solid fa-chart-pie mr-2 text-indigo-400"></i> Traffic Distribution & Load Balancing
-            </h3>
-            <span class="text-xs font-mono text-slate-400">${totalReqs} total requests</span>
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
+            <div>
+              <h3 class="text-base font-bold text-white flex items-center">
+                <i class="fa-solid fa-chart-pie mr-2 text-indigo-400"></i> Traffic Distribution & Load Balancing
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">
+                Live telemetry of how incoming requests are distributed across active pool accounts via intelligent round-robin and quota prioritization.
+              </p>
+            </div>
+            <div class="flex items-center space-x-2 shrink-0">
+              <span class="text-xs font-mono px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-slate-300">
+                <b class="text-indigo-400 font-bold">${totalReqs}</b> total requests
+              </span>
+            </div>
           </div>
-          <p class="text-xs text-slate-400 leading-relaxed">
-            Live telemetry of how incoming requests are distributed across active pool accounts via intelligent round-robin and quota prioritization.
-          </p>
 
-          <div class="space-y-3 pt-2">
+          ${totalReqs === 0 ? `
+            <!-- Informational Pool Readiness State -->
+            <div class="p-3.5 rounded-xl bg-slate-900/90 border border-indigo-500/20 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+              <div class="flex items-center space-x-2.5 min-w-0">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
+                <span class="text-slate-300 font-medium">Pool Standby: <b class="text-white">${totalActive} active accounts</b> ready for automatic round-robin routing</span>
+              </div>
+              <button onclick="switchTab('playground')" class="self-start sm:self-auto text-[11px] px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition flex items-center space-x-1.5 shadow-sm">
+                <i class="fa-solid fa-terminal text-[10px]"></i>
+                <span>Test in Playground</span>
+              </button>
+            </div>
+          ` : ''}
+
+          <div class="space-y-3 pt-1">
       `;
 
       rawAccountsData.forEach(acc => {
@@ -1483,24 +1506,65 @@ https://your-tunnel.trycloudflare.com/v1</pre>
         const pct = totalReqs > 0 ? Math.round((reqs / totalReqs) * 100) : 0;
         const isApiKey = acc.auth_method === 'api_key';
         const isEnabled = acc.enabled !== false;
+        const qDetails = acc.quota_details || {};
+        const geminiQ = qDetails.gemini || { percent: 100, fraction: 1.0 };
+        const geminiPct = Math.round(geminiQ.percent ?? (geminiQ.fraction * 100));
+
+        // Robust Avatar / Initial Badge
+        let avatarHtml = '';
+        if (isApiKey) {
+          avatarHtml = `
+            <div class="w-7 h-7 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 text-xs shrink-0 shadow-sm" title="Google AI Studio Key">
+              <i class="fa-solid fa-key"></i>
+            </div>
+          `;
+        } else if (acc.picture) {
+          const initial = ((acc.name || acc.email || 'User')[0] || 'U').toUpperCase();
+          avatarHtml = `
+            <div class="relative w-7 h-7 shrink-0">
+              <img src="${acc.picture}" class="w-7 h-7 rounded-full bg-slate-800 border border-slate-700 object-cover" onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden'); this.nextElementSibling.classList.add('flex');">
+              <div class="hidden w-7 h-7 rounded-full bg-gradient-to-br from-indigo-600 to-purple-700 text-white font-bold text-xs items-center justify-center border border-indigo-400/40 shadow-sm">${initial}</div>
+            </div>
+          `;
+        } else {
+          const initial = ((acc.name || acc.email || 'User')[0] || 'U').toUpperCase();
+          avatarHtml = `
+            <div class="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-600 to-purple-700 text-white font-bold text-xs flex items-center justify-center border border-indigo-400/40 shrink-0 shadow-sm">${initial}</div>
+          `;
+        }
+
+        // Role & Routing Label
+        let roleBadge = '';
+        if (!isEnabled) {
+          roleBadge = '<span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 font-mono">Paused</span>';
+        } else if (acc.is_primary) {
+          roleBadge = '<span class="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30 flex items-center space-x-1 font-mono"><i class="fa-solid fa-star text-amber-400 text-[9px]"></i><span>Primary (Priority 1)</span></span>';
+        } else if (isApiKey) {
+          roleBadge = '<span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 font-medium border border-amber-500/20 font-mono">PayG Fallback</span>';
+        } else {
+          roleBadge = '<span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-medium border border-emerald-500/20 font-mono">Round-Robin Ready</span>';
+        }
 
         html += `
-          <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
-            <div class="flex items-center justify-between text-xs">
+          <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2 hover:border-slate-700 transition">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
               <div class="flex items-center space-x-2.5 min-w-0">
-                <img src="${acc.picture || 'https://lh3.googleusercontent.com/a/default-user=s96-c'}" class="w-6 h-6 rounded-full bg-slate-800 border border-slate-700" onerror="this.src='https://ui-avatars.com/api/?name=' + encodeURIComponent('${(acc.name || 'User').replace(/'/g, "\\'")}')">
-                <span class="font-bold text-slate-200 truncate">${acc.name || acc.email}</span>
-                ${acc.is_primary ? '<span class="text-[9px] px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30">Primary</span>' : ''}
-                ${isApiKey ? '<span class="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-semibold border border-amber-500/30">API Key</span>' : ''}
-                ${!isEnabled ? '<span class="text-[9px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700">Paused</span>' : ''}
+                ${avatarHtml}
+                <div class="min-w-0">
+                  <div class="flex items-center flex-wrap gap-1.5">
+                    <span class="font-bold text-slate-200 truncate max-w-[180px] sm:max-w-[240px]">${acc.name || acc.email}</span>
+                    ${roleBadge}
+                  </div>
+                  <div class="text-[11px] text-slate-400 font-mono truncate">${acc.email}</div>
+                </div>
               </div>
-              <div class="flex items-center space-x-3 font-mono">
-                <span class="text-slate-400 font-medium">${reqs.toLocaleString()} reqs</span>
-                <span class="font-bold text-indigo-400">${pct}%</span>
+              <div class="flex items-center space-x-3 font-mono text-xs self-end sm:self-auto shrink-0">
+                <span class="text-slate-400">${reqs.toLocaleString()} reqs</span>
+                <span class="font-bold ${totalReqs > 0 ? 'text-indigo-400' : 'text-slate-500'}">${totalReqs > 0 ? pct + '%' : 'Standby'}</span>
               </div>
             </div>
-            <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-              <div class="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-500" style="width: ${pct}%"></div>
+            <div class="w-full h-2 bg-slate-800/90 rounded-full overflow-hidden">
+              <div class="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full transition-all duration-500" style="width: ${totalReqs > 0 ? pct : (isEnabled ? Math.max(geminiPct, 15) : 0)}%; opacity: ${totalReqs > 0 ? 1 : 0.4}"></div>
             </div>
           </div>
         `;
@@ -2340,11 +2404,15 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       appendMessageUI('user', text);
 
       // Prepare assistant bubble
-      const assistantBubble = appendMessageUI('assistant', '');
+      const model = document.getElementById('modelSelect').value;
+      const assistantBubble = appendMessageUI('assistant', '', model);
       const contentElem = assistantBubble.querySelector('.msg-content');
       const thoughtElem = assistantBubble.querySelector('.msg-thought');
+      const thoughtContentElem = assistantBubble.querySelector('.thought-content');
+      const thoughtTimeElem = assistantBubble.querySelector('.thought-time');
+      const thoughtIconElem = assistantBubble.querySelector('.thought-icon');
+      const msgStatsElem = assistantBubble.querySelector('.msg-stats');
 
-      const model = document.getElementById('modelSelect').value;
       const system = document.getElementById('systemPrompt').value.trim();
       const temperature = parseFloat(document.getElementById('tempSlider').value);
       const maxTokens = parseInt(document.getElementById('maxTokens').value);
@@ -2361,6 +2429,8 @@ https://your-tunnel.trycloudflare.com/v1</pre>
 
       let fullText = '';
       let fullThought = '';
+      let thinkStartTime = Date.now();
+      let hasFinishedThinking = false;
 
       try {
         if (stream) {
@@ -2397,13 +2467,25 @@ https://your-tunnel.trycloudflare.com/v1</pre>
                   const chunk = JSON.parse(dataStr);
                   const delta = chunk.choices?.[0]?.delta || {};
 
+                  // 1. Thinking / Reasoning Process Delta
                   if (delta.reasoning_content) {
                     fullThought += delta.reasoning_content;
                     thoughtElem.classList.remove('hidden');
-                    thoughtElem.querySelector('.thought-content').innerText = fullThought;
+                    thoughtContentElem.innerText = fullThought;
+                    const elapsed = ((Date.now() - thinkStartTime) / 1000).toFixed(1);
+                    thoughtTimeElem.innerText = `Thinking (${elapsed}s)...`;
                   }
 
+                  // 2. Main Content Delta
                   if (delta.content) {
+                    // When main response starts after thinking, collapse the thought box and stop pulse
+                    if (fullThought && !hasFinishedThinking) {
+                      hasFinishedThinking = true;
+                      const dur = ((Date.now() - thinkStartTime) / 1000).toFixed(1);
+                      thoughtTimeElem.innerText = `Thought for ${dur}s (~${Math.round(fullThought.length / 4)} tokens)`;
+                      if (thoughtIconElem) thoughtIconElem.classList.remove('animate-pulse');
+                      thoughtElem.removeAttribute('open'); // Auto-collapse for clean view
+                    }
                     fullText += delta.content;
                     contentElem.innerHTML = marked.parse(fullText);
                   }
@@ -2427,45 +2509,145 @@ https://your-tunnel.trycloudflare.com/v1</pre>
           const resJson = await resp.json();
           const msg = resJson.choices?.[0]?.message || {};
           if (msg.reasoning_content) {
+            fullThought = msg.reasoning_content;
             thoughtElem.classList.remove('hidden');
-            thoughtElem.querySelector('.thought-content').innerText = msg.reasoning_content;
+            thoughtContentElem.innerText = fullThought;
+            const dur = ((Date.now() - thinkStartTime) / 1000).toFixed(1);
+            thoughtTimeElem.innerText = `Thought for ${dur}s (~${Math.round(fullThought.length / 4)} tokens)`;
+            if (thoughtIconElem) thoughtIconElem.classList.remove('animate-pulse');
+            thoughtElem.removeAttribute('open');
           }
           fullText = msg.content || '';
           contentElem.innerHTML = marked.parse(fullText);
         }
 
+        // Finalize assistant message
+        assistantBubble.setAttribute('data-raw-content', fullText);
+        if (fullThought && !hasFinishedThinking) {
+          const dur = ((Date.now() - thinkStartTime) / 1000).toFixed(1);
+          thoughtTimeElem.innerText = `Thought for ${dur}s (~${Math.round(fullThought.length / 4)} tokens)`;
+          if (thoughtIconElem) thoughtIconElem.classList.remove('animate-pulse');
+          thoughtElem.removeAttribute('open');
+        }
+        if (msgStatsElem) {
+          msgStatsElem.innerText = `~${Math.round(fullText.length / 4)} tokens`;
+        }
+        setupCodeCopyButtons(contentElem);
+
         messagesHistory.push({ role: 'assistant', content: fullText });
         await loadAccounts(); // Update live quota and request counts
       } catch (err) {
-        contentElem.innerHTML = `<span class="text-red-400">Error generating response: ${err.message}</span>`;
+        contentElem.innerHTML = `<span class="text-red-400"><i class="fa-solid fa-triangle-exclamation mr-1.5"></i>Error: ${err.message}</span>`;
       } finally {
         isGenerating = false;
         document.getElementById('sendBtn').disabled = false;
       }
     }
 
-    function appendMessageUI(role, text) {
+    function copyThoughtText(btn, event) {
+      if (event) event.stopPropagation();
+      const card = btn.closest('.msg-thought');
+      const text = card?.querySelector('.thought-content')?.innerText || '';
+      if (!text) return;
+      copyToClipboard(text);
+      const icon = btn.querySelector('i');
+      if (icon) {
+        icon.className = 'fa-solid fa-check text-emerald-400 text-xs';
+        setTimeout(() => { icon.className = 'fa-regular fa-copy text-xs'; }, 1500);
+      }
+      showToast('Thinking process copied to clipboard!', 'success');
+    }
+
+    function copyMessageText(btn) {
+      const parent = btn.closest('.msg-assistant-wrapper');
+      const text = parent?.getAttribute('data-raw-content') || parent?.querySelector('.msg-content')?.innerText || '';
+      if (!text) return;
+      copyToClipboard(text);
+      const original = btn.innerHTML;
+      btn.innerHTML = '<i class="fa-solid fa-check text-emerald-400"></i> <span class="text-emerald-300">Copied</span>';
+      setTimeout(() => { btn.innerHTML = original; }, 1500);
+      showToast('Answer copied to clipboard!', 'success');
+    }
+
+    function setupCodeCopyButtons(container) {
+      if (!container) return;
+      container.querySelectorAll('pre').forEach(pre => {
+        if (pre.querySelector('.code-copy-btn')) return;
+        pre.classList.add('relative', 'group');
+        const copyBtn = document.createElement('button');
+        copyBtn.type = 'button';
+        copyBtn.className = 'code-copy-btn absolute top-2 right-2 px-2 py-0.5 rounded bg-slate-800/90 hover:bg-indigo-600 text-slate-400 hover:text-white text-[10px] transition opacity-0 group-hover:opacity-100 flex items-center space-x-1 shadow border border-slate-700/60';
+        copyBtn.innerHTML = '<i class="fa-regular fa-copy"></i><span>Copy</span>';
+        copyBtn.onclick = async (e) => {
+          e.stopPropagation();
+          const code = pre.querySelector('code')?.innerText || pre.innerText;
+          await copyToClipboard(code);
+          copyBtn.innerHTML = '<i class="fa-solid fa-check text-emerald-400"></i><span>Copied!</span>';
+          setTimeout(() => { copyBtn.innerHTML = '<i class="fa-regular fa-copy"></i><span>Copy</span>'; }, 1500);
+        };
+        pre.appendChild(copyBtn);
+      });
+    }
+
+    function appendMessageUI(role, text = '', currentModel = '') {
       const container = document.getElementById('chatContainer');
       const msgDiv = document.createElement('div');
-      msgDiv.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'}`;
+      msgDiv.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'} w-full`;
 
       if (role === 'user') {
         msgDiv.innerHTML = `
-          <div class="max-w-2xl px-5 py-3 rounded-2xl bg-indigo-600 text-white text-sm shadow-md">
-            <p class="whitespace-pre-wrap">${text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+          <div class="flex items-start space-x-2.5 max-w-2xl justify-end">
+            <div class="px-4 sm:px-5 py-2.5 sm:py-3 rounded-2xl bg-indigo-600 text-white text-xs sm:text-sm shadow-md">
+              <p class="whitespace-pre-wrap">${text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+            </div>
+            <div class="w-7 h-7 rounded-full bg-slate-800 border border-slate-700 text-slate-300 flex items-center justify-center text-xs shrink-0 mt-1 shadow-sm">
+              <i class="fa-solid fa-user"></i>
+            </div>
           </div>
         `;
       } else {
         msgDiv.innerHTML = `
-          <div class="max-w-3xl w-full space-y-2">
-            <div class="msg-thought hidden p-3 rounded-xl thought-bubble text-xs text-indigo-300 font-mono">
-              <div class="font-bold text-indigo-400 mb-1 flex items-center">
-                <i class="fa-solid fa-brain mr-1.5"></i> Thinking Process
-              </div>
-              <div class="thought-content max-h-48 overflow-y-auto whitespace-pre-wrap custom-scrollbar"></div>
+          <div class="flex items-start space-x-3 max-w-4xl w-full msg-assistant-wrapper" data-raw-content="">
+            <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-600 to-indigo-700 text-white flex items-center justify-center text-xs shadow-md shrink-0 mt-1 border border-indigo-400/30">
+              <i class="fa-solid fa-wand-magic-sparkles"></i>
             </div>
-            <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800 text-slate-100 text-sm prose prose-invert max-w-none shadow-md">
-              <div class="msg-content">${text ? marked.parse(text) : '<span class="text-slate-500 animate-pulse">Generating response...</span>'}</div>
+            <div class="flex-1 min-w-0 space-y-2">
+              <!-- Thinking Process Collapsible Accordion -->
+              <details class="msg-thought hidden rounded-xl border border-purple-500/30 bg-slate-950/70 overflow-hidden text-xs transition group shadow-sm open:shadow-md" open>
+                <summary class="flex items-center justify-between px-3.5 py-2 cursor-pointer select-none bg-purple-950/30 hover:bg-purple-900/40 transition text-purple-300 font-medium list-none">
+                  <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-brain text-purple-400 thought-icon animate-pulse text-xs"></i>
+                    <span class="font-bold text-purple-200">Thinking Process</span>
+                    <span class="thought-time text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-mono border border-purple-500/30">Thinking...</span>
+                  </div>
+                  <div class="flex items-center space-x-2">
+                    <button type="button" onclick="copyThoughtText(this, event)" class="text-purple-400/80 hover:text-purple-200 p-1 transition" title="Copy reasoning">
+                      <i class="fa-regular fa-copy text-xs"></i>
+                    </button>
+                    <i class="fa-solid fa-chevron-down text-[10px] text-purple-400 transition-transform group-open:rotate-180"></i>
+                  </div>
+                </summary>
+                <div class="p-3.5 bg-slate-950/90 text-purple-200/90 font-mono text-[11px] leading-relaxed max-h-64 overflow-y-auto custom-scrollbar border-t border-purple-500/20 thought-content whitespace-pre-wrap select-text"></div>
+              </details>
+
+              <!-- Main Assistant Message Card -->
+              <div class="p-4 sm:p-5 rounded-2xl bg-slate-900 border border-slate-800 text-slate-100 text-xs sm:text-sm shadow-md">
+                <div class="msg-content prose prose-invert max-w-none">${text ? marked.parse(text) : '<span class="text-slate-500 animate-pulse flex items-center"><i class="fa-solid fa-circle-notch fa-spin mr-2 text-indigo-400"></i> Generating response...</span>'}</div>
+              </div>
+
+              <!-- Message Action Bar -->
+              <div class="flex items-center justify-between text-[11px] text-slate-500 px-1 pt-0.5">
+                <div class="flex items-center space-x-2 font-mono">
+                  <span class="msg-model-tag text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20 text-[10px] font-semibold">${currentModel || 'gemini'}</span>
+                  <span class="msg-stats text-slate-400 text-[10px]"></span>
+                </div>
+                <div class="flex items-center space-x-1">
+                  <button type="button" onclick="copyMessageText(this)" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition flex items-center space-x-1 text-[10px] border border-slate-700/60" title="Copy answer">
+                    <i class="fa-regular fa-copy"></i>
+                    <span>Copy</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         `;
