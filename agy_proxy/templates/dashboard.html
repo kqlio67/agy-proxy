@@ -171,54 +171,65 @@
     <!-- TAB 1: ACCOUNTS -->
     <div id="tabContent-accounts" class="space-y-6">
       <!-- Global Overview KPI Cards -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4" id="overviewKpiRow">
-      <!-- Total Requests -->
-      <div class="p-3 sm:p-4 rounded-2xl bg-dark-card border border-dark-border flex items-center space-x-2.5 sm:space-x-3.5 shadow-sm min-w-0">
-        <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 text-sm sm:text-lg shrink-0">
-          <i class="fa-solid fa-chart-line"></i>
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4" id="overviewKpiRow">
+        <!-- 1. Total Requests -->
+        <div class="p-3 sm:p-4 rounded-2xl bg-dark-card border border-dark-border flex items-center space-x-2.5 sm:space-x-3.5 shadow-sm min-w-0">
+          <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 text-sm sm:text-lg shrink-0">
+            <i class="fa-solid fa-chart-line"></i>
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="text-[10px] sm:text-[11px] font-medium text-slate-400 uppercase tracking-wider font-mono truncate">Total Requests</div>
+            <div class="text-base sm:text-xl font-bold text-white font-mono mt-0.5 truncate" id="kpiTotalRequests">0</div>
+          </div>
         </div>
-        <div class="min-w-0 flex-1">
-          <div class="text-[10px] sm:text-[11px] font-medium text-slate-400 uppercase tracking-wider font-mono truncate">Total Requests</div>
-          <div class="text-base sm:text-xl font-bold text-white font-mono mt-0.5 truncate" id="kpiTotalRequests">0</div>
-        </div>
-      </div>
 
-      <!-- Pool Health -->
-      <div class="p-3 sm:p-4 rounded-2xl bg-dark-card border border-dark-border flex items-center space-x-2.5 sm:space-x-3.5 shadow-sm min-w-0">
-        <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 text-sm sm:text-lg shrink-0">
-          <i class="fa-solid fa-heart-pulse"></i>
+        <!-- 2. Gemini Pool Health -->
+        <div class="p-3 sm:p-4 rounded-2xl bg-dark-card border border-dark-border flex items-center space-x-2.5 sm:space-x-3.5 shadow-sm min-w-0">
+          <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 text-sm sm:text-lg shrink-0">
+            <i class="fa-brands fa-google"></i>
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="text-[10px] sm:text-[11px] font-medium text-slate-400 uppercase tracking-wider font-mono truncate">Gemini Pool (5h)</div>
+            <div class="text-base sm:text-xl font-bold text-emerald-400 font-mono mt-0.5 truncate" id="kpiPoolHealth">100%</div>
+          </div>
         </div>
-        <div class="min-w-0 flex-1">
-          <div class="text-[10px] sm:text-[11px] font-medium text-slate-400 uppercase tracking-wider font-mono truncate">Gemini Pool Health</div>
-          <div class="text-base sm:text-xl font-bold text-emerald-400 font-mono mt-0.5 truncate" id="kpiPoolHealth">100%</div>
-        </div>
-      </div>
 
-      <!-- Gateway Status & Port -->
-      <div class="p-3 sm:p-4 rounded-2xl bg-dark-card border border-dark-border flex items-center space-x-2.5 sm:space-x-3.5 shadow-sm min-w-0">
-        <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 text-sm sm:text-lg shrink-0">
-          <i class="fa-solid fa-server"></i>
+        <!-- 3. Claude & GPT Pool Health -->
+        <div class="p-3 sm:p-4 rounded-2xl bg-dark-card border border-dark-border flex items-center space-x-2.5 sm:space-x-3.5 shadow-sm min-w-0">
+          <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 text-sm sm:text-lg shrink-0">
+            <i class="fa-solid fa-sparkles"></i>
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="text-[10px] sm:text-[11px] font-medium text-slate-400 uppercase tracking-wider font-mono truncate">Claude & GPT (3P)</div>
+            <div class="text-base sm:text-xl font-bold text-emerald-400 font-mono mt-0.5 truncate" id="kpiClaudePoolHealth">100%</div>
+          </div>
         </div>
-        <div class="min-w-0 flex-1">
-          <div class="text-[10px] sm:text-[11px] font-medium text-slate-400 uppercase tracking-wider font-mono truncate">Gateway Status</div>
-          <div class="text-[11px] sm:text-xs font-bold text-white flex items-center space-x-1.5 mt-0.5 min-w-0">
-            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
-            <span class="truncate">Online · :8000</span>
+
+        <!-- 4. Gateway Status & Port -->
+        <div class="p-3 sm:p-4 rounded-2xl bg-dark-card border border-dark-border flex items-center space-x-2.5 sm:space-x-3.5 shadow-sm min-w-0">
+          <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 text-sm sm:text-lg shrink-0">
+            <i class="fa-solid fa-server"></i>
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="text-[10px] sm:text-[11px] font-medium text-slate-400 uppercase tracking-wider font-mono truncate">Gateway Status</div>
+            <div class="text-[11px] sm:text-xs font-bold text-white flex items-center space-x-1.5 mt-0.5 min-w-0">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
+              <span class="truncate">Online · :8000</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. Smart Tool Pruning & Compactor -->
+        <div class="p-3 sm:p-4 rounded-2xl bg-dark-card border border-dark-border flex items-center space-x-2.5 sm:space-x-3.5 shadow-sm min-w-0 col-span-2 sm:col-span-1">
+          <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 text-sm sm:text-lg shrink-0">
+            <i class="fa-solid fa-scissors"></i>
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="text-[10px] sm:text-[11px] font-medium text-slate-400 uppercase tracking-wider font-mono truncate">Context Optimizer</div>
+            <div class="text-[11px] sm:text-xs font-bold text-purple-300 font-mono mt-0.5 truncate" id="kpiPruningStatus">Smart Pruning Active</div>
           </div>
         </div>
       </div>
-
-      <!-- Smart Tool Pruning & Compactor -->
-      <div class="p-3 sm:p-4 rounded-2xl bg-dark-card border border-dark-border flex items-center space-x-2.5 sm:space-x-3.5 shadow-sm min-w-0">
-        <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 text-sm sm:text-lg shrink-0">
-          <i class="fa-solid fa-scissors"></i>
-        </div>
-        <div class="min-w-0 flex-1">
-          <div class="text-[10px] sm:text-[11px] font-medium text-slate-400 uppercase tracking-wider font-mono truncate">Context Optimizer</div>
-          <div class="text-[11px] sm:text-xs font-bold text-purple-300 font-mono mt-0.5 truncate" id="kpiPruningStatus">Smart Pruning Active</div>
-        </div>
-      </div>
-    </div>
 
     <!-- Multi-Account Pool Section -->
     <div class="space-y-4">
@@ -1522,7 +1533,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
 
           <div class="p-5 rounded-2xl bg-dark-card border border-dark-border space-y-1">
             <div class="text-[11px] font-mono text-slate-400 uppercase tracking-wider flex items-center justify-between">
-              <span>Claude / 3P Quota</span>
+              <span>Claude & GPT (3P) Quota</span>
               <i class="fa-solid fa-sparkles text-purple-400"></i>
             </div>
             <div class="text-2xl font-bold font-mono ${avgClaude > 50 ? 'text-emerald-400' : (avgClaude > 20 ? 'text-amber-400' : 'text-red-400')}">${avgClaude}%</div>
@@ -1683,12 +1694,12 @@ https://your-tunnel.trycloudflare.com/v1</pre>
               </div>
             </div>
 
-            <!-- Claude 3P Limit -->
+            <!-- Claude & GPT 3P Limit -->
             <div class="space-y-1 pt-1">
               <div class="flex justify-between text-xs text-slate-400">
                 <span class="flex items-center space-x-1.5">
                   <i class="fa-solid fa-sparkles text-purple-400 text-[11px]"></i>
-                  <span class="font-medium text-slate-300">Claude / 3P (Weekly Cap)</span>
+                  <span class="font-medium text-slate-300">Claude & GPT (3P) (Weekly Cap)</span>
                 </span>
                 <span class="font-bold font-mono ${claudePct > 20 ? 'text-slate-200' : 'text-red-400'}">${claudePct}%</span>
               </div>
@@ -1724,6 +1735,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       let totalExhausted = 0;
       let totalRequests = 0;
       let sumGeminiPct = 0;
+      let sumClaudePct = 0;
       let oauthWithQuotaCount = 0;
 
       rawAccountsData.forEach(acc => {
@@ -1741,6 +1753,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
         } else {
           totalOAuth++;
           sumGeminiPct += geminiPct;
+          sumClaudePct += claudePct;
           oauthWithQuotaCount++;
         }
 
@@ -1750,13 +1763,19 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       });
 
       // Update KPI overview stats
-      const avgPoolQuota = oauthWithQuotaCount > 0 ? Math.round(sumGeminiPct / oauthWithQuotaCount) : 100;
+      const avgGeminiQuota = oauthWithQuotaCount > 0 ? Math.round(sumGeminiPct / oauthWithQuotaCount) : 100;
+      const avgClaudeQuota = oauthWithQuotaCount > 0 ? Math.round(sumClaudePct / oauthWithQuotaCount) : 100;
       const kpiTotalReqs = document.getElementById('kpiTotalRequests');
-      const kpiPool = document.getElementById('kpiPoolHealth');
+      const kpiGeminiPool = document.getElementById('kpiPoolHealth');
+      const kpiClaudePool = document.getElementById('kpiClaudePoolHealth');
       if (kpiTotalReqs) kpiTotalReqs.innerText = totalRequests.toLocaleString();
-      if (kpiPool) {
-        kpiPool.innerText = `${avgPoolQuota}%`;
-        kpiPool.className = `text-xl font-bold font-mono mt-0.5 ${avgPoolQuota > 50 ? 'text-emerald-400' : (avgPoolQuota > 20 ? 'text-amber-400' : 'text-red-400')}`;
+      if (kpiGeminiPool) {
+        kpiGeminiPool.innerText = `${avgGeminiQuota}%`;
+        kpiGeminiPool.className = `text-base sm:text-xl font-bold font-mono mt-0.5 truncate ${avgGeminiQuota > 50 ? 'text-emerald-400' : (avgGeminiQuota > 20 ? 'text-amber-400' : 'text-red-400')}`;
+      }
+      if (kpiClaudePool) {
+        kpiClaudePool.innerText = `${avgClaudeQuota}%`;
+        kpiClaudePool.className = `text-base sm:text-xl font-bold font-mono mt-0.5 truncate ${avgClaudeQuota > 50 ? 'text-emerald-400' : (avgClaudeQuota > 20 ? 'text-amber-400' : 'text-red-400')}`;
       }
 
       if (document.getElementById('countAll')) document.getElementById('countAll').innerText = totalAll;
@@ -1894,7 +1913,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
                 <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1.5 flex flex-col justify-between" title="${claudeQ.description || 'Weekly quota + 5-hour smoothing'}">
                   <div>
                     <div class="flex justify-between text-[11px] items-center">
-                      <span class="text-slate-400 font-medium">Claude / 3P</span>
+                      <span class="text-slate-400 font-medium">Claude & GPT (3P)</span>
                       <span class="font-bold ${claudeIsExhausted ? 'text-red-400' : 'text-slate-200'}">${claudePct}%</span>
                     </div>
                     <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mt-1">
@@ -1966,7 +1985,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
                   <th class="px-3 py-3">Type</th>
                   <th class="px-3 py-3">Last Active Model</th>
                   <th class="px-4 py-3">Gemini Quota</th>
-                  <th class="px-4 py-3">Claude / 3P Quota</th>
+                  <th class="px-4 py-3">Claude & GPT (3P) Quota</th>
                   <th class="px-3 py-3 text-center">Reqs</th>
                   <th class="px-4 py-3 text-right">Actions</th>
                 </tr>
