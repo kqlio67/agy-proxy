@@ -318,11 +318,12 @@ async def fetch_url_via_trawler(url: str, account_pool: Optional[Any] = None, ti
         acc = next((a for a in account_pool.accounts.values() if getattr(a, "enabled", True)), None)
         if not acc:
             return None
+        from agy_proxy.auth import USER_AGENT
         token = await acc.get_valid_token()
         headers = {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
-            "User-Agent": "antigravity/cli/1.1.25 (aidev_client; os_type=linux; arch=amd64; cl=974782877; auth_method=consumer)",
+            "User-Agent": USER_AGENT,
         }
         payload = {"url": url, "liveFetch": True}
         async with httpx.AsyncClient(timeout=timeout) as client:

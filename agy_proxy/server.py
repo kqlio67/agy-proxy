@@ -23,7 +23,7 @@ else:
     STATIC_DIR = Path(__file__).parent / "static"
 from pydantic import BaseModel
 
-from agy_proxy.auth import AccountPool, AuthManager
+from agy_proxy.auth import AccountPool, AuthManager, USER_AGENT
 from agy_proxy.client import CloudCodeClient
 from agy_proxy.models import (
     AnthropicRequest,
@@ -227,7 +227,7 @@ def create_app(
                         headers = {
                             "Authorization": f"Bearer {token}",
                             "Content-Type": "application/json",
-                            "User-Agent": "antigravity/cli/1.1.25 (aidev_client; os_type=linux; arch=amd64; cl=974782877; auth_method=consumer)",
+                            "User-Agent": USER_AGENT,
                         }
                         post_data = {
                             "request": {

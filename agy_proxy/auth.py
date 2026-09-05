@@ -10,6 +10,7 @@ import hashlib
 import json
 import logging
 import os
+import platform
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -63,7 +64,9 @@ SCOPES = [
     "openid",
 ]
 
-USER_AGENT = "antigravity/cli/1.1.24 (aidev_client; os_type=linux; arch=amd64; cl=974782877; auth_method=consumer)"
+_os_name = "darwin" if platform.system().lower() == "darwin" else "linux"
+_arch_name = "arm64" if platform.machine().lower() in ("arm64", "aarch64") else "amd64"
+USER_AGENT = f"antigravity/cli/1.1.27 (aidev_client; os_type={_os_name}; arch={_arch_name}; cl=976543523; auth_method=consumer)"
 
 # Candidate search paths for Antigravity primary / CLI / IDE tokens
 CANDIDATE_TOKEN_FILES = [
