@@ -342,8 +342,14 @@ def main():
         logging.getLogger("httpx").setLevel(logging.INFO)
         logging.getLogger("uvicorn.access").setLevel(logging.INFO)
         logging.getLogger("uvicorn").setLevel(logging.INFO)
+        logging.getLogger("uvicorn.error").setLevel(logging.INFO)
+    elif effective_log_level.lower() == "info":
+        # Standard mode: show server startup / lifecycle messages, silence periodic HTTP polling noise
+        logging.getLogger("httpx").setLevel(logging.WARNING)
+        logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+        logging.getLogger("uvicorn.error").setLevel(logging.INFO)
+        logging.getLogger("uvicorn").setLevel(logging.INFO)
     else:
-        # Standard user mode: keep console 100% clean and minimalistic
         logging.getLogger("httpx").setLevel(logging.WARNING)
         logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
         logging.getLogger("uvicorn.error").setLevel(logging.WARNING)
@@ -374,11 +380,12 @@ def main():
     )
 
     # Run Uvicorn with graceful shutdown handling
+    uvicorn_log_level = "debug" if (args.debug or effective_log_level.lower() == "debug") else effective_log_level.lower()
     config = uvicorn.Config(
         app,
         host=args.host,
         port=args.port,
-        log_level="debug" if (args.debug or effective_log_level.lower() == "debug") else "warning",
+        log_level=uvicorn_log_level,
         access_log=bool(args.debug or effective_log_level.lower() == "debug"),
     )
     server = uvicorn.Server(config)
