@@ -73,8 +73,30 @@ def create_app(
             logger.info("Antigravity Proxy ready: %d account(s) active, %d model(s) available in catalog", len(pool.accounts), len(models_dict))
         except Exception as e:
             logger.warning("Startup initialization warning: %s", e)
+
+        # Background task for periodic quota refresh every 60s
+        bg_refresh_task = None
+        async def _periodic_quota_refresh():
+            while True:
+                try:
+                    await asyncio.sleep(60)
+                    await pool.refresh_all_quotas(min_interval=45.0)
+                except asyncio.CancelledError:
+                    break
+                except Exception as e:
+                    logger.debug("Background quota refresh error: %s", e)
+
+        bg_refresh_task = asyncio.create_task(_periodic_quota_refresh())
+
         yield
         # Shutdown
+        if bg_refresh_task:
+            bg_refresh_task.cancel()
+            try:
+                await bg_refresh_task
+            except asyncio.CancelledError:
+                pass
+
         for acc in pool.accounts.values():
             await acc.close()
 
@@ -300,6 +322,8 @@ def create_app(
 
     @app.get("/api/accounts")
     async def list_accounts():
+        if time.time() - getattr(pool, "last_quota_refresh_time", 0.0) > 60.0:
+            asyncio.create_task(pool.refresh_all_quotas(min_interval=45.0))
         accounts_list = [acc.to_dict() for acc in pool.accounts.values()]
         return {"accounts": accounts_list}
 

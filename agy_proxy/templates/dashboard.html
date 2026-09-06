@@ -200,7 +200,7 @@
             <i class="fa-solid fa-sparkles"></i>
           </div>
           <div class="min-w-0 flex-1">
-            <div class="text-[10px] sm:text-[11px] font-medium text-slate-400 uppercase tracking-wider font-mono truncate">Claude & GPT (3P)</div>
+            <div class="text-[10px] sm:text-[11px] font-medium text-slate-400 uppercase tracking-wider font-mono truncate">Claude & GPT (Weekly)</div>
             <div class="text-base sm:text-xl font-bold text-emerald-400 font-mono mt-0.5 truncate" id="kpiClaudePoolHealth">100%</div>
           </div>
         </div>
@@ -1689,8 +1689,8 @@ https://your-tunnel.trycloudflare.com/v1</pre>
                 <div class="h-full ${geminiPct > 20 ? 'bg-indigo-500' : 'bg-red-500'} rounded-full transition-all" style="width: ${geminiPct}%"></div>
               </div>
               <div class="flex justify-between text-[10px] text-slate-500 font-mono">
-                <span>Rolling window</span>
-                <span>${geminiReset ? 'Resets in ' + geminiReset : 'Full'}</span>
+                <span>5h rolling window</span>
+                <span>${geminiReset ? (geminiPct <= 0 ? '⚠️ ' : '') + '5h in ' + geminiReset : '5h full'}</span>
               </div>
             </div>
 
@@ -1699,7 +1699,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
               <div class="flex justify-between text-xs text-slate-400">
                 <span class="flex items-center space-x-1.5">
                   <i class="fa-solid fa-sparkles text-purple-400 text-[11px]"></i>
-                  <span class="font-medium text-slate-300">Claude & GPT (3P) (Weekly Cap)</span>
+                  <span class="font-medium text-slate-300">Claude & GPT (Weekly Cap)</span>
                 </span>
                 <span class="font-bold font-mono ${claudePct > 20 ? 'text-slate-200' : 'text-red-400'}">${claudePct}%</span>
               </div>
@@ -1708,7 +1708,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
               </div>
               <div class="flex justify-between text-[10px] text-slate-500 font-mono">
                 <span>Weekly allowance</span>
-                <span>${claudeReset ? 'Resets in ' + claudeReset : 'Full'}</span>
+                <span>${claudeReset ? (claudePct <= 0 ? '⚠️ ' : '') + 'Wk in ' + claudeReset : 'Wk full'}</span>
               </div>
             </div>
           </div>
@@ -1897,32 +1897,38 @@ https://your-tunnel.trycloudflare.com/v1</pre>
                 <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1.5 flex flex-col justify-between" title="${geminiQ.description || '5-hour rolling limit + weekly cap'}">
                   <div>
                     <div class="flex justify-between text-[11px] items-center">
-                      <span class="text-slate-400 font-medium">Gemini</span>
-                      <span class="font-bold ${geminiIsExhausted ? 'text-red-400' : 'text-slate-200'}">${geminiPct}%</span>
+                      <span class="text-slate-400 font-medium flex items-center gap-1">
+                        <span>Gemini</span>
+                        <span class="text-[9px] px-1 py-0.2 rounded bg-slate-800 text-indigo-300 font-mono">5h</span>
+                      </span>
+                      <span class="font-bold font-mono ${geminiIsExhausted ? 'text-red-400 font-bold' : 'text-slate-200'}">${geminiPct}%</span>
                     </div>
                     <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mt-1">
                       <div class="h-full ${geminiIsExhausted ? 'bg-red-500' : (geminiPct > 30 ? 'bg-indigo-500' : 'bg-amber-500')}" style="width: ${geminiPct}%"></div>
                     </div>
                   </div>
                   <div class="text-[10px] flex justify-between items-center text-slate-500">
-                    <span class="font-mono text-[9px] text-slate-500">${geminiWkPct !== null ? 'Wk:' + geminiWkPct + '%' : ''}</span>
-                    <span class="${geminiIsExhausted ? 'text-red-400 font-semibold' : 'text-slate-400'}">${geminiReset ? 'Resets in ' + geminiReset : '5h limit'}</span>
+                    <span class="font-mono text-[9px] text-slate-400" title="Weekly limit">${geminiWkPct !== null ? 'Wk: ' + geminiWkPct + '%' : ''}</span>
+                    <span class="${geminiIsExhausted ? 'text-red-400 font-semibold' : 'text-slate-400'}" title="5-hour window reset">${geminiReset ? (geminiIsExhausted ? '⚠️ ' : '') + '5h in ' + geminiReset : '5h full'}</span>
                   </div>
                 </div>
 
                 <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1.5 flex flex-col justify-between" title="${claudeQ.description || 'Weekly quota + 5-hour smoothing'}">
                   <div>
                     <div class="flex justify-between text-[11px] items-center">
-                      <span class="text-slate-400 font-medium">Claude & GPT (3P)</span>
-                      <span class="font-bold ${claudeIsExhausted ? 'text-red-400' : 'text-slate-200'}">${claudePct}%</span>
+                      <span class="text-slate-400 font-medium flex items-center gap-1">
+                        <span>Claude & GPT</span>
+                        <span class="text-[9px] px-1 py-0.2 rounded bg-slate-800 text-purple-300 font-mono">Wk</span>
+                      </span>
+                      <span class="font-bold font-mono ${claudeIsExhausted ? 'text-red-400 font-bold' : 'text-slate-200'}">${claudePct}%</span>
                     </div>
                     <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mt-1">
                       <div class="h-full ${claudeIsExhausted ? 'bg-red-500' : (claudePct > 30 ? 'bg-purple-500' : 'bg-amber-500')}" style="width: ${claudePct}%"></div>
                     </div>
                   </div>
                   <div class="text-[10px] flex justify-between items-center text-slate-500">
-                    <span class="font-mono text-[9px] text-slate-500">${claude5hPct !== null ? '5h:' + claude5hPct + '%' : ''}</span>
-                    <span class="${claudeIsExhausted ? 'text-red-400 font-semibold' : 'text-slate-400'}">${claudeReset ? 'Resets in ' + claudeReset : '7d limit'}</span>
+                    <span class="font-mono text-[9px] text-slate-400" title="5-hour smoothing window">${claude5hPct !== null ? '5h: ' + claude5hPct + '%' : ''}</span>
+                    <span class="${claudeIsExhausted ? 'text-red-400 font-semibold' : 'text-slate-400'}" title="Weekly cap reset">${claudeReset ? (claudeIsExhausted ? '⚠️ ' : '') + 'Wk in ' + claudeReset : 'Wk full'}</span>
                   </div>
                 </div>
               </div>
@@ -2045,8 +2051,8 @@ https://your-tunnel.trycloudflare.com/v1</pre>
                 ${isApiKey ? '<span class="text-emerald-400 font-semibold text-[11px]">PayG Active</span>' : `
                   <div>
                     <div class="flex justify-between items-center text-[10px] mb-1">
-                      <span class="font-bold ${geminiIsExhausted ? 'text-red-400' : 'text-slate-300'}">${geminiPct}%</span>
-                      <span class="text-[9px] text-slate-400">${geminiWkPct !== null ? 'Wk:' + geminiWkPct + '%' : ''} · ${geminiReset ? 'in ' + geminiReset : '5h'}</span>
+                      <span class="font-bold ${geminiIsExhausted ? 'text-red-400' : 'text-slate-300'}">${geminiPct}% <span class="text-[9px] text-slate-500 font-normal">(5h)</span></span>
+                      <span class="text-[9px] text-slate-400">${geminiWkPct !== null ? 'Wk: ' + geminiWkPct + '%' : ''} · ${geminiReset ? (geminiIsExhausted ? '⚠️ ' : '') + '5h in ' + geminiReset : '5h full'}</span>
                     </div>
                     <div class="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
                       <div class="h-full ${geminiIsExhausted ? 'bg-red-500' : (geminiPct > 30 ? 'bg-indigo-500' : 'bg-amber-500')}" style="width: ${geminiPct}%"></div>
@@ -2059,8 +2065,8 @@ https://your-tunnel.trycloudflare.com/v1</pre>
                 ${isApiKey ? '<span class="text-slate-500 text-[11px]">—</span>' : `
                   <div>
                     <div class="flex justify-between items-center text-[10px] mb-1">
-                      <span class="font-bold ${claudeIsExhausted ? 'text-red-400' : 'text-slate-300'}">${claudePct}%</span>
-                      <span class="text-[9px] text-slate-400">${claude5hPct !== null ? '5h:' + claude5hPct + '%' : ''} · ${claudeReset ? 'in ' + claudeReset : '7d'}</span>
+                      <span class="font-bold ${claudeIsExhausted ? 'text-red-400' : 'text-slate-300'}">${claudePct}% <span class="text-[9px] text-slate-500 font-normal">(Wk)</span></span>
+                      <span class="text-[9px] text-slate-400">${claude5hPct !== null ? '5h: ' + claude5hPct + '%' : ''} · ${claudeReset ? (claudeIsExhausted ? '⚠️ ' : '') + 'Wk in ' + claudeReset : 'Wk full'}</span>
                     </div>
                     <div class="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
                       <div class="h-full ${claudeIsExhausted ? 'bg-red-500' : (claudePct > 30 ? 'bg-purple-500' : 'bg-amber-500')}" style="width: ${claudePct}%"></div>

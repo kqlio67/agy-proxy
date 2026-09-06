@@ -594,6 +594,7 @@ class AccountPool:
         self.accounts: Dict[str, AccountSession] = {}
         self.round_robin_index = 0
         self.pending_pkce_flows: Dict[str, Tuple[str, float]] = {}  # state -> (verifier, timestamp)
+        self.last_quota_refresh_time: float = 0.0
         self._lock = asyncio.Lock()
 
     def load_accounts(self):
@@ -788,6 +789,22 @@ class AccountPool:
                 del self.accounts[dup_id]
 
         self.save_accounts()
+        self.last_quota_refresh_time = time.time()
+
+    async def refresh_all_quotas(self, min_interval: float = 30.0) -> bool:
+        """Silently refreshes quotas for all active OAuth/consumer accounts from Google Cloud Code API."""
+        now = time.time()
+        if now - self.last_quota_refresh_time < min_interval:
+            return False
+
+        self.last_quota_refresh_time = now
+        tasks = []
+        for acc in list(self.accounts.values()):
+            if acc.enabled and acc.auth_method == "consumer":
+                tasks.append(acc.fetch_quota())
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        return True
 
     def rename_account(self, account_id: str, new_name: str) -> bool:
         """Renames an account display name and persists to accounts.json."""
