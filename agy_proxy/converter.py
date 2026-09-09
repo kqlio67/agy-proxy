@@ -628,11 +628,16 @@ def anthropic_to_cloudcode_payload(
                             if isinstance(to_dict(b), dict) and to_dict(b).get("type") == "text"
                         ]
                         tool_content = "\n".join(text_bits)
+                    is_err = bool(b_dict.get("is_error"))
+                    resp_dict: Dict[str, Any] = {"result": tool_content}
+                    if is_err:
+                        resp_dict["is_error"] = True
+                        resp_dict["error"] = True
                     func_resp = {
                         "name": func_name,
                         "response": {
                             "name": func_name,
-                            "content": {"result": tool_content},
+                            "content": resp_dict,
                         },
                     }
                     if tool_use_id:

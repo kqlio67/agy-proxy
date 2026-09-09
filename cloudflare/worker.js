@@ -141,8 +141,8 @@ export default {
       });
     }
 
-    // 5. Standalone Mode: POST /v1/chat/completions (OpenAI compatible)
-    if (url.pathname === "/v1/chat/completions" && request.method === "POST") {
+    // 5. Standalone Mode: POST /v1/chat/completions (OpenAI compatible) & POST /v1/messages (Anthropic compatible)
+    if ((url.pathname === "/v1/chat/completions" || url.pathname === "/v1/messages" || url.pathname === "/messages" || url.pathname === "/chat/completions") && request.method === "POST") {
       const accounts = parseAccounts(env);
       if (accounts.length === 0) {
         return new Response(
@@ -163,13 +163,15 @@ export default {
         const auth = await getAccessToken(acc);
 
         if (auth.type === "api_key") {
-          // Google AI Studio endpoint (auto-map to gemini-3.7-flash / 3.6-flash)
-          let targetModel = "gemini-3.7-flash";
-          if (model.includes("3.6")) targetModel = "gemini-3.6-flash";
-          else if (model.includes("lite")) targetModel = "gemini-3.1-flash-lite";
+          // Google AI Studio endpoint
+          let targetModel = "gemini-2.5-flash";
+          if (model.includes("3.7") || model.includes("3-flash")) targetModel = "gemini-2.5-flash";
+          else if (model.includes("pro")) targetModel = "gemini-2.5-pro";
+          else if (model.includes("lite")) targetModel = "gemini-2.5-flash-lite";
 
           const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:streamGenerateContent?alt=sse&key=${auth.token}`;
-          const contents = (reqJson.messages || []).map((m) => ({
+          const rawMsgs = reqJson.messages || [];
+          const contents = rawMsgs.map((m) => ({
             role: m.role === "assistant" ? "model" : "user",
             parts: [{ text: typeof m.content === "string" ? m.content : JSON.stringify(m.content) }],
           }));
@@ -187,7 +189,8 @@ export default {
         } else {
           // Google CloudCode / Antigravity endpoint
           const targetUrl = "https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse";
-          const contents = (reqJson.messages || []).map((m) => ({
+          const rawMsgs = reqJson.messages || [];
+          const contents = rawMsgs.map((m) => ({
             role: m.role === "assistant" ? "model" : "user",
             parts: [{ text: typeof m.content === "string" ? m.content : JSON.stringify(m.content) }],
           }));
@@ -203,7 +206,7 @@ export default {
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${auth.token}`,
-              "User-Agent": "antigravity/cli/1.1.27 (aidev_client; os_type=linux; arch=amd64; cl=976543523; auth_method=consumer)",
+              "User-Agent": "antigravity/cli/1.1.27 (cl=976543523)",
             },
             body: JSON.stringify(payload),
           });
@@ -255,7 +258,7 @@ export default {
     reqHeaders.delete("x-proxy-key");
 
     if (!reqHeaders.has("User-Agent")) {
-      reqHeaders.set("User-Agent", "antigravity/cli/1.1.27 (aidev_client; os_type=linux; arch=amd64; cl=976543523; auth_method=consumer)");
+      reqHeaders.set("User-Agent", "antigravity/cli/1.1.27 (cl=976543523)");
     }
 
     try {

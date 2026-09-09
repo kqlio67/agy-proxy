@@ -169,6 +169,15 @@ class AccountSession:
     def disabled(self, val: bool):
         self.enabled = not val
 
+    @property
+    def api_key(self) -> Optional[str]:
+        return self.refresh_token if self.auth_method == "api_key" else None
+
+    @api_key.setter
+    def api_key(self, val: str):
+        if self.auth_method == "api_key":
+            self.refresh_token = val
+
     async def get_http_client(self) -> httpx.AsyncClient:
         if self._http_client is None or self._http_client.is_closed:
             self._http_client = httpx.AsyncClient(
@@ -326,20 +335,33 @@ class AccountSession:
                 self.quota_summary = resp.json()
                 now = time.time()
                 for group in self.quota_summary.get("groups", []):
-                    g_name = group.get("displayName", "").lower()
-                    key = "3p" if ("claude" in g_name or "gpt" in g_name) else "gemini"
+                    g_name = (group.get("displayName") or "").lower()
+                    key = "3p" if ("claude" in g_name or "gpt" in g_name or "3p" in g_name) else "gemini"
                     is_exhausted = False
+                    earliest_reset = None
                     for bucket in group.get("buckets", []):
                         if bucket.get("disabled", False):
                             continue
-                        rem = bucket.get("remainingFraction", 1.0)
+                        rem = float(bucket.get("remainingFraction", 1.0))
                         if rem <= 0.001:
                             is_exhausted = True
-                            break
+                            rst = bucket.get("resetTime")
+                            if rst:
+                                try:
+                                    from datetime import datetime
+                                    dt = datetime.fromisoformat(rst.replace("Z", "+00:00"))
+                                    diff = dt.timestamp() - now
+                                    if diff > 0:
+                                        earliest_reset = min(earliest_reset, diff) if earliest_reset else diff
+                                except Exception:
+                                    pass
                     if is_exhausted:
-                        self.rate_limited_models[key] = now + 3600
+                        duration = earliest_reset if (earliest_reset and earliest_reset > 0) else 3600
+                        self.rate_limited_models[key] = now + duration
                     else:
-                        self.rate_limited_models.pop(key, None)
+                        current_limit = self.rate_limited_models.get(key, 0)
+                        if current_limit <= now or current_limit > now + 600:
+                            self.rate_limited_models.pop(key, None)
                 return self.quota_summary
         except Exception as e:
             logger.debug("[%s] retrieveUserQuotaSummary error: %s", self.email, e)
@@ -433,8 +455,9 @@ class AccountSession:
                     "reset_time": None,
                     "window": "unlimited",
                     "description": "Google AI Studio API Key (PayG / Free)",
-                    "5h": {"fraction": 1.0, "percent": 100.0, "reset_time": None, "description": ""},
-                    "weekly": {"fraction": 1.0, "percent": 100.0, "reset_time": None, "description": ""},
+                    "is_rate_limited": self.is_rate_limited("gemini"),
+                    "5h": {"fraction": 1.0, "percent": 100.0, "reset_time": None, "description": "PayG"},
+                    "weekly": {"fraction": 1.0, "percent": 100.0, "reset_time": None, "description": "PayG"},
                 },
                 "3p": {
                     "fraction": 0.0,
@@ -442,29 +465,35 @@ class AccountSession:
                     "reset_time": None,
                     "window": "n/a",
                     "description": "API Key accounts do not support Claude / 3P models",
+                    "is_rate_limited": False,
                     "5h": {"fraction": 0.0, "percent": 0.0, "reset_time": None, "description": ""},
                     "weekly": {"fraction": 0.0, "percent": 0.0, "reset_time": None, "description": ""},
                 },
             }
 
+        is_gemini_limited = self.is_rate_limited("gemini")
+        is_claude_limited = self.is_rate_limited("claude")
+
         res = {
             "gemini": {
-                "fraction": 1.0,
-                "percent": 100.0,
+                "fraction": 0.0 if is_gemini_limited else 1.0,
+                "percent": 0.0 if is_gemini_limited else 100.0,
                 "reset_time": None,
                 "window": "5h",
                 "description": "",
-                "5h": {"fraction": 1.0, "percent": 100.0, "reset_time": None, "description": ""},
-                "weekly": {"fraction": 1.0, "percent": 100.0, "reset_time": None, "description": ""},
+                "is_rate_limited": is_gemini_limited,
+                "5h": {"fraction": 0.0 if is_gemini_limited else 1.0, "percent": 0.0 if is_gemini_limited else 100.0, "reset_time": None, "description": ""},
+                "weekly": {"fraction": 0.0 if is_gemini_limited else 1.0, "percent": 0.0 if is_gemini_limited else 100.0, "reset_time": None, "description": ""},
             },
             "3p": {
-                "fraction": 1.0,
-                "percent": 100.0,
+                "fraction": 0.0 if is_claude_limited else 1.0,
+                "percent": 0.0 if is_claude_limited else 100.0,
                 "reset_time": None,
                 "window": "weekly",
                 "description": "",
-                "5h": {"fraction": 1.0, "percent": 100.0, "reset_time": None, "description": ""},
-                "weekly": {"fraction": 1.0, "percent": 100.0, "reset_time": None, "description": ""},
+                "is_rate_limited": is_claude_limited,
+                "5h": {"fraction": 0.0 if is_claude_limited else 1.0, "percent": 0.0 if is_claude_limited else 100.0, "reset_time": None, "description": ""},
+                "weekly": {"fraction": 0.0 if is_claude_limited else 1.0, "percent": 0.0 if is_claude_limited else 100.0, "reset_time": None, "description": ""},
             },
         }
 
@@ -484,41 +513,42 @@ class AccountSession:
                     elif wid == "weekly" or "weekly" in bid:
                         b_wk = b
 
+                is_limited = self.is_rate_limited("claude" if key == "3p" else "gemini")
+                res[key]["is_rate_limited"] = is_limited
+
                 if b_5h:
                     f_5h = float(b_5h.get("remainingFraction", 1.0))
                     res[key]["5h"] = {
-                        "fraction": f_5h,
-                        "percent": round(f_5h * 100, 1),
+                        "fraction": 0.0 if is_limited else f_5h,
+                        "percent": 0.0 if is_limited else round(f_5h * 100, 1),
                         "reset_time": b_5h.get("resetTime"),
                         "description": b_5h.get("description", ""),
                     }
                 if b_wk:
                     f_wk = float(b_wk.get("remainingFraction", 1.0))
                     res[key]["weekly"] = {
-                        "fraction": f_wk,
-                        "percent": round(f_wk * 100, 1),
+                        "fraction": 0.0 if is_limited else f_wk,
+                        "percent": 0.0 if is_limited else round(f_wk * 100, 1),
                         "reset_time": b_wk.get("resetTime"),
                         "description": b_wk.get("description", ""),
                     }
 
-                # Primary operational bucket selection:
-                # For Gemini: 5h is operational working capacity (short refresh)
-                # For 3P: weekly is the primary bottleneck capacity
+                # Primary operational bottleneck selection:
+                # An account is constrained by whichever active window has the lowest remaining capacity.
                 active_buckets = [b for b in buckets if not b.get("disabled", False)] or buckets
                 if active_buckets:
-                    if key == "gemini":
-                        target = b_5h or b_wk or active_buckets[0]
-                    else:
-                        target = min(active_buckets, key=lambda b: float(b.get("remainingFraction", 1.0)))
+                    target = min(active_buckets, key=lambda b: float(b.get("remainingFraction", 1.0)))
 
                     fraction = float(target.get("remainingFraction", 1.0))
-                    if self.is_rate_limited("claude" if key == "3p" else "gemini"):
+                    if is_limited:
                         fraction = 0.0
+
+                    btn_window = "5h" if target == b_5h else ("weekly" if target == b_wk else str(target.get("window", "5h" if key == "gemini" else "weekly")))
 
                     res[key]["fraction"] = fraction
                     res[key]["percent"] = round(fraction * 100, 1)
                     res[key]["reset_time"] = target.get("resetTime")
-                    res[key]["window"] = target.get("window", "5h" if key == "gemini" else "weekly")
+                    res[key]["window"] = btn_window
                     res[key]["description"] = target.get("description", "")
 
         return res
@@ -599,6 +629,17 @@ class AccountPool:
 
     def load_accounts(self):
         """Loads accounts from ~/.config/agy-proxy/accounts.json as the authoritative source of truth."""
+        # Snapshot existing in-memory stats to preserve across reloads
+        existing_stats = {
+            aid: {
+                "total_requests": getattr(a, "total_requests", 0),
+                "last_used_timestamp": getattr(a, "last_used_timestamp", 0.0),
+                "last_used_model": getattr(a, "last_used_model", None),
+                "last_client_type": getattr(a, "last_client_type", None),
+                "quota_summary": getattr(a, "quota_summary", None),
+            }
+            for aid, a in self.accounts.items()
+        }
         self.accounts.clear()
 
         # 1. Check for legacy migration if ~/.config/agy-proxy/accounts.json does not exist
@@ -610,8 +651,16 @@ class AccountPool:
                         with open(legacy_path, "r", encoding="utf-8") as f:
                             legacy_data = json.load(f)
                         self.accounts_file.parent.mkdir(parents=True, exist_ok=True)
+                        try:
+                            os.chmod(self.accounts_file.parent, 0o700)
+                        except Exception:
+                            pass
                         with open(self.accounts_file, "w", encoding="utf-8") as f:
                             json.dump(legacy_data, f, indent=2)
+                        try:
+                            os.chmod(self.accounts_file, 0o600)
+                        except Exception:
+                            pass
                         break
                     except Exception as e:
                         logger.warning("Failed to migrate legacy accounts file %s: %s", legacy_path, e)
@@ -641,6 +690,14 @@ class AccountPool:
                         enabled=bool(item.get("enabled", True)),
                         on_token_refreshed=self.save_accounts,
                     )
+                    prev = existing_stats.get(acc_id, {})
+                    acc.total_requests = prev.get("total_requests") if prev.get("total_requests") is not None else item.get("total_requests", 0)
+                    acc.last_used_timestamp = prev.get("last_used_timestamp") if prev.get("last_used_timestamp") is not None else item.get("last_used_timestamp", 0.0)
+                    acc.last_used_model = prev.get("last_used_model") or item.get("last_used_model")
+                    acc.last_client_type = prev.get("last_client_type") or item.get("last_client_type")
+                    if prev.get("quota_summary") and not acc.quota_summary:
+                        acc.quota_summary = prev.get("quota_summary")
+
                     self.accounts[acc_id] = acc
                     logger.debug("Loaded account %s (%s, enabled=%s)", acc_id, acc.email, acc.enabled)
             except Exception as e:
@@ -723,6 +780,10 @@ class AccountPool:
         # 2. Save all accounts to ~/.config/agy-proxy/accounts.json
         try:
             self.accounts_file.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                os.chmod(self.accounts_file.parent, 0o700)
+            except Exception:
+                pass
             acc_list = []
             seen_entries = set()
             for acc in self.accounts.values():
@@ -741,9 +802,18 @@ class AccountPool:
                     "auth_method": acc.auth_method,
                     "project_id": acc.project_id,
                     "enabled": acc.enabled,
+                    "is_primary": acc.is_primary,
+                    "total_requests": getattr(acc, "total_requests", 0),
+                    "last_used_timestamp": getattr(acc, "last_used_timestamp", 0.0),
+                    "last_used_model": getattr(acc, "last_used_model", None),
+                    "last_client_type": getattr(acc, "last_client_type", None),
                 })
             with open(self.accounts_file, "w", encoding="utf-8") as f:
                 json.dump({"accounts": acc_list}, f, indent=2)
+            try:
+                os.chmod(self.accounts_file, 0o600)
+            except Exception:
+                pass
         except Exception as e:
             logger.error("Failed to save accounts file: %s", e)
 

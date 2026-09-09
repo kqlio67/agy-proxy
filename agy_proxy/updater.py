@@ -104,6 +104,24 @@ async def check_for_updates(force: bool = False) -> Dict[str, Any]:
     return result
 
 
+async def trigger_git_pull() -> Dict[str, Any]:
+    """Executes git pull to update local repository."""
+    try:
+        proc = subprocess.run(
+            ["git", "pull", "--ff-only"],
+            capture_output=True,
+            text=True,
+            timeout=30.0,
+        )
+        return {
+            "success": proc.returncode == 0,
+            "stdout": proc.stdout.strip(),
+            "stderr": proc.stderr.strip(),
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 async def perform_self_update() -> Dict[str, Any]:
     """
     Intelligently updates Antigravity Proxy:

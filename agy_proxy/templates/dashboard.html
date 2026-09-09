@@ -1196,6 +1196,26 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       }
     }
 
+    function formatResetBadge(isoStr, pct, windowPrefix = '') {
+      if (!isoStr) {
+        return (pct !== undefined && pct >= 99) ? '100% available' : 'Active';
+      }
+      try {
+        const resetDate = new Date(isoStr);
+        const now = new Date();
+        const diffMs = resetDate - now;
+        if (diffMs <= 0) return 'Ready';
+
+        const timeStr = formatResetTime(isoStr);
+        if (pct !== undefined && pct <= 0) {
+          return `⚠️ ${windowPrefix ? windowPrefix + ' in ' : ''}${timeStr}`;
+        }
+        return `${windowPrefix ? windowPrefix + ' in ' : ''}${timeStr}`;
+      } catch (e) {
+        return (pct !== undefined && pct >= 99) ? '100% available' : 'Active';
+      }
+    }
+
     // Floating Toast Notification System
     function showToast(message, type = 'info') {
       const container = document.getElementById('toastContainer');
@@ -1491,24 +1511,34 @@ https://your-tunnel.trycloudflare.com/v1</pre>
 
       rawAccountsData.forEach(acc => {
         const isEnabled = acc.enabled !== false;
+        const isApiKey = acc.auth_method === 'api_key';
         if (isEnabled) totalActive++; else totalPaused++;
         const reqs = acc.total_requests || 0;
         totalReqs += reqs;
 
-        if (acc.auth_method !== 'api_key') {
+        if (!isApiKey) {
           const q = acc.quota_details || {};
           const g = q.gemini ? Math.round(q.gemini.percent ?? (q.gemini.fraction * 100)) : 100;
           const c = (q['3p'] || q.claude) ? Math.round((q['3p']||q.claude).percent ?? ((q['3p']||q.claude).fraction * 100)) : 100;
-          sumGemini += g;
-          countGemini++;
-          sumClaude += c;
-          countClaude++;
-          if (g <= 0 || c <= 0) totalExhausted++;
+          const isRateLimited = Boolean(acc.rate_limited || (acc.rate_limited_models && Object.keys(acc.rate_limited_models).length > 0));
+          const isModelExhausted = (g <= 0 && c <= 0);
+
+          if (isRateLimited || isModelExhausted) {
+            totalExhausted++;
+          }
+
+          if (isEnabled) {
+            sumGemini += g;
+            countGemini++;
+            sumClaude += c;
+            countClaude++;
+          }
         }
       });
 
       const avgGemini = countGemini > 0 ? Math.round(sumGemini / countGemini) : 100;
       const avgClaude = countClaude > 0 ? Math.round(sumClaude / countClaude) : 100;
+      const readyAccounts = Math.max(0, totalActive - totalExhausted);
 
       let html = `
         <!-- Top Analytics KPI Grid -->
@@ -1528,7 +1558,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
               <i class="fa-brands fa-google text-blue-400"></i>
             </div>
             <div class="text-2xl font-bold font-mono ${avgGemini > 50 ? 'text-emerald-400' : (avgGemini > 20 ? 'text-amber-400' : 'text-red-400')}">${avgGemini}%</div>
-            <div class="text-[11px] text-slate-400">5-Hour rolling average</div>
+            <div class="text-[11px] text-slate-400">Active pool capacity</div>
           </div>
 
           <div class="p-5 rounded-2xl bg-dark-card border border-dark-border space-y-1">
@@ -1537,7 +1567,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
               <i class="fa-solid fa-sparkles text-purple-400"></i>
             </div>
             <div class="text-2xl font-bold font-mono ${avgClaude > 50 ? 'text-emerald-400' : (avgClaude > 20 ? 'text-amber-400' : 'text-red-400')}">${avgClaude}%</div>
-            <div class="text-[11px] text-slate-400">Weekly smoothing average</div>
+            <div class="text-[11px] text-slate-400">Active pool capacity</div>
           </div>
 
           <div class="p-5 rounded-2xl bg-dark-card border border-dark-border space-y-1">
@@ -1545,8 +1575,8 @@ https://your-tunnel.trycloudflare.com/v1</pre>
               <span>Pool Availability</span>
               <i class="fa-solid fa-shield-check text-emerald-400"></i>
             </div>
-            <div class="text-2xl font-bold font-mono text-emerald-400">${totalActive} / ${rawAccountsData.length}</div>
-            <div class="text-[11px] text-slate-400">${totalExhausted} rate-limited, ${totalPaused} paused</div>
+            <div class="text-2xl font-bold font-mono text-emerald-400">${readyAccounts} / ${totalActive} Ready</div>
+            <div class="text-[11px] text-slate-400">${totalExhausted} limited, ${totalPaused} paused (${rawAccountsData.length} total)</div>
           </div>
         </div>
 
@@ -1656,59 +1686,101 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       rawAccountsData.forEach(acc => {
         const isApiKey = acc.auth_method === 'api_key';
         if (isApiKey) return;
+        const isEnabled = acc.enabled !== false;
         const qDetails = acc.quota_details || {};
         const geminiQ = qDetails.gemini || { percent: 100, fraction: 1.0 };
         const claudeQ = qDetails['3p'] || qDetails.claude || { percent: 100, fraction: 1.0 };
+
         const geminiPct = Math.round(geminiQ.percent ?? (geminiQ.fraction * 100));
         const claudePct = Math.round(claudeQ.percent ?? (claudeQ.fraction * 100));
-        const geminiReset = formatResetTime(geminiQ.reset_time);
-        const claudeReset = formatResetTime(claudeQ.reset_time);
+
+        const geminiWindow = geminiQ.window || '5h';
+        const claudeWindow = claudeQ.window || 'weekly';
+
+        const gemini5h = geminiQ['5h'];
+        const geminiWk = geminiQ['weekly'];
+        const gemini5hPct = gemini5h ? Math.round(gemini5h.percent ?? (gemini5h.fraction * 100)) : geminiPct;
+        const geminiWkPct = geminiWk ? Math.round(geminiWk.percent ?? (geminiWk.fraction * 100)) : geminiPct;
+
+        const claude5h = claudeQ['5h'];
+        const claudeWk = claudeQ['weekly'];
+        const claude5hPct = claude5h ? Math.round(claude5h.percent ?? (claude5h.fraction * 100)) : claudePct;
+        const claudeWkPct = claudeWk ? Math.round(claudeWk.percent ?? (claudeWk.fraction * 100)) : claudePct;
+
+        const gemini5hReset = gemini5h?.reset_time || (geminiWindow === '5h' ? geminiQ.reset_time : null);
+        const geminiWkReset = geminiWk?.reset_time || (geminiWindow === 'weekly' ? geminiQ.reset_time : null);
+
+        const claude5hReset = claude5h?.reset_time || (claudeWindow === '5h' ? claudeQ.reset_time : null);
+        const claudeWkReset = claudeWk?.reset_time || (claudeWindow === 'weekly' ? claudeQ.reset_time : null);
+
+        const isRateLimited = Boolean(acc.rate_limited || (acc.rate_limited_models && Object.keys(acc.rate_limited_models).length > 0));
+        const isExhausted = (geminiPct <= 0 && claudePct <= 0) || isRateLimited;
 
         html += `
-          <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
+          <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3.5 ${!isEnabled ? 'opacity-60' : ''}">
             <div class="flex items-center justify-between text-xs border-b border-slate-800 pb-2">
               <div class="flex items-center space-x-2 min-w-0">
                 ${renderAvatar(acc, 'w-6 h-6', 'text-[10px]')}
-                <span class="font-bold text-slate-200 truncate">${acc.name || acc.email}</span>
+                <div class="min-w-0">
+                  <div class="font-bold text-slate-200 truncate">${acc.name || acc.email}</div>
+                  <div class="text-[10px] text-slate-500 font-mono truncate">${acc.email}</div>
+                </div>
               </div>
-              <span class="text-[10px] font-mono px-2 py-0.5 rounded-full ${geminiPct > 20 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}">
-                ${geminiPct > 20 ? 'Ready' : 'Depleted'}
-              </span>
+              <div class="flex items-center space-x-1 shrink-0">
+                ${!isEnabled ? '<span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">Paused</span>' : ''}
+                <span class="text-[10px] font-mono px-2 py-0.5 rounded-full ${isExhausted ? 'bg-red-500/10 text-red-400 border border-red-500/20' : (geminiPct > 20 && claudePct > 20 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20')}">
+                  ${isExhausted ? 'Exhausted' : (geminiPct > 20 && claudePct > 20 ? 'Ready' : 'Constrained')}
+                </span>
+              </div>
             </div>
 
-            <!-- Gemini 5h Limit -->
-            <div class="space-y-1">
+            <!-- Gemini Dual Window Quota -->
+            <div class="space-y-1.5">
               <div class="flex justify-between text-xs text-slate-400">
                 <span class="flex items-center space-x-1.5">
                   <i class="fa-brands fa-google text-blue-400 text-[11px]"></i>
-                  <span class="font-medium text-slate-300">Gemini (5h Window)</span>
+                  <span class="font-medium text-slate-300">Gemini</span>
+                  <span class="text-[9px] px-1 py-0.2 rounded bg-slate-800 text-indigo-300 font-mono">${geminiWindow === 'weekly' ? 'Weekly Limit' : '5h Window'}</span>
                 </span>
                 <span class="font-bold font-mono ${geminiPct > 20 ? 'text-slate-200' : 'text-red-400'}">${geminiPct}%</span>
               </div>
-              <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-                <div class="h-full ${geminiPct > 20 ? 'bg-indigo-500' : 'bg-red-500'} rounded-full transition-all" style="width: ${geminiPct}%"></div>
+              <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                <div class="h-full ${geminiPct <= 0 ? 'bg-red-500' : (geminiPct > 30 ? 'bg-indigo-500' : 'bg-amber-500')} rounded-full transition-all" style="width: ${geminiPct}%"></div>
               </div>
-              <div class="flex justify-between text-[10px] text-slate-500 font-mono">
-                <span>5h rolling window</span>
-                <span>${geminiReset ? (geminiPct <= 0 ? '⚠️ ' : '') + '5h in ' + geminiReset : '5h full'}</span>
+              <div class="grid grid-cols-2 gap-2 text-[10px] font-mono text-slate-400 pt-0.5">
+                <div class="bg-slate-950/60 px-2 py-1 rounded border border-slate-800/80 flex justify-between items-center">
+                  <span class="text-slate-500">5h: <b class="${gemini5hPct <= 0 ? 'text-red-400' : 'text-slate-300'}">${gemini5hPct}%</b></span>
+                  <span class="text-[9px] text-slate-400">${formatResetBadge(gemini5hReset, gemini5hPct, '5h')}</span>
+                </div>
+                <div class="bg-slate-950/60 px-2 py-1 rounded border border-slate-800/80 flex justify-between items-center">
+                  <span class="text-slate-500">Wk: <b class="${geminiWkPct <= 0 ? 'text-red-400' : 'text-slate-300'}">${geminiWkPct}%</b></span>
+                  <span class="text-[9px] text-slate-400">${formatResetBadge(geminiWkReset, geminiWkPct, 'Wk')}</span>
+                </div>
               </div>
             </div>
 
-            <!-- Claude & GPT 3P Limit -->
-            <div class="space-y-1 pt-1">
+            <!-- Claude & GPT 3P Dual Window Quota -->
+            <div class="space-y-1.5 pt-1">
               <div class="flex justify-between text-xs text-slate-400">
                 <span class="flex items-center space-x-1.5">
                   <i class="fa-solid fa-sparkles text-purple-400 text-[11px]"></i>
-                  <span class="font-medium text-slate-300">Claude & GPT (Weekly Cap)</span>
+                  <span class="font-medium text-slate-300">Claude & GPT</span>
+                  <span class="text-[9px] px-1 py-0.2 rounded bg-slate-800 text-purple-300 font-mono">${claudeWindow === '5h' ? '5h Window' : 'Weekly Cap'}</span>
                 </span>
                 <span class="font-bold font-mono ${claudePct > 20 ? 'text-slate-200' : 'text-red-400'}">${claudePct}%</span>
               </div>
-              <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-                <div class="h-full ${claudePct > 20 ? 'bg-purple-500' : 'bg-red-500'} rounded-full transition-all" style="width: ${claudePct}%"></div>
+              <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                <div class="h-full ${claudePct <= 0 ? 'bg-red-500' : (claudePct > 30 ? 'bg-purple-500' : 'bg-amber-500')} rounded-full transition-all" style="width: ${claudePct}%"></div>
               </div>
-              <div class="flex justify-between text-[10px] text-slate-500 font-mono">
-                <span>Weekly allowance</span>
-                <span>${claudeReset ? (claudePct <= 0 ? '⚠️ ' : '') + 'Wk in ' + claudeReset : 'Wk full'}</span>
+              <div class="grid grid-cols-2 gap-2 text-[10px] font-mono text-slate-400 pt-0.5">
+                <div class="bg-slate-950/60 px-2 py-1 rounded border border-slate-800/80 flex justify-between items-center">
+                  <span class="text-slate-500">5h: <b class="${claude5hPct <= 0 ? 'text-red-400' : 'text-slate-300'}">${claude5hPct}%</b></span>
+                  <span class="text-[9px] text-slate-400">${formatResetBadge(claude5hReset, claude5hPct, '5h')}</span>
+                </div>
+                <div class="bg-slate-950/60 px-2 py-1 rounded border border-slate-800/80 flex justify-between items-center">
+                  <span class="text-slate-500">Wk: <b class="${claudeWkPct <= 0 ? 'text-red-400' : 'text-slate-300'}">${claudeWkPct}%</b></span>
+                  <span class="text-[9px] text-slate-400">${formatResetBadge(claudeWkReset, claudeWkPct, 'Wk')}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -1739,6 +1811,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       let oauthWithQuotaCount = 0;
 
       rawAccountsData.forEach(acc => {
+        const isEnabled = acc.enabled !== false;
         const isApiKey = acc.auth_method === 'api_key';
         totalRequests += (acc.total_requests || 0);
 
@@ -1752,12 +1825,15 @@ https://your-tunnel.trycloudflare.com/v1</pre>
           totalApiKey++;
         } else {
           totalOAuth++;
-          sumGeminiPct += geminiPct;
-          sumClaudePct += claudePct;
-          oauthWithQuotaCount++;
+          if (isEnabled) {
+            sumGeminiPct += geminiPct;
+            sumClaudePct += claudePct;
+            oauthWithQuotaCount++;
+          }
         }
 
-        if (!isApiKey && (geminiPct <= 0 || claudePct <= 0)) {
+        const isRateLimited = Boolean(acc.rate_limited || (acc.rate_limited_models && Object.keys(acc.rate_limited_models).length > 0));
+        if (!isApiKey && (isRateLimited || (geminiPct <= 0 && claudePct <= 0))) {
           totalExhausted++;
         }
       });
@@ -1859,12 +1935,23 @@ https://your-tunnel.trycloudflare.com/v1</pre>
           const claudeQ = qDetails['3p'] || qDetails.claude || { percent: 100, fraction: 1.0 };
           const geminiPct = Math.round(geminiQ.percent ?? (geminiQ.fraction * 100));
           const claudePct = Math.round(claudeQ.percent ?? (claudeQ.fraction * 100));
-          const geminiReset = formatResetTime(geminiQ.reset_time);
-          const claudeReset = formatResetTime(claudeQ.reset_time);
+
+          const geminiWindow = geminiQ.window || '5h';
+          const claudeWindow = claudeQ.window || 'weekly';
+
           const geminiWk = geminiQ['weekly'];
+          const gemini5h = geminiQ['5h'];
           const claude5h = claudeQ['5h'];
-          const geminiWkPct = geminiWk ? Math.round(geminiWk.percent ?? (geminiWk.fraction * 100)) : null;
-          const claude5hPct = claude5h ? Math.round(claude5h.percent ?? (claude5h.fraction * 100)) : null;
+          const claudeWk = claudeQ['weekly'];
+
+          const gemini5hPct = gemini5h ? Math.round(gemini5h.percent ?? (gemini5h.fraction * 100)) : geminiPct;
+          const geminiWkPct = geminiWk ? Math.round(geminiWk.percent ?? (geminiWk.fraction * 100)) : geminiPct;
+          const claude5hPct = claude5h ? Math.round(claude5h.percent ?? (claude5h.fraction * 100)) : claudePct;
+          const claudeWkPct = claudeWk ? Math.round(claudeWk.percent ?? (claudeWk.fraction * 100)) : claudePct;
+
+          const geminiResetBadge = formatResetBadge(geminiQ.reset_time, geminiPct, geminiWindow === 'weekly' ? 'Wk' : '5h');
+          const claudeResetBadge = formatResetBadge(claudeQ.reset_time, claudePct, claudeWindow === '5h' ? '5h' : 'Wk');
+
           const geminiIsExhausted = geminiPct <= 0 || (acc.rate_limited_models && acc.rate_limited_models.gemini !== undefined);
           const claudeIsExhausted = claudePct <= 0 || (acc.rate_limited_models && acc.rate_limited_models['3p'] !== undefined);
 
@@ -1899,7 +1986,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
                     <div class="flex justify-between text-[11px] items-center">
                       <span class="text-slate-400 font-medium flex items-center gap-1">
                         <span>Gemini</span>
-                        <span class="text-[9px] px-1 py-0.2 rounded bg-slate-800 text-indigo-300 font-mono">5h</span>
+                        <span class="text-[9px] px-1 py-0.2 rounded bg-slate-800 text-indigo-300 font-mono">${geminiWindow === 'weekly' ? 'Wk' : '5h'}</span>
                       </span>
                       <span class="font-bold font-mono ${geminiIsExhausted ? 'text-red-400 font-bold' : 'text-slate-200'}">${geminiPct}%</span>
                     </div>
@@ -1908,8 +1995,8 @@ https://your-tunnel.trycloudflare.com/v1</pre>
                     </div>
                   </div>
                   <div class="text-[10px] flex justify-between items-center text-slate-500">
-                    <span class="font-mono text-[9px] text-slate-400" title="Weekly limit">${geminiWkPct !== null ? 'Wk: ' + geminiWkPct + '%' : ''}</span>
-                    <span class="${geminiIsExhausted ? 'text-red-400 font-semibold' : 'text-slate-400'}" title="5-hour window reset">${geminiReset ? (geminiIsExhausted ? '⚠️ ' : '') + '5h in ' + geminiReset : '5h full'}</span>
+                    <span class="font-mono text-[9px] text-slate-400" title="${geminiWindow === 'weekly' ? '5-hour window' : 'Weekly limit'}">${geminiWindow === 'weekly' ? '5h: ' + gemini5hPct + '%' : 'Wk: ' + geminiWkPct + '%'}</span>
+                    <span class="${geminiIsExhausted ? 'text-red-400 font-semibold' : 'text-slate-400'}">${geminiResetBadge}</span>
                   </div>
                 </div>
 
@@ -1918,7 +2005,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
                     <div class="flex justify-between text-[11px] items-center">
                       <span class="text-slate-400 font-medium flex items-center gap-1">
                         <span>Claude & GPT</span>
-                        <span class="text-[9px] px-1 py-0.2 rounded bg-slate-800 text-purple-300 font-mono">Wk</span>
+                        <span class="text-[9px] px-1 py-0.2 rounded bg-slate-800 text-purple-300 font-mono">${claudeWindow === '5h' ? '5h' : 'Wk'}</span>
                       </span>
                       <span class="font-bold font-mono ${claudeIsExhausted ? 'text-red-400 font-bold' : 'text-slate-200'}">${claudePct}%</span>
                     </div>
@@ -1927,8 +2014,8 @@ https://your-tunnel.trycloudflare.com/v1</pre>
                     </div>
                   </div>
                   <div class="text-[10px] flex justify-between items-center text-slate-500">
-                    <span class="font-mono text-[9px] text-slate-400" title="5-hour smoothing window">${claude5hPct !== null ? '5h: ' + claude5hPct + '%' : ''}</span>
-                    <span class="${claudeIsExhausted ? 'text-red-400 font-semibold' : 'text-slate-400'}" title="Weekly cap reset">${claudeReset ? (claudeIsExhausted ? '⚠️ ' : '') + 'Wk in ' + claudeReset : 'Wk full'}</span>
+                    <span class="font-mono text-[9px] text-slate-400" title="${claudeWindow === '5h' ? 'Weekly cap' : '5-hour smoothing window'}">${claudeWindow === '5h' ? 'Wk: ' + claudeWkPct + '%' : '5h: ' + claude5hPct + '%'}</span>
+                    <span class="${claudeIsExhausted ? 'text-red-400 font-semibold' : 'text-slate-400'}">${claudeResetBadge}</span>
                   </div>
                 </div>
               </div>
@@ -2007,12 +2094,23 @@ https://your-tunnel.trycloudflare.com/v1</pre>
           const claudeQ = qDetails['3p'] || qDetails.claude || { percent: 100, fraction: 1.0 };
           const geminiPct = Math.round(geminiQ.percent ?? (geminiQ.fraction * 100));
           const claudePct = Math.round(claudeQ.percent ?? (claudeQ.fraction * 100));
-          const geminiReset = formatResetTime(geminiQ.reset_time);
-          const claudeReset = formatResetTime(claudeQ.reset_time);
+
+          const geminiWindow = geminiQ.window || '5h';
+          const claudeWindow = claudeQ.window || 'weekly';
+
           const geminiWk = geminiQ['weekly'];
+          const gemini5h = geminiQ['5h'];
           const claude5h = claudeQ['5h'];
-          const geminiWkPct = geminiWk ? Math.round(geminiWk.percent ?? (geminiWk.fraction * 100)) : null;
-          const claude5hPct = claude5h ? Math.round(claude5h.percent ?? (claude5h.fraction * 100)) : null;
+          const claudeWk = claudeQ['weekly'];
+
+          const gemini5hPct = gemini5h ? Math.round(gemini5h.percent ?? (gemini5h.fraction * 100)) : geminiPct;
+          const geminiWkPct = geminiWk ? Math.round(geminiWk.percent ?? (geminiWk.fraction * 100)) : geminiPct;
+          const claude5hPct = claude5h ? Math.round(claude5h.percent ?? (claude5h.fraction * 100)) : claudePct;
+          const claudeWkPct = claudeWk ? Math.round(claudeWk.percent ?? (claudeWk.fraction * 100)) : claudePct;
+
+          const geminiResetBadge = formatResetBadge(geminiQ.reset_time, geminiPct, geminiWindow === 'weekly' ? 'Wk' : '5h');
+          const claudeResetBadge = formatResetBadge(claudeQ.reset_time, claudePct, claudeWindow === '5h' ? '5h' : 'Wk');
+
           const geminiIsExhausted = geminiPct <= 0 || (acc.rate_limited_models && acc.rate_limited_models.gemini !== undefined);
           const claudeIsExhausted = claudePct <= 0 || (acc.rate_limited_models && acc.rate_limited_models['3p'] !== undefined);
 
@@ -2025,8 +2123,8 @@ https://your-tunnel.trycloudflare.com/v1</pre>
                     <div class="font-bold text-white flex items-center space-x-1.5">
                       <span class="truncate max-w-[180px]" title="${acc.name || acc.email}">${acc.name || acc.email}</span>
                       <button onclick="openRenameModal('${acc.account_id}', '${(acc.name || acc.email).replace(/'/g, "\'")}')" class="text-slate-500 hover:text-indigo-400 transition" title="Rename"><i class="fa-solid fa-pen-to-square text-[10px]"></i></button>
-                      ${acc.is_primary 
-                        ? '<span class="text-[9px] px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30"><i class="fa-solid fa-star text-amber-400 mr-1 text-[8px]"></i>Primary</span>' 
+                      ${acc.is_primary
+                        ? '<span class="text-[9px] px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30"><i class="fa-solid fa-star text-amber-400 mr-1 text-[8px]"></i>Primary</span>'
                         : `<button onclick="setPrimaryAccount('${acc.account_id}')" class="text-[9px] px-1.5 py-0.2 rounded bg-slate-800 hover:bg-indigo-600 text-slate-400 hover:text-white border border-slate-700 transition" title="Set as primary"><i class="fa-regular fa-star mr-1 text-[8px]"></i>Set Primary</button>`}
                     </div>
                     <div class="text-[11px] text-slate-300 font-mono truncate max-w-[220px] flex items-center space-x-1 mt-0.5" title="${acc.email}">
@@ -2051,8 +2149,8 @@ https://your-tunnel.trycloudflare.com/v1</pre>
                 ${isApiKey ? '<span class="text-emerald-400 font-semibold text-[11px]">PayG Active</span>' : `
                   <div>
                     <div class="flex justify-between items-center text-[10px] mb-1">
-                      <span class="font-bold ${geminiIsExhausted ? 'text-red-400' : 'text-slate-300'}">${geminiPct}% <span class="text-[9px] text-slate-500 font-normal">(5h)</span></span>
-                      <span class="text-[9px] text-slate-400">${geminiWkPct !== null ? 'Wk: ' + geminiWkPct + '%' : ''} · ${geminiReset ? (geminiIsExhausted ? '⚠️ ' : '') + '5h in ' + geminiReset : '5h full'}</span>
+                      <span class="font-bold ${geminiIsExhausted ? 'text-red-400' : 'text-slate-300'}">${geminiPct}% <span class="text-[9px] text-slate-500 font-normal">(${geminiWindow === 'weekly' ? 'Wk' : '5h'})</span></span>
+                      <span class="text-[9px] text-slate-400">${geminiWindow === 'weekly' ? '5h: ' + gemini5hPct + '%' : 'Wk: ' + geminiWkPct + '%'} · ${geminiResetBadge}</span>
                     </div>
                     <div class="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
                       <div class="h-full ${geminiIsExhausted ? 'bg-red-500' : (geminiPct > 30 ? 'bg-indigo-500' : 'bg-amber-500')}" style="width: ${geminiPct}%"></div>
@@ -2065,8 +2163,8 @@ https://your-tunnel.trycloudflare.com/v1</pre>
                 ${isApiKey ? '<span class="text-slate-500 text-[11px]">—</span>' : `
                   <div>
                     <div class="flex justify-between items-center text-[10px] mb-1">
-                      <span class="font-bold ${claudeIsExhausted ? 'text-red-400' : 'text-slate-300'}">${claudePct}% <span class="text-[9px] text-slate-500 font-normal">(Wk)</span></span>
-                      <span class="text-[9px] text-slate-400">${claude5hPct !== null ? '5h: ' + claude5hPct + '%' : ''} · ${claudeReset ? (claudeIsExhausted ? '⚠️ ' : '') + 'Wk in ' + claudeReset : 'Wk full'}</span>
+                      <span class="font-bold ${claudeIsExhausted ? 'text-red-400' : 'text-slate-300'}">${claudePct}% <span class="text-[9px] text-slate-500 font-normal">(${claudeWindow === '5h' ? '5h' : 'Wk'})</span></span>
+                      <span class="text-[9px] text-slate-400">${claudeWindow === '5h' ? 'Wk: ' + claudeWkPct + '%' : '5h: ' + claude5hPct + '%'} · ${claudeResetBadge}</span>
                     </div>
                     <div class="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
                       <div class="h-full ${claudeIsExhausted ? 'bg-red-500' : (claudePct > 30 ? 'bg-purple-500' : 'bg-amber-500')}" style="width: ${claudePct}%"></div>

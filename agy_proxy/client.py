@@ -36,28 +36,28 @@ logger = logging.getLogger("agy_proxy.client")
 
 def extract_web_search_query(req: AnthropicRequest) -> Optional[Tuple[str, List[str], List[str]]]:
     """
-    Detects if request is a Claude Code WebSearch tool invocation and extracts query & domain constraints.
+    Detects if request is an explicit Claude Code WebSearch tool invocation and extracts query & domain constraints.
+    Only intercepts if tool_choice is specifically set to web_search or the message contains an explicit search prompt pattern.
     """
-    is_search = False
+    is_explicit_choice = False
     allowed: List[str] = []
     blocked: List[str] = []
 
     if req.tool_choice:
         tc = req.tool_choice if isinstance(req.tool_choice, dict) else {"name": str(req.tool_choice)}
-        if tc.get("name") == "web_search":
-            is_search = True
+        if tc.get("name") in ("web_search", "web_fetch", "search"):
+            is_explicit_choice = True
 
     if req.tools:
         for t in req.tools:
             if isinstance(t, dict):
                 t_name = t.get("name", "")
                 t_type = t.get("type", "")
-                if t_name == "web_search" or t_type == "web_search_20250305":
-                    is_search = True
+                if t_name in ("web_search", "web_fetch", "search") or t_type == "web_search_20250305":
                     allowed = t.get("allowed_domains", []) or []
                     blocked = t.get("blocked_domains", []) or []
 
-    # Check messages for query
+    # Check messages for explicit search query pattern or tool choice
     if req.messages:
         last_msg = req.messages[-1]
         msg_dict = last_msg.model_dump() if hasattr(last_msg, "model_dump") else (last_msg.dict() if hasattr(last_msg, "dict") else (last_msg if isinstance(last_msg, dict) else {}))
@@ -66,7 +66,7 @@ def extract_web_search_query(req: AnthropicRequest) -> Optional[Tuple[str, List[
             m = re.search(r"Perform a web search for the query:\s*(.+)", content, re.IGNORECASE)
             if m:
                 return m.group(1).strip(), allowed, blocked
-            if is_search and content.strip():
+            if is_explicit_choice and content.strip():
                 return content.strip(), allowed, blocked
         elif isinstance(content, list):
             for b in content:
@@ -76,10 +76,10 @@ def extract_web_search_query(req: AnthropicRequest) -> Optional[Tuple[str, List[
                     m = re.search(r"Perform a web search for the query:\s*(.+)", txt, re.IGNORECASE)
                     if m:
                         return m.group(1).strip(), allowed, blocked
-                    if is_search and txt.strip():
+                    if is_explicit_choice and txt.strip():
                         return txt.strip(), allowed, blocked
 
-    if is_search:
+    if is_explicit_choice:
         return "search", allowed, blocked
 
     return None

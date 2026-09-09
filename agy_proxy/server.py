@@ -7,6 +7,9 @@ Multi-Account Pool Management, and Web UI Dashboard.
 import asyncio
 import json
 import logging
+import os
+import random
+import re
 import time
 from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Optional
@@ -52,8 +55,16 @@ def create_app(
     auth_manager: Optional[AuthManager] = None,
     account_pool: Optional[AccountPool] = None,
     api_key: Optional[str] = None,
+    allowed_origins: Optional[List[str]] = None,
 ) -> FastAPI:
     """Creates and configures the FastAPI application."""
+
+    effective_api_key = (
+        api_key
+        or os.environ.get("AGY_PROXY_API_KEY")
+        or os.environ.get("PROXY_API_KEY")
+        or os.environ.get("API_KEY")
+    )
 
     if account_pool:
         pool = account_pool
@@ -76,13 +87,18 @@ def create_app(
         except Exception as e:
             logger.warning("Startup initialization warning: %s", e)
 
-        # Background task for periodic quota refresh every 60s
+        # Background task for periodic quota refresh with randomized jitter (45-75s)
         bg_refresh_task = None
         async def _periodic_quota_refresh():
             while True:
                 try:
-                    await asyncio.sleep(60)
-                    await pool.refresh_all_quotas(min_interval=45.0)
+                    jitter_sleep = random.uniform(45.0, 75.0)
+                    await asyncio.sleep(jitter_sleep)
+                    await pool.refresh_all_quotas(min_interval=40.0)
+                    try:
+                        pool.save_accounts()
+                    except Exception:
+                        pass
                 except asyncio.CancelledError:
                     break
                 except Exception as e:
@@ -92,6 +108,10 @@ def create_app(
 
         yield
         # Shutdown
+        try:
+            pool.save_accounts()
+        except Exception:
+            pass
         if bg_refresh_task:
             bg_refresh_task.cancel()
             try:
@@ -109,25 +129,55 @@ def create_app(
         lifespan=lifespan,
     )
 
-    # Enable CORS for all origins
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    # Secure CORS configuration
+    env_origins = os.environ.get("AGY_PROXY_ALLOWED_ORIGINS") or os.environ.get("CORS_ORIGINS")
+    origins_to_allow = allowed_origins
+    if origins_to_allow is None and env_origins:
+        origins_to_allow = [o.strip() for o in env_origins.split(",") if o.strip()]
+
+    if origins_to_allow and "*" in origins_to_allow:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_credentials=False,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+    elif origins_to_allow:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=origins_to_allow,
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+    else:
+        # Default: securely allow localhost and local development origins
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=[
+                "http://localhost",
+                "http://127.0.0.1",
+                "http://[::1]",
+            ],
+            allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$",
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
 
     def verify_api_key(authorization: Optional[str] = Header(None), x_api_key: Optional[str] = Header(None)):
-        if not api_key:
+        if not effective_api_key:
             return
         token = None
         if authorization and authorization.startswith("Bearer "):
             token = authorization[7:].strip()
+        elif authorization:
+            token = authorization.strip()
         elif x_api_key:
             token = x_api_key.strip()
 
-        if token != api_key:
+        if token != effective_api_key:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid or missing API key.",
@@ -200,6 +250,10 @@ def create_app(
     @app.post("/web-search")
     async def handle_web_search_route(request: Request):
         """Direct web search endpoint for Claude Code CCR proxy mode."""
+        verify_api_key(
+            authorization=request.headers.get("Authorization"),
+            x_api_key=request.headers.get("x-api-key"),
+        )
         try:
             from agy_proxy.search import search_multi_engine
             body = await request.json()
@@ -231,6 +285,10 @@ def create_app(
     @app.post("/v1/messages/count_tokens")
     @app.post("/messages/count_tokens")
     async def count_tokens(request: Request):
+        verify_api_key(
+            authorization=request.headers.get("Authorization"),
+            x_api_key=request.headers.get("x-api-key"),
+        )
         body: Dict[str, Any] = {}
         try:
             body = await request.json()
@@ -281,6 +339,10 @@ def create_app(
     @app.api_route("/api/fetch-url", methods=["GET", "POST"])
     async def fetch_url_endpoint(request: Request):
         """Fetches web page content using Google's native crawler (Trawler / Googlebot)."""
+        verify_api_key(
+            authorization=request.headers.get("Authorization"),
+            x_api_key=request.headers.get("x-api-key"),
+        )
         url = ""
         if request.method == "GET":
             url = request.query_params.get("url", "")
@@ -520,7 +582,11 @@ def create_app(
     # -------------------------------------------------------------------------
 
     @app.get("/v1/models")
-    async def list_openai_models():
+    async def list_openai_models(request: Request):
+        verify_api_key(
+            authorization=request.headers.get("Authorization"),
+            x_api_key=request.headers.get("x-api-key"),
+        )
         models_dict = await pool.get_pool_models() if pool.accounts else {}
         if not models_dict:
             models_dict = {
@@ -565,7 +631,11 @@ def create_app(
         return ModelListResponse(data=model_cards)
 
     @app.get("/v1/models/{model_id}")
-    async def get_openai_model(model_id: str):
+    async def get_openai_model(model_id: str, request: Request):
+        verify_api_key(
+            authorization=request.headers.get("Authorization"),
+            x_api_key=request.headers.get("x-api-key"),
+        )
         normalized = normalize_model_name(model_id)
         models_dict = {}
         if pool.accounts:

@@ -20,6 +20,11 @@ accounts.json
 antigravity-oauth-token
 *.log
 
+# Testing & Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
 # IDE & OS
 .vscode/
 .idea/

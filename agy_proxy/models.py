@@ -5,7 +5,7 @@ Data models and schemas for OpenAI, Anthropic, and Gemini API requests and respo
 import time
 import uuid
 from typing import Any, Dict, List, Optional, Union
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # ---------------------------------------------------------
@@ -229,9 +229,7 @@ class OpenAIChatRequest(BaseModel):
     thinking: Optional[Dict[str, Any]] = None
     reasoning_effort: Optional[str] = None
     stream_options: Optional[Dict[str, Any]] = None
-
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class ModelCard(BaseModel):
@@ -257,12 +255,16 @@ class ModelListResponse(BaseModel):
 class AnthropicContentBlock(BaseModel):
     type: str
     text: Optional[str] = None
+    thinking: Optional[str] = None
+    signature: Optional[str] = None
     source: Optional[Dict[str, Any]] = None
     id: Optional[str] = None
     name: Optional[str] = None
     input: Optional[Dict[str, Any]] = None
     tool_use_id: Optional[str] = None
     content: Optional[Union[str, List[Dict[str, Any]]]] = None
+    is_error: Optional[bool] = None
+    model_config = ConfigDict(extra="allow")
 
 
 class AnthropicMessage(BaseModel):
@@ -281,6 +283,4 @@ class AnthropicRequest(BaseModel):
     thinking: Optional[Dict[str, Any]] = None
     tools: Optional[List[Dict[str, Any]]] = None
     tool_choice: Optional[Union[str, Dict[str, Any]]] = None
-
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
