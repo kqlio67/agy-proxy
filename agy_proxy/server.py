@@ -166,8 +166,12 @@ def create_app(
 
     @app.api_route("/api/hello", methods=["GET", "HEAD"])
     @app.api_route("/hello", methods=["GET", "HEAD"])
+    @app.api_route("/v1/hello", methods=["GET", "HEAD"])
+    @app.api_route("/v1/api/hello", methods=["GET", "HEAD"])
+    @app.api_route("/v1/oauth/hello", methods=["GET", "HEAD"])
+    @app.api_route("/oauth/hello", methods=["GET", "HEAD"])
     async def claude_code_hello():
-        return {"status": "ok", "message": "hello from antigravity proxy"}
+        return {"message": "hello"}
 
     @app.get("/api/claude_cli/bootstrap")
     async def claude_cli_bootstrap():

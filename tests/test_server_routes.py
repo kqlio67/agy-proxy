@@ -30,10 +30,11 @@ class TestServerRoutes(unittest.IsolatedAsyncioTestCase):
         self.assertIn("<!DOCTYPE html>", resp.text)
 
     async def test_hello_endpoint(self):
-        resp = await self.client.get("/api/hello")
-        self.assertEqual(resp.status_code, 200)
-        data = resp.json()
-        self.assertEqual(data["status"], "ok")
+        for path in ["/api/hello", "/hello", "/v1/hello", "/v1/api/hello", "/v1/oauth/hello", "/oauth/hello"]:
+            resp = await self.client.get(path)
+            self.assertEqual(resp.status_code, 200, f"Failed on {path}")
+            data = resp.json()
+            self.assertEqual(data, {"message": "hello"}, f"Failed payload on {path}")
 
     async def test_claude_cli_bootstrap(self):
         resp = await self.client.get("/api/claude_cli/bootstrap")
