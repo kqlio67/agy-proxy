@@ -1,0 +1,276 @@
+"""
+Unit tests for Antigravity OAuth token parsing, expiry handling, and AccountPool syncing.
+"""
+
+import json
+import os
+import tempfile
+import time
+import unittest
+from datetime import datetime, timezone
+from pathlib import Path
+
+from agy_proxy.auth import (
+    AccountPool,
+    AccountSession,
+    AuthManager,
+    _parse_expiry,
+    get_candidate_token_files,
+    is_candidate_token_file,
+    parse_antigravity_token_file,
+    parse_token_dict,
+)
+
+
+class TestTokenParsing(unittest.TestCase):
+    def test_parse_expiry_iso_nanoseconds_go(self):
+        # Go RFC3339 format with nanoseconds
+        val = "2026-09-10T22:34:56.789123456Z"
+        ts = _parse_expiry(val)
+        self.assertGreater(ts, 1700000000.0)
+        dt = datetime.fromtimestamp(ts, timezone.utc)
+        self.assertEqual(dt.year, 2026)
+        self.assertEqual(dt.month, 9)
+        self.assertEqual(dt.hour, 22)
+        self.assertEqual(dt.minute, 34)
+        self.assertEqual(dt.second, 56)
+
+    def test_parse_expiry_iso_standard(self):
+        val = "2026-09-10T22:34:56Z"
+        ts = _parse_expiry(val)
+        self.assertGreater(ts, 1700000000.0)
+        dt = datetime.fromtimestamp(ts, timezone.utc)
+        self.assertEqual(dt.year, 2026)
+
+    def test_parse_expiry_iso_with_tz_offset(self):
+        val = "2026-09-10T22:34:56+03:00"
+        ts = _parse_expiry(val)
+        self.assertGreater(ts, 1700000000.0)
+
+    def test_parse_expiry_go_zero_time(self):
+        val = "0001-01-01T00:00:00Z"
+        ts = _parse_expiry(val)
+        self.assertEqual(ts, 0.0)
+
+    def test_parse_expiry_numeric_epoch(self):
+        # Seconds
+        ts = _parse_expiry(1757538000)
+        self.assertEqual(ts, 1757538000.0)
+
+        # Milliseconds
+        ts_ms = _parse_expiry(1757538000000)
+        self.assertEqual(ts_ms, 1757538000.0)
+
+    def test_parse_expiry_relative_seconds(self):
+        # 3600 relative seconds from fixed mtime
+        fixed_mtime = 1700000000.0
+        ts = _parse_expiry(3600, mtime=fixed_mtime)
+        self.assertEqual(ts, 1700003600.0)
+
+    def test_parse_expiry_invalid_or_empty(self):
+        self.assertEqual(_parse_expiry(None), 0.0)
+        self.assertEqual(_parse_expiry(""), 0.0)
+        self.assertEqual(_parse_expiry("not-a-date"), 0.0)
+
+    def test_parse_token_dict_standard_go(self):
+        data = {
+            "access_token": "ya29.test-access-token",
+            "token_type": "Bearer",
+            "refresh_token": "1//04test-refresh-token",
+            "expiry": "2026-09-10T22:34:56.789123456Z",
+        }
+        res = parse_token_dict(data)
+        self.assertIsNotNone(res)
+        self.assertEqual(res["access_token"], "ya29.test-access-token")
+        self.assertEqual(res["refresh_token"], "1//04test-refresh-token")
+        self.assertGreater(res["expiry_timestamp"], 1700000000.0)
+        self.assertEqual(res["auth_method"], "consumer")
+
+    def test_parse_token_dict_nested_with_metadata(self):
+        data = {
+            "token": {
+                "access_token": "ya29.nested-access",
+                "refresh_token": "1//nested-refresh",
+                "expiry": "2026-09-10T22:00:00Z",
+            },
+            "email": "developer@example.com",
+            "name": "Dev User",
+            "cloudaicompanionProject": "project-override-123",
+            "auth_method": "consumer",
+        }
+        res = parse_token_dict(data)
+        self.assertIsNotNone(res)
+        self.assertEqual(res["access_token"], "ya29.nested-access")
+        self.assertEqual(res["refresh_token"], "1//nested-refresh")
+        self.assertEqual(res["email"], "developer@example.com")
+        self.assertEqual(res["name"], "Dev User")
+        self.assertEqual(res["project_id"], "project-override-123")
+
+    def test_parse_token_dict_camelcase(self):
+        data = {
+            "accessToken": "ya29.camel-access",
+            "refreshToken": "1//camel-refresh",
+            "expiresIn": 1800,
+            "userEmail": "camel@example.com",
+            "projectId": "camel-proj-456",
+        }
+        res = parse_token_dict(data, mtime=1700000000.0)
+        self.assertIsNotNone(res)
+        self.assertEqual(res["access_token"], "ya29.camel-access")
+        self.assertEqual(res["refresh_token"], "1//camel-refresh")
+        self.assertEqual(res["expiry_timestamp"], 1700001800.0)
+        self.assertEqual(res["email"], "camel@example.com")
+        self.assertEqual(res["project_id"], "camel-proj-456")
+
+    def test_parse_token_dict_list(self):
+        data = [
+            {
+                "access_token": "ya29.list-access",
+                "refresh_token": "1//list-refresh",
+            }
+        ]
+        res = parse_token_dict(data)
+        self.assertIsNotNone(res)
+        self.assertEqual(res["access_token"], "ya29.list-access")
+        self.assertEqual(res["refresh_token"], "1//list-refresh")
+
+    def test_parse_token_dict_invalid(self):
+        self.assertIsNone(parse_token_dict({}))
+        self.assertIsNone(parse_token_dict("not-a-dict"))
+        self.assertIsNone(parse_token_dict(None))
+
+    def test_parse_antigravity_token_file(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump({
+                "access_token": "ya29.file-token",
+                "refresh_token": "1//file-refresh",
+                "expiry": "2026-09-10T22:34:56Z",
+            }, f)
+            tmp_path = Path(f.name)
+
+        try:
+            res = parse_antigravity_token_file(tmp_path)
+            self.assertIsNotNone(res)
+            self.assertEqual(res["access_token"], "ya29.file-token")
+            self.assertEqual(res["refresh_token"], "1//file-refresh")
+            self.assertGreater(res["expiry_timestamp"], 1700000000.0)
+        finally:
+            if tmp_path.exists():
+                tmp_path.unlink()
+
+
+class TestCandidateTokenFiles(unittest.TestCase):
+    def test_get_candidate_token_files(self):
+        files = get_candidate_token_files()
+        self.assertIsInstance(files, list)
+        self.assertGreater(len(files), 0)
+        for p in files:
+            self.assertIsInstance(p, Path)
+
+    def test_is_candidate_token_file(self):
+        candidates = get_candidate_token_files()
+        self.assertTrue(is_candidate_token_file(candidates[0]))
+        self.assertFalse(is_candidate_token_file(Path("/some/random/path/token.json")))
+        self.assertFalse(is_candidate_token_file(None))
+
+
+class TestAccountPoolTokenSync(unittest.TestCase):
+    def setUp(self):
+        self.tmp_dir = tempfile.TemporaryDirectory()
+        self.accounts_file = Path(self.tmp_dir.name) / "accounts.json"
+
+    def tearDown(self):
+        self.tmp_dir.cleanup()
+
+    def test_load_accounts_from_custom_token_file(self):
+        token_path = Path(self.tmp_dir.name) / "antigravity-oauth-token"
+        token_path.write_text(json.dumps({
+            "access_token": "ya29.initial-access",
+            "refresh_token": "1//initial-refresh",
+            "expiry": "2026-09-10T22:34:56Z",
+            "email": "user@example.com",
+            "cloudaicompanionProject": "proj-xyz",
+        }))
+
+        pool = AccountPool(token_path=token_path, accounts_file=self.accounts_file)
+        pool.load_accounts()
+
+        self.assertEqual(len(pool.accounts), 1)
+        acc = next(iter(pool.accounts.values()))
+        self.assertEqual(acc.refresh_token, "1//initial-refresh")
+        self.assertEqual(acc.access_token, "ya29.initial-access")
+        self.assertGreater(acc.expiry_timestamp, 1700000000.0)
+        self.assertEqual(acc.email, "user@example.com")
+        self.assertEqual(acc.project_id, "proj-xyz")
+        self.assertTrue(acc.is_primary)
+
+    def test_explicit_token_path_sync_with_existing_accounts(self):
+        # 1. First save an existing account to accounts.json
+        self.accounts_file.write_text(json.dumps({
+            "accounts": [{
+                "account_id": "acc_existing",
+                "email": "old@example.com",
+                "refresh_token": "1//old-refresh",
+                "access_token": "ya29.old-access",
+                "expiry_timestamp": 1000.0,
+                "is_primary": True,
+                "enabled": True,
+            }]
+        }))
+
+        # 2. Point token_path to a new token file
+        token_path = Path(self.tmp_dir.name) / "custom_token.json"
+        token_path.write_text(json.dumps({
+            "accessToken": "ya29.new-access",
+            "refreshToken": "1//new-refresh",
+            "expiresAt": 1789000000,
+            "userEmail": "new@example.com",
+        }))
+
+        pool = AccountPool(token_path=token_path, accounts_file=self.accounts_file)
+        pool.load_accounts()
+
+        # Both accounts should exist, and the new one should be primary
+        self.assertEqual(len(pool.accounts), 2)
+        primaries = [a for a in pool.accounts.values() if a.is_primary]
+        self.assertEqual(len(primaries), 1)
+        self.assertEqual(primaries[0].email, "new@example.com")
+        self.assertEqual(primaries[0].refresh_token, "1//new-refresh")
+        self.assertEqual(primaries[0].access_token, "ya29.new-access")
+
+    def test_save_accounts_updates_custom_token_file_but_not_candidate(self):
+        custom_token_path = Path(self.tmp_dir.name) / "custom_synced_token.json"
+        pool = AccountPool(token_path=custom_token_path, accounts_file=self.accounts_file)
+
+        acc = AccountSession(
+            account_id="acc_1",
+            refresh_token="1//refresh-123",
+            access_token="ya29.access-123",
+            expiry_timestamp=1789000000.0,
+            email="test@gmail.com",
+            is_primary=True,
+        )
+        pool.accounts["acc_1"] = acc
+        pool.save_accounts()
+
+        # custom_token_path should have been created with token data
+        self.assertTrue(custom_token_path.exists())
+        data = json.loads(custom_token_path.read_text())
+        self.assertEqual(data["token"]["access_token"], "ya29.access-123")
+        self.assertEqual(data["token"]["refresh_token"], "1//refresh-123")
+        self.assertEqual(data["email"], "test@gmail.com")
+
+    def test_auth_manager_primary_account(self):
+        pool = AccountPool(accounts_file=self.accounts_file)
+        acc1 = AccountSession(account_id="acc_1", refresh_token="1//r1", is_primary=False)
+        acc2 = AccountSession(account_id="acc_2", refresh_token="1//r2", is_primary=True)
+        pool.accounts["acc_1"] = acc1
+        pool.accounts["acc_2"] = acc2
+
+        mgr = AuthManager()
+        mgr.pool = pool
+        self.assertEqual(mgr.primary_account.account_id, "acc_2")
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -12,9 +12,10 @@ import logging
 import os
 import platform
 import time
+import re
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 import httpx
 
 logger = logging.getLogger("agy_proxy.auth")
@@ -68,15 +69,230 @@ _os_name = "darwin" if platform.system().lower() == "darwin" else "linux"
 _arch_name = "arm64" if platform.machine().lower() in ("arm64", "aarch64") else "amd64"
 USER_AGENT = f"antigravity/cli/1.2.0 (aidev_client; os_type={_os_name}; arch={_arch_name}; cl=978750357; auth_method=consumer)"
 
-# Candidate search paths for Antigravity primary / CLI / IDE tokens
-CANDIDATE_TOKEN_FILES = [
-    Path.home() / ".gemini" / "antigravity-cli" / "antigravity-oauth-token",
-    Path.home() / ".gemini" / "antigravity-ide" / "antigravity-oauth-token",
-    Path.home() / ".gemini" / "antigravity" / "antigravity-oauth-token",
-    Path.home() / ".gemini" / "config" / "antigravity-oauth-token",
-]
+def get_candidate_token_files() -> List[Path]:
+    """Returns candidate search paths for Antigravity OAuth tokens across OSes and env vars."""
+    candidates: List[Path] = []
 
-DEFAULT_TOKEN_FILE = CANDIDATE_TOKEN_FILES[0]
+    # 1. Explicit environment variables
+    for env_var in ("ANTIGRAVITY_TOKEN_FILE", "AGY_TOKEN_FILE"):
+        val = os.environ.get(env_var)
+        if val:
+            try:
+                candidates.append(Path(val).expanduser())
+            except Exception:
+                pass
+
+    # 2. Standard ~/.gemini paths (Antigravity CLI / IDE)
+    home = Path.home()
+    candidates.extend([
+        home / ".gemini" / "antigravity-cli" / "antigravity-oauth-token",
+        home / ".gemini" / "antigravity-ide" / "antigravity-oauth-token",
+        home / ".gemini" / "antigravity" / "antigravity-oauth-token",
+        home / ".gemini" / "config" / "antigravity-oauth-token",
+    ])
+
+    # 3. XDG / Linux config paths
+    candidates.extend([
+        home / ".config" / "antigravity" / "antigravity-oauth-token",
+        home / ".config" / "antigravity-cli" / "antigravity-oauth-token",
+    ])
+
+    # 4. macOS Application Support
+    mac_app_support = home / "Library" / "Application Support"
+    candidates.extend([
+        mac_app_support / "antigravity" / "antigravity-oauth-token",
+        mac_app_support / "antigravity-cli" / "antigravity-oauth-token",
+    ])
+
+    # 5. Windows AppData
+    for win_env in ("APPDATA", "LOCALAPPDATA"):
+        win_dir = os.environ.get(win_env)
+        if win_dir:
+            candidates.extend([
+                Path(win_dir) / "antigravity" / "antigravity-oauth-token",
+                Path(win_dir) / "antigravity-cli" / "antigravity-oauth-token",
+            ])
+
+    # Deduplicate while preserving order
+    seen = set()
+    result = []
+    for c in candidates:
+        try:
+            norm = str(c.resolve())
+        except Exception:
+            norm = str(c)
+        if norm not in seen:
+            seen.add(norm)
+            result.append(c)
+
+    return result
+
+
+CANDIDATE_TOKEN_FILES = get_candidate_token_files()
+DEFAULT_TOKEN_FILE = Path.home() / ".gemini" / "antigravity-cli" / "antigravity-oauth-token"
+
+
+def is_candidate_token_file(path: Optional[Union[Path, str]]) -> bool:
+    """Checks whether the given path points to any candidate system Antigravity token file."""
+    if not path:
+        return False
+    p = Path(path)
+    candidates = get_candidate_token_files()
+    try:
+        p_resolved = p.resolve()
+        for cand in candidates:
+            try:
+                if p_resolved == cand.resolve():
+                    return True
+            except Exception:
+                if p == cand:
+                    return True
+    except Exception:
+        return p in candidates
+    return False
+
+
+def find_existing_token_file() -> Optional[Path]:
+    """Finds the first existing, non-empty candidate token file."""
+    for p in get_candidate_token_files():
+        try:
+            if p.is_file() and p.stat().st_size > 0:
+                return p
+        except Exception:
+            pass
+    return None
+
+
+def _parse_expiry(val: Any, mtime: float = 0.0) -> float:
+    """Parses an expiry value into a UTC unix timestamp (float)."""
+    if val is None:
+        return 0.0
+
+    if isinstance(val, datetime):
+        if val.tzinfo is None:
+            val = val.replace(tzinfo=timezone.utc)
+        return val.timestamp()
+
+    if isinstance(val, (int, float)):
+        # Milliseconds epoch timestamp (e.g. > 1e11)
+        if val > 1e11:
+            return float(val) / 1000.0
+        # Seconds epoch timestamp (e.g. > 1e8)
+        if val > 1e8:
+            return float(val)
+        # Relative seconds duration (e.g. 3600)
+        base = mtime if mtime > 0 else time.time()
+        return base + float(val)
+
+    if isinstance(val, str):
+        s = val.strip()
+        if not s:
+            return 0.0
+
+        try:
+            num = float(s)
+            return _parse_expiry(num, mtime=mtime)
+        except ValueError:
+            pass
+
+        try:
+            if s.endswith("Z") or s.endswith("z"):
+                s = s[:-1] + "+00:00"
+
+            # Truncate fractional seconds to 6 digits (microseconds) if nanoseconds provided (e.g. Go RFC3339)
+            m = re.search(r"(\.\d{6})\d+([+-]\d{2}:\d{2}|$)", s)
+            if m:
+                s = s[:m.start(1) + 7] + m.group(2)
+
+            dt = datetime.fromisoformat(s)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            if dt.year < 2000:
+                return 0.0
+            return dt.timestamp()
+        except Exception as e:
+            logger.debug("Failed to parse ISO expiry %r: %s", val, e)
+            return 0.0
+
+    return 0.0
+
+
+def parse_token_dict(data: Any, mtime: float = 0.0) -> Optional[Dict[str, Any]]:
+    """Extracts and normalizes token and account metadata from a parsed JSON dictionary or list."""
+    if isinstance(data, list) and data and isinstance(data[0], dict):
+        data = data[0]
+    elif not isinstance(data, dict):
+        return None
+
+    # Search nested objects as well as root
+    sub_objs = []
+    for k in ("token", "credentials", "oauth", "session"):
+        v = data.get(k)
+        if isinstance(v, dict):
+            sub_objs.append(v)
+    sub_objs.append(data)
+
+    def _find_val(*keys) -> Any:
+        for obj in sub_objs:
+            for k in keys:
+                if k in obj and obj[k] is not None and obj[k] != "":
+                    return obj[k]
+        return None
+
+    refresh_token = _find_val("refresh_token", "refreshToken")
+    access_token = _find_val("access_token", "accessToken")
+
+    rf_str = str(refresh_token).strip() if refresh_token else ""
+    acc_str = str(access_token).strip() if access_token else ""
+
+    if not rf_str and not acc_str:
+        return None
+
+    expiry_val = _find_val("expiry", "expires_at", "expiresAt", "expiration")
+    expiry_timestamp = _parse_expiry(expiry_val, mtime=mtime)
+    if expiry_timestamp == 0.0:
+        expires_in = _find_val("expires_in", "expiresIn")
+        if expires_in is not None:
+            expiry_timestamp = _parse_expiry(expires_in, mtime=mtime)
+
+    email = _find_val("email", "user_email", "userEmail", "account")
+    name = _find_val("name", "displayName", "display_name")
+    picture = _find_val("picture", "avatar", "photo_url")
+    project_id = _find_val("project_id", "projectId", "cloudaicompanionProject", "project")
+    auth_method = _find_val("auth_method", "authMethod") or "consumer"
+
+    return {
+        "refresh_token": rf_str,
+        "access_token": acc_str if acc_str else None,
+        "expiry_timestamp": expiry_timestamp,
+        "email": str(email).strip() if email else None,
+        "name": str(name).strip() if name else None,
+        "picture": str(picture).strip() if picture else None,
+        "project_id": str(project_id).strip() if project_id else None,
+        "auth_method": str(auth_method).strip() if auth_method else "consumer",
+    }
+
+
+def parse_antigravity_token_file(t_path: Optional[Union[Path, str]]) -> Optional[Dict[str, Any]]:
+    """Robustly reads and parses an Antigravity token file supporting snake_case,
+    camelCase, nested token structures, ISO/timestamp expiry, and metadata."""
+    if not t_path:
+        return None
+    try:
+        p = Path(t_path)
+        if not p.is_file() or p.stat().st_size == 0:
+            return None
+        mtime = p.stat().st_mtime
+        with open(p, "r", encoding="utf-8") as f:
+            content = f.read().strip()
+            if not content:
+                return None
+            data = json.loads(content)
+        return parse_token_dict(data, mtime=mtime)
+    except Exception as e:
+        logger.debug("Could not parse token file %s: %s", t_path, e)
+        return None
+
 
 # Dedicated proxy config and accounts directory
 CONFIG_DIR = Path.home() / ".config" / "agy-proxy"
@@ -616,11 +832,11 @@ class AccountPool:
 
     def __init__(
         self,
-        token_path: Optional[Path] = None,
-        accounts_file: Optional[Path] = None,
+        token_path: Optional[Union[Path, str]] = None,
+        accounts_file: Optional[Union[Path, str]] = None,
     ):
-        self.token_path = token_path
-        self.accounts_file = accounts_file or DEFAULT_ACCOUNTS_FILE
+        self.token_path = Path(token_path) if token_path else None
+        self.accounts_file = Path(accounts_file) if accounts_file else DEFAULT_ACCOUNTS_FILE
         self.accounts: Dict[str, AccountSession] = {}
         self.round_robin_index = 0
         self.pending_pkce_flows: Dict[str, Tuple[str, float]] = {}  # state -> (verifier, timestamp)
@@ -643,7 +859,7 @@ class AccountPool:
         self.accounts.clear()
 
         # 1. Check for legacy migration if ~/.config/agy-proxy/accounts.json does not exist
-        if not self.accounts_file.exists():
+        if self.accounts_file == DEFAULT_ACCOUNTS_FILE and not self.accounts_file.exists():
             for legacy_path in LEGACY_ACCOUNTS_FILES:
                 if legacy_path.exists():
                     logger.info("Migrating legacy accounts from %s to %s", legacy_path, self.accounts_file)
@@ -703,44 +919,88 @@ class AccountPool:
             except Exception as e:
                 logger.error("Error reading accounts file %s: %s", self.accounts_file, e)
 
-        # 3. Only if no accounts loaded from accounts.json, try importing initial token from candidate token files (read-only import)
+        # 3. Synchronize explicit custom token_path if provided
+        if self.token_path:
+            parsed = parse_antigravity_token_file(self.token_path)
+            if parsed and (parsed.get("refresh_token") or parsed.get("access_token")):
+                matched_acc = None
+                for acc in self.accounts.values():
+                    if parsed.get("refresh_token") and acc.refresh_token == parsed["refresh_token"]:
+                        matched_acc = acc
+                        break
+                    if parsed.get("email") and acc.email and acc.email.lower() == parsed["email"].lower():
+                        matched_acc = acc
+                        break
+
+                if matched_acc:
+                    if parsed.get("refresh_token"):
+                        matched_acc.refresh_token = parsed["refresh_token"]
+                    if parsed.get("access_token"):
+                        matched_acc.access_token = parsed["access_token"]
+                    if parsed.get("expiry_timestamp"):
+                        matched_acc.expiry_timestamp = parsed["expiry_timestamp"]
+                    if parsed.get("project_id") and not matched_acc.project_id:
+                        matched_acc.project_id = parsed["project_id"]
+                    if parsed.get("name") and not matched_acc.name:
+                        matched_acc.name = parsed["name"]
+                    if parsed.get("picture") and not matched_acc.picture:
+                        matched_acc.picture = parsed["picture"]
+                    for a in self.accounts.values():
+                        a.is_primary = False
+                    matched_acc.is_primary = True
+                    matched_acc.enabled = True
+                    logger.info("Synchronized explicit token file %s into account %s (%s)", self.token_path, matched_acc.account_id, matched_acc.email)
+                else:
+                    acc_id = f"acc_{os.urandom(4).hex()}"
+                    for a in self.accounts.values():
+                        a.is_primary = False
+                    new_acc = AccountSession(
+                        account_id=acc_id,
+                        refresh_token=parsed.get("refresh_token", ""),
+                        access_token=parsed.get("access_token"),
+                        expiry_timestamp=parsed.get("expiry_timestamp", 0.0),
+                        email=parsed.get("email"),
+                        name=parsed.get("name"),
+                        picture=parsed.get("picture"),
+                        auth_method=parsed.get("auth_method", "consumer"),
+                        project_id=parsed.get("project_id"),
+                        is_primary=True,
+                        enabled=True,
+                        on_token_refreshed=self.save_accounts,
+                    )
+                    self.accounts[acc_id] = new_acc
+                    logger.info("Imported explicit token file %s as primary account %s", self.token_path, acc_id)
+                self.save_accounts()
+
+        # 4. If still no accounts loaded from accounts.json or explicit token, discover from candidate token files (read-only import)
         if not self.accounts:
-            search_paths = [self.token_path] if self.token_path else CANDIDATE_TOKEN_FILES
-            for t_path in search_paths:
-                if t_path and t_path.exists() and t_path.stat().st_size > 0:
-                    try:
-                        with open(t_path, "r", encoding="utf-8") as f:
-                            content = f.read().strip()
-                            if not content:
-                                continue
-                            data = json.loads(content)
-
-                        token_obj = data.get("token", {}) if isinstance(data, dict) else {}
-                        refresh_token = token_obj.get("refresh_token") or (data.get("refresh_token") if isinstance(data, dict) else None)
-                        access_token = token_obj.get("access_token") or (data.get("access_token") if isinstance(data, dict) else None)
-
-                        if refresh_token:
-                            acc_id = f"acc_{os.urandom(4).hex()}"
-                            primary_acc = AccountSession(
-                                account_id=acc_id,
-                                refresh_token=refresh_token,
-                                access_token=access_token,
-                                auth_method=data.get("auth_method", "consumer") if isinstance(data, dict) else "consumer",
-                                is_primary=True,
-                                enabled=True,
-                                on_token_refreshed=self.save_accounts,
-                            )
-                            self.accounts[acc_id] = primary_acc
-                            logger.info("Imported initial account from %s", t_path)
-                            self.save_accounts()
-                            break
-                    except Exception as e:
-                        logger.debug("Could not import initial token from %s: %s", t_path, e)
+            for t_path in get_candidate_token_files():
+                parsed = parse_antigravity_token_file(t_path)
+                if parsed and (parsed.get("refresh_token") or parsed.get("access_token")):
+                    acc_id = f"acc_{os.urandom(4).hex()}"
+                    primary_acc = AccountSession(
+                        account_id=acc_id,
+                        refresh_token=parsed.get("refresh_token", ""),
+                        access_token=parsed.get("access_token"),
+                        expiry_timestamp=parsed.get("expiry_timestamp", 0.0),
+                        email=parsed.get("email"),
+                        name=parsed.get("name"),
+                        picture=parsed.get("picture"),
+                        auth_method=parsed.get("auth_method", "consumer"),
+                        project_id=parsed.get("project_id"),
+                        is_primary=True,
+                        enabled=True,
+                        on_token_refreshed=self.save_accounts,
+                    )
+                    self.accounts[acc_id] = primary_acc
+                    logger.info("Imported initial account from %s", t_path)
+                    self.save_accounts()
+                    break
 
     def save_accounts(self):
         """Saves all accounts to ~/.config/agy-proxy/accounts.json without touching CLI/IDE tokens."""
         # 1. If an explicit custom token_path was provided (outside system Antigravity files), sync primary token to it
-        if self.token_path and self.token_path not in CANDIDATE_TOKEN_FILES:
+        if self.token_path and not is_candidate_token_file(self.token_path):
             primary_acc = self.accounts.get("primary")
             if not primary_acc:
                 for acc in self.accounts.values():
@@ -765,6 +1025,8 @@ class AccountPool:
                             "refresh_token": primary_acc.refresh_token,
                             "expiry": expiry_iso,
                         },
+                        "email": primary_acc.email,
+                        "project_id": primary_acc.project_id,
                         "auth_method": primary_acc.auth_method,
                     }
                     self.token_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1031,19 +1293,24 @@ class AccountPool:
         code = code_or_url.strip()
 
         # 1. Handle JSON token pasted directly
-        if code.startswith("{") and ("refresh_token" in code or "access_token" in code):
+        if code.startswith("{") and ("token" in code.lower() or "refresh" in code.lower() or "bearer" in code.lower() or "access" in code.lower()):
             try:
                 parsed_json = json.loads(code)
-                tok_obj = parsed_json.get("token", parsed_json) if isinstance(parsed_json, dict) else {}
-                rf = tok_obj.get("refresh_token")
-                acc_tok = tok_obj.get("access_token")
-                if rf:
+                parsed_tok = parse_token_dict(parsed_json)
+                if parsed_tok and parsed_tok.get("refresh_token"):
+                    rf = parsed_tok["refresh_token"]
+                    acc_tok = parsed_tok.get("access_token")
                     acc_id = f"acc_{os.urandom(4).hex()}"
                     acc = AccountSession(
                         account_id=acc_id,
                         refresh_token=rf,
                         access_token=acc_tok,
-                        auth_method=parsed_json.get("auth_method", "consumer") if isinstance(parsed_json, dict) else "consumer",
+                        expiry_timestamp=parsed_tok.get("expiry_timestamp", 0.0),
+                        email=parsed_tok.get("email"),
+                        name=parsed_tok.get("name"),
+                        picture=parsed_tok.get("picture"),
+                        project_id=parsed_tok.get("project_id"),
+                        auth_method=parsed_tok.get("auth_method", "consumer"),
                         is_primary=len(self.accounts) == 0,
                         on_token_refreshed=self.save_accounts,
                     )
@@ -1062,6 +1329,14 @@ class AccountPool:
                         matched_acc.refresh_token = rf
                         matched_acc.access_token = acc.access_token
                         matched_acc.expiry_timestamp = acc.expiry_timestamp
+                        if acc.email and acc.email != "unknown@gmail.com":
+                            matched_acc.email = acc.email
+                        if acc.name:
+                            matched_acc.name = acc.name
+                        if acc.picture:
+                            matched_acc.picture = acc.picture
+                        if acc.project_id:
+                            matched_acc.project_id = acc.project_id
                         self.save_accounts()
                         return matched_acc
 
@@ -1259,6 +1534,9 @@ class AuthManager:
 
     @property
     def primary_account(self) -> AccountSession:
+        for acc in self.pool.accounts.values():
+            if acc.is_primary:
+                return acc
         if "primary" in self.pool.accounts:
             return self.pool.accounts["primary"]
         if self.pool.accounts:

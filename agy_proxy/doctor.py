@@ -14,7 +14,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from agy_proxy.auth import AccountPool, AccountSession, CLOUDCODE_BASE_URL, GENAI_BASE_URL, OAUTH_TOKEN_URL, quota_percentages
+from agy_proxy.auth import AccountPool, AccountSession, CLOUDCODE_BASE_URL, GENAI_BASE_URL, OAUTH_TOKEN_URL, find_existing_token_file, quota_percentages
 
 console = Console()
 
@@ -144,12 +144,14 @@ async def run_doctor(host: str = "127.0.0.1", port: int = 8000, cloudflare_url: 
     py_ver = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
     env_table.add_row("Python Runtime", "[bold green]✅ OK[/bold green]", f"Python {py_ver} ({sys.executable})")
 
+    existing_token_file = find_existing_token_file()
     token_dir = os.path.expanduser("~/.gemini/antigravity-cli")
-    has_token_dir = os.path.isdir(token_dir)
+    has_token_dir = os.path.isdir(token_dir) or bool(existing_token_file)
+    details = str(existing_token_file) if existing_token_file else (token_dir if os.path.isdir(token_dir) else "Not found (Will be created on first login)")
     env_table.add_row(
         "Antigravity Token Storage",
         "[bold green]✅ OK[/bold green]" if has_token_dir else "[bold yellow]⚠️ Missing[/bold yellow]",
-        token_dir if has_token_dir else "Not found (Will be created on first login)"
+        details,
     )
 
     config_dir = os.path.expanduser("~/.config/agy-proxy")
