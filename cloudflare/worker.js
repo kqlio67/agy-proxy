@@ -206,7 +206,7 @@ export default {
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${auth.token}`,
-              "User-Agent": "antigravity/cli/1.1.27 (cl=976543523)",
+              "User-Agent": "antigravity/cli/1.1.28 (cl=978129418)",
             },
             body: JSON.stringify(payload),
           });
@@ -258,7 +258,7 @@ export default {
     reqHeaders.delete("x-proxy-key");
 
     if (!reqHeaders.has("User-Agent")) {
-      reqHeaders.set("User-Agent", "antigravity/cli/1.1.27 (cl=976543523)");
+      reqHeaders.set("User-Agent", "antigravity/cli/1.1.28 (cl=978129418)");
     }
 
     try {
