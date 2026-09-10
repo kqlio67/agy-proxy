@@ -361,7 +361,7 @@ class CloudCodeClient:
     # OpenAI Chat Completion Handlers
     # -------------------------------------------------------------------------
 
-    async def stream_openai_chat(self, req: OpenAIChatRequest) -> AsyncGenerator[str, None]:
+    async def stream_openai_chat(self, req: OpenAIChatRequest, session_key: Optional[str] = None) -> AsyncGenerator[str, None]:
         """Streams OpenAI formatted SSE chunks."""
         req_id = f"chatcmpl-{uuid.uuid4().hex[:16]}"
         model = req.model or DEFAULT_MODEL
@@ -381,19 +381,18 @@ class CloudCodeClient:
 
         # Derive session key for sticky session continuity
         raw_msgs = [m.model_dump() if hasattr(m, "model_dump") else (m.dict() if hasattr(m, "dict") else dict(m)) for m in req.messages]
-        sess_key = session_affinity.get_session_key(raw_msgs)
+        sess_key = session_affinity.get_session_key(raw_msgs, client_session_id=session_key)
         pinned = session_affinity.get_pinned_account(sess_key)
-        backend_session_id = pinned[1] if pinned else f"session-{uuid.uuid4().hex[:12]}"
+        backend_session_id = pinned[1] if pinned else session_affinity.compute_backend_session_id(sess_key)
 
         def build_payload(project_id: str):
-            p = openai_to_cloudcode_payload(req, project_id)
-            p["request"]["sessionId"] = backend_session_id
-            return p
+            return openai_to_cloudcode_payload(req, project_id, session_id=backend_session_id)
 
         total_prompt_tokens = 0
         total_output_tokens = 0
         total_tokens = 0
         total_thoughts_tokens = 0
+        total_cached_tokens = 0
         include_usage = bool(req.stream_options and req.stream_options.get("include_usage"))
 
         try:
@@ -412,6 +411,7 @@ class CloudCodeClient:
                     total_output_tokens = usage_meta.get("candidatesTokenCount", total_output_tokens)
                     total_tokens = usage_meta.get("totalTokenCount", total_tokens)
                     total_thoughts_tokens = usage_meta.get("thoughtsTokenCount", total_thoughts_tokens)
+                    total_cached_tokens = usage_meta.get("cachedContentTokenCount", total_cached_tokens)
 
                 for cand in candidates:
                     text, thought, tool_calls, finish_reason, _ = parse_gemini_sse_candidate(cand)
@@ -432,6 +432,10 @@ class CloudCodeClient:
                 "completion_tokens": total_output_tokens,
                 "total_tokens": total_tokens or (total_prompt_tokens + total_output_tokens),
             }
+            if total_cached_tokens > 0:
+                usage_obj["prompt_tokens_details"] = {
+                    "cached_tokens": total_cached_tokens
+                }
             if total_thoughts_tokens > 0:
                 usage_obj["completion_tokens_details"] = {
                     "reasoning_tokens": total_thoughts_tokens
@@ -480,7 +484,7 @@ class CloudCodeClient:
             yield f"data: {json.dumps(err_chunk)}\n\n"
             yield "data: [DONE]\n\n"
 
-    async def generate_openai_chat(self, req: OpenAIChatRequest) -> Dict[str, Any]:
+    async def generate_openai_chat(self, req: OpenAIChatRequest, session_key: Optional[str] = None) -> Dict[str, Any]:
         """Returns non-streaming full OpenAI ChatCompletionResponse."""
         req_id = f"chatcmpl-{uuid.uuid4().hex[:16]}"
         model = req.model
@@ -499,14 +503,12 @@ class CloudCodeClient:
                 logger.warning("OpenAI auto-compaction error: %s", e)
 
         raw_msgs = [m.model_dump() if hasattr(m, "model_dump") else (m.dict() if hasattr(m, "dict") else dict(m)) for m in req.messages]
-        sess_key = session_affinity.get_session_key(raw_msgs)
+        sess_key = session_affinity.get_session_key(raw_msgs, client_session_id=session_key)
         pinned = session_affinity.get_pinned_account(sess_key)
-        backend_session_id = pinned[1] if pinned else f"session-{uuid.uuid4().hex[:12]}"
+        backend_session_id = pinned[1] if pinned else session_affinity.compute_backend_session_id(sess_key)
 
         def build_payload(project_id: str):
-            p = openai_to_cloudcode_payload(req, project_id)
-            p["request"]["sessionId"] = backend_session_id
-            return p
+            return openai_to_cloudcode_payload(req, project_id, session_id=backend_session_id)
 
         full_text = ""
         full_reasoning = ""
@@ -515,6 +517,7 @@ class CloudCodeClient:
         completion_tokens = 0
         total_tokens = 0
         thoughts_tokens = 0
+        cached_tokens = 0
 
         async for data in self._post_sse_stream_with_failover(
             "v1internal:streamGenerateContent?alt=sse",
@@ -531,6 +534,7 @@ class CloudCodeClient:
                 completion_tokens = usage_meta.get("candidatesTokenCount", completion_tokens)
                 total_tokens = usage_meta.get("totalTokenCount", total_tokens)
                 thoughts_tokens = usage_meta.get("thoughtsTokenCount", thoughts_tokens)
+                cached_tokens = usage_meta.get("cachedContentTokenCount", cached_tokens)
 
             for cand in candidates:
                 text, thought, tool_calls, _, _ = parse_gemini_sse_candidate(cand)
@@ -557,6 +561,10 @@ class CloudCodeClient:
             "completion_tokens": completion_tokens,
             "total_tokens": total_tokens,
         }
+        if cached_tokens > 0:
+            usage_dict["prompt_tokens_details"] = {
+                "cached_tokens": cached_tokens
+            }
         if thoughts_tokens > 0:
             usage_dict["completion_tokens_details"] = {
                 "reasoning_tokens": thoughts_tokens
@@ -581,7 +589,7 @@ class CloudCodeClient:
     # Anthropic Messages Handlers
     # -------------------------------------------------------------------------
 
-    async def stream_anthropic_messages(self, req: AnthropicRequest) -> AsyncGenerator[str, None]:
+    async def stream_anthropic_messages(self, req: AnthropicRequest, session_key: Optional[str] = None) -> AsyncGenerator[str, None]:
         """Streams Anthropic Claude Messages SSE events."""
         msg_id = f"msg_{uuid.uuid4().hex[:20]}"
         model = req.model
@@ -686,14 +694,12 @@ class CloudCodeClient:
         # Derive session key for sticky session continuity
         raw_msgs = [m.model_dump() if hasattr(m, "model_dump") else (m.dict() if hasattr(m, "dict") else dict(m)) for m in req.messages]
         sys_str = req.system if isinstance(req.system, str) else json.dumps(req.system or "")
-        sess_key = session_affinity.get_session_key(raw_msgs, system_prompt=sys_str)
+        sess_key = session_affinity.get_session_key(raw_msgs, system_prompt=sys_str, client_session_id=session_key)
         pinned = session_affinity.get_pinned_account(sess_key)
-        backend_session_id = pinned[1] if pinned else f"session-{uuid.uuid4().hex[:12]}"
+        backend_session_id = pinned[1] if pinned else session_affinity.compute_backend_session_id(sess_key)
 
         def build_payload(project_id: str):
-            p = anthropic_to_cloudcode_payload(req, project_id)
-            p["request"]["sessionId"] = backend_session_id
-            return p
+            return anthropic_to_cloudcode_payload(req, project_id, session_id=backend_session_id)
 
         # 1. message_start
         msg_start = {
@@ -717,6 +723,7 @@ class CloudCodeClient:
         has_tool_calls = False
         total_prompt_tokens = 0
         total_output_tokens = 0
+        total_cached_tokens = 0
         current_thought_sig: Optional[str] = None
 
         try:
@@ -733,6 +740,7 @@ class CloudCodeClient:
                 if usage_meta:
                     total_prompt_tokens = usage_meta.get("promptTokenCount", total_prompt_tokens)
                     total_output_tokens = usage_meta.get("candidatesTokenCount", total_output_tokens)
+                    total_cached_tokens = usage_meta.get("cachedContentTokenCount", total_cached_tokens)
 
                 for cand in candidates:
                     text, thought, tool_calls, finish_reason, chunk_sig = parse_gemini_sse_candidate(cand)
@@ -800,10 +808,19 @@ class CloudCodeClient:
 
             stop_reason = "tool_use" if has_tool_calls else "end_turn"
 
+            clean_input = max(0, total_prompt_tokens - total_cached_tokens)
+            usage_data: Dict[str, Any] = {
+                "input_tokens": clean_input,
+                "output_tokens": max(1, total_output_tokens),
+            }
+            if total_cached_tokens > 0:
+                usage_data["cache_read_input_tokens"] = total_cached_tokens
+                usage_data["cache_creation_input_tokens"] = 0
+
             msg_delta = {
                 "type": "message_delta",
                 "delta": {"stop_reason": stop_reason, "stop_sequence": None},
-                "usage": {"output_tokens": max(1, total_output_tokens)},
+                "usage": usage_data,
             }
             yield f"event: message_delta\ndata: {json.dumps(msg_delta)}\n\n"
             yield f"event: message_stop\ndata: {json.dumps({'type': 'message_stop'})}\n\n"
@@ -830,7 +847,7 @@ class CloudCodeClient:
             }
             yield f"event: error\ndata: {json.dumps(err_event)}\n\n"
 
-    async def generate_anthropic_messages(self, req: AnthropicRequest) -> Dict[str, Any]:
+    async def generate_anthropic_messages(self, req: AnthropicRequest, session_key: Optional[str] = None) -> Dict[str, Any]:
         """Returns non-streaming full Anthropic Messages response."""
         msg_id = f"msg_{uuid.uuid4().hex[:20]}"
         model = req.model
@@ -926,20 +943,19 @@ class CloudCodeClient:
 
         raw_msgs = [m.model_dump() if hasattr(m, "model_dump") else (m.dict() if hasattr(m, "dict") else dict(m)) for m in req.messages]
         sys_str = req.system if isinstance(req.system, str) else json.dumps(req.system or "")
-        sess_key = session_affinity.get_session_key(raw_msgs, system_prompt=sys_str)
+        sess_key = session_affinity.get_session_key(raw_msgs, system_prompt=sys_str, client_session_id=session_key)
         pinned = session_affinity.get_pinned_account(sess_key)
-        backend_session_id = pinned[1] if pinned else f"session-{uuid.uuid4().hex[:12]}"
+        backend_session_id = pinned[1] if pinned else session_affinity.compute_backend_session_id(sess_key)
 
         def build_payload(project_id: str):
-            p = anthropic_to_cloudcode_payload(req, project_id)
-            p["request"]["sessionId"] = backend_session_id
-            return p
+            return anthropic_to_cloudcode_payload(req, project_id, session_id=backend_session_id)
 
         full_text = ""
         full_thinking = ""
         tool_blocks: List[Dict[str, Any]] = []
         prompt_tokens = 0
         candidates_tokens = 0
+        cached_tokens = 0
         current_thought_sig: Optional[str] = None
 
         async for data in self._post_sse_stream_with_failover(
@@ -955,6 +971,7 @@ class CloudCodeClient:
             if usage_meta:
                 prompt_tokens = usage_meta.get("promptTokenCount", prompt_tokens)
                 candidates_tokens = usage_meta.get("candidatesTokenCount", candidates_tokens)
+                cached_tokens = usage_meta.get("cachedContentTokenCount", cached_tokens)
 
             for cand in candidates:
                 text, thought, tool_calls, _, chunk_sig = parse_gemini_sse_candidate(cand)
@@ -1005,8 +1022,9 @@ class CloudCodeClient:
             "stop_reason": stop_reason,
             "stop_sequence": None,
             "usage": {
-                "input_tokens": prompt_tokens,
+                "input_tokens": max(0, prompt_tokens - cached_tokens),
                 "output_tokens": candidates_tokens,
+                **({"cache_read_input_tokens": cached_tokens, "cache_creation_input_tokens": 0} if cached_tokens > 0 else {}),
             },
         }
 

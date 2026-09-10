@@ -246,6 +246,7 @@ def _extract_media_from_url(url_or_data: str) -> Tuple[str, str]:
 def openai_to_cloudcode_payload(
     req: OpenAIChatRequest,
     project_id: str,
+    session_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Converts an OpenAI ChatCompletionRequest into CloudCode streamGenerateContent payload."""
     raw_model = req.model or DEFAULT_MODEL
@@ -489,9 +490,25 @@ def openai_to_cloudcode_payload(
     else:
         req_type = "chat"
 
+    turn_no = max(1, len(req.messages))
+    now_ms = int(time.time() * 1000)
+    sess_id_str = str(session_id).strip() if session_id and str(session_id).strip() else None
+
+    if req_type == "checkpoint":
+        req_id = f"checkpoint/{uuid.uuid4()}"
+    elif sess_id_str:
+        conv_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, sess_id_str))
+        traj_id = str(uuid.uuid4())
+        req_id = f"{req_type}/{conv_id}/{now_ms}/{traj_id}/{turn_no}"
+    else:
+        req_id = f"{req_type}/{uuid.uuid4()}"
+
+    if sess_id_str:
+        inner_request["sessionId"] = sess_id_str
+
     payload: Dict[str, Any] = {
         "project": project_id,
-        "requestId": f"{req_type}/{uuid.uuid4()}",
+        "requestId": req_id,
         "request": inner_request,
         "model": backend_model,
         "userAgent": "antigravity",
@@ -504,6 +521,7 @@ def openai_to_cloudcode_payload(
 def anthropic_to_cloudcode_payload(
     req: AnthropicRequest,
     project_id: str,
+    session_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Converts an Anthropic Messages request into CloudCode payload."""
     raw_model = req.model or DEFAULT_MODEL
@@ -728,9 +746,25 @@ def anthropic_to_cloudcode_payload(
     else:
         req_type = "chat"
 
+    turn_no = max(1, len(req.messages))
+    now_ms = int(time.time() * 1000)
+    sess_id_str = str(session_id).strip() if session_id and str(session_id).strip() else None
+
+    if req_type == "checkpoint":
+        req_id = f"checkpoint/{uuid.uuid4()}"
+    elif sess_id_str:
+        conv_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, sess_id_str))
+        traj_id = str(uuid.uuid4())
+        req_id = f"{req_type}/{conv_id}/{now_ms}/{traj_id}/{turn_no}"
+    else:
+        req_id = f"{req_type}/{uuid.uuid4()}"
+
+    if sess_id_str:
+        inner_request["sessionId"] = sess_id_str
+
     return {
         "project": project_id,
-        "requestId": f"{req_type}/{uuid.uuid4()}",
+        "requestId": req_id,
         "request": inner_request,
         "model": backend_model,
         "userAgent": "antigravity",

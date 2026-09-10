@@ -30,8 +30,16 @@ class SessionAffinityManager:
         # session_key -> {"account_id": str, "backend_session_id": str, "last_active": float, "req_count": int}
         self._sessions: Dict[str, Dict[str, Any]] = {}
 
-    def get_session_key(self, raw_messages: List[Dict[str, Any]], system_prompt: str = "") -> str:
-        """Derives a deterministic session key from the conversation start."""
+    def get_session_key(
+        self,
+        raw_messages: List[Dict[str, Any]],
+        system_prompt: str = "",
+        client_session_id: Optional[str] = None,
+    ) -> str:
+        """Derives a deterministic session key from client header or the conversation start."""
+        if client_session_id and str(client_session_id).strip():
+            return f"client:{str(client_session_id).strip()}"
+
         if not raw_messages:
             return "default_session"
 
@@ -48,6 +56,15 @@ class SessionAffinityManager:
 
         key_source = f"{system_prompt[:200]}|{first_msg_str}"
         return hashlib.sha256(key_source.encode("utf-8", "ignore")).hexdigest()[:16]
+
+    def compute_backend_session_id(self, session_key: str) -> str:
+        """Computes a signed 64-bit int string hash for Google CloudCode proto sessionId."""
+        val = int.from_bytes(
+            hashlib.sha256(session_key.encode("utf-8", "ignore")).digest()[:8],
+            byteorder="big",
+            signed=True,
+        )
+        return str(val)
 
     def get_pinned_account(self, session_key: str) -> Optional[Tuple[str, str]]:
         """Returns (account_id, backend_session_id) if valid session exists."""

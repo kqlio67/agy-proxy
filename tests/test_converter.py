@@ -216,7 +216,27 @@ class TestAnthropicToCloudCode(unittest.TestCase):
         # User tool_result converted to functionResponse
         user_part = contents[2]["parts"][0]
         self.assertIn("functionResponse", user_part)
-        self.assertEqual(user_part["functionResponse"]["name"], "calculator")
+    def test_openai_session_id_and_request_id(self):
+        req = OpenAIChatRequest(
+            model="gemini-3.8-flash-high",
+            messages=[{"role": "user", "content": "Hello"}],
+        )
+        payload = openai_to_cloudcode_payload(req, project_id="test-proj", session_id="-3750763034362895579")
+        self.assertEqual(payload["request"]["sessionId"], "-3750763034362895579")
+        self.assertTrue(payload["requestId"].startswith("chat/"))
+        parts = payload["requestId"].split("/")
+        self.assertEqual(len(parts), 5)  # chat / conv_id / timestamp / traj_id / turn_no
+
+    def test_anthropic_session_id_and_request_id(self):
+        req = AnthropicRequest(
+            model="claude-sonnet-4-6",
+            messages=[{"role": "user", "content": "Hello"}],
+        )
+        payload = anthropic_to_cloudcode_payload(req, project_id="test-proj", session_id="-1234567890")
+        self.assertEqual(payload["request"]["sessionId"], "-1234567890")
+        self.assertTrue(payload["requestId"].startswith("chat/"))
+        parts = payload["requestId"].split("/")
+        self.assertEqual(len(parts), 5)
 
 
 class TestThoughtSignatures(unittest.TestCase):

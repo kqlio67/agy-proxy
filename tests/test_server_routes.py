@@ -124,6 +124,14 @@ class TestServerRoutes(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("anthropic.gpt-4o", model_ids)
         self.assertNotIn("deepseek-r1", model_ids)
 
+    async def test_write_trajectory_acls(self):
+        resp = await self.client.post(
+            "/v1internal:writeTrajectoryAcls",
+            json={"trajectoryId": "test-trajectory-123"},
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertIsInstance(resp.json(), dict)
+
 
 if __name__ == "__main__":
     unittest.main()

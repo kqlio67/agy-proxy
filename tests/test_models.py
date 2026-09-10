@@ -40,6 +40,8 @@ class TestModelNormalization(unittest.TestCase):
         self.assertEqual(normalize_model_name("gpt-4o"), "gemini-3.8-flash-high")
         self.assertEqual(normalize_model_name("gpt-4o-mini"), "gemini-3.1-flash-lite")
         self.assertEqual(normalize_model_name("deepseek-r1"), "gemini-3.8-flash-high")
+        self.assertEqual(normalize_model_name("gemini-3.5-flash-lite"), "gemini-3.5-flash-lite")
+        self.assertEqual(normalize_model_name("gemini-3.5-lite"), "gemini-3.5-flash-lite")
 
     def test_prefix_stripping(self):
         self.assertEqual(normalize_model_name("anthropic/claude-sonnet-4-6"), "claude-sonnet-4-6")

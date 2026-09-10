@@ -66,7 +66,7 @@ SCOPES = [
 
 _os_name = "darwin" if platform.system().lower() == "darwin" else "linux"
 _arch_name = "arm64" if platform.machine().lower() in ("arm64", "aarch64") else "amd64"
-USER_AGENT = f"antigravity/cli/1.1.28 (aidev_client; os_type={_os_name}; arch={_arch_name}; cl=978129418; auth_method=consumer)"
+USER_AGENT = f"antigravity/cli/1.2.0 (aidev_client; os_type={_os_name}; arch={_arch_name}; cl=978750357; auth_method=consumer)"
 
 # Candidate search paths for Antigravity primary / CLI / IDE tokens
 CANDIDATE_TOKEN_FILES = [

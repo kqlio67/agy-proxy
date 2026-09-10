@@ -47,6 +47,9 @@ MODEL_ALIASES: Dict[str, str] = {
     "gemini-3.5-flash": "gemini-3.5-flash-low",
     "gemini-3.5-flash-low": "gemini-3.5-flash-low",
     "gemini-3.5-flash-extra-low": "gemini-3.5-flash-extra-low",
+    "gemini-3.5-flash-lite": "gemini-3.5-flash-lite",
+    "gemini-3-5-flash-lite": "gemini-3.5-flash-lite",
+    "gemini-3.5-lite": "gemini-3.5-flash-lite",
     "gemini-3-flash": "gemini-3.8-flash-tiered",
     "gemini-3-flash-agent": "gemini-3.8-flash-tiered",
     "gemini-3.1-flash-lite": "gemini-3.1-flash-lite",
@@ -113,6 +116,7 @@ VALID_CLOUDCODE_MODELS = {
     # Gemini 3.5 & earlier
     "gemini-3.5-flash-low",
     "gemini-3.5-flash-extra-low",
+    "gemini-3.5-flash-lite",
     "gemini-pro-agent",
     "gemini-3.1-pro-high",
     "gemini-3.1-pro-low",
@@ -173,6 +177,10 @@ def normalize_model_name(model_name: Optional[str]) -> str:
             return "gemini-3.6-flash-medium"
         return "gemini-3.6-flash-tiered"
     if "3.5" in cleaned or "3-5" in cleaned:
+        if "lite" in cleaned:
+            return "gemini-3.5-flash-lite"
+        if "extra-low" in cleaned or "extra_low" in cleaned:
+            return "gemini-3.5-flash-extra-low"
         return "gemini-3.5-flash-low"
     if "3.1-pro" in cleaned or "3_1-pro" in cleaned or "3-1-pro" in cleaned:
         return "gemini-3.1-pro-low"

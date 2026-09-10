@@ -662,10 +662,17 @@ def create_app(
             x_api_key=request.headers.get("x-api-key"),
         )
 
+        session_id = (
+            request.headers.get("session-id")
+            or request.headers.get("anthropic-session-id")
+            or request.headers.get("x-session-id")
+            or request.headers.get("x-conversation-id")
+        )
+
         try:
             if req.stream:
                 return StreamingResponse(
-                    client.stream_openai_chat(req),
+                    client.stream_openai_chat(req, session_key=session_id),
                     media_type="text/event-stream",
                     headers={
                         "Cache-Control": "no-cache",
@@ -674,7 +681,7 @@ def create_app(
                     },
                 )
             else:
-                response_data = await client.generate_openai_chat(req)
+                response_data = await client.generate_openai_chat(req, session_key=session_id)
                 return JSONResponse(content=response_data)
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 429:
@@ -707,10 +714,17 @@ def create_app(
             x_api_key=request.headers.get("x-api-key"),
         )
 
+        session_id = (
+            request.headers.get("session-id")
+            or request.headers.get("anthropic-session-id")
+            or request.headers.get("x-session-id")
+            or request.headers.get("x-conversation-id")
+        )
+
         try:
             if req.stream:
                 return StreamingResponse(
-                    client.stream_anthropic_messages(req),
+                    client.stream_anthropic_messages(req, session_key=session_id),
                     media_type="text/event-stream",
                     headers={
                         "Cache-Control": "no-cache",
@@ -719,7 +733,7 @@ def create_app(
                     },
                 )
             else:
-                response_data = await client.generate_anthropic_messages(req)
+                response_data = await client.generate_anthropic_messages(req, session_key=session_id)
                 return JSONResponse(content=response_data)
         except httpx.HTTPStatusError as e:
             err_type = "rate_limit_error" if e.response.status_code == 429 else "api_error"
@@ -774,5 +788,38 @@ def create_app(
         body = await request.json()
         res = await client.generate_gemini_native(model_name, body)
         return JSONResponse(content=res)
+
+    # -------------------------------------------------------------------------
+    # Internal CloudCode Compatibility Endpoints
+    # -------------------------------------------------------------------------
+
+    @app.post("/v1internal:writeTrajectoryAcls")
+    async def write_trajectory_acls(request: Request):
+        """Passthrough / compatibility endpoint for Antigravity writeTrajectoryAcls."""
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+
+        acc = next((a for a in account_pool.accounts.values() if getattr(a, "enabled", True)), None)
+        if not acc:
+            return JSONResponse(status_code=200, content={})
+
+        try:
+            from agy_proxy.auth import CLOUDCODE_BASE_URL
+            headers = await acc.get_auth_headers()
+            c = await acc.get_http_client()
+            resp = await c.post(
+                f"{CLOUDCODE_BASE_URL}/v1internal:writeTrajectoryAcls",
+                headers=headers,
+                json=body,
+                timeout=10.0,
+            )
+            if resp.status_code == 200:
+                return JSONResponse(status_code=200, content=resp.json() or {})
+        except Exception as e:
+            logger.debug("writeTrajectoryAcls proxy error: %s", e)
+
+        return JSONResponse(status_code=200, content={})
 
     return app
