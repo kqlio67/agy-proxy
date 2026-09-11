@@ -146,6 +146,47 @@ class TestServerRoutes(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(resp_get.status_code, 200)
         self.assertIsInstance(resp_get.json(), dict)
 
+    async def test_gemini_web_api_routes(self):
+        # 1. Add web account with raw cookies
+        add_resp = await self.client.post(
+            "/api/accounts/gemini-web",
+            json={
+                "name": "My Gemini Web Session",
+                "cdp_port": 9222,
+                "raw_cookies": "__Secure-1PSID=psid_val_999; __Secure-1PSIDTS=ts_val_888",
+            },
+        )
+        self.assertEqual(add_resp.status_code, 200)
+        acc_data = add_resp.json()
+        acc_id = acc_data["account_id"]
+        self.assertEqual(acc_data["name"], "My Gemini Web Session")
+        self.assertTrue(acc_data["has_cookies"])
+        self.assertGreaterEqual(acc_data["cookies_count"], 2)
+
+        # 2. Verify account appears in /api/accounts
+        list_resp = await self.client.get("/api/accounts")
+        self.assertEqual(list_resp.status_code, 200)
+        accounts = list_resp.json().get("accounts", [])
+        gw_accounts = [a for a in accounts if a.get("account_id") == acc_id]
+        self.assertEqual(len(gw_accounts), 1)
+        self.assertEqual(gw_accounts[0]["auth_method"], "gemini_web")
+
+        # 3. Toggle web account
+        toggle_resp = await self.client.post(f"/api/accounts/{acc_id}/toggle")
+        self.assertEqual(toggle_resp.status_code, 200)
+        self.assertFalse(toggle_resp.json()["enabled"])
+
+        toggle_resp2 = await self.client.post(f"/api/accounts/{acc_id}/toggle")
+        self.assertEqual(toggle_resp2.status_code, 200)
+        self.assertTrue(toggle_resp2.json()["enabled"])
+
+        # 4. Test account endpoint
+        test_resp = await self.client.post(f"/api/accounts/{acc_id}/test")
+        self.assertEqual(test_resp.status_code, 200)
+        test_data = test_resp.json()
+        self.assertEqual(test_data["account_id"], acc_id)
+        self.assertIn("has_cookies", test_data)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -920,6 +920,20 @@ class AntigravityOAuthSession(AccountSession):
             result["error"] = str(e)[:60]
         return result
 
+    async def test_connection(self) -> Dict[str, Any]:
+        """Tests whether the account session is valid and active."""
+        res = await self.validate_live()
+        ok = bool(res.get("token_ok"))
+        if ok:
+            return {
+                "ok": True,
+                "message": f"OAuth connection valid for {self.email}",
+                "email": self.email,
+                "quota_summary": res.get("quota_summary", {}),
+            }
+        else:
+            return {"ok": False, "error": res.get("error") or "OAuth token validation failed"}
+
     def to_dict(self) -> Dict[str, Any]:
         d = super().to_dict()
         d["tier_name"] = self.tier_info.get("name", "Antigravity")
@@ -1104,6 +1118,19 @@ class AIStudioApiKeySession(AccountSession):
             result["error"] = str(e)[:60]
         return result
 
+    async def test_connection(self) -> Dict[str, Any]:
+        """Tests whether the API key is active and valid."""
+        res = await self.validate_live()
+        ok = bool(res.get("token_ok"))
+        if ok:
+            return {
+                "ok": True,
+                "message": f"API key valid for {self.name or self.email or 'Google AI Studio'}",
+                "models_count": len(self.available_models or {}),
+            }
+        else:
+            return {"ok": False, "error": res.get("error") or "API key validation failed"}
+
     def to_dict(self) -> Dict[str, Any]:
         d = super().to_dict()
         d["api_key"] = f"{self.api_key[:6]}...{self.api_key[-4:]}" if len(self.api_key) > 10 else "api_key"
@@ -1111,11 +1138,93 @@ class AIStudioApiKeySession(AccountSession):
         return d
 
 
+def extract_cookies_from_raw(raw: Union[str, Dict[str, Any], List[Any]]) -> Dict[str, str]:
+    """
+    Extracts Google session cookies from:
+      - Cookie header string ("Cookie: __Secure-1PSID=...; SID=...")
+      - Raw key=value pairs (semicolon or newline separated)
+      - cURL command containing -H 'cookie: ...'
+      - HAR JSON string or dict (HTTP Archive format from browser Network tab)
+      - DevTools cookie export JSON list ([{"name": "...", "value": "..."}, ...])
+      - Plain dictionary of cookies ({"__Secure-1PSID": "..."})
+    """
+    cookies: Dict[str, str] = {}
+    if not raw:
+        return cookies
+
+    def _parse_cookie_header(header_val: str) -> Dict[str, str]:
+        res = {}
+        for part in re.split(r'[;\n]+', header_val):
+            part = part.strip()
+            if "=" in part:
+                k, v = part.split("=", 1)
+                k = k.strip()
+                v = v.strip()
+                if k and v:
+                    res[k] = v
+        return res
+
+    if isinstance(raw, dict):
+        # Case 1: HAR format dict
+        if "log" in raw and isinstance(raw["log"], dict) and "entries" in raw["log"]:
+            entries = raw["log"]["entries"]
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    continue
+                req = entry.get("request", {})
+                url = req.get("url", "")
+                if "gemini.google.com" in url or "google.com" in url or not url:
+                    # check req["cookies"]
+                    for c in req.get("cookies", []):
+                        if isinstance(c, dict) and "name" in c and "value" in c:
+                            cookies[str(c["name"])] = str(c["value"])
+                    # check headers
+                    for h in req.get("headers", []):
+                        if isinstance(h, dict) and h.get("name", "").lower() == "cookie":
+                            cookies.update(_parse_cookie_header(h.get("value", "")))
+            return cookies
+        # Case 2: Plain cookie dict
+        for k, v in raw.items():
+            if isinstance(v, str):
+                cookies[str(k)] = v
+            elif isinstance(v, dict) and "value" in v:
+                cookies[str(k)] = str(v["value"])
+        return cookies
+
+    if isinstance(raw, list):
+        # Case 3: List of cookie objects
+        for item in raw:
+            if isinstance(item, dict) and "name" in item and "value" in item:
+                cookies[str(item["name"])] = str(item["value"])
+        return cookies
+
+    if isinstance(raw, str):
+        text = raw.strip()
+        # Try JSON decode first
+        if (text.startswith("{") and text.endswith("}")) or (text.startswith("[") and text.endswith("]")):
+            try:
+                parsed = json.loads(text)
+                return extract_cookies_from_raw(parsed)
+            except Exception:
+                pass
+
+        # Check for cURL command
+        curl_match = re.search(r'''(?:-H|--header)\s+['"][Cc]ookie:\s*([^'"]+)['"]''', text)
+        if curl_match:
+            text = curl_match.group(1)
+
+        # Remove leading "Cookie:" or "cookie:" if present
+        text = re.sub(r'^[Cc]ookie:\s*', '', text)
+
+        return _parse_cookie_header(text)
+
+    return cookies
+
 
 class GeminiWebSession(AccountSession):
     """
     Manages gemini.google.com web sessions via browser cookies (experimental).
-    Auto-fetches cookies from Helium/Chrome via CDP (Chrome DevTools Protocol).
+    Auto-fetches cookies from Helium/Chrome via CDP (Chrome DevTools Protocol) or direct HAR / Cookie import.
     auth_method = 'gemini_web'
     """
 
@@ -1174,6 +1283,8 @@ class GeminiWebSession(AccountSession):
         self.region_code: Optional[str] = region_code
         self.expiry_timestamp: float = expiry_timestamp or (time.time() + 86400.0)
         self.available_models: Dict[str, Any] = {
+            "gemini-3.1-pro": {"displayName": "Gemini 3.1 Pro (Web)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
+            "gemini-3-pro": {"displayName": "Gemini 3 Pro (Web)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
             "gemini-2.5-pro": {"displayName": "Gemini 2.5 Pro (Web)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
             "gemini-2.5-flash": {"displayName": "Gemini 2.5 Flash (Web)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
         }
@@ -1642,6 +1753,29 @@ class GeminiWebSession(AccountSession):
             result["error"] = str(e)[:80]
         return result
 
+    async def test_connection(self) -> Dict[str, Any]:
+        """Tests whether the session cookies and connection are active and valid."""
+        res = await self.validate_live()
+        ok = bool(res.get("token_ok"))
+        if ok:
+            return {
+                "ok": True,
+                "message": "Gemini Web session active! AT token verified. Ready for Gemini models (gemini-3.1-pro, gemini-3-pro, etc.).",
+                "has_cookies": bool(self._cookies.get("__Secure-1PSID")),
+                "cookies_count": len(self._cookies),
+                "has_at_token": bool(self._at_token),
+                "at_token_preview": (self._at_token[:10] + "...") if self._at_token else None,
+            }
+        else:
+            err = res.get("error") or "Failed to connect to Gemini Web. Cookies may be expired or missing."
+            return {
+                "ok": False,
+                "error": err,
+                "has_cookies": bool(self._cookies.get("__Secure-1PSID")),
+                "cookies_count": len(self._cookies),
+                "has_at_token": False,
+            }
+
     def to_dict(self) -> Dict[str, Any]:
         d = super().to_dict()
         has_cookies = bool(self._cookies.get("__Secure-1PSID"))
@@ -1650,10 +1784,12 @@ class GeminiWebSession(AccountSession):
         d["has_at_token"] = bool(self._at_token)
         d["conv_id"] = self._conv_id
         d["tier_name"] = "Gemini Web (Browser)"
+        d["auth_method"] = "gemini_web"
+        d["cdp_port"] = getattr(self, "cdp_port", 9222)
         return d
 
     def to_save_dict(self) -> Dict[str, Any]:
-        """Minimal serializable data for accounts.json persistence."""
+        """Minimal serializable data for web_sessions.json persistence."""
         return {
             "account_id": self.account_id,
             "email": self.email,
@@ -1661,13 +1797,13 @@ class GeminiWebSession(AccountSession):
             "picture": self.picture,
             "auth_method": "gemini_web",
             "cdp_port": self.cdp_port,
+            "cookies": self._cookies,
             "enabled": self.enabled,
             "is_primary": self.is_primary,
             "total_requests": getattr(self, "total_requests", 0),
             "last_used_timestamp": getattr(self, "last_used_timestamp", 0.0),
             "last_used_model": getattr(self, "last_used_model", None),
             "last_client_type": getattr(self, "last_client_type", None),
-            # NOTE: cookies are intentionally NOT persisted to disk for security
         }
 
 
@@ -1956,6 +2092,7 @@ class AccountPool:
                         email=item.get("email"),
                         picture=item.get("picture"),
                         cdp_port=item.get("cdp_port", 9222),
+                        cookies=item.get("cookies", {}),
                         is_primary=bool(item.get("is_primary", False)),
                         enabled=bool(item.get("enabled", True)),
                         on_token_refreshed=self.save_accounts,
@@ -2144,6 +2281,7 @@ class AccountPool:
                     "email": acc.email,
                     "name": acc.name,
                     "picture": acc.picture,
+                    "auth_method": "api_key",
                     "api_key": raw_key,
                     "project_id": getattr(acc, "project_id", None),
                     "region_code": getattr(acc, "region_code", None),
@@ -2155,7 +2293,6 @@ class AccountPool:
                     "last_client_type": getattr(acc, "last_client_type", None),
                 })
             elif acc.auth_method == "gemini_web":
-                # cookies intentionally NOT saved to disk
                 web_list.append({
                     "account_id": acc.account_id,
                     "email": acc.email,
@@ -2163,6 +2300,7 @@ class AccountPool:
                     "picture": acc.picture,
                     "auth_method": "gemini_web",
                     "cdp_port": getattr(acc, "cdp_port", 9222),
+                    "cookies": getattr(acc, "_cookies", {}),
                     "enabled": acc.enabled,
                     "is_primary": acc.is_primary,
                     "total_requests": getattr(acc, "total_requests", 0),
@@ -2631,30 +2769,51 @@ class AccountPool:
         logger.info("Successfully added API key account %s (%s) to pool!", acc_id, masked_key)
         return acc
 
-    async def add_gemini_web_account(self, name: Optional[str] = None, cdp_port: int = 9222) -> "GeminiWebSession":
+    async def add_gemini_web_account(
+        self,
+        name: Optional[str] = None,
+        cdp_port: int = 9222,
+        raw_cookies: Optional[str] = None,
+        cookies: Optional[Dict[str, str]] = None,
+    ) -> "GeminiWebSession":
         """
         Adds a Gemini Web (gemini.google.com browser session) to the pool.
-        Automatically fetches cookies from Helium/Chrome via CDP.
+        Accepts raw cookies (HAR export, Cookie header, curl, or dict) or auto-fetches from Chrome via CDP.
         """
         acc_id = f"gw_{os.urandom(4).hex()}"
         display_name = name.strip() if (name and name.strip()) else "Gemini Web"
+
+        extracted: Dict[str, str] = {}
+        if cookies:
+            extracted.update(cookies)
+        if raw_cookies:
+            extracted.update(extract_cookies_from_raw(raw_cookies))
 
         acc = GeminiWebSession(
             account_id=acc_id,
             name=display_name,
             is_primary=len(self.accounts) == 0,
             on_token_refreshed=self.save_accounts,
+            cookies=extracted,
             cdp_port=cdp_port,
         )
 
-        # Attempt to pull cookies from browser immediately
-        refreshed = await acc.refresh_cookies_from_browser()
-        if not refreshed:
-            logger.warning("[GeminiWeb] Added account %s but no cookies extracted — browser must be open with gemini.google.com logged in", acc_id)
+        # If cookies were provided manually, try to verify them by fetching AT token
+        if acc._cookies.get("__Secure-1PSID"):
+            try:
+                await acc.get_at_token(force_refresh=True)
+            except Exception as e:
+                logger.warning("[GeminiWeb] Pre-fetching AT token failed: %s", e)
+        elif cdp_port:
+            # Attempt to pull cookies from browser immediately via CDP
+            refreshed = await acc.refresh_cookies_from_browser()
+            if not refreshed:
+                logger.warning("[GeminiWeb] Added account %s but no cookies extracted — browser must be open with gemini.google.com logged in", acc_id)
 
         self.accounts[acc_id] = acc
         self.save_accounts()
-        logger.info("Successfully added GeminiWeb account %s (cookies=%s)", acc_id, "yes" if refreshed else "no")
+        has_c = bool(acc._cookies.get("__Secure-1PSID"))
+        logger.info("Successfully added GeminiWeb account %s (cookies=%s, count=%d)", acc_id, "yes" if has_c else "no", len(acc._cookies))
         return acc
 
     def remove_account(self, account_id: str) -> bool:

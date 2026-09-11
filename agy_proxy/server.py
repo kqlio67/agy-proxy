@@ -429,18 +429,26 @@ def create_app(
     class AddGeminiWebRequest(BaseModel):
         name: Optional[str] = "Gemini Web"
         cdp_port: Optional[int] = 9222
+        raw_cookies: Optional[str] = None
+        cookies: Optional[Dict[str, str]] = None
 
     @app.post("/api/accounts/gemini-web")
     async def add_account_gemini_web(req: AddGeminiWebRequest):
-        """Adds a Gemini Web browser session account using CDP cookie extraction (experimental)."""
+        """Adds a Gemini Web browser session account using cookies, HAR, or CDP (experimental)."""
         try:
-            acc = await pool.add_gemini_web_account(name=req.name, cdp_port=req.cdp_port or 9222)
-            d = acc.to_dict()
-            d["message"] = (
-                "Gemini Web account added with cookies from browser."
-                if d.get("has_cookies")
-                else "Gemini Web account added but no cookies found — open Helium/Chrome with gemini.google.com logged in, then call /api/accounts/{account_id}/gemini-web/refresh-cookies."
+            acc = await pool.add_gemini_web_account(
+                name=req.name,
+                cdp_port=req.cdp_port or 9222,
+                raw_cookies=req.raw_cookies,
+                cookies=req.cookies,
             )
+            d = acc.to_dict()
+            if d.get("has_cookies"):
+                d["message"] = f"Gemini Web account added with {d.get('cookies_count', 0)} cookies."
+            else:
+                d["message"] = (
+                    "Gemini Web account added but no cookies found — open Chrome/Helium with gemini.google.com logged in, or paste cookies/HAR."
+                )
             return d
         except Exception as e:
             logger.error("Error adding Gemini Web account: %s", e)
@@ -457,15 +465,28 @@ def create_app(
             raise HTTPException(status_code=400, detail="Account is not a Gemini Web session.")
         ok = await acc.refresh_cookies_from_browser()
         if ok:
-            at = await acc.get_at_token(force_refresh=True)
+            await acc.get_at_token(force_refresh=True)
         return {
             "status": "ok" if ok else "no_cookies",
             "account_id": account_id,
             "cookies_refreshed": ok,
+            "cdp_port": acc.cdp_port,
             "has_at_token": bool(acc._at_token),
             "cookies_count": len(acc._cookies),
         }
 
+    @app.post("/api/accounts/{account_id}/test")
+    async def test_account(account_id: str):
+        """Tests connectivity and validity of an account (OAuth, API Key, or Gemini Web)."""
+        acc = pool.accounts.get(account_id)
+        if not acc:
+            raise HTTPException(status_code=404, detail="Account not found.")
+        try:
+            res = await acc.test_connection()
+            return {"account_id": account_id, **res}
+        except Exception as e:
+            logger.error("Error testing account %s: %s", account_id, e)
+            return {"account_id": account_id, "ok": False, "error": str(e)}
 
     class RenameAccountRequest(BaseModel):
         name: str

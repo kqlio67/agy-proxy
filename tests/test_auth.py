@@ -18,6 +18,8 @@ from agy_proxy.auth import (
     BaseAccountSession,
     AntigravityOAuthSession,
     AIStudioApiKeySession,
+    GeminiWebSession,
+    extract_cookies_from_raw,
     _parse_expiry,
     get_candidate_token_files,
     is_candidate_token_file,
@@ -485,6 +487,99 @@ class TestPolymorphicAccountHierarchy(unittest.IsolatedAsyncioTestCase):
             ak_data = json.load(f)
         self.assertEqual(len(ak_data["api_keys"]), 1)
         self.assertEqual(ak_data["api_keys"][0]["account_id"], "legacy_key")
+
+
+
+class TestGeminiWebSession(unittest.TestCase):
+    def test_extract_cookies_raw_header(self):
+        raw = "Cookie: __Secure-1PSID=psid123; __Secure-1PSIDTS=ts456; SID=sid789"
+        res = extract_cookies_from_raw(raw)
+        self.assertEqual(res.get("__Secure-1PSID"), "psid123")
+        self.assertEqual(res.get("__Secure-1PSIDTS"), "ts456")
+        self.assertEqual(res.get("SID"), "sid789")
+
+    def test_extract_cookies_har_json(self):
+        har_data = {
+            "log": {
+                "version": "1.2",
+                "entries": [
+                    {
+                        "request": {
+                            "url": "https://gemini.google.com/app",
+                            "cookies": [
+                                {"name": "__Secure-1PSID", "value": "har_psid"},
+                                {"name": "__Secure-1PSIDTS", "value": "har_ts"},
+                            ],
+                            "headers": [
+                                {"name": "Cookie", "value": "__Secure-1PSIDCC=har_cc; HSID=har_hsid"}
+                            ]
+                        }
+                    }
+                ]
+            }
+        }
+        res = extract_cookies_from_raw(json.dumps(har_data))
+        self.assertEqual(res.get("__Secure-1PSID"), "har_psid")
+        self.assertEqual(res.get("__Secure-1PSIDTS"), "har_ts")
+        self.assertEqual(res.get("__Secure-1PSIDCC"), "har_cc")
+        self.assertEqual(res.get("HSID"), "har_hsid")
+
+    def test_extract_cookies_curl(self):
+        curl_cmd = "curl 'https://gemini.google.com/_/BardChatUi' -H 'cookie: __Secure-1PSID=curl_psid; SSID=curl_ssid'"
+        res = extract_cookies_from_raw(curl_cmd)
+        self.assertEqual(res.get("__Secure-1PSID"), "curl_psid")
+        self.assertEqual(res.get("SSID"), "curl_ssid")
+
+    def test_gemini_web_models_and_support(self):
+        gw = GeminiWebSession(
+            account_id="gw_test",
+            cookies={"__Secure-1PSID": "test_psid"},
+        )
+        self.assertIn("gemini-3.1-pro", gw.available_models)
+        self.assertIn("gemini-3-pro", gw.available_models)
+        self.assertTrue(gw.is_model_supported("gemini-3.1-pro"))
+        self.assertTrue(gw.is_model_supported("gemini-2.5-pro"))
+        self.assertFalse(gw.is_model_supported("claude-3-7-sonnet"))
+
+    def test_gemini_web_persistence_in_pool(self):
+        import asyncio
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            pool = AccountPool(
+                accounts_file=tmp / "accounts.json",
+                api_keys_file=tmp / "api_keys.json",
+                web_sessions_file=tmp / "web_sessions.json",
+            )
+            asyncio.run(pool.add_gemini_web_account(
+                name="Test Web Session",
+                cdp_port=9222,
+                raw_cookies="__Secure-1PSID=test_cookie_value_123; __Secure-1PSIDTS=ts_abc",
+            ))
+
+            # Verify saved on disk
+            web_file = tmp / "web_sessions.json"
+            self.assertTrue(web_file.exists())
+            with open(web_file, "r", encoding="utf-8") as f:
+                saved = json.load(f)
+            self.assertEqual(len(saved["web_sessions"]), 1)
+            first = saved["web_sessions"][0]
+            self.assertEqual(first["name"], "Test Web Session")
+            self.assertEqual(first["cookies"]["__Secure-1PSID"], "test_cookie_value_123")
+
+            # Reload into new pool instance
+            pool2 = AccountPool(
+                accounts_file=tmp / "accounts.json",
+                api_keys_file=tmp / "api_keys.json",
+                web_sessions_file=tmp / "web_sessions.json",
+            )
+            pool2.load_accounts()
+            self.assertEqual(len(pool2.accounts), 1)
+            loaded_acc = list(pool2.accounts.values())[0]
+            self.assertEqual(loaded_acc.auth_method, "gemini_web")
+            self.assertEqual(loaded_acc._cookies.get("__Secure-1PSID"), "test_cookie_value_123")
+            d = loaded_acc.to_dict()
+            self.assertTrue(d["has_cookies"])
+            self.assertGreaterEqual(d["cookies_count"], 2)
 
 
 if __name__ == "__main__":
