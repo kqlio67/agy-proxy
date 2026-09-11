@@ -577,6 +577,40 @@ class TestGeminiWebSession(unittest.TestCase):
         d = gw.to_dict()
         self.assertIn("gemini-3.5-flash-lite-extended", d["available_models"])
 
+    def test_gemini_web_cookie_rotation_and_response_update(self):
+        gw = GeminiWebSession(
+            account_id="gw_rot",
+            cookies={"__Secure-1PSID": "orig_psid", "__Secure-1PSIDTS": "ts_old"},
+        )
+        class MockResp:
+            cookies = {"__Secure-1PSIDTS": "ts_new_from_resp"}
+            headers = {}
+
+        updated = gw._update_cookies_from_response(MockResp())
+        self.assertTrue(updated)
+        self.assertEqual(gw._cookies.get("__Secure-1PSIDTS"), "ts_new_from_resp")
+        self.assertEqual(gw._cookies.get("__Secure-1PSID"), "orig_psid")
+
+    def test_format_gemini_web_prompt_guardrails(self):
+        from agy_proxy.client import CloudCodeClient
+        payload = {
+            "request": {
+                "contents": [
+                    {"role": "user", "parts": [{"text": "Hello, write a script"}]},
+                    {"role": "model", "parts": [{"text": "Sure, here is the plan"}]},
+                    {"role": "user", "parts": [{"text": "Execute 1+2"}]},
+                ],
+                "systemInstruction": {"parts": [{"text": "You are an expert coder."}]},
+                "tools": [{"name": "run_bash", "description": "Execute local shell"}],
+            }
+        }
+        res = CloudCodeClient._format_gemini_web_prompt(payload)
+        self.assertIn("Do NOT execute code internally via Google's data_analysis_tool", res)
+        self.assertIn("System Instructions:\nYou are an expert coder.", res)
+        self.assertIn("run_bash", res)
+        self.assertIn("Conversation History:", res)
+        self.assertIn("Execute 1+2", res)
+
     def test_gemini_web_persistence_in_pool(self):
         import asyncio
         with tempfile.TemporaryDirectory() as tmpdir:

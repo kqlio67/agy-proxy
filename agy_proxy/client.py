@@ -169,6 +169,94 @@ class CloudCodeClient:
             return "gemini-3.6-flash"
         return list(available_models.keys())[0]
 
+    @staticmethod
+    def _format_gemini_web_prompt(payload_probe: Dict[str, Any]) -> str:
+        """
+        Formats comprehensive prompt for Gemini Web browser sessions:
+          1. Guardrail against Google's internal sandbox tools (data_analysis_tool / Python interpreter).
+          2. System instructions.
+          3. Available tool declarations.
+          4. Prior multi-turn conversation history.
+          5. Current user message.
+        """
+        req_dict = payload_probe.get("request", payload_probe)
+        contents = req_dict.get("contents", [])
+        sys_inst = req_dict.get("systemInstruction", {})
+        tools = req_dict.get("tools", [])
+
+        sys_text = ""
+        if isinstance(sys_inst, dict):
+            for sp in sys_inst.get("parts", []):
+                if isinstance(sp, dict) and "text" in sp:
+                    sys_text += sp["text"] + "\n\n"
+
+        # Explicit anti-sandbox & direct text generation guardrails
+        guardrail = (
+            "[System Directive: You are operating strictly as an AI language model backend for an IDE coding assistant.\n"
+            "CRITICAL:\n"
+            "1. Do NOT execute code internally via Google's data_analysis_tool or Python interpreter sandbox.\n"
+            "2. Do NOT use internal Google web search unless explicitly requested by the user.\n"
+            "3. Output all code, text, or tool calls directly in text format so the client agent can execute them locally.]"
+        )
+
+        prompt_sections = [guardrail]
+
+        if sys_text.strip():
+            prompt_sections.append(f"[System Instructions:\n{sys_text.strip()}]")
+
+        if tools:
+            try:
+                tools_str = json.dumps(tools, indent=2, ensure_ascii=False)
+                prompt_sections.append(
+                    f"[Available Tools / Functions:\n{tools_str}\n"
+                    f"When calling a tool, format your call strictly as a JSON block:\n"
+                    f'```json\n{{"name": "<tool_name>", "arguments": {{ ... }}}}\n```]'
+                )
+            except Exception:
+                pass
+
+        # Multi-turn conversation context
+        history_turns = []
+        current_user_msg = ""
+
+        for idx, c in enumerate(contents):
+            if not isinstance(c, dict):
+                continue
+            role = c.get("role", "user")
+            text_parts = []
+            for p in c.get("parts", []):
+                if isinstance(p, dict) and "text" in p:
+                    text_parts.append(p["text"])
+            msg_text = "".join(text_parts).strip()
+            if not msg_text:
+                continue
+
+            if idx == len(contents) - 1 and role == "user":
+                current_user_msg = msg_text
+            else:
+                role_label = "User" if role == "user" else "Assistant"
+                history_turns.append(f"{role_label}: {msg_text}")
+
+        if history_turns:
+            recent = history_turns[-10:]
+            prompt_sections.append("[Conversation History:\n" + "\n---\n".join(recent) + "\n]")
+
+        if not current_user_msg:
+            for c in reversed(contents):
+                if isinstance(c, dict):
+                    for p in c.get("parts", []):
+                        if isinstance(p, dict) and "text" in p and p["text"].strip():
+                            current_user_msg = p["text"].strip()
+                            break
+                if current_user_msg:
+                    break
+
+        if not current_user_msg:
+            current_user_msg = "(empty message)"
+
+        prompt_sections.append(current_user_msg)
+        return "\n\n".join(prompt_sections)
+
     async def _post_sse_stream_with_failover(
         self,
         endpoint: str,
@@ -208,29 +296,8 @@ class CloudCodeClient:
                         if not isinstance(acc, GeminiWebSession):
                             break
                         acc_label = acc.name or acc.email
-                        # Extract plain user message text and system instruction
                         _payload_probe = payload_builder_fn("gemini-web")
-                        _contents = _payload_probe.get("request", _payload_probe).get("contents", [])
-                        _sys_inst = _payload_probe.get("request", _payload_probe).get("systemInstruction", {})
-                        _sys_text = ""
-                        if isinstance(_sys_inst, dict):
-                            for _sp in _sys_inst.get("parts", []):
-                                if isinstance(_sp, dict) and "text" in _sp:
-                                    _sys_text += _sp["text"] + "\n\n"
-
-                        user_message_text = ""
-                        for _content in reversed(_contents):
-                            if isinstance(_content, dict) and _content.get("role") == "user":
-                                _parts = _content.get("parts", [])
-                                for _p in _parts:
-                                    if isinstance(_p, dict) and "text" in _p:
-                                        user_message_text += _p["text"]
-                                if user_message_text:
-                                    break
-                        if not user_message_text:
-                            user_message_text = "(empty message)"
-                        if _sys_text and _sys_text.strip() not in user_message_text:
-                            user_message_text = f"[System Instructions:\n{_sys_text.strip()}]\n\n{user_message_text}"
+                        user_message_text = self._format_gemini_web_prompt(_payload_probe)
 
                         logger.info("[%s] %s (Gemini Web Browser)", acc_label, model_name)
                         acc.total_requests += 1
@@ -346,20 +413,8 @@ class CloudCodeClient:
                         if not isinstance(acc, GeminiWebSession):
                             break
                         acc_label = acc.name or acc.email
-                        # Extract plain user message text from the payload builder result
                         _payload_probe = payload_builder_fn("gemini-web")
-                        _contents = _payload_probe.get("request", _payload_probe).get("contents", [])
-                        user_message_text = ""
-                        for _content in reversed(_contents):
-                            if isinstance(_content, dict) and _content.get("role") == "user":
-                                _parts = _content.get("parts", [])
-                                for _p in _parts:
-                                    if isinstance(_p, dict) and "text" in _p:
-                                        user_message_text += _p["text"]
-                                if user_message_text:
-                                    break
-                        if not user_message_text:
-                            user_message_text = "(empty message)"
+                        user_message_text = self._format_gemini_web_prompt(_payload_probe)
 
                         logger.info("[%s] %s (Gemini Web Browser)", acc_label, model_name)
                         acc.total_requests += 1

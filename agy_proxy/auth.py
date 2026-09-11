@@ -1462,6 +1462,37 @@ class GeminiWebSession(AccountSession):
         self._at_token = None
         logger.info("[GeminiWeb] Cookies updated manually (%d keys)", len(cookies))
 
+    def _update_cookies_from_response(self, response: Any) -> bool:
+        """Captures rotating cookies (such as __Secure-1PSIDTS) from Set-Cookie headers."""
+        updated = False
+        if hasattr(response, "cookies"):
+            for name, val in response.cookies.items():
+                if name in self.COOKIE_KEYS and val and self._cookies.get(name) != val:
+                    self._cookies[name] = val
+                    updated = True
+        if hasattr(response, "headers"):
+            raw_set_cookie = response.headers.get_list("set-cookie") if hasattr(response.headers, "get_list") else []
+            for sc in raw_set_cookie:
+                parts = sc.split(";")[0].split("=", 1)
+                if len(parts) == 2:
+                    k, v = parts[0].strip(), parts[1].strip()
+                    if k in self.COOKIE_KEYS and v and self._cookies.get(k) != v:
+                        self._cookies[k] = v
+                        updated = True
+        if updated:
+            self._at_token = None
+        return updated
+
+    async def _notify_token_refreshed(self) -> None:
+        if self.on_token_refreshed:
+            try:
+                if inspect.iscoroutinefunction(self.on_token_refreshed):
+                    await self.on_token_refreshed()
+                else:
+                    self.on_token_refreshed()
+            except Exception as cb_err:
+                logger.error("[GeminiWeb] on_token_refreshed callback error: %s", cb_err)
+
     def _build_cookie_header(self) -> str:
         parts = []
         for k in self.COOKIE_KEYS:
@@ -1493,9 +1524,37 @@ class GeminiWebSession(AccountSession):
                 timeout=15.0,
                 follow_redirects=True,
             )
+            if self._update_cookies_from_response(resp):
+                await self._notify_token_refreshed()
+
             if resp.status_code != 200:
                 logger.warning("[GeminiWeb] /app returned HTTP %d (cookies may be expired)", resp.status_code)
-                return None
+                if self.cdp_port:
+                    logger.info("[GeminiWeb] Attempting cookie refresh via CDP (port %d)...", self.cdp_port)
+                    if await self.refresh_cookies_from_browser():
+                        await self._notify_token_refreshed()
+                        # Retry /app with fresh cookies
+                        retry_resp = await client.get(
+                            f"{self.GEMINI_WEB_BASE}/app",
+                            headers={
+                                "Cookie": self._build_cookie_header(),
+                                "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+                                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                                "Accept-Language": "en-US,en;q=0.9",
+                            },
+                            timeout=15.0,
+                            follow_redirects=True,
+                        )
+                        if retry_resp.status_code == 200:
+                            resp = retry_resp
+                            if self._update_cookies_from_response(resp):
+                                await self._notify_token_refreshed()
+                        else:
+                            return None
+                    else:
+                        return None
+                else:
+                    return None
             html = resp.text
             # Extract AT token: "SNlM0e":"<token>"
             m = re.search(r'"SNlM0e"\s*:\s*"([^"]+)"', html)
@@ -1711,196 +1770,256 @@ class GeminiWebSession(AccountSession):
         model_config = self.get_model_config(model)
         client_uuid = str(uuid.uuid4()).upper()
 
-        body = self._build_stream_generate_body(
-            user_message,
-            model_config=model_config,
-            client_uuid=client_uuid,
-            image_parts=image_parts,
-        )
+        for attempt in range(2):
+            at_token = await self.get_at_token()
+            if not at_token and self.cdp_port and attempt == 0:
+                logger.info("[GeminiWeb] Missing AT token, attempting CDP cookie refresh...")
+                if await self.refresh_cookies_from_browser():
+                    await self._notify_token_refreshed()
+                    at_token = await self.get_at_token(force_refresh=True)
 
-        req_id = self._next_req_id()
-        url = (
-            f"{self.GEMINI_WEB_BASE}{self.STREAM_GENERATE_PATH}"
-            f"?bl={self._bl_token}&hl=en&_reqid={req_id}&rt=c"
-        )
+            if not at_token:
+                yield {"type": "error", "message": "Failed to obtain Gemini Web AT token (cookies may be expired). Please re-login in browser."}
+                return
 
-        headers = {
-            "Cookie": self._build_cookie_header(),
-            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
-            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-            "Origin": self.GEMINI_WEB_BASE,
-            "Referer": f"{self.GEMINI_WEB_BASE}/",
-            "Accept": "*/*",
-            "Accept-Language": "en-US,en;q=0.9",
-            "Cache-Control": "no-cache",
-            "Pragma": "no-cache",
-            "Priority": "u=1, i",
-            "sec-ch-ua": '"Chromium";v="152", "Not?A_Brand";v="24", "Google Chrome";v="152"',
-            "sec-ch-ua-arch": '"x86"',
-            "sec-ch-ua-bitness": '"64"',
-            "sec-ch-ua-form-factors": '"Desktop"',
-            "sec-ch-ua-full-version": '"152.0.7977.82"',
-            "sec-ch-ua-full-version-list": '"Chromium";v="152.0.7977.82", "Not?A_Brand";v="24.0.0.0", "Google Chrome";v="152.0.7977.82"',
-            "sec-ch-ua-mobile": "?0",
-            "sec-ch-ua-model": '""',
-            "sec-ch-ua-platform": '"Linux"',
-            "sec-ch-ua-platform-version": '""',
-            "sec-ch-ua-wow64": "?0",
-            "sec-fetch-dest": "empty",
-            "sec-fetch-mode": "cors",
-            "sec-fetch-site": "same-origin",
-            "x-goog-ext-525001261-jspb": json.dumps([
-                1, None, None, None, model_config["hash"], None, None, 0,
-                [4, 5, 6, 8, 4, 5, 6, 8], None, None, 2, None, None,
-                model_config["model_id"], model_config["mode"], "1DE133FC-21BF-4135-BD57-630481ED3E77"
-            ]),
-            "x-goog-ext-525005358-jspb": json.dumps([client_uuid, 1]),
-            "x-goog-ext-73010989-jspb": "[0]",
-            "x-goog-ext-73010990-jspb": "[0,0,0]",
-            "x-same-domain": "1",
-        }
+            body = self._build_stream_generate_body(
+                user_message,
+                model_config=model_config,
+                client_uuid=client_uuid,
+                image_parts=image_parts,
+            )
 
-        client = await self.get_http_client()
+            req_id = self._next_req_id()
+            url = (
+                f"{self.GEMINI_WEB_BASE}{self.STREAM_GENERATE_PATH}"
+                f"?bl={self._bl_token}&hl=en&_reqid={req_id}&rt=c"
+            )
 
-        try:
-            async with client.stream(
-                "POST",
-                url,
-                headers=headers,
-                data=body,
-                timeout=httpx.Timeout(timeout=timeout, connect=15.0, read=timeout, write=30.0),
-            ) as response:
-                if response.status_code in (401, 403):
-                    yield {"type": "error", "message": f"Auth error ({response.status_code}) — cookies expired. Re-login to Gemini in browser."}
-                    return
-                if response.status_code != 200:
-                    err = await response.aread()
-                    yield {"type": "error", "message": f"StreamGenerate returned HTTP {response.status_code}: {err.decode('utf-8', 'ignore')[:200]}"}
-                    return
+            headers = {
+                "Cookie": self._build_cookie_header(),
+                "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+                "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+                "Origin": self.GEMINI_WEB_BASE,
+                "Referer": f"{self.GEMINI_WEB_BASE}/",
+                "Accept": "*/*",
+                "Accept-Language": "en-US,en;q=0.9",
+                "Cache-Control": "no-cache",
+                "Pragma": "no-cache",
+                "Priority": "u=1, i",
+                "sec-ch-ua": '"Chromium";v="152", "Not?A_Brand";v="24", "Google Chrome";v="152"',
+                "sec-ch-ua-arch": '"x86"',
+                "sec-ch-ua-bitness": '"64"',
+                "sec-ch-ua-form-factors": '"Desktop"',
+                "sec-ch-ua-full-version": '"152.0.7977.82"',
+                "sec-ch-ua-full-version-list": '"Chromium";v="152.0.7977.82", "Not?A_Brand";v="24.0.0.0", "Google Chrome";v="152.0.7977.82"',
+                "sec-ch-ua-mobile": "?0",
+                "sec-ch-ua-model": '""',
+                "sec-ch-ua-platform": '"Linux"',
+                "sec-ch-ua-platform-version": '""',
+                "sec-ch-ua-wow64": "?0",
+                "sec-fetch-dest": "empty",
+                "sec-fetch-mode": "cors",
+                "sec-fetch-site": "same-origin",
+                "x-goog-ext-525001261-jspb": json.dumps([
+                    1, None, None, None, model_config["hash"], None, None, 0,
+                    [4, 5, 6, 8, 4, 5, 6, 8], None, None, 2, None, None,
+                    model_config["model_id"], model_config["mode"], "1DE133FC-21BF-4135-BD57-630481ED3E77"
+                ]),
+                "x-goog-ext-525005358-jspb": json.dumps([client_uuid, 1]),
+                "x-goog-ext-73010989-jspb": "[0]",
+                "x-goog-ext-73010990-jspb": "[0,0,0]",
+                "x-same-domain": "1",
+            }
 
-                accumulated_text = ""
-                accumulated_thinking = ""
-                prev_text = ""
-                new_conv_id: Optional[str] = None
-                new_resp_id: Optional[str] = None
-                new_rc_id: Optional[str] = None
-                detected_model: Optional[str] = None
+            client = await self.get_http_client()
 
-                raw_buffer = b""
-                async for chunk in response.aiter_bytes():
-                    raw_buffer += chunk
+            try:
+                async with client.stream(
+                    "POST",
+                    url,
+                    headers=headers,
+                    data=body,
+                    timeout=httpx.Timeout(timeout=timeout, connect=15.0, read=timeout, write=30.0),
+                ) as response:
+                    # Capture rotating session cookies (__Secure-1PSIDTS, etc.)
+                    if self._update_cookies_from_response(response):
+                        await self._notify_token_refreshed()
 
-                text_body = raw_buffer.decode("utf-8", errors="replace")
-                if text_body.startswith(")]}'"):
-                    text_body = text_body[len(")]}'\n"):]
+                    if response.status_code in (401, 403):
+                        if self.cdp_port and attempt == 0:
+                            logger.info("[GeminiWeb] Got %d auth error, attempting CDP refresh (port %d)...", response.status_code, self.cdp_port)
+                            if await self.refresh_cookies_from_browser():
+                                await self._notify_token_refreshed()
+                                self._at_token = None
+                                continue  # Retry with refreshed cookies
+                        yield {"type": "error", "message": f"Auth error ({response.status_code}) — cookies expired. Re-login to Gemini in browser."}
+                        return
 
-                lines = text_body.split("\n")
-                i = 0
-                while i < len(lines):
-                    line = lines[i].strip()
-                    if not line or (len(line) <= 8 and all(c in "0123456789abcdefABCDEF" for c in line)):
-                        i += 1
-                        continue
-                    if line.startswith("[") or line.startswith('"'):
+                    if response.status_code != 200:
+                        err = await response.aread()
+                        yield {"type": "error", "message": f"StreamGenerate returned HTTP {response.status_code}: {err.decode('utf-8', 'ignore')[:200]}"}
+                        return
+
+                    accumulated_text = ""
+                    accumulated_thinking = ""
+                    prev_text = ""
+                    new_conv_id: Optional[str] = None
+                    new_resp_id: Optional[str] = None
+                    new_rc_id: Optional[str] = None
+                    detected_model: Optional[str] = None
+
+                    text_buffer = ""
+                    has_stripped_xssi = False
+
+                    async for chunk_bytes in response.aiter_bytes():
+                        if not chunk_bytes:
+                            continue
+                        text_chunk = chunk_bytes.decode("utf-8", errors="replace")
+                        text_buffer += text_chunk
+
+                        if not has_stripped_xssi:
+                            if text_buffer.startswith(")]}'"):
+                                text_buffer = text_buffer[len(")]}'"):].lstrip("\r\n")
+                                has_stripped_xssi = True
+                            elif len(text_buffer) > 10:
+                                has_stripped_xssi = True
+
+                        while "\n" in text_buffer:
+                            line, text_buffer = text_buffer.split("\n", 1)
+                            line = line.strip()
+                            if not line:
+                                continue
+                            # Skip chunk length lines (digits or short hex numbers)
+                            if line.isdigit() or (len(line) <= 8 and all(c in "0123456789abcdefABCDEF" for c in line)):
+                                continue
+                            if line.startswith("["):
+                                try:
+                                    outer = json.loads(line)
+                                    if isinstance(outer, list) and len(outer) > 0:
+                                        outer0 = outer[0]
+                                        if isinstance(outer0, list) and len(outer0) > 2:
+                                            inner_str = outer0[2]
+                                            if isinstance(inner_str, str) and inner_str:
+                                                try:
+                                                    inner = json.loads(inner_str)
+                                                except Exception:
+                                                    continue
+
+                                                # 1. Conv / resp IDs
+                                                try:
+                                                    if isinstance(inner, list) and len(inner) > 1 and isinstance(inner[1], list) and len(inner[1]) >= 2:
+                                                        new_conv_id = new_conv_id or inner[1][0]
+                                                        new_resp_id = new_resp_id or inner[1][1]
+                                                except Exception:
+                                                    pass
+
+                                                # 2. Continuation token
+                                                try:
+                                                    if isinstance(inner, list) and len(inner) > 2 and isinstance(inner[2], dict):
+                                                        if "26" in inner[2]:
+                                                            self._continuation_token = inner[2]["26"]
+                                                except Exception:
+                                                    pass
+
+                                                # 3. Model name
+                                                try:
+                                                    if isinstance(inner, list):
+                                                        for item in inner:
+                                                            if isinstance(item, str) and any(kw in item for kw in ("Flash", "Pro", "Extended")):
+                                                                detected_model = item
+                                                                break
+                                                except Exception:
+                                                    pass
+
+                                                # 4. Candidates / deltas
+                                                try:
+                                                    if (isinstance(inner, list) and len(inner) > 4
+                                                            and isinstance(inner[4], list) and inner[4]
+                                                            and isinstance(inner[4][0], list)):
+                                                        cand0 = inner[4][0]
+                                                        if len(cand0) > 0 and isinstance(cand0[0], str) and cand0[0].startswith("rc_"):
+                                                            new_rc_id = cand0[0]
+
+                                                        # Text delta (response body)
+                                                        if len(cand0) > 1 and isinstance(cand0[1], list) and cand0[1]:
+                                                            full_text = cand0[1][0]
+                                                            if isinstance(full_text, str) and full_text != prev_text:
+                                                                delta = full_text[len(prev_text):]
+                                                                if delta:
+                                                                    accumulated_text += delta
+                                                                    yield {"type": "text", "text": delta}
+                                                                prev_text = full_text
+
+                                                        # Thinking delta
+                                                        for elem in cand0:
+                                                            if isinstance(elem, list) and elem and isinstance(elem[0], list) and elem[0]:
+                                                                val = elem[0][0]
+                                                                if isinstance(val, str) and ("**" in val or "I'm currently focused" in val or "Initiating" in val or "Thinking Process" in val):
+                                                                    if val != accumulated_thinking:
+                                                                        th_delta = val[len(accumulated_thinking):]
+                                                                        if th_delta:
+                                                                            accumulated_thinking += th_delta
+                                                                            yield {"type": "thinking", "text": th_delta}
+                                                                    break
+                                                except Exception:
+                                                    pass
+                                except (json.JSONDecodeError, IndexError, TypeError):
+                                    pass
+
+                    # Process leftover buffer
+                    leftover = text_buffer.strip()
+                    if leftover.startswith("["):
                         try:
-                            outer = json.loads(line)
+                            outer = json.loads(leftover)
                             if isinstance(outer, list) and len(outer) > 0:
                                 outer0 = outer[0]
                                 if isinstance(outer0, list) and len(outer0) > 2:
                                     inner_str = outer0[2]
                                     if isinstance(inner_str, str) and inner_str:
-                                        try:
-                                            inner = json.loads(inner_str)
-                                        except Exception:
-                                            i += 1
-                                            continue
-
-                                        # 1. Extract conv_id / resp_id from inner[1]
-                                        try:
-                                            if isinstance(inner, list) and len(inner) > 1 and isinstance(inner[1], list) and len(inner[1]) >= 2:
-                                                new_conv_id = new_conv_id or inner[1][0]
-                                                new_resp_id = new_resp_id or inner[1][1]
-                                        except Exception:
-                                            pass
-
-                                        # 2. Extract continuation token from inner[2] (e.g. {"26": "..."})
-                                        try:
-                                            if isinstance(inner, list) and len(inner) > 2 and isinstance(inner[2], dict):
-                                                if "26" in inner[2]:
-                                                    self._continuation_token = inner[2]["26"]
-                                        except Exception:
-                                            pass
-
-                                        # 3. Extract model name if returned in metadata array
-                                        try:
-                                            if isinstance(inner, list):
-                                                for item in inner:
-                                                    if isinstance(item, str) and any(kw in item for kw in ("Flash", "Pro", "Extended")):
-                                                        detected_model = item
-                                                        break
-                                        except Exception:
-                                            pass
-
-                                        # 4. Extract candidates, rc_id, text, and thinking from inner[4]
-                                        try:
-                                            if (isinstance(inner, list) and len(inner) > 4
-                                                    and isinstance(inner[4], list) and inner[4]
-                                                    and isinstance(inner[4][0], list)):
-                                                cand0 = inner[4][0]
-                                                if len(cand0) > 0 and isinstance(cand0[0], str) and cand0[0].startswith("rc_"):
-                                                    new_rc_id = cand0[0]
-
-                                                # Text delta from cand0[1]
-                                                if len(cand0) > 1 and isinstance(cand0[1], list) and cand0[1]:
-                                                    full_text = cand0[1][0]
-                                                    if isinstance(full_text, str) and full_text != prev_text:
-                                                        delta = full_text[len(prev_text):]
-                                                        if delta:
-                                                            accumulated_text += delta
-                                                            yield {"type": "text", "text": delta}
-                                                        prev_text = full_text
-
-                                                # Thinking delta from cand0 items
-                                                for elem in cand0:
-                                                    if isinstance(elem, list) and elem and isinstance(elem[0], list) and elem[0]:
-                                                        val = elem[0][0]
-                                                        if isinstance(val, str) and ("**" in val or "I'm currently focused" in val or "Initiating" in val):
-                                                            if val != accumulated_thinking:
-                                                                th_delta = val[len(accumulated_thinking):]
-                                                                if th_delta:
-                                                                    accumulated_thinking += th_delta
-                                                                    yield {"type": "thinking", "text": th_delta}
-                                                            break
-                                        except Exception:
-                                            pass
-                        except (json.JSONDecodeError, IndexError, TypeError):
+                                        inner = json.loads(inner_str)
+                                        if (isinstance(inner, list) and len(inner) > 4
+                                                and isinstance(inner[4], list) and inner[4]
+                                                and isinstance(inner[4][0], list)):
+                                            cand0 = inner[4][0]
+                                            if len(cand0) > 1 and isinstance(cand0[1], list) and cand0[1]:
+                                                full_text = cand0[1][0]
+                                                if isinstance(full_text, str) and full_text != prev_text:
+                                                    delta = full_text[len(prev_text):]
+                                                    if delta:
+                                                        accumulated_text += delta
+                                                        yield {"type": "text", "text": delta}
+                        except Exception:
                             pass
-                    i += 1
 
-                # Update conversation state
-                self._turn_index += 1
-                if new_conv_id:
-                    self._conv_id = new_conv_id
-                if new_resp_id:
-                    self._resp_id = new_resp_id
-                if new_rc_id:
-                    self._rc_id = new_rc_id
+                    # Update conversation state
+                    self._turn_index += 1
+                    if new_conv_id:
+                        self._conv_id = new_conv_id
+                    if new_resp_id:
+                        self._resp_id = new_resp_id
+                    if new_rc_id:
+                        self._rc_id = new_rc_id
 
-                yield {
-                    "type": "done",
-                    "conv_id": self._conv_id,
-                    "resp_id": self._resp_id,
-                    "model": detected_model or model_config["displayName"],
-                    "text": accumulated_text,
-                }
+                    yield {
+                        "type": "done",
+                        "conv_id": self._conv_id,
+                        "resp_id": self._resp_id,
+                        "rc_id": self._rc_id,
+                        "model": detected_model or model_config["displayName"],
+                        "text": accumulated_text,
+                    }
+                    return
 
-        except Exception as e:
-            logger.warning("[GeminiWeb] stream_generate error: %s", e)
-            yield {"type": "error", "message": str(e)[:200]}
-
-        except Exception as e:
-            logger.warning("[GeminiWeb] stream_generate error: %s", e)
-            yield {"type": "error", "message": str(e)[:200]}
+            except (httpx.RequestError, asyncio.TimeoutError) as e:
+                logger.warning("[GeminiWeb] stream_generate network error (attempt %d): %s", attempt, e)
+                if attempt == 0 and self.cdp_port:
+                    continue
+                yield {"type": "error", "message": f"Network error connecting to Gemini Web: {e}"}
+                return
+            except Exception as e:
+                logger.warning("[GeminiWeb] stream_generate error: %s", e)
+                yield {"type": "error", "message": str(e)[:200]}
+                return
 
     async def validate_live(self) -> Dict[str, Any]:
         """Validates by attempting to fetch the AT token from Gemini Web."""
