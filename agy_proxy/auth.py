@@ -14,6 +14,7 @@ import os
 import platform
 import time
 import re
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple, Union
@@ -479,6 +480,7 @@ class BaseAccountSession:
             "rate_limited_models": active_limits,
             "quota_summary": getattr(self, "quota_summary", {}),
             "quota_details": self.get_quota_details(),
+            "available_models": list(getattr(self, "available_models", {}).keys()),
             "error_message": self.error_message,
         }
 
@@ -1244,6 +1246,45 @@ class GeminiWebSession(AccountSession):
     # Build label — extracted from first StreamGenerate response or hard-coded fallback
     _DEFAULT_BL = "boq_assistant-bard-web-server_20260907.07_p3"
 
+    MODEL_CONFIGS: Dict[str, Dict[str, Any]] = {
+        "gemini-3.5-flash-lite-extended": {
+            "model_id": 6,
+            "mode": 2,
+            "hash": "8c46e95b1a07cecc",
+            "displayName": "Gemini 3.5 Flash-Lite Extended (Web Thinking)",
+        },
+        "gemini-3.5-flash-lite": {
+            "model_id": 6,
+            "mode": 1,
+            "hash": "8c46e95b1a07cecc",
+            "displayName": "Gemini 3.5 Flash-Lite (Web)",
+        },
+        "gemini-3.8-flash-extended": {
+            "model_id": 1,
+            "mode": 2,
+            "hash": "56fdd199312815e2",
+            "displayName": "Gemini 3.8 Flash Extended (Web Thinking)",
+        },
+        "gemini-3.8-flash": {
+            "model_id": 1,
+            "mode": 1,
+            "hash": "56fdd199312815e2",
+            "displayName": "Gemini 3.8 Flash (Web)",
+        },
+        "gemini-3.1-pro-extended": {
+            "model_id": 3,
+            "mode": 2,
+            "hash": "e6fa609c3fa255c0",
+            "displayName": "Gemini 3.1 Pro Extended (Web Thinking)",
+        },
+        "gemini-3.1-pro": {
+            "model_id": 3,
+            "mode": 1,
+            "hash": "e6fa609c3fa255c0",
+            "displayName": "Gemini 3.1 Pro (Web)",
+        },
+    }
+
     def __init__(
         self,
         account_id: str,
@@ -1278,18 +1319,65 @@ class GeminiWebSession(AccountSession):
         self._bl_token: str = self._DEFAULT_BL
         self._conv_id: Optional[str] = None
         self._resp_id: Optional[str] = None
+        self._rc_id: Optional[str] = None
+        self._continuation_token: Optional[str] = None
+        self._turn_index: int = 0
+        self._req_id: int = 4257099
         self.cdp_port: int = cdp_port
         self.project_id: Optional[str] = project_id
         self.region_code: Optional[str] = region_code
         self.expiry_timestamp: float = expiry_timestamp or (time.time() + 86400.0)
         self.available_models: Dict[str, Any] = {
+            "gemini-3.5-flash-lite-extended": {"displayName": "Gemini 3.5 Flash-Lite Extended (Web Thinking)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
+            "gemini-3.5-flash-lite": {"displayName": "Gemini 3.5 Flash-Lite (Web)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
+            "gemini-3.8-flash-extended": {"displayName": "Gemini 3.8 Flash Extended (Web Thinking)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
+            "gemini-3.8-flash": {"displayName": "Gemini 3.8 Flash (Web)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
+            "gemini-3.1-pro-extended": {"displayName": "Gemini 3.1 Pro Extended (Web Thinking)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
             "gemini-3.1-pro": {"displayName": "Gemini 3.1 Pro (Web)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
-            "gemini-3-pro": {"displayName": "Gemini 3 Pro (Web)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
+            # Backwards-compatible aliases
+            "gemini-3-pro": {"displayName": "Gemini 3 Pro (Web Extended)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
+            "gemini-3.8-flash-high": {"displayName": "Gemini 3.8 Flash High (Web Extended)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
+            "gemini-3.1-flash-lite": {"displayName": "Gemini 3.1 Flash Lite (Web)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
             "gemini-2.5-pro": {"displayName": "Gemini 2.5 Pro (Web)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
             "gemini-2.5-flash": {"displayName": "Gemini 2.5 Flash (Web)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
         }
         self.quota_summary: Dict[str, Any] = {}
         self.tier_info: Dict[str, Any] = {"name": "Gemini Web (Browser)"}
+
+    def reset_conversation(self) -> None:
+        """Resets the active conversation context for this web session."""
+        self._conv_id = None
+        self._resp_id = None
+        self._rc_id = None
+        self._continuation_token = None
+        self._turn_index = 0
+
+    def _next_req_id(self) -> int:
+        import random
+        self._req_id += random.randint(1000000, 2500000)
+        return self._req_id
+
+    def get_model_config(self, model: Optional[str]) -> Dict[str, Any]:
+        """Resolves model name or alias to model ID, mode (standard/extended), and hash."""
+        if not model:
+            return self.MODEL_CONFIGS["gemini-3.5-flash-lite-extended"]
+        m = model.lower().strip()
+        if m in self.MODEL_CONFIGS:
+            return self.MODEL_CONFIGS[m]
+        # Resolve aliases
+        if "3.5" in m and ("extend" in m or "think" in m or "high" in m):
+            return self.MODEL_CONFIGS["gemini-3.5-flash-lite-extended"]
+        if "3.5" in m or "lite" in m:
+            return self.MODEL_CONFIGS["gemini-3.5-flash-lite"]
+        if "3.8" in m and ("extend" in m or "think" in m or "high" in m):
+            return self.MODEL_CONFIGS["gemini-3.8-flash-extended"]
+        if "3.8" in m or "flash" in m:
+            return self.MODEL_CONFIGS["gemini-3.8-flash"]
+        if "pro" in m and ("extend" in m or "think" in m or "3-pro" in m):
+            return self.MODEL_CONFIGS["gemini-3.1-pro-extended"]
+        if "pro" in m or "3.1" in m:
+            return self.MODEL_CONFIGS["gemini-3.1-pro"]
+        return self.MODEL_CONFIGS["gemini-3.5-flash-lite-extended"]
 
     # ------------------------------------------------------------------ #
     # Property compatibility shims
@@ -1515,24 +1603,23 @@ class GeminiWebSession(AccountSession):
     # ------------------------------------------------------------------ #
     # StreamGenerate request builder
     # ------------------------------------------------------------------ #
+    # ------------------------------------------------------------------ #
+    # StreamGenerate request builder
+    # ------------------------------------------------------------------ #
     def _build_stream_generate_body(
         self,
         user_message: str,
         *,
+        model_config: Dict[str, Any],
+        client_uuid: str,
         image_parts: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, str]:
         """
-        Builds the URL-encoded form body for StreamGenerate.
-        On first message conv_id/resp_id are None (new conversation).
-        Subsequent calls reuse self._conv_id / self._resp_id.
+        Builds the URL-encoded form body for StreamGenerate matching real Google Web client.
+        Constructs the exact 99-element inner list including turn index and model configuration.
         """
-        import urllib.parse as _up
-
-        # Inner context triple: [conv_id, resp_id, rc_id, ...continuation...]
-        if self._conv_id and self._resp_id:
-            ctx = [self._conv_id, self._resp_id, "", None, None, None, None, None, None, ""]
-        else:
-            ctx = [None, None, None]
+        # Initialize 99 elements to None
+        inner: List[Any] = [None] * 99
 
         # Image inline_data parts if any
         content_parts: List[Any] = []
@@ -1541,15 +1628,41 @@ class GeminiWebSession(AccountSession):
                 content_parts.append([None, None, None, None, [img.get("data", ""), img.get("mime_type", "image/png"), None, None, None, None, img.get("name", "image")]])
         content_parts.append([user_message, 0, None, None, None, None, 0])
 
-        inner = [
-            content_parts,
-            ["en"],
-            ctx,
-            self._bl_token,
-            None,
-            None,
-            [1],
-        ]
+        # Turn context
+        if self._conv_id and self._resp_id:
+            ctx = [
+                self._conv_id,
+                self._resp_id,
+                self._rc_id or "",
+                None, None, None, None, None, None,
+                self._continuation_token or "",
+            ]
+        else:
+            ctx = ["", "", "", None, None, None, None, None, None, ""]
+
+        inner[0] = content_parts
+        inner[1] = ["en"]
+        inner[2] = ctx
+        inner[3] = "FNL82,0,1,87,17622,82,17662,2,66,21986,60,22052"
+        inner[4] = uuid.uuid4().hex
+        inner[6] = [1]
+        inner[7] = 1
+        inner[10] = 1
+        inner[11] = 0
+        inner[17] = [[self._turn_index]]
+        inner[18] = 0
+        inner[27] = 1
+        inner[30] = [4]
+        inner[41] = [2]
+        inner[53] = 0
+        inner[59] = client_uuid
+        inner[61] = []
+        inner[68] = 2
+        inner[79] = model_config["model_id"]
+        inner[80] = model_config["mode"]
+        inner[91] = 0
+        inner[96] = 1
+        inner[98] = 1
 
         outer = [None, json.dumps(inner)]
         f_req = json.dumps(outer)
@@ -1566,11 +1679,13 @@ class GeminiWebSession(AccountSession):
         self,
         user_message: str,
         *,
+        model: Optional[str] = None,
         image_parts: Optional[List[Dict[str, Any]]] = None,
         timeout: float = 120.0,
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """
-        Calls Gemini Web StreamGenerate endpoint and yields parsed chunks:
+        Calls Gemini Web StreamGenerate endpoint with model and turn tracking.
+        Yields parsed chunks:
             {"type": "text", "text": "..."}
             {"type": "thinking", "text": "..."}
             {"type": "done", "conv_id": "...", "resp_id": "...", "model": "..."}
@@ -1580,26 +1695,70 @@ class GeminiWebSession(AccountSession):
         if not self._cookies.get("__Secure-1PSID"):
             refreshed = await self.refresh_cookies_from_browser()
             if not refreshed:
-                yield {"type": "error", "message": "No browser cookies available. Open Helium / Chrome with gemini.google.com logged in."}
+                yield {"type": "error", "message": "No browser cookies available. Open Helium / Chrome with gemini.google.com logged in or import cookies."}
                 return
 
         # 2. Ensure AT token
         at_token = await self.get_at_token()
         if not at_token:
-            # Try refreshing cookies once more (they may have expired)
             await self.refresh_cookies_from_browser()
             at_token = await self.get_at_token(force_refresh=True)
             if not at_token:
                 yield {"type": "error", "message": "Failed to fetch CSRF token from Gemini Web. Cookies may be expired."}
                 return
 
-        # 3. Build request
-        body = self._build_stream_generate_body(user_message, image_parts=image_parts)
+        # 3. Resolve model and prepare headers
+        model_config = self.get_model_config(model)
+        client_uuid = str(uuid.uuid4()).upper()
+
+        body = self._build_stream_generate_body(
+            user_message,
+            model_config=model_config,
+            client_uuid=client_uuid,
+            image_parts=image_parts,
+        )
+
+        req_id = self._next_req_id()
         url = (
             f"{self.GEMINI_WEB_BASE}{self.STREAM_GENERATE_PATH}"
-            f"?bl={self._bl_token}&hl=en&rt=c"
+            f"?bl={self._bl_token}&hl=en&_reqid={req_id}&rt=c"
         )
-        headers = await self.get_auth_headers()
+
+        headers = {
+            "Cookie": self._build_cookie_header(),
+            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+            "Origin": self.GEMINI_WEB_BASE,
+            "Referer": f"{self.GEMINI_WEB_BASE}/",
+            "Accept": "*/*",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache",
+            "Priority": "u=1, i",
+            "sec-ch-ua": '"Chromium";v="152", "Not?A_Brand";v="24", "Google Chrome";v="152"',
+            "sec-ch-ua-arch": '"x86"',
+            "sec-ch-ua-bitness": '"64"',
+            "sec-ch-ua-form-factors": '"Desktop"',
+            "sec-ch-ua-full-version": '"152.0.7977.82"',
+            "sec-ch-ua-full-version-list": '"Chromium";v="152.0.7977.82", "Not?A_Brand";v="24.0.0.0", "Google Chrome";v="152.0.7977.82"',
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-model": '""',
+            "sec-ch-ua-platform": '"Linux"',
+            "sec-ch-ua-platform-version": '""',
+            "sec-ch-ua-wow64": "?0",
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "same-origin",
+            "x-goog-ext-525001261-jspb": json.dumps([
+                1, None, None, None, model_config["hash"], None, None, 0,
+                [4, 5, 6, 8, 4, 5, 6, 8], None, None, 2, None, None,
+                model_config["model_id"], model_config["mode"], "1DE133FC-21BF-4135-BD57-630481ED3E77"
+            ]),
+            "x-goog-ext-525005358-jspb": json.dumps([client_uuid, 1]),
+            "x-goog-ext-73010989-jspb": "[0]",
+            "x-goog-ext-73010990-jspb": "[0,0,0]",
+            "x-same-domain": "1",
+        }
 
         client = await self.get_http_client()
 
@@ -1611,7 +1770,7 @@ class GeminiWebSession(AccountSession):
                 data=body,
                 timeout=httpx.Timeout(timeout=timeout, connect=15.0, read=timeout, write=30.0),
             ) as response:
-                if response.status_code == 401 or response.status_code == 403:
+                if response.status_code in (401, 403):
                     yield {"type": "error", "message": f"Auth error ({response.status_code}) — cookies expired. Re-login to Gemini in browser."}
                     return
                 if response.status_code != 200:
@@ -1619,38 +1778,32 @@ class GeminiWebSession(AccountSession):
                     yield {"type": "error", "message": f"StreamGenerate returned HTTP {response.status_code}: {err.decode('utf-8', 'ignore')[:200]}"}
                     return
 
-                # 4. Parse chunked response: skip ")]}'" header line, then hex-length + JSON pairs
                 accumulated_text = ""
                 accumulated_thinking = ""
+                prev_text = ""
                 new_conv_id: Optional[str] = None
                 new_resp_id: Optional[str] = None
+                new_rc_id: Optional[str] = None
                 detected_model: Optional[str] = None
 
                 raw_buffer = b""
                 async for chunk in response.aiter_bytes():
                     raw_buffer += chunk
 
-                # Parse the full response
                 text_body = raw_buffer.decode("utf-8", errors="replace")
-                # Strip leading security prefix
                 if text_body.startswith(")]}'"):
                     text_body = text_body[len(")]}'\n"):]
 
-                # Split on chunk boundaries: each chunk is: <hex_len>\n<JSON_data>\n
                 lines = text_body.split("\n")
                 i = 0
-                prev_text = ""
                 while i < len(lines):
                     line = lines[i].strip()
-                    # Skip empty lines and hex-length markers
                     if not line or (len(line) <= 8 and all(c in "0123456789abcdefABCDEF" for c in line)):
                         i += 1
                         continue
-                    # Try to parse as JSON array (outer wrapper)
-                    if line.startswith("[") or line.startswith("\""):
+                    if line.startswith("[") or line.startswith('"'):
                         try:
                             outer = json.loads(line)
-                            # outer[0][2] is the inner serialized JSON payload
                             if isinstance(outer, list) and len(outer) > 0:
                                 outer0 = outer[0]
                                 if isinstance(outer0, list) and len(outer0) > 2:
@@ -1662,7 +1815,7 @@ class GeminiWebSession(AccountSession):
                                             i += 1
                                             continue
 
-                                        # Extract conv_id / resp_id from inner[1]
+                                        # 1. Extract conv_id / resp_id from inner[1]
                                         try:
                                             if isinstance(inner, list) and len(inner) > 1 and isinstance(inner[1], list) and len(inner[1]) >= 2:
                                                 new_conv_id = new_conv_id or inner[1][0]
@@ -1670,49 +1823,54 @@ class GeminiWebSession(AccountSession):
                                         except Exception:
                                             pass
 
-                                        # Extract model name from inner[42] if available
+                                        # 2. Extract continuation token from inner[2] (e.g. {"26": "..."})
                                         try:
-                                            if isinstance(inner, list) and len(inner) > 42 and isinstance(inner[42], str):
-                                                detected_model = inner[42]
+                                            if isinstance(inner, list) and len(inner) > 2 and isinstance(inner[2], dict):
+                                                if "26" in inner[2]:
+                                                    self._continuation_token = inner[2]["26"]
                                         except Exception:
                                             pass
 
-                                        # Extract text from inner[4][0][1] (array of progressive text chunks)
+                                        # 3. Extract model name if returned in metadata array
+                                        try:
+                                            if isinstance(inner, list):
+                                                for item in inner:
+                                                    if isinstance(item, str) and any(kw in item for kw in ("Flash", "Pro", "Extended")):
+                                                        detected_model = item
+                                                        break
+                                        except Exception:
+                                            pass
+
+                                        # 4. Extract candidates, rc_id, text, and thinking from inner[4]
                                         try:
                                             if (isinstance(inner, list) and len(inner) > 4
                                                     and isinstance(inner[4], list) and inner[4]
-                                                    and isinstance(inner[4][0], list) and len(inner[4][0]) > 1
-                                                    and isinstance(inner[4][0][1], list)):
-                                                text_parts = inner[4][0][1]
-                                                if text_parts and isinstance(text_parts[0], list) and len(text_parts[0]) > 1:
-                                                    full_text = text_parts[0][1]
+                                                    and isinstance(inner[4][0], list)):
+                                                cand0 = inner[4][0]
+                                                if len(cand0) > 0 and isinstance(cand0[0], str) and cand0[0].startswith("rc_"):
+                                                    new_rc_id = cand0[0]
+
+                                                # Text delta from cand0[1]
+                                                if len(cand0) > 1 and isinstance(cand0[1], list) and cand0[1]:
+                                                    full_text = cand0[1][0]
                                                     if isinstance(full_text, str) and full_text != prev_text:
                                                         delta = full_text[len(prev_text):]
                                                         if delta:
                                                             accumulated_text += delta
                                                             yield {"type": "text", "text": delta}
                                                         prev_text = full_text
-                                        except Exception:
-                                            pass
 
-                                        # Extract thinking from inner[4][0][37]
-                                        try:
-                                            if (isinstance(inner, list) and len(inner) > 4
-                                                    and isinstance(inner[4], list) and inner[4]
-                                                    and isinstance(inner[4][0], list) and len(inner[4][0]) > 37):
-                                                thinking_data = inner[4][0][37]
-                                                if isinstance(thinking_data, list) and thinking_data:
-                                                    thinking_text = None
-                                                    if isinstance(thinking_data[0], list) and thinking_data[0]:
-                                                        if isinstance(thinking_data[0][0], str):
-                                                            thinking_text = thinking_data[0][0]
-                                                        elif isinstance(thinking_data[0][0], list) and thinking_data[0][0]:
-                                                            thinking_text = thinking_data[0][0][0]
-                                                    if thinking_text and thinking_text != accumulated_thinking:
-                                                        delta = thinking_text[len(accumulated_thinking):]
-                                                        if delta:
-                                                            accumulated_thinking += delta
-                                                            yield {"type": "thinking", "text": delta}
+                                                # Thinking delta from cand0 items
+                                                for elem in cand0:
+                                                    if isinstance(elem, list) and elem and isinstance(elem[0], list) and elem[0]:
+                                                        val = elem[0][0]
+                                                        if isinstance(val, str) and ("**" in val or "I'm currently focused" in val or "Initiating" in val):
+                                                            if val != accumulated_thinking:
+                                                                th_delta = val[len(accumulated_thinking):]
+                                                                if th_delta:
+                                                                    accumulated_thinking += th_delta
+                                                                    yield {"type": "thinking", "text": th_delta}
+                                                            break
                                         except Exception:
                                             pass
                         except (json.JSONDecodeError, IndexError, TypeError):
@@ -1720,18 +1878,25 @@ class GeminiWebSession(AccountSession):
                     i += 1
 
                 # Update conversation state
+                self._turn_index += 1
                 if new_conv_id:
                     self._conv_id = new_conv_id
                 if new_resp_id:
                     self._resp_id = new_resp_id
+                if new_rc_id:
+                    self._rc_id = new_rc_id
 
                 yield {
                     "type": "done",
                     "conv_id": self._conv_id,
                     "resp_id": self._resp_id,
-                    "model": detected_model or "Gemini Web",
+                    "model": detected_model or model_config["displayName"],
                     "text": accumulated_text,
                 }
+
+        except Exception as e:
+            logger.warning("[GeminiWeb] stream_generate error: %s", e)
+            yield {"type": "error", "message": str(e)[:200]}
 
         except Exception as e:
             logger.warning("[GeminiWeb] stream_generate error: %s", e)
@@ -1760,7 +1925,7 @@ class GeminiWebSession(AccountSession):
         if ok:
             return {
                 "ok": True,
-                "message": "Gemini Web session active! AT token verified. Ready for Gemini models (gemini-3.1-pro, gemini-3-pro, etc.).",
+                "message": "Gemini Web session active! AT token verified. Ready for Gemini models (gemini-3.5-flash-lite extended, gemini-3.8-flash, gemini-3.1-pro).",
                 "has_cookies": bool(self._cookies.get("__Secure-1PSID")),
                 "cookies_count": len(self._cookies),
                 "has_at_token": bool(self._at_token),

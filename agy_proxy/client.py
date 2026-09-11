@@ -242,7 +242,7 @@ class CloudCodeClient:
                             session_affinity.pin_session(session_key, acc.account_id, f"gw-{uuid.uuid4().hex[:8]}")
 
                         try:
-                            async for chunk in acc.stream_generate(user_message_text):
+                            async for chunk in acc.stream_generate(user_message_text, model=model_name):
                                 if chunk["type"] == "error":
                                     raise RuntimeError(chunk["message"])
                                 elif chunk["type"] == "text":
@@ -371,7 +371,7 @@ class CloudCodeClient:
                             session_affinity.pin_session(session_key, acc.account_id, f"gw-{uuid.uuid4().hex[:8]}")
 
                         try:
-                            async for chunk in acc.stream_generate(user_message_text):
+                            async for chunk in acc.stream_generate(user_message_text, model=model_name):
                                 if chunk["type"] == "error":
                                     raise RuntimeError(chunk["message"])
                                 elif chunk["type"] == "text":

@@ -535,11 +535,47 @@ class TestGeminiWebSession(unittest.TestCase):
             account_id="gw_test",
             cookies={"__Secure-1PSID": "test_psid"},
         )
+        # Verify all reverse-engineered models are present
+        self.assertIn("gemini-3.5-flash-lite-extended", gw.available_models)
+        self.assertIn("gemini-3.5-flash-lite", gw.available_models)
+        self.assertIn("gemini-3.8-flash-extended", gw.available_models)
+        self.assertIn("gemini-3.8-flash", gw.available_models)
+        self.assertIn("gemini-3.1-pro-extended", gw.available_models)
         self.assertIn("gemini-3.1-pro", gw.available_models)
-        self.assertIn("gemini-3-pro", gw.available_models)
+
+        # Verify model config resolution
+        cfg_lite = gw.get_model_config("gemini-3.5-flash-lite-extended")
+        self.assertEqual(cfg_lite["model_id"], 6)
+        self.assertEqual(cfg_lite["mode"], 2)
+        self.assertEqual(cfg_lite["hash"], "8c46e95b1a07cecc")
+
+        cfg_38 = gw.get_model_config("gemini-3.8-flash")
+        self.assertEqual(cfg_38["model_id"], 1)
+        self.assertEqual(cfg_38["mode"], 1)
+
+        cfg_pro = gw.get_model_config("gemini-3.1-pro-extended")
+        self.assertEqual(cfg_pro["model_id"], 3)
+        self.assertEqual(cfg_pro["mode"], 2)
+
+        # Verify body builder produces exact 99 elements
+        gw._at_token = "mock_at_token"
+        body = gw._build_stream_generate_body("Hello test", model_config=cfg_lite, client_uuid="mock-uuid")
+        self.assertIn("f.req", body)
+        self.assertEqual(body["at"], "mock_at_token")
+        outer = json.loads(body["f.req"])
+        inner = json.loads(outer[1])
+        self.assertEqual(len(inner), 99)
+        self.assertEqual(inner[79], 6)
+        self.assertEqual(inner[80], 2)
+
+        # Support check
+        self.assertTrue(gw.is_model_supported("gemini-3.5-flash-lite-extended"))
         self.assertTrue(gw.is_model_supported("gemini-3.1-pro"))
-        self.assertTrue(gw.is_model_supported("gemini-2.5-pro"))
-        self.assertFalse(gw.is_model_supported("claude-3-7-sonnet"))
+        self.assertFalse(gw.is_model_supported("claude-sonnet-4-6"))
+
+        # to_dict check
+        d = gw.to_dict()
+        self.assertIn("gemini-3.5-flash-lite-extended", d["available_models"])
 
     def test_gemini_web_persistence_in_pool(self):
         import asyncio

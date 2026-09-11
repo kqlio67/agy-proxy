@@ -2634,8 +2634,17 @@ https://your-tunnel.trycloudflare.com/v1</pre>
         const item = document.createElement('div');
         item.className = 'p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition cursor-pointer text-xs space-y-1.5';
         item.onclick = () => {
-          if (select) select.value = key;
-          document.getElementById('activeModelBadge').innerText = key;
+          const accSel = document.getElementById('playgroundAccountSelect');
+          if (select) {
+            let optExists = Array.from(select.options).some(o => o.value === key);
+            if (!optExists && accSel && accSel.value) {
+              accSel.value = '';
+              onPlaygroundAccountChange();
+            }
+            select.value = key;
+          }
+          const badge = document.getElementById('activeModelBadge');
+          if (badge) badge.innerText = key;
         };
 
         // Build per-account mini badges with individual quotas and reset timers
@@ -2680,39 +2689,187 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       renderModelCatalog(q);
     }
 
+    const GEMINI_WEB_MODELS = [
+      { id: 'gemini-3.5-flash-lite-extended', name: '3.5-flash-lite (extended) [Thinking]' },
+      { id: 'gemini-3.5-flash-lite', name: '3.5-flash-lite [Standard]' },
+      { id: 'gemini-3.8-flash-extended', name: '3.8-flash (extended) [Thinking]' },
+      { id: 'gemini-3.8-flash', name: '3.8-flash [Standard]' },
+      { id: 'gemini-3.1-pro-extended', name: '3.1-pro (extended) [Thinking]' },
+      { id: 'gemini-3.1-pro', name: '3.1-pro [Standard]' },
+    ];
+
+    const API_KEY_MODELS = [
+      { id: 'gemini-2.5-pro', name: 'gemini-2.5-pro (Standard · High Reasoning)' },
+      { id: 'gemini-2.5-flash', name: 'gemini-2.5-flash (Fast · General)' },
+      { id: 'gemini-3.1-flash-lite', name: 'gemini-3.1-flash-lite (Ultra Fast · Zero Thinking)' },
+      { id: 'gemini-3.8-flash-high', name: 'gemini-3.8-flash-high (Thinking High)' },
+      { id: 'gemini-3.7-flash-high', name: 'gemini-3.7-flash-high (Thinking)' },
+    ];
+
+    const ANTIGRAVITY_MODELS = [
+      { id: 'gemini-3.8-flash-high', name: 'gemini-3.8-flash-high (Thinking High)' },
+      { id: 'gemini-3.8-flash-medium', name: 'gemini-3.8-flash-medium' },
+      { id: 'gemini-3.8-flash-low', name: 'gemini-3.8-flash-low' },
+      { id: 'gemini-3.8-flash-tiered', name: 'gemini-3.8-flash-tiered (1M Context)' },
+      { id: 'gemini-3.7-flash-high', name: 'gemini-3.7-flash-high (Thinking)' },
+      { id: 'gemini-3.1-pro', name: 'gemini-3.1-pro (Deep Thinking)' },
+      { id: 'gemini-3-pro', name: 'gemini-3-pro (Deep Reasoning)' },
+      { id: 'gemini-pro-agent', name: 'gemini-pro-agent (Agentic)' },
+      { id: 'gemini-3-flash-agent', name: 'gemini-3-flash-agent (Fast Tooling)' },
+      { id: 'gemini-3.1-flash-lite', name: 'gemini-3.1-flash-lite (Zero Thinking)' },
+      { id: 'claude-sonnet-4-6', name: 'claude-sonnet-4-6 (Anthropic Protocol)' },
+      { id: 'claude-opus-4-6-thinking', name: 'claude-opus-4-6-thinking (Deep Reasoning)' },
+      { id: 'gemini-2.5-pro', name: 'gemini-2.5-pro' },
+      { id: 'gpt-oss-120b-medium', name: 'gpt-oss-120b-medium' },
+    ];
+
+    function updatePlaygroundModelsForAccount(acc) {
+      const select = document.getElementById('modelSelect');
+      if (!select) return;
+      const prevVal = select.value;
+      select.innerHTML = '';
+
+      if (acc && acc.auth_method === 'gemini_web') {
+        // STRICT: Gemini Web accounts ONLY show reverse-engineered browser models.
+        // First model is strictly gemini-3.5-flash-lite-extended!
+        GEMINI_WEB_MODELS.forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = m.id;
+          opt.innerText = `${m.id} — ${m.name}`;
+          select.appendChild(opt);
+        });
+        if (GEMINI_WEB_MODELS.some(m => m.id === prevVal)) {
+          select.value = prevVal;
+        } else {
+          select.value = 'gemini-3.5-flash-lite-extended';
+        }
+      } else if (acc && acc.auth_method === 'api_key') {
+        // STRICT: Google AI Studio API Keys ONLY support Gemini API models (no Claude, no web-only)
+        let list = API_KEY_MODELS;
+        if (acc.available_models && Array.isArray(acc.available_models) && acc.available_models.length > 0) {
+          const gOnly = acc.available_models.filter(m => !m.toLowerCase().includes('claude') && !m.toLowerCase().includes('gpt'));
+          if (gOnly.length > 0) {
+            list = gOnly.map(m => ({ id: m, name: m }));
+          }
+        }
+        list.forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = m.id;
+          opt.innerText = m.name && m.name !== m.id ? `${m.id} — ${m.name}` : m.id;
+          select.appendChild(opt);
+        });
+        if (list.some(m => m.id === prevVal)) {
+          select.value = prevVal;
+        } else {
+          select.value = list[0]?.id || 'gemini-2.5-pro';
+        }
+      } else if (acc && (acc.auth_method === 'consumer' || acc.auth_method === 'oauth')) {
+        // Antigravity CloudCode accounts (Gemini & Claude)
+        let list = ANTIGRAVITY_MODELS;
+        if (acc.available_models && Array.isArray(acc.available_models) && acc.available_models.length > 0) {
+          const valid = acc.available_models.filter(m => !m.endsWith('-extended'));
+          if (valid.length > 0) {
+            list = valid.map(m => {
+              const def = ANTIGRAVITY_MODELS.find(d => d.id === m);
+              return def || { id: m, name: m };
+            });
+          }
+        }
+        list.forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = m.id;
+          opt.innerText = m.name && m.name !== m.id ? `${m.id} — ${m.name}` : m.id;
+          select.appendChild(opt);
+        });
+        if (list.some(m => m.id === prevVal)) {
+          select.value = prevVal;
+        } else {
+          select.value = 'gemini-3.8-flash-high';
+        }
+      } else {
+        // Auto Pool mode: all available models grouped
+        const poolCount = Object.keys(allModelsData || {}).length;
+        if (poolCount > 0) {
+          const gCloud = document.createElement('optgroup');
+          gCloud.label = 'Google Antigravity (CloudCode)';
+          const gWeb = document.createElement('optgroup');
+          gWeb.label = 'Gemini Web Browser Sessions';
+          const gApi = document.createElement('optgroup');
+          gApi.label = 'Google AI Studio (API Keys)';
+
+          const hasWebAccs = (rawAccountsData || []).some(a => a.auth_method === 'gemini_web' && a.enabled !== false);
+          const hasApiAccs = (rawAccountsData || []).some(a => a.auth_method === 'api_key' && a.enabled !== false);
+
+          for (const [key, info] of Object.entries(allModelsData)) {
+            const opt = document.createElement('option');
+            opt.value = key;
+            opt.innerText = `${info.displayName || key} (${key})`;
+            if (key.includes('-extended') || key.startsWith('gemini-3.5-')) {
+              gWeb.appendChild(opt);
+            } else if (key.startsWith('gemini-2.5-')) {
+              gApi.appendChild(opt);
+            } else {
+              gCloud.appendChild(opt);
+            }
+          }
+
+          if (gCloud.children.length > 0) select.appendChild(gCloud);
+          if (hasWebAccs || gWeb.children.length > 0) {
+            if (gWeb.children.length === 0) {
+              GEMINI_WEB_MODELS.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m.id;
+                opt.innerText = `${m.id} — ${m.name}`;
+                gWeb.appendChild(opt);
+              });
+            }
+            select.appendChild(gWeb);
+          }
+          if (hasApiAccs || gApi.children.length > 0) {
+            if (gApi.children.length === 0) {
+              API_KEY_MODELS.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m.id;
+                opt.innerText = `${m.id} — ${m.name}`;
+                gApi.appendChild(opt);
+              });
+            }
+            select.appendChild(gApi);
+          }
+
+          const allKeys = Array.from(select.options).map(o => o.value);
+          if (allKeys.includes(prevVal)) {
+            select.value = prevVal;
+          } else if (allModelsData['gemini-3.8-flash-high']) {
+            select.value = 'gemini-3.8-flash-high';
+          } else {
+            select.value = allKeys[0] || 'gemini-3.8-flash-high';
+          }
+        } else {
+          ANTIGRAVITY_MODELS.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.id;
+            opt.innerText = m.name ? `${m.id} — ${m.name}` : m.id;
+            select.appendChild(opt);
+          });
+          select.value = 'gemini-3.8-flash-high';
+        }
+      }
+
+      const activeBadge = document.getElementById('activeModelBadge');
+      if (activeBadge) activeBadge.innerText = select.value || 'None';
+    }
+
     async function loadModels() {
       try {
         const res = await fetch('/api/models');
         const data = await res.json();
         allModelsData = data.models || {};
-        const count = Object.keys(allModelsData).length;
 
-        const select = document.getElementById('modelSelect');
-        if (select) {
-          if (count > 0) {
-            select.innerHTML = '';
-            for (const [key, info] of Object.entries(allModelsData)) {
-              const opt = document.createElement('option');
-              opt.value = key;
-              opt.innerText = `${info.displayName || key} (${key})`;
-              select.appendChild(opt);
-            }
-            if (allModelsData['gemini-3.8-flash-high']) {
-              select.value = 'gemini-3.8-flash-high';
-              document.getElementById('activeModelBadge').innerText = 'gemini-3.8-flash-high';
-            } else if (allModelsData['gemini-3.7-flash-high']) {
-              select.value = 'gemini-3.7-flash-high';
-              document.getElementById('activeModelBadge').innerText = 'gemini-3.7-flash-high';
-            } else {
-              const firstKey = Object.keys(allModelsData)[0];
-              select.value = firstKey;
-              document.getElementById('activeModelBadge').innerText = firstKey;
-            }
-          } else {
-            select.innerHTML = '<option value="">No active models (all accounts paused)</option>';
-            document.getElementById('activeModelBadge').innerText = 'None';
-          }
-        }
+        const sel = document.getElementById('playgroundAccountSelect');
+        const currentAccId = sel?.value;
+        const currentAcc = currentAccId ? (rawAccountsData || []).find(a => a.account_id === currentAccId) : null;
+        updatePlaygroundModelsForAccount(currentAcc);
 
         const currentFilter = document.getElementById('modelSearchInput')?.value || '';
         renderModelCatalog(currentFilter);
@@ -2792,11 +2949,15 @@ https://your-tunnel.trycloudflare.com/v1</pre>
         }
         if (hintBox) hintBox.classList.add('hidden');
         if (chatAccountBadge) chatAccountBadge.innerText = 'Auto (Pool)';
+        updatePlaygroundModelsForAccount(null);
         return;
       }
 
       const acc = (rawAccountsData || []).find(a => a.account_id === accId);
       if (!acc) return;
+
+      // Dynamically filter models specifically for this account type
+      updatePlaygroundModelsForAccount(acc);
 
       if (acc.auth_method === 'gemini_web') {
         if (typeBadge) {
@@ -2813,19 +2974,12 @@ https://your-tunnel.trycloudflare.com/v1</pre>
               <span>Gemini Web Browser Session</span>
             </div>
             <div class="text-[10px] text-slate-400 leading-relaxed">
-              Direct test via Chrome CDP (Port ${acc.cdp_port || 9222}).
-              Supported models: <code class="text-teal-300 font-mono">gemini-3.1-pro</code>, <code class="text-teal-300 font-mono">gemini-3-pro</code>, <code class="text-teal-300 font-mono">gemini-3.8-flash-high</code>.
+              Direct reverse-engineered stream via <code class="text-teal-300 font-mono">StreamGenerate</code>.
+              Models: <code class="text-teal-300 font-mono">gemini-3.5-flash-lite (extended)</code>, <code class="text-teal-300 font-mono">3.8-flash</code>, <code class="text-teal-300 font-mono">3.1-pro</code>.
               Cookies: <span class="font-mono text-slate-200">${acc.cookies_count || 0}</span>, AT Token: <span class="font-mono text-slate-200">${acc.has_at_token ? 'Verified' : 'Ready'}</span>.
             </div>
           `;
           hintBox.classList.remove('hidden');
-        }
-        // Auto-switch model if currently selected model is Claude or incompatible
-        const modelSel = document.getElementById('modelSelect');
-        if (modelSel && (modelSel.value.startsWith('claude') || modelSel.value.startsWith('gpt'))) {
-          modelSel.value = 'gemini-3.1-pro';
-          const activeM = document.getElementById('activeModelBadge');
-          if (activeM) activeM.innerText = 'gemini-3.1-pro';
         }
       } else if (acc.auth_method === 'api_key') {
         if (typeBadge) {
@@ -2847,12 +3001,6 @@ https://your-tunnel.trycloudflare.com/v1</pre>
             </div>
           `;
           hintBox.classList.remove('hidden');
-        }
-        const modelSel = document.getElementById('modelSelect');
-        if (modelSel && (modelSel.value.startsWith('claude') || modelSel.value.startsWith('gpt'))) {
-          modelSel.value = 'gemini-2.5-pro';
-          const activeM = document.getElementById('activeModelBadge');
-          if (activeM) activeM.innerText = 'gemini-2.5-pro';
         }
       } else {
         // OAuth Antigravity
@@ -2893,9 +3041,9 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       if (acc && acc.auth_method === 'gemini_web') {
         const modelSel = document.getElementById('modelSelect');
         if (modelSel) {
-          modelSel.value = 'gemini-3.1-pro';
+          modelSel.value = 'gemini-3.5-flash-lite-extended';
           const activeM = document.getElementById('activeModelBadge');
-          if (activeM) activeM.innerText = 'gemini-3.1-pro';
+          if (activeM) activeM.innerText = 'gemini-3.5-flash-lite-extended';
         }
       }
       setTimeout(() => {
@@ -3139,7 +3287,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
                 </div>
               </div>
               <p class="text-[11px] text-teal-300/90 bg-teal-500/10 border border-teal-500/20 p-2.5 rounded-xl">
-                ✨ Gemini Web session is healthy. You can prompt <code class="font-mono font-bold">gemini-3.1-pro</code> and <code class="font-mono font-bold">gemini-3-pro</code> directly!
+                ✨ Gemini Web session is healthy. Ready for <code class="font-mono font-bold">gemini-3.5-flash-lite (extended)</code>, <code class="font-mono font-bold">gemini-3.8-flash</code>, and <code class="font-mono font-bold">gemini-3.1-pro</code>!
               </p>
             `;
           } else if (authMethod === 'api_key') {
