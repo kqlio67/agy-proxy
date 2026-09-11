@@ -24,10 +24,12 @@ async def validate_account_live(acc: AccountSession) -> Dict[str, Any]:
     Performs real authentication validation for a single account:
     refreshes/validates the OAuth token (or API key) against Google and fetches live quotas.
     """
+    if hasattr(acc, "validate_live"):
+        return await acc.validate_live()
+
     result: Dict[str, Any] = {"token_ok": None, "error": "", "quota_summary": {}}
     try:
         if acc.auth_method == "api_key":
-            # Validate the key by listing models from Google AI Studio
             client = await acc.get_http_client()
             resp = await client.get(
                 f"{GENAI_BASE_URL}/models?key={acc.api_key or acc.refresh_token}",
@@ -37,7 +39,6 @@ async def validate_account_live(acc: AccountSession) -> Dict[str, Any]:
             if not result["token_ok"]:
                 result["error"] = f"API key rejected (HTTP {resp.status_code})"
         else:
-            # Refresh if expired, then prove the token is accepted via userinfo
             await acc.get_valid_token()
             info = await acc.fetch_user_info()
             result["token_ok"] = bool(info)
@@ -57,6 +58,7 @@ async def validate_account_live(acc: AccountSession) -> Dict[str, Any]:
         result["token_ok"] = False
         result["error"] = str(e)[:60]
     return result
+
 
 
 async def check_network_endpoints(cloudflare_url: str = None) -> List[Dict[str, Any]]:

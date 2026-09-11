@@ -14,12 +14,16 @@ from agy_proxy.auth import (
     AccountPool,
     AccountSession,
     AuthManager,
+    BaseAccountSession,
+    AntigravityOAuthSession,
+    AIStudioApiKeySession,
     _parse_expiry,
     get_candidate_token_files,
     is_candidate_token_file,
     parse_antigravity_token_file,
     parse_token_dict,
 )
+
 
 
 class TestTokenParsing(unittest.TestCase):
@@ -316,8 +320,55 @@ class TestAccountSessionRegionCode(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(acc.to_dict()["region_code"], "UA")
 
 
+class TestPolymorphicAccountHierarchy(unittest.IsolatedAsyncioTestCase):
+    def test_factory_instantiation_oauth(self):
+        acc = AccountSession(account_id="oa_1", refresh_token="1//refresh", auth_method="consumer")
+        self.assertIsInstance(acc, BaseAccountSession)
+        self.assertIsInstance(acc, AccountSession)
+        self.assertIsInstance(acc, AntigravityOAuthSession)
+        self.assertNotIsInstance(acc, AIStudioApiKeySession)
+        self.assertTrue(acc.is_model_supported("gemini-2.5-pro"))
+        self.assertTrue(acc.is_model_supported("anthropic.claude-3-7-sonnet"))
+
+    def test_factory_instantiation_api_key(self):
+        acc = AccountSession(account_id="k_1", refresh_token="AIzaSy12345", auth_method="api_key")
+        self.assertIsInstance(acc, BaseAccountSession)
+        self.assertIsInstance(acc, AccountSession)
+        self.assertIsInstance(acc, AIStudioApiKeySession)
+        self.assertNotIsInstance(acc, AntigravityOAuthSession)
+        self.assertEqual(acc.api_key, "AIzaSy12345")
+        self.assertEqual(acc.refresh_token, "AIzaSy12345")
+        self.assertTrue(acc.is_model_supported("gemini-2.5-pro"))
+        self.assertFalse(acc.is_model_supported("anthropic.claude-3-7-sonnet"))
+        self.assertFalse(acc.is_model_supported("claude-3-5-haiku"))
+
+    async def test_pool_add_api_key_account(self):
+        pool = AccountPool()
+        acc = await pool.add_api_key_account("AIzaSyDirectTestKey", name="My Key")
+        self.assertIsInstance(acc, AIStudioApiKeySession)
+        self.assertEqual(acc.api_key, "AIzaSyDirectTestKey")
+        self.assertEqual(acc.name, "My Key")
+        self.assertTrue(acc.is_model_supported("gemini-2.5-flash"))
+        self.assertFalse(acc.is_model_supported("claude-sonnet-4"))
+
+    def test_get_candidate_accounts_model_isolation(self):
+        pool = AccountPool()
+        oauth_acc = AntigravityOAuthSession(account_id="o1", refresh_token="r1", email="oauth@example.com")
+        api_acc = AIStudioApiKeySession(account_id="k1", api_key="AIzaKey", email="key@example.com")
+        pool.accounts["o1"] = oauth_acc
+        pool.accounts["k1"] = api_acc
+
+        # For Claude model: only OAuth account must be returned
+        candidates_claude = pool.get_candidate_accounts("anthropic.claude-3-7-sonnet")
+        self.assertEqual(len(candidates_claude), 1)
+        self.assertEqual(candidates_claude[0].account_id, "o1")
+
+        # For Gemini model: both accounts are eligible
+        candidates_gemini = pool.get_candidate_accounts("gemini-2.5-pro")
+        self.assertEqual(len(candidates_gemini), 2)
 
 
 if __name__ == "__main__":
     unittest.main()
+
 

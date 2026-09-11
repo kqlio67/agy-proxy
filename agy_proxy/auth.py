@@ -7,6 +7,7 @@ project discovery, multi-account pooling, and quota-aware routing.
 import asyncio
 import base64
 import hashlib
+import inspect
 import json
 import logging
 import os
@@ -330,52 +331,35 @@ def get_authorization_url(code_challenge: str, state: str, client_id: str = DEFA
     return f"https://accounts.google.com/o/oauth2/auth?{urllib.parse.urlencode(params)}"
 
 
-class AccountSession:
-    """Represents a single authenticated Google Antigravity account session."""
+class BaseAccountSession:
+    """Base class defining the common lifecycle, locking, and rate limiting for all proxy accounts."""
 
     def __init__(
         self,
         account_id: str,
-        refresh_token: str,
-        access_token: Optional[str] = None,
-        expiry_timestamp: float = 0.0,
-        email: Optional[str] = None,
         name: Optional[str] = None,
+        email: Optional[str] = None,
         picture: Optional[str] = None,
         auth_method: str = "consumer",
-        project_id: Optional[str] = None,
-        region_code: Optional[str] = None,
-        client_id: str = DEFAULT_CLIENT_ID,
-        client_secret: str = DEFAULT_CLIENT_SECRET,
         is_primary: bool = False,
         enabled: bool = True,
         on_token_refreshed: Optional[Any] = None,
     ):
         self.account_id = account_id
-        self.refresh_token = refresh_token
-        self.access_token = access_token
-        self.expiry_timestamp = expiry_timestamp
         self.email = email or "unknown@gmail.com"
         self.name = name or self.email.split("@")[0]
         self.picture = picture
         self.auth_method = auth_method
-        self.project_id = project_id
-        self.region_code = region_code
-        self.client_id = client_id
-        self.client_secret = client_secret
         self.is_primary = is_primary
         self.enabled = enabled
         self.on_token_refreshed = on_token_refreshed
 
-        self.tier_info: Dict[str, Any] = {}
-        self.available_models: Dict[str, Any] = {}
-        self.quota_summary: Dict[str, Any] = {}
-        self.rate_limited_models: Dict[str, float] = {}  # model_group -> reset_timestamp
         self.error_message: Optional[str] = None
         self.total_requests: int = 0
         self.last_used_timestamp: float = 0.0
         self.last_used_model: Optional[str] = None
         self.last_client_type: Optional[str] = None
+        self.rate_limited_models: Dict[str, float] = {}  # model_group -> reset_timestamp
         self._lock = asyncio.Lock()
         self._http_client: Optional[httpx.AsyncClient] = None
 
@@ -386,15 +370,6 @@ class AccountSession:
     @disabled.setter
     def disabled(self, val: bool):
         self.enabled = not val
-
-    @property
-    def api_key(self) -> Optional[str]:
-        return self.refresh_token if self.auth_method == "api_key" else None
-
-    @api_key.setter
-    def api_key(self, val: str):
-        if self.auth_method == "api_key":
-            self.refresh_token = val
 
     async def get_http_client(self) -> httpx.AsyncClient:
         if self._http_client is None or self._http_client.is_closed:
@@ -409,13 +384,133 @@ class AccountSession:
             await self._http_client.aclose()
         self._http_client = None
 
+    def is_rate_limited(self, model: str) -> bool:
+        """Checks if account is currently marked rate-limited for the requested model."""
+        now = time.time()
+        is_3p = any(k in model.lower() for k in ["claude", "gpt-oss", "sonnet", "opus"])
+        key = "3p" if is_3p else "gemini"
+        if key in self.rate_limited_models:
+            if now < self.rate_limited_models[key]:
+                return True
+            else:
+                del self.rate_limited_models[key]
+        return False
+
+    def mark_rate_limited(self, model: str, duration: float = 3600.0):
+        """Marks account rate-limited for a duration."""
+        is_3p = any(k in model.lower() for k in ["claude", "gpt-oss", "sonnet", "opus"])
+        key = "3p" if is_3p else "gemini"
+        self.rate_limited_models[key] = time.time() + duration
+        logger.warning("[%s] Marked as rate-limited for group %s for %.0fs", self.email, key, duration)
+
+    def is_model_supported(self, model_name: str) -> bool:
+        """Determines if this account type is capable of serving the given model."""
+        return True
+
+    def get_quota_details(self) -> Dict[str, Any]:
+        return {}
+
+    def get_model_quota(self, model: str) -> Dict[str, Any]:
+        return {"remainingFraction": 1.0, "resetTime": None, "window": "unlimited", "description": ""}
+
+    def to_dict(self) -> Dict[str, Any]:
+        now = time.time()
+        active_limits = {k: max(0, int(v - now)) for k, v in list(self.rate_limited_models.items()) if v > now}
+        self.rate_limited_models = {k: v for k, v in self.rate_limited_models.items() if v > now}
+
+        return {
+            "account_id": self.account_id,
+            "email": self.email,
+            "name": self.name,
+            "picture": self.picture,
+            "auth_method": self.auth_method,
+            "project_id": getattr(self, "project_id", None),
+            "is_primary": self.is_primary,
+            "enabled": self.enabled,
+            "tier_name": getattr(self, "tier_info", {}).get("name", "Antigravity"),
+            "region_code": getattr(self, "region_code", None),
+            "expiry_timestamp": getattr(self, "expiry_timestamp", 0.0),
+            "total_requests": self.total_requests,
+            "last_used_timestamp": self.last_used_timestamp,
+            "last_used_model": self.last_used_model,
+            "last_client_type": self.last_client_type,
+            "rate_limited": bool(active_limits),
+            "rate_limited_models": active_limits,
+            "quota_summary": getattr(self, "quota_summary", {}),
+            "quota_details": self.get_quota_details(),
+            "error_message": self.error_message,
+        }
+
+
+class AccountSession(BaseAccountSession):
+    """Polymorphic factory and base type for Antigravity OAuth and Google AI Studio sessions."""
+
+    def __new__(cls, *args, **kwargs):
+        if cls is AccountSession:
+            auth_method = kwargs.get("auth_method")
+            if not auth_method and len(args) > 7:
+                auth_method = args[7]
+            if auth_method == "api_key":
+                return object.__new__(AIStudioApiKeySession)
+            else:
+                return object.__new__(AntigravityOAuthSession)
+        return super().__new__(cls)
+
+
+class AntigravityOAuthSession(AccountSession):
+    """Manages Google CloudCode / Antigravity OAuth2 sessions, tokens, projects, and quotas."""
+
+    def __init__(
+        self,
+        account_id: str,
+        refresh_token: str = "",
+        access_token: Optional[str] = None,
+        expiry_timestamp: float = 0.0,
+        email: Optional[str] = None,
+        name: Optional[str] = None,
+        picture: Optional[str] = None,
+        auth_method: str = "consumer",
+        project_id: Optional[str] = None,
+        region_code: Optional[str] = None,
+        client_id: str = DEFAULT_CLIENT_ID,
+        client_secret: str = DEFAULT_CLIENT_SECRET,
+        is_primary: bool = False,
+        enabled: bool = True,
+        on_token_refreshed: Optional[Any] = None,
+        **kwargs,
+    ):
+        super().__init__(
+            account_id=account_id,
+            name=name,
+            email=email,
+            picture=picture,
+            auth_method=auth_method or "consumer",
+            is_primary=is_primary,
+            enabled=enabled,
+            on_token_refreshed=on_token_refreshed,
+        )
+        self.refresh_token = refresh_token
+        self.access_token = access_token
+        self.expiry_timestamp = expiry_timestamp
+        self.project_id = project_id
+        self.region_code = region_code
+        self.client_id = client_id
+        self.client_secret = client_secret
+
+        self.tier_info: Dict[str, Any] = {}
+        self.available_models: Dict[str, Any] = {}
+        self.quota_summary: Dict[str, Any] = {}
+
+    @property
+    def api_key(self) -> Optional[str]:
+        return None
+
+    @api_key.setter
+    def api_key(self, val: str):
+        pass
+
     async def refresh_access_token(self, force: bool = False) -> str:
         """Refreshes the OAuth access token for this account."""
-        if self.auth_method == "api_key":
-            self.access_token = self.refresh_token
-            self.expiry_timestamp = time.time() + 86400.0 * 365.0
-            return self.access_token
-
         async with self._lock:
             now = time.time()
             if not force and self.access_token and (self.expiry_timestamp - now > 60):
@@ -438,25 +533,26 @@ class AccountSession:
                         logger.error("[%s] Token refresh failed [%d]: %s", self.email, resp.status_code, resp.text)
                         raise RuntimeError(f"Token refresh failed ({resp.status_code}): {resp.text}")
 
-                    res_json = resp.json()
-                    new_access_token = res_json.get("access_token")
-                    expires_in = res_json.get("expires_in", 3600)
-
-                    if not new_access_token:
-                        raise RuntimeError(f"Missing access_token in response: {res_json}")
-
-                    self.access_token = new_access_token
+                    tok_data = resp.json()
+                    self.access_token = tok_data["access_token"]
+                    expires_in = tok_data.get("expires_in", 3600)
                     self.expiry_timestamp = time.time() + float(expires_in)
 
-                    if "refresh_token" in res_json:
-                        self.refresh_token = res_json["refresh_token"]
+                    logger.info(
+                        "[%s] Successfully refreshed access token (expires in %ds)",
+                        self.email,
+                        expires_in,
+                    )
 
-                    logger.debug("[%s] Successfully refreshed token (expires in %ds)", self.email, expires_in)
                     if self.on_token_refreshed:
                         try:
-                            self.on_token_refreshed()
+                            if inspect.iscoroutinefunction(self.on_token_refreshed):
+                                await self.on_token_refreshed()
+                            else:
+                                self.on_token_refreshed()
                         except Exception as cb_err:
-                            logger.debug("on_token_refreshed error: %s", cb_err)
+                            logger.error("[%s] on_token_refreshed callback error: %s", self.email, cb_err)
+
                     return self.access_token
                 except Exception as e:
                     last_exc = e
@@ -467,20 +563,12 @@ class AccountSession:
             raise last_exc
 
     async def get_valid_token(self) -> str:
-        if self.auth_method == "api_key":
-            return self.refresh_token
         now = time.time()
         if not self.access_token or (self.expiry_timestamp - now <= 60):
             return await self.refresh_access_token()
         return self.access_token
 
     async def get_auth_headers(self) -> Dict[str, str]:
-        if self.auth_method == "api_key":
-            return {
-                "x-goog-api-key": self.refresh_token,
-                "Content-Type": "application/json",
-                "User-Agent": USER_AGENT,
-            }
         token = await self.get_valid_token()
         return {
             "Authorization": f"Bearer {token}",
@@ -490,8 +578,6 @@ class AccountSession:
 
     async def fetch_user_info(self) -> Dict[str, Any]:
         """Fetches Google user info (email, name, picture)."""
-        if self.auth_method == "api_key":
-            return {}
         headers = await self.get_auth_headers()
         client = await self.get_http_client()
         try:
@@ -538,8 +624,6 @@ class AccountSession:
 
     async def fetch_cloudcode_user_info(self) -> Dict[str, Any]:
         """Fetches CloudCode user settings and detected geographic regionCode."""
-        if self.auth_method == "api_key":
-            return {}
         project = await self.initialize_project()
         headers = await self.get_auth_headers()
         client = await self.get_http_client()
@@ -562,8 +646,6 @@ class AccountSession:
 
     async def fetch_quota(self) -> Dict[str, Any]:
         """Fetches live quota summary and bucket remaining fractions."""
-        if self.auth_method == "api_key":
-            return self.quota_summary
         project = await self.initialize_project()
         headers = await self.get_auth_headers()
         client = await self.get_http_client()
@@ -610,51 +692,10 @@ class AccountSession:
         return self.quota_summary
 
     async def fetch_models(self) -> Dict[str, Any]:
-        """Fetches available model catalog and quota fractions."""
-        client = await self.get_http_client()
-
-        # 1. Google AI Studio API Key
-        if self.auth_method == "api_key":
-            try:
-                resp = await client.get(
-                    f"https://generativelanguage.googleapis.com/v1beta/models?key={self.refresh_token}",
-                    timeout=15.0,
-                )
-                if resp.status_code == 200:
-                    self.error_message = None
-                    models_list = resp.json().get("models", [])
-                    res_dict: Dict[str, Any] = {}
-                    for m in models_list:
-                        methods = m.get("supportedGenerationMethods", [])
-                        if "generateContent" not in methods:
-                            continue
-                        raw_name = m.get("name", "").replace("models/", "")
-                        res_dict[raw_name] = {
-                            "displayName": m.get("displayName", raw_name),
-                            "maxTokens": m.get("inputTokenLimit", 1048576),
-                            "quotaInfo": {"remainingFraction": 1.0},
-                            "description": m.get("description", ""),
-                        }
-                    self.available_models = res_dict
-                    return self.available_models
-                else:
-                    err_msg = "API key expired or invalid"
-                    try:
-                        err_data = resp.json()
-                        err_msg = err_data.get("error", {}).get("message", err_msg)
-                    except Exception:
-                        pass
-                    self.error_message = f"AI Studio Error: {err_msg}"
-                    self.rate_limited_models["gemini"] = time.time() + 86400 * 365
-                    logger.warning("[%s] AI Studio fetch models returned %d: %s", self.email, resp.status_code, err_msg)
-            except Exception as e:
-                self.error_message = f"AI Studio Connection Error: {str(e)}"
-                logger.warning("[%s] Error fetching AI Studio models: %s", self.email, e)
-            return self.available_models
-
-        # 2. Antigravity CloudCode OAuth
+        """Fetches available model catalog and quota fractions from CloudCode."""
         project = await self.initialize_project()
         headers = await self.get_auth_headers()
+        client = await self.get_http_client()
         try:
             resp = await client.post(
                 f"{CLOUDCODE_BASE_URL}/v1internal:fetchAvailableModels",
@@ -668,51 +709,12 @@ class AccountSession:
             logger.debug("[%s] fetchAvailableModels error: %s", self.email, e)
         return self.available_models
 
-    def is_rate_limited(self, model: str) -> bool:
-        """Checks if account is currently marked rate-limited for the requested model."""
-        now = time.time()
-        is_3p = any(k in model.lower() for k in ["claude", "gpt-oss", "sonnet", "opus"])
-        key = "3p" if is_3p else "gemini"
-        if key in self.rate_limited_models:
-            if now < self.rate_limited_models[key]:
-                return True
-            else:
-                del self.rate_limited_models[key]
-        return False
-
-    def mark_rate_limited(self, model: str, duration: float = 3600.0):
-        """Marks account rate-limited for a duration."""
-        is_3p = any(k in model.lower() for k in ["claude", "gpt-oss", "sonnet", "opus"])
-        key = "3p" if is_3p else "gemini"
-        self.rate_limited_models[key] = time.time() + duration
-        logger.warning("[%s] Marked as rate-limited for group %s for %.0fs", self.email, key, duration)
+    def is_model_supported(self, model_name: str) -> bool:
+        """Antigravity OAuth accounts support both Gemini and 3P models (Claude, Opus, GPT-OSS)."""
+        return True
 
     def get_quota_details(self) -> Dict[str, Any]:
         """Calculates structured quota fractions, window, reset times, and descriptions for Gemini and Claude/3P."""
-        if self.auth_method == "api_key":
-            return {
-                "gemini": {
-                    "fraction": 1.0,
-                    "percent": 100.0,
-                    "reset_time": None,
-                    "window": "unlimited",
-                    "description": "Google AI Studio API Key (PayG / Free)",
-                    "is_rate_limited": self.is_rate_limited("gemini"),
-                    "5h": {"fraction": 1.0, "percent": 100.0, "reset_time": None, "description": "PayG"},
-                    "weekly": {"fraction": 1.0, "percent": 100.0, "reset_time": None, "description": "PayG"},
-                },
-                "3p": {
-                    "fraction": 0.0,
-                    "percent": 0.0,
-                    "reset_time": None,
-                    "window": "n/a",
-                    "description": "API Key accounts do not support Claude / 3P models",
-                    "is_rate_limited": False,
-                    "5h": {"fraction": 0.0, "percent": 0.0, "reset_time": None, "description": ""},
-                    "weekly": {"fraction": 0.0, "percent": 0.0, "reset_time": None, "description": ""},
-                },
-            }
-
         is_gemini_limited = self.is_rate_limited("gemini")
         is_claude_limited = self.is_rate_limited("claude")
 
@@ -775,8 +777,6 @@ class AccountSession:
                         "description": b_wk.get("description", ""),
                     }
 
-                # Primary operational bottleneck selection:
-                # An account is constrained by whichever active window has the lowest remaining capacity.
                 active_buckets = [b for b in buckets if not b.get("disabled", False)] or buckets
                 if active_buckets:
                     target = min(active_buckets, key=lambda b: float(b.get("remainingFraction", 1.0)))
@@ -797,9 +797,6 @@ class AccountSession:
 
     def get_model_quota(self, model: str) -> Dict[str, Any]:
         """Returns the effective quota fraction and reset time for a specific model."""
-        if self.auth_method == "api_key":
-            return {"remainingFraction": 1.0, "resetTime": None, "window": "unlimited", "description": "API Key"}
-
         is_3p = any(k in model.lower() for k in ["claude", "gpt-oss", "sonnet", "opus"])
         quotas = self.get_quota_details()
         group_quota = quotas["3p"] if is_3p else quotas["gemini"]
@@ -807,7 +804,6 @@ class AccountSession:
         rem = group_quota["fraction"]
         reset_time = group_quota["reset_time"]
 
-        # Check if model catalog has a more specific remainingFraction / resetTime
         model_q = self.available_models.get(model, {}).get("quotaInfo", {})
         if "remainingFraction" in model_q:
             rem = min(rem, float(model_q["remainingFraction"]))
@@ -824,34 +820,219 @@ class AccountSession:
             "description": group_quota.get("description", ""),
         }
 
-    def to_dict(self) -> Dict[str, Any]:
-        # Clean expired rate limits before exporting
-        now = time.time()
-        active_limits = {k: max(0, int(v - now)) for k, v in list(self.rate_limited_models.items()) if v > now}
-        self.rate_limited_models = {k: v for k, v in self.rate_limited_models.items() if v > now}
+    async def validate_live(self) -> Dict[str, Any]:
+        """Performs live OAuth token refresh and validation against Google."""
+        result: Dict[str, Any] = {"token_ok": None, "error": "", "quota_summary": {}}
+        try:
+            await self.get_valid_token()
+            info = await self.fetch_user_info()
+            result["token_ok"] = bool(info)
+            if not result["token_ok"]:
+                result["error"] = "Token rejected by Google (userinfo check failed)"
+            else:
+                try:
+                    await self.fetch_cloudcode_user_info()
+                except Exception:
+                    pass
+            try:
+                result["quota_summary"] = await self.fetch_quota() or {}
+            except Exception as qe:
+                result["error"] = result["error"] or f"Quota fetch failed: {str(qe)[:40]}"
+        except Exception as e:
+            result["token_ok"] = False
+            result["error"] = str(e)[:60]
+        return result
 
+    def to_dict(self) -> Dict[str, Any]:
+        d = super().to_dict()
+        d["tier_name"] = self.tier_info.get("name", "Antigravity")
+        return d
+
+
+class AIStudioApiKeySession(AccountSession):
+    """Manages Google AI Studio / Gemini API Key sessions and direct GenerativeLanguage REST calls."""
+
+    def __init__(
+        self,
+        account_id: str,
+        refresh_token: str = "",
+        access_token: Optional[str] = None,
+        expiry_timestamp: float = 0.0,
+        email: Optional[str] = None,
+        name: Optional[str] = None,
+        picture: Optional[str] = None,
+        auth_method: str = "api_key",
+        project_id: Optional[str] = "google-ai-studio",
+        region_code: Optional[str] = None,
+        is_primary: bool = False,
+        enabled: bool = True,
+        on_token_refreshed: Optional[Any] = None,
+        api_key: Optional[str] = None,
+        **kwargs,
+    ):
+        raw_key = api_key or refresh_token or access_token or ""
+        masked_key = f"{raw_key[:6]}...{raw_key[-4:]}" if len(raw_key) > 10 else "api_key"
+        super().__init__(
+            account_id=account_id,
+            name=name or "Gemini API Key",
+            email=email or f"{masked_key}@aistudio.google",
+            picture=picture or "https://lh3.googleusercontent.com/COxitqgJr1sJnIDe8-jiKhxDx1FrYbtRHKJ9zqoA7h0vBpEdVUqqnvnulSVuCSSk27m470TeAqTAbPnLKNfaWA",
+            auth_method="api_key",
+            is_primary=is_primary,
+            enabled=enabled,
+            on_token_refreshed=on_token_refreshed,
+        )
+        self.api_key = raw_key
+        self.project_id = project_id or "google-ai-studio"
+        self.region_code = region_code
+        self.expiry_timestamp = expiry_timestamp or (time.time() + 86400.0 * 365.0)
+        self.available_models: Dict[str, Any] = {}
+        self.quota_summary: Dict[str, Any] = {}
+        self.tier_info: Dict[str, Any] = {"name": "Google AI Studio"}
+
+    @property
+    def refresh_token(self) -> str:
+        return self.api_key
+
+    @refresh_token.setter
+    def refresh_token(self, val: str):
+        self.api_key = val
+
+    @property
+    def access_token(self) -> str:
+        return self.api_key
+
+    @access_token.setter
+    def access_token(self, val: str):
+        self.api_key = val
+
+    async def refresh_access_token(self, force: bool = False) -> str:
+        return self.api_key
+
+    async def get_valid_token(self) -> str:
+        return self.api_key
+
+    async def get_auth_headers(self) -> Dict[str, str]:
         return {
-            "account_id": self.account_id,
-            "email": self.email,
-            "name": self.name,
-            "picture": self.picture,
-            "auth_method": self.auth_method,
-            "project_id": self.project_id,
-            "is_primary": self.is_primary,
-            "enabled": self.enabled,
-            "tier_name": self.tier_info.get("name", "Antigravity"),
-            "region_code": self.region_code,
-            "expiry_timestamp": self.expiry_timestamp,
-            "total_requests": self.total_requests,
-            "last_used_timestamp": self.last_used_timestamp,
-            "last_used_model": self.last_used_model,
-            "last_client_type": self.last_client_type,
-            "rate_limited": bool(active_limits),
-            "rate_limited_models": active_limits,
-            "quota_summary": self.quota_summary,
-            "quota_details": self.get_quota_details(),
-            "error_message": self.error_message,
+            "x-goog-api-key": self.api_key,
+            "Content-Type": "application/json",
+            "User-Agent": USER_AGENT,
         }
+
+    async def fetch_user_info(self) -> Dict[str, Any]:
+        return {}
+
+    async def initialize_project(self, force: bool = False) -> str:
+        return self.project_id
+
+    async def fetch_cloudcode_user_info(self) -> Dict[str, Any]:
+        return {}
+
+    async def fetch_quota(self) -> Dict[str, Any]:
+        return self.quota_summary
+
+    async def fetch_models(self) -> Dict[str, Any]:
+        """Fetches available model catalog from Google AI Studio REST API."""
+        client = await self.get_http_client()
+        try:
+            resp = await client.get(
+                f"{GENAI_BASE_URL}/models?key={self.api_key}",
+                timeout=15.0,
+            )
+            if resp.status_code == 200:
+                self.error_message = None
+                models_list = resp.json().get("models", [])
+                res_dict: Dict[str, Any] = {}
+                for m in models_list:
+                    methods = m.get("supportedGenerationMethods", [])
+                    if "generateContent" not in methods:
+                        continue
+                    raw_name = m.get("name", "").replace("models/", "")
+                    res_dict[raw_name] = {
+                        "displayName": m.get("displayName", raw_name),
+                        "maxTokens": m.get("inputTokenLimit", 1048576),
+                        "quotaInfo": {"remainingFraction": 1.0},
+                        "description": m.get("description", ""),
+                    }
+                self.available_models = res_dict
+                return self.available_models
+            else:
+                err_msg = "API key expired or invalid"
+                try:
+                    err_data = resp.json()
+                    err_msg = err_data.get("error", {}).get("message", err_msg)
+                except Exception:
+                    pass
+                self.error_message = f"AI Studio Error: {err_msg}"
+                self.rate_limited_models["gemini"] = time.time() + 86400 * 365
+                logger.warning("[%s] AI Studio fetch models returned %d: %s", self.email, resp.status_code, err_msg)
+        except Exception as e:
+            self.error_message = f"AI Studio Connection Error: {str(e)}"
+            logger.warning("[%s] Error fetching AI Studio models: %s", self.email, e)
+        return self.available_models
+
+    def is_model_supported(self, model_name: str) -> bool:
+        """Google AI Studio API Key accounts only support Gemini models, never Claude or 3P models."""
+        m = model_name.lower()
+        if any(k in m for k in ("claude", "sonnet", "opus", "haiku", "gpt-oss", "fable", "3p")):
+            return False
+        return True
+
+    def get_quota_details(self) -> Dict[str, Any]:
+        """Calculates structured quota fractions for Google AI Studio API Key."""
+        return {
+            "gemini": {
+                "fraction": 1.0,
+                "percent": 100.0,
+                "reset_time": None,
+                "window": "unlimited",
+                "description": "Google AI Studio API Key (PayG / Free)",
+                "is_rate_limited": self.is_rate_limited("gemini"),
+                "5h": {"fraction": 1.0, "percent": 100.0, "reset_time": None, "description": "PayG"},
+                "weekly": {"fraction": 1.0, "percent": 100.0, "reset_time": None, "description": "PayG"},
+            },
+            "3p": {
+                "fraction": 0.0,
+                "percent": 0.0,
+                "reset_time": None,
+                "window": "n/a",
+                "description": "API Key accounts do not support Claude / 3P models",
+                "is_rate_limited": False,
+                "5h": {"fraction": 0.0, "percent": 0.0, "reset_time": None, "description": ""},
+                "weekly": {"fraction": 0.0, "percent": 0.0, "reset_time": None, "description": ""},
+            },
+        }
+
+    def get_model_quota(self, model: str) -> Dict[str, Any]:
+        """Returns the effective quota fraction and reset time for an AI Studio model."""
+        if not self.is_model_supported(model):
+            return {"remainingFraction": 0.0, "resetTime": None, "window": "n/a", "description": "Unsupported model"}
+        return {"remainingFraction": 1.0, "resetTime": None, "window": "unlimited", "description": "API Key"}
+
+    async def validate_live(self) -> Dict[str, Any]:
+        """Validates API key against Google AI Studio API."""
+        result: Dict[str, Any] = {"token_ok": None, "error": "", "quota_summary": {}}
+        try:
+            client = await self.get_http_client()
+            resp = await client.get(
+                f"{GENAI_BASE_URL}/models?key={self.api_key}",
+                timeout=10.0,
+            )
+            result["token_ok"] = resp.status_code == 200
+            if not result["token_ok"]:
+                result["error"] = f"API key rejected (HTTP {resp.status_code})"
+            result["quota_summary"] = self.quota_summary
+        except Exception as e:
+            result["token_ok"] = False
+            result["error"] = str(e)[:60]
+        return result
+
+    def to_dict(self) -> Dict[str, Any]:
+        d = super().to_dict()
+        d["api_key"] = f"{self.api_key[:6]}...{self.api_key[-4:]}" if len(self.api_key) > 10 else "api_key"
+        d["tier_name"] = "Google AI Studio"
+        return d
+
 
 
 class AccountPool:
@@ -1217,15 +1398,14 @@ class AccountPool:
         if not active_pool:
             raise RuntimeError("All accounts in pool are currently disabled. Please enable at least one account in the dashboard.")
 
-        is_3p = any(k in model.lower() for k in ["claude", "gpt-oss", "sonnet", "opus", "fable"])
-        if is_3p:
-            # 3P models (Claude, Opus, GPT-OSS) require Google Antigravity OAuth account
-            active_pool = [acc for acc in active_pool if acc.auth_method != "api_key"]
-            if not active_pool:
+        active_pool = [acc for acc in active_pool if acc.is_model_supported(model)]
+        if not active_pool:
+            is_3p = any(k in model.lower() for k in ["claude", "gpt-oss", "sonnet", "opus", "fable"])
+            if is_3p:
                 raise RuntimeError("No active Google OAuth accounts available for Claude / 3P models.")
-        else:
-            # For Gemini / Open models: API key accounts are fully eligible
-            active_pool = list(active_pool)
+            else:
+                raise RuntimeError(f"No active accounts in pool support model {model}.")
+
 
         available = [acc for acc in active_pool if not acc.is_rate_limited(model)]
         if not available:
@@ -1512,19 +1692,14 @@ class AccountPool:
         display_name = name.strip() if (name and name.strip()) else "Gemini API Key"
         masked_key = f"{key_clean[:6]}...{key_clean[-4:]}" if len(key_clean) > 10 else "api_key"
 
-        acc = AccountSession(
+        acc = AIStudioApiKeySession(
             account_id=acc_id,
-            refresh_token=key_clean,
-            access_token=key_clean,
-            expiry_timestamp=time.time() + 86400.0 * 365.0,
-            email=f"{masked_key}@aistudio.google",
+            api_key=key_clean,
             name=display_name,
-            auth_method="api_key",
-            project_id="google-ai-studio",
             is_primary=len(self.accounts) == 0,
             on_token_refreshed=self.save_accounts,
         )
-        acc.picture = "https://lh3.googleusercontent.com/COxitqgJr1sJnIDe8-jiKhxDx1FrYbtRHKJ9zqoA7h0vBpEdVUqqnvnulSVuCSSk27m470TeAqTAbPnLKNfaWA"
+
 
         self.accounts[acc_id] = acc
         self.save_accounts()
