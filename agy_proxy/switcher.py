@@ -44,31 +44,25 @@ def get_antigravity_token_destinations() -> List[Path]:
 
 
 def format_antigravity_token_payload(account: AccountSession) -> Dict[str, Any]:
-    """Formats an AccountSession into the token JSON structure expected by Google Antigravity."""
+    """Formats an AccountSession into the exact token JSON structure expected by Google Antigravity."""
     expiry_iso = ""
     if account.expiry_timestamp > 0:
-        expiry_iso = datetime.fromtimestamp(account.expiry_timestamp, timezone.utc).isoformat()
+        dt = datetime.fromtimestamp(account.expiry_timestamp, timezone.utc).astimezone()
+        expiry_iso = dt.isoformat()
 
     id_tok = getattr(account, "id_token", None) or ""
     project_id = getattr(account, "project_id", None) or "aicode-consumers"
 
-    # Provide both nested 'token' object and top-level fields for maximum compatibility
     return {
         "token": {
             "access_token": account.access_token or "",
             "token_type": "Bearer",
-            "refresh_token": account.refresh_token,
-            "id_token": id_tok,
+            "refresh_token": account.refresh_token or "",
             "expiry": expiry_iso,
         },
-        "access_token": account.access_token or "",
-        "token_type": "Bearer",
-        "refresh_token": account.refresh_token,
+        "auth_method": getattr(account, "auth_method", "consumer") or "consumer",
         "id_token": id_tok,
-        "expiry": expiry_iso,
-        "email": account.email or "",
         "project_id": project_id,
-        "auth_method": "consumer",
     }
 
 
