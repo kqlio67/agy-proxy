@@ -1821,6 +1821,24 @@ class AccountPool:
                 os.chmod(self.accounts_file.parent, 0o700)
             except Exception:
                 pass
+
+            # Safety guard: if the file on disk has MORE accounts than our pool,
+            # don't silently overwrite it (prevents test runs or stale pools from wiping real accounts)
+            real_accounts_in_pool = [a for a in self.accounts.values() if a.auth_method in ("consumer", "api_key", "gemini_web")]
+            if self.accounts_file.exists() and len(real_accounts_in_pool) < 2:
+                try:
+                    with open(self.accounts_file, "r", encoding="utf-8") as _f:
+                        _existing = json.load(_f)
+                    existing_count = len(_existing.get("accounts", []))
+                    if existing_count > len(real_accounts_in_pool):
+                        logger.debug(
+                            "save_accounts: skipping overwrite — disk has %d accounts, pool has %d (pool may not be fully loaded yet)",
+                            existing_count, len(real_accounts_in_pool),
+                        )
+                        return
+                except Exception:
+                    pass
+
             acc_list = []
             seen_entries = set()
             for acc in self.accounts.values():
