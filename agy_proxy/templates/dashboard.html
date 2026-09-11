@@ -2040,6 +2040,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
                       ${acc.is_primary 
                         ? '<span class="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30 flex items-center space-x-1 shrink-0 shadow-sm"><i class="fa-solid fa-star text-amber-400 text-[9px]"></i><span>Primary</span></span>' 
                         : `<button onclick="setPrimaryAccount('${acc.account_id}')" class="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-slate-800/90 hover:bg-indigo-600 hover:text-white text-slate-400 border border-slate-700 transition flex items-center space-x-1 shrink-0" title="Set as primary active account"><i class="fa-regular fa-star text-[9px]"></i><span>Set Primary</span></button>`}
+                      ${acc.region_code ? `<span class="text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 font-mono font-semibold border border-sky-500/30 shrink-0" title="Detected Region: ${acc.region_code}">🌍 ${acc.region_code}</span>` : ''}
                       ${!isEnabled ? '<span class="text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-medium border border-slate-700 shrink-0">Paused</span>' : ''}
                     </div>
                     <div class="text-[11px] sm:text-xs text-slate-300 font-mono truncate flex items-center space-x-1.5 mt-0.5" title="${acc.email}">
@@ -2136,9 +2137,12 @@ https://your-tunnel.trycloudflare.com/v1</pre>
               </td>
 
               <td class="px-3 py-3">
-                ${isApiKey
-                  ? '<span class="inline-flex items-center text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20"><i class="fa-solid fa-key mr-1"></i> API Key</span>'
-                  : '<span class="inline-flex items-center text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"><i class="fa-brands fa-google mr-1"></i> OAuth</span>'}
+                <div class="flex items-center flex-wrap gap-1">
+                  ${isApiKey
+                    ? '<span class="inline-flex items-center text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20"><i class="fa-solid fa-key mr-1"></i> API Key</span>'
+                    : '<span class="inline-flex items-center text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"><i class="fa-brands fa-google mr-1"></i> OAuth</span>'}
+                  ${acc.region_code ? `<span class="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20 font-mono" title="Region: ${acc.region_code}">🌍 ${acc.region_code}</span>` : ''}
+                </div>
               </td>
 
               <td class="px-3 py-3">

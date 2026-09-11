@@ -271,6 +271,53 @@ class TestAccountPoolTokenSync(unittest.TestCase):
         mgr.pool = pool
         self.assertEqual(mgr.primary_account.account_id, "acc_2")
 
+    def test_account_session_region_code_persistence(self):
+        pool = AccountPool(accounts_file=self.accounts_file)
+        acc = AccountSession(
+            account_id="acc_region",
+            refresh_token="1//r_reg",
+            region_code="UA",
+        )
+        pool.accounts["acc_region"] = acc
+        pool.save_accounts()
+
+        loaded_pool = AccountPool(accounts_file=self.accounts_file)
+        loaded_pool.load_accounts()
+        self.assertIn("acc_region", loaded_pool.accounts)
+        self.assertEqual(loaded_pool.accounts["acc_region"].region_code, "UA")
+
+
+class TestAccountSessionRegionCode(unittest.IsolatedAsyncioTestCase):
+    async def test_fetch_cloudcode_user_info(self):
+        acc = AccountSession(
+            account_id="acc_test",
+            access_token="ya29.test",
+            refresh_token="1//refresh",
+            expiry_timestamp=time.time() + 3600.0,
+            project_id="test-proj",
+        )
+
+        class MockResponse:
+            status_code = 200
+
+            def json(self):
+                return {"userSettings": {}, "regionCode": "UA"}
+
+        class MockClient:
+            is_closed = False
+
+            async def post(self, url, headers=None, json=None, timeout=None):
+                return MockResponse()
+
+        acc._http_client = MockClient()
+        res = await acc.fetch_cloudcode_user_info()
+        self.assertEqual(res.get("regionCode"), "UA")
+        self.assertEqual(acc.region_code, "UA")
+        self.assertEqual(acc.to_dict()["region_code"], "UA")
+
+
+
 
 if __name__ == "__main__":
     unittest.main()
+

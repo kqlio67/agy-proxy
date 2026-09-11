@@ -132,6 +132,21 @@ class TestServerRoutes(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertIsInstance(resp.json(), dict)
 
+    async def test_cloudcode_internal_passthrough_actions(self):
+        # 1. POST action with payload
+        resp_post = await self.client.post(
+            "/v1internal:fetchUserInfo",
+            json={"project": "aicode-consumers"},
+        )
+        self.assertEqual(resp_post.status_code, 200)
+        self.assertIsInstance(resp_post.json(), dict)
+
+        # 2. GET action
+        resp_get = await self.client.get("/v1internal:fetchAdminControls")
+        self.assertEqual(resp_get.status_code, 200)
+        self.assertIsInstance(resp_get.json(), dict)
+
 
 if __name__ == "__main__":
     unittest.main()
+

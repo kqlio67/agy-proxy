@@ -43,6 +43,11 @@ async def validate_account_live(acc: AccountSession) -> Dict[str, Any]:
             result["token_ok"] = bool(info)
             if not result["token_ok"]:
                 result["error"] = "Token rejected by Google (userinfo check failed)"
+            else:
+                try:
+                    await acc.fetch_cloudcode_user_info()
+                except Exception:
+                    pass
 
         try:
             result["quota_summary"] = await acc.fetch_quota() or {}
@@ -193,6 +198,7 @@ async def run_doctor(host: str = "127.0.0.1", port: int = 8000, cloudflare_url: 
     pool_table.add_column("Account", style="cyan")
     pool_table.add_column("Type", style="magenta")
     pool_table.add_column("Status", justify="center")
+    pool_table.add_column("Region", justify="center", style="blue")
     pool_table.add_column("Token Expiry", style="yellow")
     pool_table.add_column("Gemini Quota", style="green")
     pool_table.add_column("Claude Quota", style="yellow")
@@ -214,7 +220,7 @@ async def run_doctor(host: str = "127.0.0.1", port: int = 8000, cloudflare_url: 
 
     auth_failures = 0
     if not pool.accounts:
-        pool_table.add_row("[bold red]No accounts found[/bold red]", "-", "[bold red]❌ Empty[/bold red]", "-", "-", "-")
+        pool_table.add_row("[bold red]No accounts found[/bold red]", "-", "[bold red]❌ Empty[/bold red]", "-", "-", "-", "-")
         overall_healthy = False
     else:
         for acc in pool.accounts.values():
@@ -246,10 +252,12 @@ async def run_doctor(host: str = "127.0.0.1", port: int = 8000, cloudflare_url: 
                 gemini_q = "[dim]n/a[/dim]"
                 claude_q = "[dim]n/a[/dim]"
 
+            region_str = f"🌍 {acc.region_code}" if acc.region_code else "[dim]—[/dim]"
             pool_table.add_row(
                 f"{acc.name or acc.email} {'⭐' if acc.is_primary else ''}",
                 "Google AI Studio" if acc.auth_method == "api_key" else "Google OAuth",
                 status_text,
+                region_str,
                 expiry_text,
                 gemini_q,
                 claude_q,

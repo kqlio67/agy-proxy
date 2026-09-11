@@ -344,6 +344,7 @@ class AccountSession:
         picture: Optional[str] = None,
         auth_method: str = "consumer",
         project_id: Optional[str] = None,
+        region_code: Optional[str] = None,
         client_id: str = DEFAULT_CLIENT_ID,
         client_secret: str = DEFAULT_CLIENT_SECRET,
         is_primary: bool = False,
@@ -359,6 +360,7 @@ class AccountSession:
         self.picture = picture
         self.auth_method = auth_method
         self.project_id = project_id
+        self.region_code = region_code
         self.client_id = client_id
         self.client_secret = client_secret
         self.is_primary = is_primary
@@ -533,6 +535,30 @@ class AccountSession:
                 self.project_id = "aicode-consumers"
 
         return self.project_id
+
+    async def fetch_cloudcode_user_info(self) -> Dict[str, Any]:
+        """Fetches CloudCode user settings and detected geographic regionCode."""
+        if self.auth_method == "api_key":
+            return {}
+        project = await self.initialize_project()
+        headers = await self.get_auth_headers()
+        client = await self.get_http_client()
+        try:
+            resp = await client.post(
+                f"{CLOUDCODE_BASE_URL}/v1internal:fetchUserInfo",
+                headers=headers,
+                json={"project": project},
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                reg = data.get("regionCode")
+                if reg:
+                    self.region_code = str(reg).upper()
+                    logger.debug("[%s] Detected CloudCode region: %s", self.email, self.region_code)
+                return data
+        except Exception as e:
+            logger.debug("[%s] Error fetching CloudCode user info: %s", self.email, e)
+        return {}
 
     async def fetch_quota(self) -> Dict[str, Any]:
         """Fetches live quota summary and bucket remaining fractions."""
@@ -814,6 +840,7 @@ class AccountSession:
             "is_primary": self.is_primary,
             "enabled": self.enabled,
             "tier_name": self.tier_info.get("name", "Antigravity"),
+            "region_code": self.region_code,
             "expiry_timestamp": self.expiry_timestamp,
             "total_requests": self.total_requests,
             "last_used_timestamp": self.last_used_timestamp,
@@ -853,6 +880,7 @@ class AccountPool:
                 "last_used_model": getattr(a, "last_used_model", None),
                 "last_client_type": getattr(a, "last_client_type", None),
                 "quota_summary": getattr(a, "quota_summary", None),
+                "region_code": getattr(a, "region_code", None),
             }
             for aid, a in self.accounts.items()
         }
@@ -892,6 +920,7 @@ class AccountPool:
                     if not acc_id:
                         acc_id = f"acc_{os.urandom(4).hex()}"
 
+                    prev = existing_stats.get(acc_id, {})
                     acc = AccountSession(
                         account_id=acc_id,
                         refresh_token=item.get("refresh_token", ""),
@@ -902,6 +931,7 @@ class AccountPool:
                         picture=item.get("picture"),
                         auth_method=item.get("auth_method", "consumer"),
                         project_id=item.get("project_id"),
+                        region_code=item.get("region_code") or prev.get("region_code"),
                         is_primary=bool(item.get("is_primary", acc_id == "primary" or len(self.accounts) == 0)),
                         enabled=bool(item.get("enabled", True)),
                         on_token_refreshed=self.save_accounts,
@@ -1063,6 +1093,7 @@ class AccountPool:
                     "expiry_timestamp": acc.expiry_timestamp,
                     "auth_method": acc.auth_method,
                     "project_id": acc.project_id,
+                    "region_code": acc.region_code,
                     "enabled": acc.enabled,
                     "is_primary": acc.is_primary,
                     "total_requests": getattr(acc, "total_requests", 0),
@@ -1088,6 +1119,7 @@ class AccountPool:
                     await a.get_valid_token()
                     await a.fetch_user_info()
                     await a.initialize_project()
+                    await a.fetch_cloudcode_user_info()
                     await a.fetch_quota()
                     await a.fetch_models()
                 except Exception as e:
@@ -1317,6 +1349,7 @@ class AccountPool:
                     await acc.refresh_access_token()
                     await acc.fetch_user_info()
                     await acc.initialize_project()
+                    await acc.fetch_cloudcode_user_info()
                     await acc.fetch_quota()
                     await acc.fetch_models()
 
@@ -1337,6 +1370,8 @@ class AccountPool:
                             matched_acc.picture = acc.picture
                         if acc.project_id:
                             matched_acc.project_id = acc.project_id
+                        if acc.region_code:
+                            matched_acc.region_code = acc.region_code
                         self.save_accounts()
                         return matched_acc
 
@@ -1435,6 +1470,7 @@ class AccountPool:
 
             await acc.fetch_user_info()
             await acc.initialize_project()
+            await acc.fetch_cloudcode_user_info()
             await acc.fetch_quota()
             await acc.fetch_models()
 
@@ -1453,6 +1489,8 @@ class AccountPool:
                 matched_acc.name = acc.name
                 matched_acc.picture = acc.picture
                 matched_acc.project_id = acc.project_id
+                if acc.region_code:
+                    matched_acc.region_code = acc.region_code
                 matched_acc.tier_info = acc.tier_info
                 matched_acc.quota_summary = acc.quota_summary
                 matched_acc.available_models = acc.available_models

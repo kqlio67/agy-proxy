@@ -17,7 +17,7 @@ import httpx
 from fastapi import FastAPI, HTTPException, Header, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response, StreamingResponse
 
 import sys
 if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
@@ -793,13 +793,21 @@ def create_app(
     # Internal CloudCode Compatibility Endpoints
     # -------------------------------------------------------------------------
 
-    @app.post("/v1internal:writeTrajectoryAcls")
-    async def write_trajectory_acls(request: Request):
-        """Passthrough / compatibility endpoint for Antigravity writeTrajectoryAcls."""
-        try:
-            body = await request.json()
-        except Exception:
-            body = {}
+    @app.api_route("/v1internal:{action}", methods=["GET", "POST", "PUT", "DELETE"])
+    async def cloudcode_internal_passthrough(action: str, request: Request):
+        """Universal passthrough / compatibility router for CloudCode v1internal actions:
+        (e.g., loadCodeAssist, fetchAvailableModels, fetchUserInfo, fetchAdminControls,
+        retrieveUserQuotaSummary, listExperiments, writeTrajectoryAcls)."""
+        body = None
+        if request.method in ("POST", "PUT", "PATCH"):
+            try:
+                body = await request.json()
+            except Exception:
+                try:
+                    raw_body = await request.body()
+                    body = raw_body.decode("utf-8") if raw_body else None
+                except Exception:
+                    body = None
 
         acc = next((a for a in account_pool.accounts.values() if getattr(a, "enabled", True)), None)
         if not acc:
@@ -808,17 +816,33 @@ def create_app(
         try:
             from agy_proxy.auth import CLOUDCODE_BASE_URL
             headers = await acc.get_auth_headers()
+            target_url = f"{CLOUDCODE_BASE_URL}/v1internal:{action}"
             c = await acc.get_http_client()
-            resp = await c.post(
-                f"{CLOUDCODE_BASE_URL}/v1internal:writeTrajectoryAcls",
-                headers=headers,
-                json=body,
-                timeout=10.0,
-            )
-            if resp.status_code == 200:
-                return JSONResponse(status_code=200, content=resp.json() or {})
+            query_params = dict(request.query_params)
+
+            if request.method == "POST":
+                if isinstance(body, dict):
+                    resp = await c.post(target_url, headers=headers, json=body, params=query_params, timeout=15.0)
+                elif body is not None:
+                    resp = await c.post(target_url, headers=headers, content=str(body).encode("utf-8"), params=query_params, timeout=15.0)
+                else:
+                    resp = await c.post(target_url, headers=headers, params=query_params, timeout=15.0)
+            elif request.method == "GET":
+                resp = await c.get(target_url, headers=headers, params=query_params, timeout=15.0)
+            else:
+                resp = await c.request(request.method, target_url, headers=headers, json=body if isinstance(body, dict) else None, params=query_params, timeout=15.0)
+
+            try:
+                data = resp.json()
+                return JSONResponse(status_code=resp.status_code, content=data)
+            except Exception:
+                return Response(
+                    content=resp.content,
+                    status_code=resp.status_code,
+                    media_type=resp.headers.get("content-type", "application/json"),
+                )
         except Exception as e:
-            logger.debug("writeTrajectoryAcls proxy error: %s", e)
+            logger.debug("CloudCode internal passthrough error (/v1internal:%s): %s", action, e)
 
         return JSONResponse(status_code=200, content={})
 
