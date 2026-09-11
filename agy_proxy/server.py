@@ -514,10 +514,44 @@ def create_app(
             raise HTTPException(status_code=400, detail="Failed to set primary account.")
         return {"status": "ok", "account_id": account_id, "is_primary": True}
 
+    @app.post("/api/accounts/{account_id}/activate-cli")
+    async def activate_account_cli(account_id: str):
+        """Activates the specified OAuth account as the current Google Antigravity CLI/IDE session."""
+        if account_id not in pool.accounts:
+            raise HTTPException(status_code=404, detail="Account not found.")
+        acc = pool.accounts[account_id]
+        if acc.auth_method != "consumer":
+            raise HTTPException(status_code=400, detail="Only Google OAuth accounts can be activated in Antigravity CLI.")
+        from agy_proxy.switcher import activate_account_in_antigravity
+        pool.set_primary(account_id)
+        written = await activate_account_in_antigravity(acc)
+        return {
+            "status": "activated",
+            "account_id": account_id,
+            "email": acc.email,
+            "destinations": [str(p) for p in written],
+        }
+
+    @app.post("/api/accounts/switch-next-cli")
+    async def switch_next_account_cli():
+        """Switches the Antigravity CLI session to the next available account with highest quota."""
+        from agy_proxy.switcher import switch_antigravity_session
+        try:
+            acc, written = await switch_antigravity_session(pool=pool, to_next=True)
+            return {
+                "status": "switched",
+                "account_id": acc.account_id,
+                "email": acc.email,
+                "destinations": [str(p) for p in written],
+            }
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
     @app.post("/api/accounts/refresh_all")
     async def refresh_all_accounts():
         await pool.initialize_all()
         return {"status": "refreshed", "count": len(pool.accounts)}
+
 
     @app.get("/api/cache/stats")
     async def get_cache_stats():

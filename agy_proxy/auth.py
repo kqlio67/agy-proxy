@@ -437,6 +437,13 @@ class BaseAccountSession:
         self.rate_limited_models[key] = time.time() + duration
         logger.warning("[%s] Marked as rate-limited for group %s for %.0fs", self.email, key, duration)
 
+    def is_token_expired(self, skew_seconds: float = 60.0) -> bool:
+        """Checks if session access token is expired or within skew threshold."""
+        exp = getattr(self, "expiry_timestamp", 0.0)
+        if not exp or exp <= 0:
+            return True
+        return (exp - time.time()) <= skew_seconds
+
     def is_model_supported(self, model_name: str) -> bool:
         """Determines if this account type is capable of serving the given model."""
         return True

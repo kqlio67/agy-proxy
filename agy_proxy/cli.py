@@ -8,6 +8,7 @@ import asyncio
 import logging
 import os
 import sys
+from typing import Optional
 import uvicorn
 from rich.console import Console
 from rich.panel import Panel
@@ -171,7 +172,73 @@ async def handle_auth_list():
     console.print(table)
 
 
+async def handle_switch_command(target: Optional[str] = None, to_next: bool = False, list_only: bool = False):
+    """Interactively switches active Antigravity CLI/IDE session between pooled Google accounts."""
+    from agy_proxy.switcher import switch_antigravity_session
+
+    pool = AccountPool()
+    pool.load_accounts()
+    oauth_accounts = [a for a in pool.accounts.values() if a.auth_method == "consumer" and a.refresh_token]
+
+    if not oauth_accounts:
+        console.print("[bold red]No Google OAuth accounts found in accounts.json.[/bold red]")
+        console.print("Add one first via: `agy-proxy auth login`")
+        return
+
+    # If list_only or (no target and not to_next), display interactive table
+    if list_only or (not target and not to_next):
+        console.print(Panel("[bold cyan]Google Antigravity Session Switcher[/bold cyan]", border_style="blue"))
+        table = Table(title="Available Antigravity Accounts", border_style="blue")
+        table.add_column("#", justify="right", style="cyan")
+        table.add_column("Account / Email", style="white")
+        table.add_column("Name", style="dim")
+        table.add_column("Gemini Quota", style="green")
+        table.add_column("Claude Quota", style="yellow")
+        table.add_column("Status", style="magenta")
+
+        for idx, acc in enumerate(oauth_accounts, start=1):
+            q = acc.get_quota_details()
+            g_pct = int(q.get("gemini", {}).get("percent", 100))
+            c_pct = int(q.get("3p", {}).get("percent", 100))
+            status = "[bold green]Active (Primary)[/bold green]" if acc.is_primary else "[dim]Ready[/dim]"
+            table.add_row(
+                str(idx),
+                acc.email or acc.account_id,
+                acc.name or "OAuth Account",
+                f"{g_pct}%",
+                f"{c_pct}%",
+                status,
+            )
+        console.print(table)
+
+        if list_only:
+            return
+
+        try:
+            choice = input("\nEnter account #, email, or 'next' [next]: ").strip()
+        except (KeyboardInterrupt, EOFError):
+            console.print("\n[dim]Cancelled by user.[/dim]")
+            return
+
+        if not choice or choice.lower() in ("next", "n"):
+            to_next = True
+            target = None
+        else:
+            target = choice
+
+    try:
+        console.print("[dim]Switching Antigravity session...[/dim]")
+        acc, paths = await switch_antigravity_session(identifier=target, pool=pool, to_next=to_next)
+        paths_str = ", ".join(str(p) for p in paths)
+        console.print(f"\n[bold green]✓ Activated Antigravity Session:[/bold green] [bold white]{acc.email}[/bold white] ({acc.name or 'OAuth'})")
+        console.print(f"Updated token destination: [cyan]{paths_str}[/cyan]")
+        console.print("[dim]Your `agy` CLI commands will now execute under this account.[/dim]")
+    except Exception as e:
+        console.print(f"[bold red]✗ Failed to switch session:[/bold red] {e}")
+
+
 async def handle_update_command(check_only: bool = False):
+
     """Checks for releases and performs self-update."""
     from agy_proxy.updater import check_for_updates, perform_self_update
 
@@ -227,11 +294,24 @@ def main():
     # update subcommand (agy-proxy update)
     update_parser = subparsers.add_parser("update", help="Check and install latest Antigravity Proxy updates")
     update_parser.add_argument("--check", "-c", action="store_true", help="Only check for updates without installing")
+
+    # switch subcommand (agy-proxy switch)
+    switch_parser = subparsers.add_parser("switch", help="Switch active Antigravity CLI/IDE session")
+    switch_parser.add_argument("target", nargs="?", default=None, help="Target account email, name, ID, or #")
+    switch_parser.add_argument("--next", "-n", action="store_true", help="Switch to next account with highest quota")
+    switch_parser.add_argument("--list", "-l", action="store_true", help="List available OAuth accounts and quotas")
+
     # auth subcommand
     auth_parser = subparsers.add_parser("auth", help="Manage Antigravity Google accounts in pool")
     auth_subparsers = auth_parser.add_subparsers(dest="auth_action", help="Auth action")
     auth_subparsers.add_parser("login", help="Log in a Google account via browser OAuth PKCE")
     auth_subparsers.add_parser("list", help="List all accounts and quotas in pool")
+
+    # auth switch subcommand (agy-proxy auth switch)
+    auth_switch = auth_subparsers.add_parser("switch", help="Switch active Antigravity CLI/IDE session")
+    auth_switch.add_argument("target", nargs="?", default=None, help="Target account email, name, ID, or #")
+    auth_switch.add_argument("--next", "-n", action="store_true", help="Switch to next account with highest quota")
+    auth_switch.add_argument("--list", "-l", action="store_true", help="List available OAuth accounts and quotas")
 
     # Dedicated API key subcommands: `auth api` and `auth apikey`
     for alias_cmd in ("api", "apikey"):
@@ -296,6 +376,13 @@ def main():
         check_only = getattr(args, "check", False)
         asyncio.run(handle_update_command(check_only=check_only))
         return
+    elif args.subcommand == "switch":
+        asyncio.run(handle_switch_command(
+            target=getattr(args, "target", None),
+            to_next=getattr(args, "next", False),
+            list_only=getattr(args, "list", False),
+        ))
+        return
     elif args.subcommand == "auth":
         if args.auth_action == "login":
             asyncio.run(handle_auth_login())
@@ -308,9 +395,17 @@ def main():
         elif args.auth_action == "list":
             asyncio.run(handle_auth_list())
             return
+        elif args.auth_action == "switch":
+            asyncio.run(handle_switch_command(
+                target=getattr(args, "target", None),
+                to_next=getattr(args, "next", False),
+                list_only=getattr(args, "list", False),
+            ))
+            return
         else:
             auth_parser.print_help()
             return
+
 
     # Configure logging
     effective_log_level = "debug" if args.debug else args.log_level
