@@ -185,7 +185,22 @@ class TestServerRoutes(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(test_resp.status_code, 200)
         test_data = test_resp.json()
         self.assertEqual(test_data["account_id"], acc_id)
+        self.assertEqual(test_data["auth_method"], "gemini_web")
+        self.assertEqual(test_data["name"], "My Gemini Web Session")
+        self.assertIn("latency_ms", test_data)
         self.assertIn("has_cookies", test_data)
+
+        # 5. Targeting web account with an incompatible model (Claude) should return 400
+        comp_resp = await self.client.post(
+            "/v1/chat/completions",
+            headers={"x-account-id": acc_id},
+            json={
+                "model": "claude-sonnet-4-6",
+                "messages": [{"role": "user", "content": "hello"}],
+            },
+        )
+        self.assertEqual(comp_resp.status_code, 400)
+        self.assertIn("does not support model", comp_resp.text)
 
 
 if __name__ == "__main__":

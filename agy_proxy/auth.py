@@ -2435,10 +2435,14 @@ class AccountPool:
         preferred_account_id: Optional[str] = None,
     ) -> List[AccountSession]:
         """Returns ordered list of candidate accounts for a request, prioritizing preferred (sticky) account."""
-        if specific_account_id and specific_account_id in self.accounts:
+        if specific_account_id:
+            if specific_account_id not in self.accounts:
+                raise RuntimeError(f"Requested account '{specific_account_id}' was not found in pool.")
             acc = self.accounts[specific_account_id]
             if not acc.enabled:
-                raise RuntimeError(f"Requested account {acc.email} is currently disabled.")
+                raise RuntimeError(f"Requested account {acc.email or acc.name or acc.account_id} is currently disabled/paused.")
+            if not acc.is_model_supported(model):
+                raise RuntimeError(f"Account {acc.email or acc.name or acc.account_id} ({acc.auth_method}) does not support model '{model}'.")
             return [acc]
 
         if not self.accounts:
@@ -2494,7 +2498,7 @@ class AccountPool:
             for m_id, info in models.items():
                 if m_id not in combined_models:
                     combined_models[m_id] = {
-                        "displayName": info.get("displayName", m_id),
+                        "displayName": info.get("displayName") or info.get("display_name") or m_id,
                         "maxTokens": info.get("maxTokens", 0),
                         "quotaInfo": {},
                         "accounts": {},

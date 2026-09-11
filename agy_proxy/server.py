@@ -481,12 +481,32 @@ def create_app(
         acc = pool.accounts.get(account_id)
         if not acc:
             raise HTTPException(status_code=404, detail="Account not found.")
+        start_t = time.time()
         try:
             res = await acc.test_connection()
-            return {"account_id": account_id, **res}
+            latency_ms = round((time.time() - start_t) * 1000, 1)
+            return {
+                "account_id": account_id,
+                "name": acc.name or acc.email,
+                "email": acc.email,
+                "auth_method": acc.auth_method,
+                "latency_ms": latency_ms,
+                "enabled": acc.enabled,
+                **res,
+            }
         except Exception as e:
+            latency_ms = round((time.time() - start_t) * 1000, 1)
             logger.error("Error testing account %s: %s", account_id, e)
-            return {"account_id": account_id, "ok": False, "error": str(e)}
+            return {
+                "account_id": account_id,
+                "name": acc.name or acc.email,
+                "email": acc.email,
+                "auth_method": acc.auth_method,
+                "latency_ms": latency_ms,
+                "enabled": acc.enabled,
+                "ok": False,
+                "error": str(e),
+            }
 
     class RenameAccountRequest(BaseModel):
         name: str
@@ -764,11 +784,17 @@ def create_app(
             or request.headers.get("x-session-id")
             or request.headers.get("x-conversation-id")
         )
+        target_account_id = (
+            request.headers.get("x-account-id")
+            or request.headers.get("account-id")
+            or request.query_params.get("account_id")
+            or getattr(req, "account_id", None)
+        )
 
         try:
             if req.stream:
                 return StreamingResponse(
-                    client.stream_openai_chat(req, session_key=session_id),
+                    client.stream_openai_chat(req, session_key=session_id, specific_account_id=target_account_id),
                     media_type="text/event-stream",
                     headers={
                         "Cache-Control": "no-cache",
@@ -777,7 +803,7 @@ def create_app(
                     },
                 )
             else:
-                response_data = await client.generate_openai_chat(req, session_key=session_id)
+                response_data = await client.generate_openai_chat(req, session_key=session_id, specific_account_id=target_account_id)
                 return JSONResponse(content=response_data)
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 429:
@@ -792,6 +818,15 @@ def create_app(
                     },
                 )
             raise HTTPException(status_code=e.response.status_code, detail=str(e))
+        except (ValueError, RuntimeError) as e:
+            err_msg = str(e)
+            if "does not support model" in err_msg or "not found in pool" in err_msg or "disabled" in err_msg:
+                return JSONResponse(
+                    status_code=400,
+                    content={"error": {"message": err_msg, "type": "invalid_request_error", "code": 400}},
+                )
+            logger.error("OpenAI Chat Completion Error: %s", e, exc_info=True)
+            raise HTTPException(status_code=500, detail=err_msg)
         except Exception as e:
             logger.error("OpenAI Chat Completion Error: %s", e, exc_info=True)
             err_msg = str(e) or f"{type(e).__name__}: Upstream request failed"
@@ -816,11 +851,17 @@ def create_app(
             or request.headers.get("x-session-id")
             or request.headers.get("x-conversation-id")
         )
+        target_account_id = (
+            request.headers.get("x-account-id")
+            or request.headers.get("account-id")
+            or request.query_params.get("account_id")
+            or getattr(req, "account_id", None)
+        )
 
         try:
             if req.stream:
                 return StreamingResponse(
-                    client.stream_anthropic_messages(req, session_key=session_id),
+                    client.stream_anthropic_messages(req, session_key=session_id, specific_account_id=target_account_id),
                     media_type="text/event-stream",
                     headers={
                         "Cache-Control": "no-cache",
@@ -829,7 +870,7 @@ def create_app(
                     },
                 )
             else:
-                response_data = await client.generate_anthropic_messages(req, session_key=session_id)
+                response_data = await client.generate_anthropic_messages(req, session_key=session_id, specific_account_id=target_account_id)
                 return JSONResponse(content=response_data)
         except httpx.HTTPStatusError as e:
             err_type = "rate_limit_error" if e.response.status_code == 429 else "api_error"
@@ -844,6 +885,21 @@ def create_app(
                     },
                 },
             )
+        except (ValueError, RuntimeError) as e:
+            err_msg = str(e)
+            if "does not support model" in err_msg or "not found in pool" in err_msg or "disabled" in err_msg:
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "type": "error",
+                        "error": {
+                            "type": "invalid_request_error",
+                            "message": err_msg,
+                        },
+                    },
+                )
+            logger.error("Anthropic Messages Error: %s", e, exc_info=True)
+            raise HTTPException(status_code=500, detail=err_msg)
         except Exception as e:
             logger.error("Anthropic Messages Error: %s", e, exc_info=True)
             err_msg = str(e) or f"{type(e).__name__}: Upstream request failed"
@@ -870,8 +926,14 @@ def create_app(
             x_api_key=request.headers.get("x-api-key"),
         )
         body = await request.json()
+        target_account_id = (
+            request.headers.get("x-account-id")
+            or request.headers.get("account-id")
+            or request.query_params.get("account_id")
+            or (body.get("account_id") if isinstance(body, dict) else None)
+        )
         return StreamingResponse(
-            client.stream_gemini_native(model_name, body),
+            client.stream_gemini_native(model_name, body, specific_account_id=target_account_id),
             media_type="text/event-stream",
         )
 
@@ -882,7 +944,13 @@ def create_app(
             x_api_key=request.headers.get("x-api-key"),
         )
         body = await request.json()
-        res = await client.generate_gemini_native(model_name, body)
+        target_account_id = (
+            request.headers.get("x-account-id")
+            or request.headers.get("account-id")
+            or request.query_params.get("account_id")
+            or (body.get("account_id") if isinstance(body, dict) else None)
+        )
+        res = await client.generate_gemini_native(model_name, body, specific_account_id=target_account_id)
         return JSONResponse(content=res)
 
     # -------------------------------------------------------------------------

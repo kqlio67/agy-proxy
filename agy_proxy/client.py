@@ -176,6 +176,7 @@ class CloudCodeClient:
         model_name: str,
         timeout: Optional[Union[float, httpx.Timeout]] = None,
         session_key: Optional[str] = None,
+        specific_account_id: Optional[str] = None,
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """
         Executes request against CloudCode with automatic multi-account rotation, session affinity, and 429 failover.
@@ -188,7 +189,11 @@ class CloudCodeClient:
             if pinned:
                 preferred_account = pinned[0]
 
-        candidates = self.pool.get_candidate_accounts(model_name, preferred_account_id=preferred_account)
+        candidates = self.pool.get_candidate_accounts(
+            model_name,
+            specific_account_id=specific_account_id,
+            preferred_account_id=preferred_account,
+        )
         last_error = None
 
         for acc in candidates:
@@ -203,9 +208,16 @@ class CloudCodeClient:
                         if not isinstance(acc, GeminiWebSession):
                             break
                         acc_label = acc.name or acc.email
-                        # Extract plain user message text from the payload builder result
+                        # Extract plain user message text and system instruction
                         _payload_probe = payload_builder_fn("gemini-web")
                         _contents = _payload_probe.get("request", _payload_probe).get("contents", [])
+                        _sys_inst = _payload_probe.get("request", _payload_probe).get("systemInstruction", {})
+                        _sys_text = ""
+                        if isinstance(_sys_inst, dict):
+                            for _sp in _sys_inst.get("parts", []):
+                                if isinstance(_sp, dict) and "text" in _sp:
+                                    _sys_text += _sp["text"] + "\n\n"
+
                         user_message_text = ""
                         for _content in reversed(_contents):
                             if isinstance(_content, dict) and _content.get("role") == "user":
@@ -217,6 +229,8 @@ class CloudCodeClient:
                                     break
                         if not user_message_text:
                             user_message_text = "(empty message)"
+                        if _sys_text and _sys_text.strip() not in user_message_text:
+                            user_message_text = f"[System Instructions:\n{_sys_text.strip()}]\n\n{user_message_text}"
 
                         logger.info("[%s] %s (Gemini Web Browser)", acc_label, model_name)
                         acc.total_requests += 1
@@ -502,7 +516,12 @@ class CloudCodeClient:
     # OpenAI Chat Completion Handlers
     # -------------------------------------------------------------------------
 
-    async def stream_openai_chat(self, req: OpenAIChatRequest, session_key: Optional[str] = None) -> AsyncGenerator[str, None]:
+    async def stream_openai_chat(
+        self,
+        req: OpenAIChatRequest,
+        session_key: Optional[str] = None,
+        specific_account_id: Optional[str] = None,
+    ) -> AsyncGenerator[str, None]:
         """Streams OpenAI formatted SSE chunks."""
         req_id = f"chatcmpl-{uuid.uuid4().hex[:16]}"
         model = req.model or DEFAULT_MODEL
@@ -542,6 +561,7 @@ class CloudCodeClient:
                 build_payload,
                 model_name=model,
                 session_key=sess_key,
+                specific_account_id=specific_account_id,
             ):
                 resp = data.get("response", data)
                 candidates = resp.get("candidates", [])
@@ -625,7 +645,12 @@ class CloudCodeClient:
             yield f"data: {json.dumps(err_chunk)}\n\n"
             yield "data: [DONE]\n\n"
 
-    async def generate_openai_chat(self, req: OpenAIChatRequest, session_key: Optional[str] = None) -> Dict[str, Any]:
+    async def generate_openai_chat(
+        self,
+        req: OpenAIChatRequest,
+        session_key: Optional[str] = None,
+        specific_account_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """Returns non-streaming full OpenAI ChatCompletionResponse."""
         req_id = f"chatcmpl-{uuid.uuid4().hex[:16]}"
         model = req.model
@@ -665,6 +690,7 @@ class CloudCodeClient:
             build_payload,
             model_name=model,
             session_key=sess_key,
+            specific_account_id=specific_account_id,
         ):
             resp = data.get("response", data)
             candidates = resp.get("candidates", [])
@@ -727,10 +753,12 @@ class CloudCodeClient:
         }
 
     # -------------------------------------------------------------------------
-    # Anthropic Messages Handlers
-    # -------------------------------------------------------------------------
-
-    async def stream_anthropic_messages(self, req: AnthropicRequest, session_key: Optional[str] = None) -> AsyncGenerator[str, None]:
+    async def stream_anthropic_messages(
+        self,
+        req: AnthropicRequest,
+        session_key: Optional[str] = None,
+        specific_account_id: Optional[str] = None,
+    ) -> AsyncGenerator[str, None]:
         """Streams Anthropic Claude Messages SSE events."""
         msg_id = f"msg_{uuid.uuid4().hex[:20]}"
         model = req.model
@@ -873,6 +901,7 @@ class CloudCodeClient:
                 build_payload,
                 model_name=model,
                 session_key=sess_key,
+                specific_account_id=specific_account_id,
             ):
                 resp = data.get("response", data)
                 candidates = resp.get("candidates", [])
@@ -988,7 +1017,12 @@ class CloudCodeClient:
             }
             yield f"event: error\ndata: {json.dumps(err_event)}\n\n"
 
-    async def generate_anthropic_messages(self, req: AnthropicRequest, session_key: Optional[str] = None) -> Dict[str, Any]:
+    async def generate_anthropic_messages(
+        self,
+        req: AnthropicRequest,
+        session_key: Optional[str] = None,
+        specific_account_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """Returns non-streaming full Anthropic Messages response."""
         msg_id = f"msg_{uuid.uuid4().hex[:20]}"
         model = req.model
@@ -1104,6 +1138,7 @@ class CloudCodeClient:
             build_payload,
             model_name=model,
             session_key=sess_key,
+            specific_account_id=specific_account_id,
         ):
             resp = data.get("response", data)
             candidates = resp.get("candidates", [])
@@ -1173,7 +1208,12 @@ class CloudCodeClient:
     # Native Gemini API Passthrough
     # -------------------------------------------------------------------------
 
-    async def stream_gemini_native(self, model: str, raw_payload: Dict[str, Any]) -> AsyncGenerator[str, None]:
+    async def stream_gemini_native(
+        self,
+        model: str,
+        raw_payload: Dict[str, Any],
+        specific_account_id: Optional[str] = None,
+    ) -> AsyncGenerator[str, None]:
         """Streams native Gemini SSE events with multi-account support."""
         backend_model = normalize_model_name(model)
 
@@ -1194,15 +1234,21 @@ class CloudCodeClient:
             "v1internal:streamGenerateContent?alt=sse",
             build_payload,
             model_name=backend_model,
+            specific_account_id=specific_account_id,
         ):
             yield f"data: {json.dumps(data)}\n\n"
 
-    async def generate_gemini_native(self, model: str, raw_payload: Dict[str, Any]) -> Dict[str, Any]:
+    async def generate_gemini_native(
+        self,
+        model: str,
+        raw_payload: Dict[str, Any],
+        specific_account_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """Returns aggregated native Gemini response object."""
         aggregated_candidates: List[Dict[str, Any]] = []
         final_usage: Dict[str, Any] = {}
 
-        async for data in self.stream_gemini_native(model, raw_payload):
+        async for data in self.stream_gemini_native(model, raw_payload, specific_account_id=specific_account_id):
             if data.startswith("data:"):
                 line = data[5:].strip()
                 if line:

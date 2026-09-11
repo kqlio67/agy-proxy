@@ -581,6 +581,50 @@ class TestGeminiWebSession(unittest.TestCase):
             self.assertTrue(d["has_cookies"])
             self.assertGreaterEqual(d["cookies_count"], 2)
 
+    def test_specific_account_routing_and_validation(self):
+        pool = AccountPool()
+        oauth_acc = AntigravityOAuthSession(
+            account_id="oauth_1",
+            token_dict={"access_token": "ya29.test", "refresh_token": "1//test", "expiry": "2026-09-10T22:34:56Z"},
+        )
+        web_acc = GeminiWebSession(
+            account_id="web_1",
+            cookies={"__Secure-1PSID": "test"},
+        )
+        api_acc = AIStudioApiKeySession(
+            account_id="api_1",
+            api_key="AIzaSyTestKey",
+        )
+        pool.accounts["oauth_1"] = oauth_acc
+        pool.accounts["web_1"] = web_acc
+        pool.accounts["api_1"] = api_acc
+
+        # 1. Target specific valid account
+        cands = pool.get_candidate_accounts("gemini-3.1-pro", specific_account_id="web_1")
+        self.assertEqual(len(cands), 1)
+        self.assertEqual(cands[0].account_id, "web_1")
+
+        # 2. Target non-existent account
+        with self.assertRaises((ValueError, RuntimeError)) as ctx:
+            pool.get_candidate_accounts("gemini-3.1-pro", specific_account_id="non_existent")
+        self.assertIn("not found in pool", str(ctx.exception))
+
+        # 3. Target disabled account
+        web_acc.enabled = False
+        with self.assertRaises((ValueError, RuntimeError)) as ctx:
+            pool.get_candidate_accounts("gemini-3.1-pro", specific_account_id="web_1")
+        self.assertIn("currently disabled/paused", str(ctx.exception))
+        web_acc.enabled = True
+
+        # 4. Target account with unsupported model
+        with self.assertRaises((ValueError, RuntimeError)) as ctx:
+            pool.get_candidate_accounts("claude-sonnet-4-6", specific_account_id="web_1")
+        self.assertIn("does not support model", str(ctx.exception))
+
+        with self.assertRaises((ValueError, RuntimeError)) as ctx:
+            pool.get_candidate_accounts("claude-sonnet-4-6", specific_account_id="api_1")
+        self.assertIn("does not support model", str(ctx.exception))
+
 
 if __name__ == "__main__":
     unittest.main()
