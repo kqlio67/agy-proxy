@@ -68,7 +68,7 @@ SCOPES = [
 
 _os_name = "darwin" if platform.system().lower() == "darwin" else "linux"
 _arch_name = "arm64" if platform.machine().lower() in ("arm64", "aarch64") else "amd64"
-USER_AGENT = f"antigravity/cli/1.2.0 (aidev_client; os_type={_os_name}; arch={_arch_name}; cl=978750357; auth_method=consumer)"
+USER_AGENT = f"antigravity/cli/1.2.1 (aidev_client; os_type={_os_name}; arch={_arch_name}; cl=979485360; auth_method=consumer)"
 
 def get_candidate_token_files() -> List[Path]:
     """Returns candidate search paths for Antigravity OAuth tokens across OSes and env vars."""
@@ -691,11 +691,9 @@ class AntigravityOAuthSession(AccountSession):
                 headers=headers,
                 json={"tierId": tier_id, "metadata": {"ideType": "ANTIGRAVITY"}},
             )
-            if resp.status_code == 200:
-                data = resp.json()
-                if data.get("done"):
-                    logger.info("[%s] Successfully onboarded to %s in %s", self.email, tier_id, self.project_id)
-                    return True
+            if resp.status_code in (200, 409):
+                logger.info("[%s] Successfully onboarded to %s in %s (status %d)", self.email, tier_id, self.project_id, resp.status_code)
+                return True
             logger.warning("[%s] onboardUser returned %d: %s", self.email, resp.status_code, resp.text[:200])
         except Exception as e:
             logger.debug("[%s] onboardUser failed: %s", self.email, e)
