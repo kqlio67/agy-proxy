@@ -2078,6 +2078,7 @@ class AccountPool:
                     expiry_iso = ""
                     if primary_acc.expiry_timestamp > 0:
                         expiry_iso = datetime.fromtimestamp(primary_acc.expiry_timestamp, timezone.utc).isoformat()
+                    id_tok = getattr(primary_acc, "id_token", None) or ""
                     payload = {
                         "token": {
                             "access_token": primary_acc.access_token or "",
@@ -2085,9 +2086,8 @@ class AccountPool:
                             "refresh_token": primary_acc.refresh_token,
                             "expiry": expiry_iso,
                         },
-                        "email": primary_acc.email,
-                        "project_id": primary_acc.project_id,
-                        "auth_method": primary_acc.auth_method,
+                        "auth_method": primary_acc.auth_method or "consumer",
+                        "id_token": id_tok,
                     }
                     self.token_path.parent.mkdir(parents=True, exist_ok=True)
                     with open(self.token_path, "w", encoding="utf-8") as f:

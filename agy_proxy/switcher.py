@@ -62,7 +62,6 @@ def format_antigravity_token_payload(account: AccountSession) -> Dict[str, Any]:
         },
         "auth_method": getattr(account, "auth_method", "consumer") or "consumer",
         "id_token": id_tok,
-        "project_id": project_id,
     }
 
 

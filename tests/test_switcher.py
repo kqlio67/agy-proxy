@@ -42,7 +42,7 @@ class TestAntigravitySwitcher(unittest.IsolatedAsyncioTestCase):
         )
         payload = format_antigravity_token_payload(acc)
 
-        self.assertEqual(set(payload.keys()), {"token", "auth_method", "id_token", "project_id"})
+        self.assertEqual(set(payload.keys()), {"token", "auth_method", "id_token"})
         self.assertEqual(set(payload["token"].keys()), {"access_token", "token_type", "refresh_token", "expiry"})
         self.assertEqual(payload["token"]["access_token"], "ya29.test_access")
         self.assertEqual(payload["token"]["refresh_token"], "1//test_refresh")
@@ -50,7 +50,6 @@ class TestAntigravitySwitcher(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(payload["token"]["expiry"].startswith("2023-11-"))
 
         self.assertEqual(payload["id_token"], "eyJhbGciOiJSUzI1NiJ9.test_id_token")
-        self.assertEqual(payload["project_id"], "test-project")
         self.assertEqual(payload["auth_method"], "consumer")
 
     async def test_activate_account_invalid_auth_method(self):
@@ -81,7 +80,7 @@ class TestAntigravitySwitcher(unittest.IsolatedAsyncioTestCase):
 
         # Validate file content
         content = json.loads(self.dest_path.read_text(encoding="utf-8"))
-        self.assertEqual(set(content.keys()), {"token", "auth_method", "id_token", "project_id"})
+        self.assertEqual(set(content.keys()), {"token", "auth_method", "id_token"})
         self.assertEqual(content["id_token"], "header.body.sig")
         self.assertEqual(content["token"]["access_token"], "ya29.valid")
         self.assertEqual(content["auth_method"], "consumer")
