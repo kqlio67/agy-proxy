@@ -218,6 +218,23 @@ def _parse_expiry(val: Any, mtime: float = 0.0) -> float:
     return 0.0
 
 
+def _decode_jwt_payload(token: Optional[str]) -> Dict[str, Any]:
+    """Safely extracts claims from an unverified JWT (e.g. Google id_token) without external libraries."""
+    if not token or not isinstance(token, str):
+        return {}
+    try:
+        parts = token.strip().split(".")
+        if len(parts) >= 2:
+            payload_b64 = parts[1]
+            padded = payload_b64 + "=" * ((4 - len(payload_b64) % 4) % 4)
+            data = json.loads(base64.urlsafe_b64decode(padded.encode("utf-8")))
+            if isinstance(data, dict):
+                return data
+    except Exception as e:
+        logger.debug("Failed to decode JWT payload: %s", e)
+    return {}
+
+
 def parse_token_dict(data: Any, mtime: float = 0.0) -> Optional[Dict[str, Any]]:
     """Extracts and normalizes token and account metadata from a parsed JSON dictionary or list."""
     if isinstance(data, list) and data and isinstance(data[0], dict):
@@ -242,12 +259,17 @@ def parse_token_dict(data: Any, mtime: float = 0.0) -> Optional[Dict[str, Any]]:
 
     refresh_token = _find_val("refresh_token", "refreshToken")
     access_token = _find_val("access_token", "accessToken")
+    id_token = _find_val("id_token", "idToken")
 
     rf_str = str(refresh_token).strip() if refresh_token else ""
     acc_str = str(access_token).strip() if access_token else ""
+    id_str = str(id_token).strip() if id_token else ""
 
-    if not rf_str and not acc_str:
+    if not rf_str and not acc_str and not id_str:
         return None
+
+    # Extract claims from id_token if available (provides fallback for email, name, picture, exp)
+    jwt_claims = _decode_jwt_payload(id_str) if id_str else {}
 
     expiry_val = _find_val("expiry", "expires_at", "expiresAt", "expiration")
     expiry_timestamp = _parse_expiry(expiry_val, mtime=mtime)
@@ -255,14 +277,19 @@ def parse_token_dict(data: Any, mtime: float = 0.0) -> Optional[Dict[str, Any]]:
         expires_in = _find_val("expires_in", "expiresIn")
         if expires_in is not None:
             expiry_timestamp = _parse_expiry(expires_in, mtime=mtime)
+    if expiry_timestamp == 0.0 and jwt_claims.get("exp"):
+        try:
+            expiry_timestamp = float(jwt_claims["exp"])
+        except Exception:
+            pass
 
-    email = _find_val("email", "user_email", "userEmail", "account")
-    name = _find_val("name", "displayName", "display_name")
-    picture = _find_val("picture", "avatar", "photo_url")
+    email = _find_val("email", "user_email", "userEmail", "account") or jwt_claims.get("email")
+    name = _find_val("name", "displayName", "display_name") or jwt_claims.get("name")
+    picture = _find_val("picture", "avatar", "photo_url") or jwt_claims.get("picture")
     project_id = _find_val("project_id", "projectId", "cloudaicompanionProject", "project")
     auth_method = _find_val("auth_method", "authMethod") or "consumer"
 
-    return {
+    res = {
         "refresh_token": rf_str,
         "access_token": acc_str if acc_str else None,
         "expiry_timestamp": expiry_timestamp,
@@ -272,6 +299,10 @@ def parse_token_dict(data: Any, mtime: float = 0.0) -> Optional[Dict[str, Any]]:
         "project_id": str(project_id).strip() if project_id else None,
         "auth_method": str(auth_method).strip() if auth_method else "consumer",
     }
+    if id_str:
+        res["id_token"] = id_str
+    return res
+
 
 
 def parse_antigravity_token_file(t_path: Optional[Union[Path, str]]) -> Optional[Dict[str, Any]]:
@@ -501,6 +532,7 @@ class AntigravityOAuthSession(AccountSession):
         self.region_code = region_code
         self.client_id = client_id
         self.client_secret = client_secret
+        self.id_token = kwargs.get("id_token")
 
         self.tier_info: Dict[str, Any] = {}
         self.available_models: Dict[str, Any] = {}
@@ -542,12 +574,22 @@ class AntigravityOAuthSession(AccountSession):
                     self.access_token = tok_data["access_token"]
                     expires_in = tok_data.get("expires_in", 3600)
                     self.expiry_timestamp = time.time() + float(expires_in)
+                    if tok_data.get("id_token"):
+                        self.id_token = tok_data["id_token"]
+                        claims = _decode_jwt_payload(self.id_token)
+                        if not self.email or self.email == "unknown@gmail.com":
+                            self.email = claims.get("email") or self.email
+                        if not self.name:
+                            self.name = claims.get("name") or self.name
+                        if not self.picture:
+                            self.picture = claims.get("picture") or self.picture
 
                     logger.info(
                         "[%s] Successfully refreshed access token (expires in %ds)",
                         self.email,
                         expires_in,
                     )
+
 
                     if self.on_token_refreshed:
                         try:
@@ -1831,7 +1873,9 @@ class AccountPool:
                         is_primary=bool(item.get("is_primary", acc_id == "primary" or len(self.accounts) == 0)),
                         enabled=bool(item.get("enabled", True)),
                         on_token_refreshed=self.save_accounts,
+                        id_token=item.get("id_token"),
                     )
+
                     _restore_stats(acc, item)
                     self.accounts[acc_id] = acc
                     logger.debug("Loaded OAuth account %s (%s)", acc_id, acc.email)
@@ -2055,6 +2099,7 @@ class AccountPool:
                     "region_code": getattr(acc, "region_code", None),
                     "enabled": acc.enabled,
                     "is_primary": acc.is_primary,
+                    "id_token": getattr(acc, "id_token", None),
                     "total_requests": getattr(acc, "total_requests", 0),
                     "last_used_timestamp": getattr(acc, "last_used_timestamp", 0.0),
                     "last_used_model": getattr(acc, "last_used_model", None),
@@ -2396,8 +2441,8 @@ class AccountPool:
             except Exception as json_err:
                 logger.debug("Failed parsing pasted JSON token: %s", json_err)
 
-        # 2. Handle raw OAuth Refresh Token pasted directly (starts with 1//0...)
-        if code.startswith("1//0"):
+        # 2. Handle raw OAuth Refresh Token pasted directly (starts with 1//...)
+        if code.startswith("1//"):
             acc_id = f"acc_{os.urandom(4).hex()}"
             acc = AccountSession(
                 account_id=acc_id,
@@ -2468,10 +2513,16 @@ class AccountPool:
             token_data = resp.json()
             access_token = token_data.get("access_token")
             refresh_token = token_data.get("refresh_token")
+            id_token = token_data.get("id_token")
             expires_in = token_data.get("expires_in", 3600)
 
             if not refresh_token:
                 raise RuntimeError("Google did not return a refresh token. Ensure 'prompt=consent' is used.")
+
+            claims = _decode_jwt_payload(id_token) if id_token else {}
+            initial_email = claims.get("email")
+            initial_name = claims.get("name")
+            initial_picture = claims.get("picture")
 
             acc_id = f"acc_{uuid_hex[:8]}" if (uuid_hex := os.urandom(4).hex()) else "acc_new"
             acc = AccountSession(
@@ -2479,6 +2530,10 @@ class AccountPool:
                 refresh_token=refresh_token,
                 access_token=access_token,
                 expiry_timestamp=time.time() + float(expires_in),
+                email=initial_email,
+                name=initial_name,
+                picture=initial_picture,
+                id_token=id_token,
                 is_primary=len(self.accounts) == 0,
                 on_token_refreshed=self.save_accounts,
             )
@@ -2501,6 +2556,8 @@ class AccountPool:
                 matched_acc.refresh_token = refresh_token
                 matched_acc.access_token = access_token
                 matched_acc.expiry_timestamp = time.time() + float(expires_in)
+                if id_token:
+                    matched_acc.id_token = id_token
                 matched_acc.name = acc.name
                 matched_acc.picture = acc.picture
                 matched_acc.project_id = acc.project_id
@@ -2513,6 +2570,7 @@ class AccountPool:
                 return matched_acc
 
             self.accounts[acc_id] = acc
+
             self.save_accounts()
             logger.info("Successfully added new account %s (%s) to pool!", acc_id, acc.email)
             return acc

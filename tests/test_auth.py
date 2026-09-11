@@ -2,6 +2,7 @@
 Unit tests for Antigravity OAuth token parsing, expiry handling, and AccountPool syncing.
 """
 
+import base64
 import json
 import os
 import tempfile
@@ -142,6 +143,29 @@ class TestTokenParsing(unittest.TestCase):
         self.assertIsNone(parse_token_dict({}))
         self.assertIsNone(parse_token_dict("not-a-dict"))
         self.assertIsNone(parse_token_dict(None))
+
+    def test_parse_token_dict_extracts_id_token_jwt_claims(self):
+        header = base64.urlsafe_b64encode(b'{"alg":"RS256"}').decode().rstrip("=")
+        payload = base64.urlsafe_b64encode(json.dumps({
+            "email": "jwt_user@example.com",
+            "name": "JWT User",
+            "picture": "https://example.com/pic.jpg",
+            "exp": 1789999999,
+        }).encode()).decode().rstrip("=")
+        fake_jwt = f"{header}.{payload}.signature"
+
+        res = parse_token_dict({
+            "access_token": "ya29.jwt-access",
+            "refresh_token": "1//jwt-refresh",
+            "id_token": fake_jwt,
+        })
+        self.assertIsNotNone(res)
+        self.assertEqual(res["email"], "jwt_user@example.com")
+        self.assertEqual(res["name"], "JWT User")
+        self.assertEqual(res["picture"], "https://example.com/pic.jpg")
+        self.assertEqual(res["expiry_timestamp"], 1789999999.0)
+        self.assertEqual(res["id_token"], fake_jwt)
+
 
     def test_parse_antigravity_token_file(self):
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
