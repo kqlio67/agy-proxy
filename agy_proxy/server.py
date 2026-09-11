@@ -539,6 +539,18 @@ def create_app(
         pool.set_all_accounts_enabled(new_state)
         return {"status": "ok", "enabled": new_state, "count": len(pool.accounts)}
 
+    @app.post("/api/accounts/{account_id}/reset-stats")
+    async def reset_account_stats_endpoint(account_id: str):
+        if account_id not in pool.accounts:
+            raise HTTPException(status_code=404, detail="Account not found.")
+        pool.reset_account_stats(account_id)
+        return {"status": "ok", "account_id": account_id, "total_requests": 0, "last_used_model": None}
+
+    @app.post("/api/accounts/reset_all_stats")
+    async def reset_all_stats_endpoint():
+        pool.reset_account_stats()
+        return {"status": "ok", "total_requests": 0}
+
     @app.delete("/api/accounts/{account_id}")
     async def delete_account(account_id: str):
         removed = pool.remove_account(account_id)

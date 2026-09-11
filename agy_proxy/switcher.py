@@ -21,6 +21,7 @@ from agy_proxy.auth import (
     AntigravityOAuthSession,
     find_existing_token_file,
     get_candidate_token_files,
+    is_candidate_token_file,
 )
 
 logger = logging.getLogger("agy_proxy.switcher")
@@ -84,6 +85,16 @@ async def activate_account_in_antigravity(
         or os.environ.get("AGY_DISABLE_TOKEN_SWITCH", "").lower() in ("1", "true", "yes")
     ):
         raise PermissionError("Antigravity token modification is disabled via AGY_READONLY_TOKEN.")
+
+    # Strict protection: do not overwrite host ~/.gemini token files without explicit permission
+    effective_targets = target_paths or get_antigravity_token_destinations()
+    for dest in effective_targets:
+        if is_candidate_token_file(dest):
+            if os.environ.get("AGY_ALLOW_CLI_TOKEN_OVERWRITE", "").lower() not in ("1", "true", "yes"):
+                raise PermissionError(
+                    "Direct Antigravity CLI token file modification (~/.gemini/) is disabled by default "
+                    "to protect host credentials. Set AGY_ALLOW_CLI_TOKEN_OVERWRITE=1 to enable."
+                )
 
     if not account.refresh_token and not account.access_token:
         raise ValueError("Cannot activate account with empty credentials.")

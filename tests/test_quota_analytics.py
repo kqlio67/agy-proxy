@@ -116,33 +116,41 @@ class TestQuotaAndAnalytics(unittest.TestCase):
         pool = AccountPool()
         pool.accounts_file = self.accounts_file
 
-        # 1. Create account with stats
+        # 1. Create account with active session stats
         acc = AccountSession(account_id="acc_stat", refresh_token="tok1", email="user@example.com")
         acc.total_requests = 42
         acc.last_used_timestamp = 1725000000.0
         acc.last_used_model = "claude-3-7-sonnet"
         pool.accounts["acc_stat"] = acc
 
-        # 2. Save accounts to file
+        # 2. Save accounts to file - verify disk JSON does NOT persist ephemeral runtime counters
         pool.save_accounts()
-
-        # 3. Verify saved JSON contains total_requests
         with open(self.accounts_file, "r", encoding="utf-8") as f:
             data = json.load(f)
         saved_acc = data["accounts"][0]
-        self.assertEqual(saved_acc["total_requests"], 42)
-        self.assertEqual(saved_acc["last_used_model"], "claude-3-7-sonnet")
+        self.assertNotIn("total_requests", saved_acc)
+        self.assertNotIn("last_used_model", saved_acc)
 
-        # 4. Reload into a new pool and verify stats preserved
+        # 3. Reload within existing running pool - in-memory stats are preserved
+        pool.load_accounts()
+        reloaded_acc = pool.accounts.get("acc_stat")
+        self.assertIsNotNone(reloaded_acc)
+        self.assertEqual(reloaded_acc.total_requests, 42)
+        self.assertEqual(reloaded_acc.last_used_model, "claude-3-7-sonnet")
+
+        # 4. Toggling or resetting zeroes them out
+        pool.set_account_enabled("acc_stat", True)
+        self.assertEqual(reloaded_acc.total_requests, 0)
+        self.assertIsNone(reloaded_acc.last_used_model)
+
+        # 5. Fresh pool instance starts clean with 0 requests and standby
         pool2 = AccountPool()
         pool2.accounts_file = self.accounts_file
         pool2.load_accounts()
-
         loaded_acc = pool2.accounts.get("acc_stat")
         self.assertIsNotNone(loaded_acc)
-        self.assertEqual(loaded_acc.total_requests, 42)
-        self.assertEqual(loaded_acc.last_used_timestamp, 1725000000.0)
-        self.assertEqual(loaded_acc.last_used_model, "claude-3-7-sonnet")
+        self.assertEqual(loaded_acc.total_requests, 0)
+        self.assertIsNone(loaded_acc.last_used_model)
 
 
 if __name__ == "__main__":

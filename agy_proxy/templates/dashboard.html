@@ -265,9 +265,9 @@
             <i class="fa-solid fa-rotate text-indigo-400 text-[10px]"></i>
             <span>Force Refresh</span>
           </button>
-          <button onclick="switchNextCliAccount()" class="text-[11px] px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-emerald-400 border border-slate-800 font-medium transition flex items-center space-x-1.5" title="Switch active Antigravity CLI/IDE session to next account with highest quota">
-            <i class="fa-solid fa-terminal text-[10px]"></i>
-            <span>Rotate CLI</span>
+          <button onclick="resetAllStats()" class="text-[11px] px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-800 font-medium transition flex items-center space-x-1" title="Reset all runtime request counters to 0 / standby">
+            <i class="fa-solid fa-rotate-left text-slate-400 text-[10px]"></i>
+            <span>Reset Stats</span>
           </button>
         </div>
       </div>
@@ -2387,7 +2387,6 @@ https://your-tunnel.trycloudflare.com/v1</pre>
                   ${acc.is_primary 
                     ? '<span class="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30 flex items-center space-x-1 shrink-0 shadow-sm"><i class="fa-solid fa-star text-amber-400 text-[9px]"></i><span>Primary</span></span>' 
                     : `<button onclick="setPrimaryAccount('${acc.account_id}')" class="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-slate-800/90 hover:bg-indigo-600 hover:text-white text-slate-400 border border-slate-700 transition flex items-center space-x-1 shrink-0" title="Set as primary active account"><i class="fa-regular fa-star text-[9px]"></i><span>Set Primary</span></button>`}
-                  ${(!isApiKey && !isWeb) ? `<button onclick="activateCliAccount('${acc.account_id}')" class="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-slate-800/90 hover:bg-emerald-600 hover:text-white text-slate-400 border border-slate-700 transition flex items-center space-x-1 shrink-0" title="Activate session in Antigravity CLI / IDE"><i class="fa-solid fa-terminal text-[9px] text-emerald-400"></i><span>CLI</span></button>` : ''}
                   ${acc.region_code ? `<span class="text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 font-mono font-semibold border border-sky-500/30 shrink-0" title="Detected Region: ${acc.region_code}">🌍 ${acc.region_code}</span>` : ''}
                   ${!isEnabled ? '<span class="text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-medium border border-slate-700 shrink-0">Paused</span>' : ''}
                 </div>
@@ -2419,7 +2418,14 @@ https://your-tunnel.trycloudflare.com/v1</pre>
               ` : ''}
               <span class="truncate max-w-[120px] sm:max-w-[150px]">Model: <code class="text-indigo-400 font-mono text-[9px] sm:text-[10px]">${acc.last_used_model || 'standby'}</code></span>
             </div>
-            <span class="shrink-0">Reqs: <b class="text-slate-300 font-mono">${acc.total_requests || 0}</b></span>
+            <div class="flex items-center space-x-1 shrink-0">
+              <span>Reqs: <b class="text-slate-300 font-mono">${acc.total_requests || 0}</b></span>
+              ${(acc.total_requests > 0 || (acc.last_used_model && acc.last_used_model !== 'standby')) ? `
+                <button onclick="resetAccountStats('${acc.account_id}')" class="text-slate-500 hover:text-slate-300 p-0.5 rounded transition" title="Reset session stats to 0 / standby">
+                  <i class="fa-solid fa-rotate-left text-[9px]"></i>
+                </button>
+              ` : ''}
+            </div>
           </div>
         </div>
       `;
@@ -2466,7 +2472,6 @@ https://your-tunnel.trycloudflare.com/v1</pre>
                   ${acc.is_primary
                     ? '<span class="text-[9px] px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30"><i class="fa-solid fa-star text-amber-400 mr-1 text-[8px]"></i>Primary</span>'
                     : `<button onclick="setPrimaryAccount('${acc.account_id}')" class="text-[9px] px-1.5 py-0.2 rounded bg-slate-800 hover:bg-indigo-600 text-slate-400 hover:text-white border border-slate-700 transition" title="Set as primary"><i class="fa-regular fa-star mr-1 text-[8px]"></i>Set Primary</button>`}
-                  ${(!isApiKey && !isWeb) ? `<button onclick="activateCliAccount('${acc.account_id}')" class="text-[9px] px-1.5 py-0.2 rounded bg-slate-800 hover:bg-emerald-600 text-slate-400 hover:text-white border border-slate-700 transition" title="Activate session in Antigravity CLI / IDE"><i class="fa-solid fa-terminal text-[8px] text-emerald-400 mr-1"></i>CLI</button>` : ''}
                 </div>
                 <div class="text-[11px] text-slate-300 font-mono truncate max-w-[220px] flex items-center space-x-1 mt-0.5" title="${acc.email}">
                   <i class="fa-regular fa-envelope text-slate-500 text-[10px] shrink-0"></i>
@@ -2524,8 +2529,15 @@ https://your-tunnel.trycloudflare.com/v1</pre>
             `}
           </td>
 
-          <td class="px-3 py-3 text-center font-mono font-bold text-slate-300">
-            ${acc.total_requests || 0}
+          <td class="px-3 py-3 text-center">
+            <div class="inline-flex items-center space-x-1 font-mono font-bold text-slate-300">
+              <span>${acc.total_requests || 0}</span>
+              ${(acc.total_requests > 0 || (acc.last_used_model && acc.last_used_model !== 'standby')) ? `
+                <button onclick="resetAccountStats('${acc.account_id}')" class="text-slate-500 hover:text-slate-300 p-0.5 rounded transition" title="Reset session stats to 0 / standby">
+                  <i class="fa-solid fa-rotate-left text-[8px]"></i>
+                </button>
+              ` : ''}
+            </div>
           </td>
 
           <td class="px-4 py-3 text-right">
@@ -3425,6 +3437,32 @@ https://your-tunnel.trycloudflare.com/v1</pre>
         await loadModels();
       } catch (err) {
         alert('Toggle all failed: ' + err.message);
+      }
+    }
+
+    async function resetAccountStats(accId) {
+      try {
+        const res = await fetch(`/api/accounts/${encodeURIComponent(accId)}/reset-stats`, {
+          method: 'POST'
+        });
+        if (!res.ok) throw new Error(await res.text());
+        showToast('Session stats reset to 0 / standby', 'info');
+        await loadAccounts();
+      } catch (err) {
+        alert('Reset stats failed: ' + (err.message || err));
+      }
+    }
+
+    async function resetAllStats() {
+      try {
+        const res = await fetch('/api/accounts/reset_all_stats', {
+          method: 'POST'
+        });
+        if (!res.ok) throw new Error(await res.text());
+        showToast('All session stats reset to 0 / standby', 'info');
+        await loadAccounts();
+      } catch (err) {
+        alert('Reset stats failed: ' + (err.message || err));
       }
     }
 

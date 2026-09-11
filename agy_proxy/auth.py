@@ -2287,16 +2287,12 @@ class AccountPool:
         # ── Step 3: helper to restore in-memory stats ─────────────────────
         def _restore_stats(acc: AccountSession, item: dict):
             prev = existing_stats.get(acc.account_id, {})
-            acc.total_requests = (
-                prev.get("total_requests") if prev.get("total_requests") is not None
-                else item.get("total_requests", 0)
-            )
-            acc.last_used_timestamp = (
-                prev.get("last_used_timestamp") if prev.get("last_used_timestamp") is not None
-                else item.get("last_used_timestamp", 0.0)
-            )
-            acc.last_used_model = prev.get("last_used_model") or item.get("last_used_model")
-            acc.last_client_type = prev.get("last_client_type") or item.get("last_client_type")
+            # Ephemeral runtime metrics: strictly in-memory session only.
+            # Never load stale counters or models from disk files.
+            acc.total_requests = prev.get("total_requests", 0)
+            acc.last_used_timestamp = prev.get("last_used_timestamp", 0.0)
+            acc.last_used_model = prev.get("last_used_model")
+            acc.last_client_type = prev.get("last_client_type")
             if prev.get("quota_summary") and not getattr(acc, "quota_summary", None):
                 acc.quota_summary = prev["quota_summary"]
 
@@ -2553,10 +2549,6 @@ class AccountPool:
                     "enabled": acc.enabled,
                     "is_primary": acc.is_primary,
                     "id_token": getattr(acc, "id_token", None),
-                    "total_requests": getattr(acc, "total_requests", 0),
-                    "last_used_timestamp": getattr(acc, "last_used_timestamp", 0.0),
-                    "last_used_model": getattr(acc, "last_used_model", None),
-                    "last_client_type": getattr(acc, "last_client_type", None),
                 })
             elif acc.auth_method == "api_key":
                 raw_key = getattr(acc, "api_key", "") or acc.refresh_token or ""
@@ -2571,10 +2563,6 @@ class AccountPool:
                     "region_code": getattr(acc, "region_code", None),
                     "enabled": acc.enabled,
                     "is_primary": acc.is_primary,
-                    "total_requests": getattr(acc, "total_requests", 0),
-                    "last_used_timestamp": getattr(acc, "last_used_timestamp", 0.0),
-                    "last_used_model": getattr(acc, "last_used_model", None),
-                    "last_client_type": getattr(acc, "last_client_type", None),
                 })
             elif acc.auth_method == "gemini_web":
                 web_list.append({
@@ -2587,10 +2575,6 @@ class AccountPool:
                     "cookies": getattr(acc, "_cookies", {}),
                     "enabled": acc.enabled,
                     "is_primary": acc.is_primary,
-                    "total_requests": getattr(acc, "total_requests", 0),
-                    "last_used_timestamp": getattr(acc, "last_used_timestamp", 0.0),
-                    "last_used_model": getattr(acc, "last_used_model", None),
-                    "last_client_type": getattr(acc, "last_client_type", None),
                 })
 
         # ── 3. Helper: write one file safely with overwrite guard ─────────
@@ -2695,10 +2679,14 @@ class AccountPool:
         return False
 
     def set_account_enabled(self, account_id: str, enabled: bool) -> bool:
-        """Enables or disables an individual account in the pool."""
+        """Enables or disables an individual account in the pool, resetting session stats."""
         if account_id in self.accounts:
             acc = self.accounts[account_id]
             acc.enabled = enabled
+            acc.total_requests = 0
+            acc.last_used_model = None
+            acc.last_used_timestamp = 0.0
+            acc.last_client_type = None
             self.save_accounts()
             status_str = "[green]Enabled[/green]" if enabled else "[yellow]Paused[/yellow]"
             logger.info("[%s] %s (%s)", acc.name or acc.email, "Resumed / Enabled" if enabled else "Paused / Disabled", acc.email)
@@ -2706,11 +2694,33 @@ class AccountPool:
         return False
 
     def set_all_accounts_enabled(self, enabled: bool):
-        """Enables or disables all accounts in the pool."""
+        """Enables or disables all accounts in the pool, resetting session stats."""
         for acc in self.accounts.values():
             acc.enabled = enabled
+            acc.total_requests = 0
+            acc.last_used_model = None
+            acc.last_used_timestamp = 0.0
+            acc.last_client_type = None
         self.save_accounts()
         logger.info("All %d accounts %s", len(self.accounts), "Resumed / Enabled" if enabled else "Paused / Disabled")
+
+    def reset_account_stats(self, account_id: Optional[str] = None) -> bool:
+        """Resets runtime request counters and model display to 0 / standby."""
+        if account_id:
+            if account_id in self.accounts:
+                acc = self.accounts[account_id]
+                acc.total_requests = 0
+                acc.last_used_model = None
+                acc.last_used_timestamp = 0.0
+                acc.last_client_type = None
+                return True
+            return False
+        for acc in self.accounts.values():
+            acc.total_requests = 0
+            acc.last_used_model = None
+            acc.last_used_timestamp = 0.0
+            acc.last_client_type = None
+        return True
 
     def get_candidate_accounts(
         self,
