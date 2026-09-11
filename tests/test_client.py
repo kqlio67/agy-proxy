@@ -59,6 +59,44 @@ class TestCloudCodeClient(unittest.IsolatedAsyncioTestCase):
         extracted = extract_web_search_query(req)
         self.assertIsNone(extracted)
 
+    def test_extract_gemini_web_tool_call(self):
+        declared = [{"functionDeclarations": [{"name": "Write", "description": "Write a file"}]}]
+
+        # Case 1: user screenshot format
+        text1 = '{\n  "name": "Write",\n  "arguments": {\n    "file_path": "/home/qumhab/test.txt",\n    "content": "Test content"\n  }\n}```'
+        preamble1, call1 = CloudCodeClient._extract_gemini_web_tool_call(text1, declared)
+        self.assertIsNotNone(call1)
+        self.assertEqual(call1["name"], "Write")
+        self.assertEqual(call1["arguments"]["file_path"], "/home/qumhab/test.txt")
+        self.assertEqual(call1["arguments"]["content"], "Test content")
+
+        # Case 2: markdown fenced code block with preamble
+        text2 = 'I will create the file for you now.\n```json\n{\n  "name": "write",\n  "arguments": {"file_path": "foo.py", "content": "print(1)"}\n}\n```'
+        preamble2, call2 = CloudCodeClient._extract_gemini_web_tool_call(text2, declared)
+        self.assertEqual(preamble2, "I will create the file for you now.")
+        self.assertIsNotNone(call2)
+        self.assertEqual(call2["name"], "Write")
+
+        # Case 3: no tool call
+        text3 = "Here is an explanation without any tool calls."
+        preamble3, call3 = CloudCodeClient._extract_gemini_web_tool_call(text3, declared)
+        self.assertIsNone(call3)
+        self.assertEqual(preamble3, text3)
+
+    def test_format_gemini_web_prompt_multi_turn(self):
+        payload = {
+            "tools": [{"functionDeclarations": [{"name": "Write", "description": "Write file"}]}],
+            "contents": [
+                {"role": "user", "parts": [{"text": "Create test.txt"}]},
+                {"role": "model", "parts": [{"functionCall": {"name": "Write", "args": {"file_path": "test.txt"}}}]},
+                {"role": "user", "parts": [{"functionResponse": {"name": "Write", "response": {"result": "File created"}}}]},
+            ],
+        }
+        prompt = CloudCodeClient._format_gemini_web_prompt(payload)
+        self.assertIn("[Available Tools / Functions:", prompt)
+        self.assertIn("[Tool Call: Write(", prompt)
+        self.assertIn("[Tool Result for Write: File created]", prompt)
+
 
 if __name__ == "__main__":
     unittest.main()

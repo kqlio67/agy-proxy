@@ -539,13 +539,13 @@ class AccountPool:
                     os.chmod(path, 0o600)
                 except Exception:
                     pass
-                logger.debug("Saved %d %s to %s", len(entries), key, path.name)
             except Exception as e:
                 logger.error("Failed to save %s: %s", path.name, e)
 
         _write_file(self.accounts_file,    "OAuth accounts", oauth_list, "accounts")
         _write_file(self.api_keys_file,    "API keys",       key_list,   "api_keys")
         _write_file(self.web_sessions_file,"web sessions",   web_list,   "web_sessions")
+        logger.debug("Accounts saved to disk (%d OAuth, %d API keys, %d web sessions)", len(oauth_list), len(key_list), len(web_list))
 
     async def initialize_all(self):
         """Initializes user info, project, quota, and models for all loaded accounts."""

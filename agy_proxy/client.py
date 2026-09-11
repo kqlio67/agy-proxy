@@ -208,9 +208,14 @@ class CloudCodeClient:
             try:
                 tools_str = json.dumps(tools, indent=2, ensure_ascii=False)
                 prompt_sections.append(
-                    f"[Available Tools / Functions:\n{tools_str}\n"
-                    f"When calling a tool, format your call strictly as a JSON block:\n"
-                    f'```json\n{{"name": "<tool_name>", "arguments": {{ ... }}}}\n```]'
+                    f"[Available Tools / Functions:\n{tools_str}\n\n"
+                    f"CRITICAL TOOL CALLING RULES:\n"
+                    f"1. When calling a tool, output strictly a JSON code block in this exact format:\n"
+                    f"```json\n"
+                    f'{{\n  "name": "<tool_name>",\n  "arguments": {{\n    "<arg_name>": <arg_value>\n  }}\n}}\n'
+                    f"```\n"
+                    f"2. Output the tool call JSON directly without conversational fluff.\n"
+                    f"3. Never simulate tool execution yourself. The IDE will execute the tool and return the output.]"
                 )
             except Exception:
                 pass
@@ -225,9 +230,18 @@ class CloudCodeClient:
             role = c.get("role", "user")
             text_parts = []
             for p in c.get("parts", []):
-                if isinstance(p, dict) and "text" in p:
-                    text_parts.append(p["text"])
-            msg_text = "".join(text_parts).strip()
+                if isinstance(p, dict):
+                    if "text" in p and p["text"].strip():
+                        text_parts.append(p["text"])
+                    elif "functionCall" in p:
+                        fc = p["functionCall"]
+                        text_parts.append(f"[Tool Call: {fc.get('name')}({json.dumps(fc.get('args', {}), ensure_ascii=False)})]")
+                    elif "functionResponse" in p:
+                        fr = p["functionResponse"]
+                        fr_res = fr.get("response", {}).get("result", "")
+                        res_str = json.dumps(fr_res, ensure_ascii=False) if isinstance(fr_res, (dict, list)) else str(fr_res)
+                        text_parts.append(f"[Tool Result for {fr.get('name')}: {res_str}]")
+            msg_text = "\n".join(text_parts).strip()
             if not msg_text:
                 continue
 
@@ -256,6 +270,78 @@ class CloudCodeClient:
 
         prompt_sections.append(current_user_msg)
         return "\n\n".join(prompt_sections)
+
+    @staticmethod
+    def _extract_gemini_web_tool_call(
+        text: str, declared_tools: List[Dict[str, Any]]
+    ) -> Tuple[str, Optional[Dict[str, Any]]]:
+        """
+        Extracts synthesized JSON tool call from Gemini Web text response.
+        Handles ```json {...} ``` code blocks or bare JSON objects.
+        Validates against declared tool names.
+        Returns (preamble_text, tool_call_dict).
+        """
+        if not text:
+            return "", None
+
+        valid_tool_names = set()
+        for t in declared_tools:
+            if isinstance(t, dict):
+                for fd in t.get("functionDeclarations", []):
+                    if isinstance(fd, dict) and fd.get("name"):
+                        valid_tool_names.add(fd["name"])
+                if t.get("name"):
+                    valid_tool_names.add(t["name"])
+
+        # Extract top-level balanced JSON objects
+        i = 0
+        while i < len(text):
+            if text[i] == "{":
+                depth = 0
+                start = i
+                in_string = False
+                escape = False
+                for j in range(i, len(text)):
+                    char = text[j]
+                    if escape:
+                        escape = False
+                        continue
+                    if char == "\\":
+                        escape = True
+                        continue
+                    if char == '"':
+                        in_string = not in_string
+                        continue
+                    if not in_string:
+                        if char == "{":
+                            depth += 1
+                        elif char == "}":
+                            depth -= 1
+                            if depth == 0:
+                                cand = text[start : j + 1]
+                                try:
+                                    parsed = json.loads(cand)
+                                    if isinstance(parsed, dict):
+                                        t_name = parsed.get("name") or parsed.get("tool")
+                                        t_args = parsed.get("arguments") or parsed.get("parameters") or parsed.get("input") or {}
+                                        if t_name and isinstance(t_args, dict):
+                                            matched_name = None
+                                            if not valid_tool_names:
+                                                matched_name = str(t_name)
+                                            else:
+                                                for vn in valid_tool_names:
+                                                    if vn.lower() == str(t_name).lower():
+                                                        matched_name = vn
+                                                        break
+                                            if matched_name:
+                                                preamble = re.sub(r"```(?:json)?\s*$", "", text[:start], flags=re.IGNORECASE).strip()
+                                                return preamble, {"name": matched_name, "arguments": t_args}
+                                except Exception:
+                                    pass
+                                i = j
+                                break
+            i += 1
+        return text, None
 
     async def _post_sse_stream_with_failover(
         self,
@@ -308,18 +394,15 @@ class CloudCodeClient:
                         if session_key:
                             session_affinity.pin_session(session_key, acc.account_id, f"gw-{uuid.uuid4().hex[:8]}")
 
+                        req_dict = _payload_probe.get("request", _payload_probe) if isinstance(_payload_probe, dict) else {}
+                        declared_tools = req_dict.get("tools", [])
+                        has_tools = bool(declared_tools)
+
+                        accumulated_text = ""
                         try:
                             async for chunk in acc.stream_generate(user_message_text, model=model_name):
                                 if chunk["type"] == "error":
                                     raise RuntimeError(chunk["message"])
-                                elif chunk["type"] == "text":
-                                    yield {
-                                        "candidates": [{
-                                            "content": {"parts": [{"text": chunk["text"]}], "role": "model"},
-                                            "finishReason": None,
-                                            "index": 0,
-                                        }]
-                                    }
                                 elif chunk["type"] == "thinking":
                                     yield {
                                         "candidates": [{
@@ -328,15 +411,53 @@ class CloudCodeClient:
                                             "index": 0,
                                         }]
                                     }
+                                elif chunk["type"] == "text":
+                                    if has_tools:
+                                        accumulated_text += chunk["text"]
+                                    else:
+                                        yield {
+                                            "candidates": [{
+                                                "content": {"parts": [{"text": chunk["text"]}], "role": "model"},
+                                                "finishReason": None,
+                                                "index": 0,
+                                            }]
+                                        }
                                 elif chunk["type"] == "done":
-                                    yield {
-                                        "candidates": [{
-                                            "content": {"parts": [{"text": ""}], "role": "model"},
-                                            "finishReason": "STOP",
-                                            "index": 0,
-                                        }],
-                                        "usageMetadata": {"promptTokenCount": 0, "candidatesTokenCount": 0},
-                                    }
+                                    if has_tools:
+                                        preamble, tool_call = self._extract_gemini_web_tool_call(accumulated_text, declared_tools)
+                                        parts = []
+                                        if preamble.strip():
+                                            parts.append({"text": preamble.strip()})
+                                        if tool_call:
+                                            call_id = f"toolu_{uuid.uuid4().hex[:12]}"
+                                            logger.info("[%s] [GeminiWeb] Synthesized tool call: %s(%s)", acc_label, tool_call["name"], list(tool_call["arguments"].keys()))
+                                            parts.append({
+                                                "functionCall": {
+                                                    "name": tool_call["name"],
+                                                    "args": tool_call["arguments"],
+                                                    "id": call_id,
+                                                }
+                                            })
+                                        if not parts:
+                                            parts.append({"text": accumulated_text})
+
+                                        yield {
+                                            "candidates": [{
+                                                "content": {"parts": parts, "role": "model"},
+                                                "finishReason": "STOP",
+                                                "index": 0,
+                                            }],
+                                            "usageMetadata": {"promptTokenCount": 0, "candidatesTokenCount": 0},
+                                        }
+                                    else:
+                                        yield {
+                                            "candidates": [{
+                                                "content": {"parts": [{"text": ""}], "role": "model"},
+                                                "finishReason": "STOP",
+                                                "index": 0,
+                                            }],
+                                            "usageMetadata": {"promptTokenCount": 0, "candidatesTokenCount": 0},
+                                        }
                             return
                         except RuntimeError as gw_err:
                             logger.warning("[%s] GeminiWeb stream error: %s", acc_label, gw_err)
@@ -407,63 +528,7 @@ class CloudCodeClient:
                         backend_sess_id = payload.get("request", {}).get("sessionId", f"sess-{uuid.uuid4().hex[:8]}")
                         session_affinity.pin_session(session_key, acc.account_id, backend_sess_id)
 
-                    if acc.auth_method == "gemini_web":
-                        # Route to Gemini Web browser session (experimental)
-                        from agy_proxy.auth import GeminiWebSession
-                        if not isinstance(acc, GeminiWebSession):
-                            break
-                        acc_label = acc.name or acc.email
-                        _payload_probe = payload_builder_fn("gemini-web")
-                        user_message_text = self._format_gemini_web_prompt(_payload_probe)
 
-                        logger.info("[%s] %s (Gemini Web Browser)", acc_label, model_name)
-                        acc.total_requests += 1
-                        acc.last_used_timestamp = time.time()
-                        acc.last_used_model = model_name
-                        acc.last_client_type = "Gemini Web"
-
-                        if session_key:
-                            session_affinity.pin_session(session_key, acc.account_id, f"gw-{uuid.uuid4().hex[:8]}")
-
-                        try:
-                            async for chunk in acc.stream_generate(user_message_text, model=model_name):
-                                if chunk["type"] == "error":
-                                    raise RuntimeError(chunk["message"])
-                                elif chunk["type"] == "text":
-                                    # Yield as a Gemini-compatible SSE candidate
-                                    yield {
-                                        "candidates": [{
-                                            "content": {"parts": [{"text": chunk["text"]}], "role": "model"},
-                                            "finishReason": None,
-                                            "index": 0,
-                                        }]
-                                    }
-                                elif chunk["type"] == "thinking":
-                                    yield {
-                                        "candidates": [{
-                                            "content": {"parts": [{"thought": True, "text": chunk["text"]}], "role": "model"},
-                                            "finishReason": None,
-                                            "index": 0,
-                                        }]
-                                    }
-                                elif chunk["type"] == "done":
-                                    yield {
-                                        "candidates": [{
-                                            "content": {"parts": [{"text": ""}], "role": "model"},
-                                            "finishReason": "STOP",
-                                            "index": 0,
-                                        }],
-                                        "usageMetadata": {"promptTokenCount": 0, "candidatesTokenCount": 0},
-                                    }
-                            return
-                        except RuntimeError as gw_err:
-                            logger.warning("[%s] GeminiWeb stream error: %s", acc_label, gw_err)
-                            last_error = gw_err
-                            break
-                        except Exception as gw_err:
-                            logger.warning("[%s] GeminiWeb unexpected error: %s", acc_label, gw_err)
-                            last_error = gw_err
-                            break
 
                     try:
                         async with client.stream("POST", url, headers=headers, json=req_body, timeout=timeout) as response:

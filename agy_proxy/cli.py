@@ -424,6 +424,28 @@ def main():
     logging.getLogger("httpcore").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("asyncio").setLevel(logging.WARNING)
+    logging.getLogger("websockets").setLevel(logging.WARNING)
+    logging.getLogger("websockets.client").setLevel(logging.WARNING)
+    logging.getLogger("websockets.server").setLevel(logging.WARNING)
+
+    class SanitizingFilter(logging.Filter):
+        """Redacts sensitive API keys and tokens from log messages."""
+        KEY_PATTERN = re.compile(r'(key=)([A-Za-z0-9_\-\.]{6})[A-Za-z0-9_\-\.]+([A-Za-z0-9_\-\.]{4})')
+
+        def filter(self, record: logging.LogRecord) -> bool:
+            if isinstance(record.msg, str):
+                record.msg = self.KEY_PATTERN.sub(r'\1\2...\3', record.msg)
+            if record.args:
+                new_args = []
+                for a in record.args:
+                    if isinstance(a, str):
+                        new_args.append(self.KEY_PATTERN.sub(r'\1\2...\3', a))
+                    else:
+                        new_args.append(a)
+                record.args = tuple(new_args)
+            return True
+
+    logging.getLogger("httpx").addFilter(SanitizingFilter())
 
     class EndpointFilter(logging.Filter):
         def filter(self, record: logging.LogRecord) -> bool:

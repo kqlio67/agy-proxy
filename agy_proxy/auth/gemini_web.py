@@ -490,7 +490,10 @@ class GeminiWebSession(AccountSession):
             if self._at_token:
                 return self._at_token
 
-            logger.warning("[GeminiWeb] AT token (SNlM0e) not found in /app response — cookies may be stale")
+            if self.cdp_port:
+                logger.debug("[GeminiWeb] AT token (SNlM0e) not in /app HTML — will extract fresh token via browser CDP")
+            else:
+                logger.warning("[GeminiWeb] AT token (SNlM0e) not found in /app response — cookies may be stale")
             return None
         except Exception as e:
             logger.warning("[GeminiWeb] Error fetching AT token: %s", e)
