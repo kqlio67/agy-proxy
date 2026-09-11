@@ -1316,6 +1316,7 @@ class GeminiWebSession(AccountSession):
         )
         self._cookies: Dict[str, str] = cookies or {}
         self._at_token: Optional[str] = None
+        self._f_sid: Optional[str] = None
         self._bl_token: str = self._DEFAULT_BL
         self._conv_id: Optional[str] = None
         self._resp_id: Optional[str] = None
@@ -1450,6 +1451,43 @@ class GeminiWebSession(AccountSession):
             self._cookies = new_cookies
             self._at_token = None  # invalidate cached AT token when cookies change
             logger.info("[GeminiWeb] Successfully extracted %d cookies from browser via CDP", len(new_cookies))
+
+            # 3. Connect to open Gemini tab if available to grab live AT token, f.sid, and bl
+            try:
+                tabs_url = f"http://127.0.0.1:{self.cdp_port}/json"
+                with _urllib_req.urlopen(tabs_url, timeout=3) as resp:
+                    tabs = _json.loads(resp.read().decode())
+                gemini_tab = next((t for t in tabs if "gemini.google.com" in t.get("url", "")), None)
+                if gemini_tab and gemini_tab.get("webSocketDebuggerUrl"):
+                    tab_ws_url = gemini_tab["webSocketDebuggerUrl"]
+                    async with websockets.connect(tab_ws_url, ping_interval=None) as tab_ws:
+                        eval_msg = _json.dumps({
+                            "id": 2,
+                            "method": "Runtime.evaluate",
+                            "params": {
+                                "expression": "JSON.stringify({at: window.WIZ_global_data?.SNlM0e, sid: window.WIZ_global_data?.FdrFJe, bl: window.WIZ_global_data?.cfb2h})"
+                            }
+                        })
+                        await tab_ws.send(eval_msg)
+                        eval_raw = await asyncio.wait_for(tab_ws.recv(), timeout=5.0)
+                        eval_data = _json.loads(eval_raw)
+                        res_val = eval_data.get("result", {}).get("result", {}).get("value")
+                        if res_val:
+                            tab_info = _json.loads(res_val)
+                            if tab_info.get("at"):
+                                self._at_token = tab_info["at"]
+                                logger.info("[GeminiWeb] Live AT token extracted from browser tab via CDP (%d chars)", len(self._at_token))
+                            if tab_info.get("sid"):
+                                self._f_sid = str(tab_info["sid"])
+                            if tab_info.get("bl"):
+                                self._bl_token = tab_info["bl"]
+            except Exception as tab_err:
+                logger.debug("[GeminiWeb] Could not extract live tokens from browser tab: %s", tab_err)
+
+            # If no AT token was extracted from open tab, fetch via /app
+            if not self._at_token:
+                await self._fetch_at_token()
+
             return True
 
         except Exception as e:
@@ -1479,8 +1517,8 @@ class GeminiWebSession(AccountSession):
                     if k in self.COOKIE_KEYS and v and self._cookies.get(k) != v:
                         self._cookies[k] = v
                         updated = True
-        if updated:
-            self._at_token = None
+        # NOTE: Do not invalidate self._at_token here because session cookies rotate often
+        # on StreamGenerate while the AT token remains valid.
         return updated
 
     async def _notify_token_refreshed(self) -> None:
@@ -1562,15 +1600,23 @@ class GeminiWebSession(AccountSession):
                 token = m.group(1)
                 self._at_token = token
                 logger.debug("[GeminiWeb] AT token extracted (%d chars)", len(token))
-                return token
-            # Try alternate key cfb2h
-            m2 = re.search(r'"cfb2h"\s*:\s*"([^"]+)"', html)
-            if m2:
-                token = m2.group(1)
-                self._at_token = token
-                logger.debug("[GeminiWeb] AT token extracted via cfb2h (%d chars)", len(token))
-                return token
-            logger.warning("[GeminiWeb] AT token (SNlM0e/cfb2h) not found in /app response — cookies may be stale")
+
+            # Extract sid: "FdrFJe":"..." or "FdrFJe":-12345
+            m_sid = re.search(r'"FdrFJe"\s*:\s*"?(-?\d+)"?', html)
+            if m_sid:
+                self._f_sid = m_sid.group(1)
+                logger.debug("[GeminiWeb] f.sid extracted from HTML (%s)", self._f_sid)
+
+            # Extract build label: "cfb2h":"..."
+            m_bl = re.search(r'"cfb2h"\s*:\s*"([^"]+)"', html)
+            if m_bl:
+                self._bl_token = m_bl.group(1)
+                logger.debug("[GeminiWeb] Build label bl extracted from HTML (%s)", self._bl_token)
+
+            if self._at_token:
+                return self._at_token
+
+            logger.warning("[GeminiWeb] AT token (SNlM0e) not found in /app response — cookies may be stale")
             return None
         except Exception as e:
             logger.warning("[GeminiWeb] Error fetching AT token: %s", e)
@@ -1662,9 +1708,6 @@ class GeminiWebSession(AccountSession):
     # ------------------------------------------------------------------ #
     # StreamGenerate request builder
     # ------------------------------------------------------------------ #
-    # ------------------------------------------------------------------ #
-    # StreamGenerate request builder
-    # ------------------------------------------------------------------ #
     def _build_stream_generate_body(
         self,
         user_message: str,
@@ -1681,11 +1724,14 @@ class GeminiWebSession(AccountSession):
         inner: List[Any] = [None] * 99
 
         # Image inline_data parts if any
-        content_parts: List[Any] = []
         if image_parts:
+            content_parts: List[Any] = []
             for img in image_parts:
                 content_parts.append([None, None, None, None, [img.get("data", ""), img.get("mime_type", "image/png"), None, None, None, None, img.get("name", "image")]])
-        content_parts.append([user_message, 0, None, None, None, None, 0])
+            content_parts.append([user_message, 0, None, None, None, None, 0])
+            inner[0] = content_parts
+        else:
+            inner[0] = [user_message, 0, None, None, None, None, 0]
 
         # Turn context
         if self._conv_id and self._resp_id:
@@ -1699,7 +1745,6 @@ class GeminiWebSession(AccountSession):
         else:
             ctx = ["", "", "", None, None, None, None, None, None, ""]
 
-        inner[0] = content_parts
         inner[1] = ["en"]
         inner[2] = ctx
         inner[3] = "FNL82,0,1,87,17622,82,17662,2,66,21986,60,22052"
@@ -1720,7 +1765,7 @@ class GeminiWebSession(AccountSession):
         inner[79] = model_config["model_id"]
         inner[80] = model_config["mode"]
         inner[91] = 0
-        inner[96] = 1
+        inner[96] = 0
         inner[98] = 1
 
         outer = [None, json.dumps(inner)]
@@ -1792,8 +1837,11 @@ class GeminiWebSession(AccountSession):
             req_id = self._next_req_id()
             url = (
                 f"{self.GEMINI_WEB_BASE}{self.STREAM_GENERATE_PATH}"
-                f"?bl={self._bl_token}&hl=en&_reqid={req_id}&rt=c"
+                f"?bl={self._bl_token}"
+                + (f"&f.sid={self._f_sid}" if self._f_sid else "")
+                + f"&hl=en&_reqid={req_id}&rt=c"
             )
+            session_uuid = str(uuid.uuid4()).upper()
 
             headers = {
                 "Cookie": self._build_cookie_header(),
@@ -1823,7 +1871,7 @@ class GeminiWebSession(AccountSession):
                 "x-goog-ext-525001261-jspb": json.dumps([
                     1, None, None, None, model_config["hash"], None, None, 0,
                     [4, 5, 6, 8, 4, 5, 6, 8], None, None, 2, None, None,
-                    model_config["model_id"], model_config["mode"], "1DE133FC-21BF-4135-BD57-630481ED3E77"
+                    model_config["model_id"], model_config["mode"], session_uuid
                 ]),
                 "x-goog-ext-525005358-jspb": json.dumps([client_uuid, 1]),
                 "x-goog-ext-73010989-jspb": "[0]",
@@ -1895,74 +1943,79 @@ class GeminiWebSession(AccountSession):
                             if line.startswith("["):
                                 try:
                                     outer = json.loads(line)
-                                    if isinstance(outer, list) and len(outer) > 0:
-                                        outer0 = outer[0]
-                                        if isinstance(outer0, list) and len(outer0) > 2:
-                                            inner_str = outer0[2]
-                                            if isinstance(inner_str, str) and inner_str:
-                                                try:
-                                                    inner = json.loads(inner_str)
-                                                except Exception:
-                                                    continue
+                                    if isinstance(outer, list):
+                                        for item in outer:
+                                            if isinstance(item, list) and len(item) >= 3 and item[0] == "wrb.fr":
+                                                inner_str = item[2]
+                                                if isinstance(inner_str, str) and inner_str:
+                                                    try:
+                                                        inner = json.loads(inner_str)
+                                                    except Exception:
+                                                        continue
 
-                                                # 1. Conv / resp IDs
-                                                try:
-                                                    if isinstance(inner, list) and len(inner) > 1 and isinstance(inner[1], list) and len(inner[1]) >= 2:
-                                                        new_conv_id = new_conv_id or inner[1][0]
-                                                        new_resp_id = new_resp_id or inner[1][1]
-                                                except Exception:
-                                                    pass
+                                                    # 1. Conv / resp IDs
+                                                    try:
+                                                        if isinstance(inner, list) and len(inner) > 1 and isinstance(inner[1], list) and len(inner[1]) >= 2:
+                                                            new_conv_id = new_conv_id or inner[1][0]
+                                                            new_resp_id = new_resp_id or inner[1][1]
+                                                    except Exception:
+                                                        pass
 
-                                                # 2. Continuation token
-                                                try:
-                                                    if isinstance(inner, list) and len(inner) > 2 and isinstance(inner[2], dict):
-                                                        if "26" in inner[2]:
-                                                            self._continuation_token = inner[2]["26"]
-                                                except Exception:
-                                                    pass
+                                                    # 2. Continuation token
+                                                    try:
+                                                        if isinstance(inner, list) and len(inner) > 2 and isinstance(inner[2], dict):
+                                                            if "26" in inner[2]:
+                                                                self._continuation_token = inner[2]["26"]
+                                                    except Exception:
+                                                        pass
 
-                                                # 3. Model name
-                                                try:
-                                                    if isinstance(inner, list):
-                                                        for item in inner:
-                                                            if isinstance(item, str) and any(kw in item for kw in ("Flash", "Pro", "Extended")):
-                                                                detected_model = item
-                                                                break
-                                                except Exception:
-                                                    pass
-
-                                                # 4. Candidates / deltas
-                                                try:
-                                                    if (isinstance(inner, list) and len(inner) > 4
-                                                            and isinstance(inner[4], list) and inner[4]
-                                                            and isinstance(inner[4][0], list)):
-                                                        cand0 = inner[4][0]
-                                                        if len(cand0) > 0 and isinstance(cand0[0], str) and cand0[0].startswith("rc_"):
-                                                            new_rc_id = cand0[0]
-
-                                                        # Text delta (response body)
-                                                        if len(cand0) > 1 and isinstance(cand0[1], list) and cand0[1]:
-                                                            full_text = cand0[1][0]
-                                                            if isinstance(full_text, str) and full_text != prev_text:
-                                                                delta = full_text[len(prev_text):]
-                                                                if delta:
-                                                                    accumulated_text += delta
-                                                                    yield {"type": "text", "text": delta}
-                                                                prev_text = full_text
-
-                                                        # Thinking delta
-                                                        for elem in cand0:
-                                                            if isinstance(elem, list) and elem and isinstance(elem[0], list) and elem[0]:
-                                                                val = elem[0][0]
-                                                                if isinstance(val, str) and ("**" in val or "I'm currently focused" in val or "Initiating" in val or "Thinking Process" in val):
-                                                                    if val != accumulated_thinking:
-                                                                        th_delta = val[len(accumulated_thinking):]
-                                                                        if th_delta:
-                                                                            accumulated_thinking += th_delta
-                                                                            yield {"type": "thinking", "text": th_delta}
+                                                    # 3. Model name
+                                                    try:
+                                                        if isinstance(inner, list):
+                                                            for m_item in inner:
+                                                                if isinstance(m_item, str) and any(kw in m_item for kw in ("Flash", "Pro", "Extended")):
+                                                                    detected_model = m_item
                                                                     break
-                                                except Exception:
-                                                    pass
+                                                    except Exception:
+                                                        pass
+
+                                                    # 4. Candidates / deltas
+                                                    try:
+                                                        if (isinstance(inner, list) and len(inner) > 4
+                                                                and isinstance(inner[4], list) and inner[4]
+                                                                and isinstance(inner[4][0], list)):
+                                                            cand0 = inner[4][0]
+                                                            if len(cand0) > 0 and isinstance(cand0[0], str) and cand0[0].startswith("rc_"):
+                                                                new_rc_id = cand0[0]
+
+                                                            # Text delta (response body)
+                                                            if len(cand0) > 1 and isinstance(cand0[1], list) and cand0[1]:
+                                                                full_text = cand0[1][0]
+                                                                if isinstance(full_text, str) and full_text != prev_text:
+                                                                    delta = full_text[len(prev_text):]
+                                                                    if delta:
+                                                                        accumulated_text += delta
+                                                                        yield {"type": "text", "text": delta}
+                                                                    prev_text = full_text
+
+                                                            # Thinking delta
+                                                            th_text = None
+                                                            if len(cand0) > 37 and isinstance(cand0[37], list) and cand0[37] and isinstance(cand0[37][0], list) and cand0[37][0]:
+                                                                th_text = cand0[37][0][0]
+                                                            else:
+                                                                for elem in cand0:
+                                                                    if isinstance(elem, list) and elem and isinstance(elem[0], list) and elem[0]:
+                                                                        val = elem[0][0]
+                                                                        if isinstance(val, str) and ("**" in val or "I'm currently focused" in val or "Initiating" in val or "Thinking Process" in val):
+                                                                            th_text = val
+                                                                            break
+                                                            if th_text and isinstance(th_text, str) and th_text != accumulated_thinking:
+                                                                th_delta = th_text[len(accumulated_thinking):]
+                                                                if th_delta:
+                                                                    accumulated_thinking += th_delta
+                                                                    yield {"type": "thinking", "text": th_delta}
+                                                    except Exception:
+                                                        pass
                                 except (json.JSONDecodeError, IndexError, TypeError):
                                     pass
 
@@ -1971,23 +2024,23 @@ class GeminiWebSession(AccountSession):
                     if leftover.startswith("["):
                         try:
                             outer = json.loads(leftover)
-                            if isinstance(outer, list) and len(outer) > 0:
-                                outer0 = outer[0]
-                                if isinstance(outer0, list) and len(outer0) > 2:
-                                    inner_str = outer0[2]
-                                    if isinstance(inner_str, str) and inner_str:
-                                        inner = json.loads(inner_str)
-                                        if (isinstance(inner, list) and len(inner) > 4
-                                                and isinstance(inner[4], list) and inner[4]
-                                                and isinstance(inner[4][0], list)):
-                                            cand0 = inner[4][0]
-                                            if len(cand0) > 1 and isinstance(cand0[1], list) and cand0[1]:
-                                                full_text = cand0[1][0]
-                                                if isinstance(full_text, str) and full_text != prev_text:
-                                                    delta = full_text[len(prev_text):]
-                                                    if delta:
-                                                        accumulated_text += delta
-                                                        yield {"type": "text", "text": delta}
+                            if isinstance(outer, list):
+                                for item in outer:
+                                    if isinstance(item, list) and len(item) >= 3 and item[0] == "wrb.fr":
+                                        inner_str = item[2]
+                                        if isinstance(inner_str, str) and inner_str:
+                                            inner = json.loads(inner_str)
+                                            if (isinstance(inner, list) and len(inner) > 4
+                                                    and isinstance(inner[4], list) and inner[4]
+                                                    and isinstance(inner[4][0], list)):
+                                                cand0 = inner[4][0]
+                                                if len(cand0) > 1 and isinstance(cand0[1], list) and cand0[1]:
+                                                    full_text = cand0[1][0]
+                                                    if isinstance(full_text, str) and full_text != prev_text:
+                                                        delta = full_text[len(prev_text):]
+                                                        if delta:
+                                                            accumulated_text += delta
+                                                            yield {"type": "text", "text": delta}
                         except Exception:
                             pass
 
