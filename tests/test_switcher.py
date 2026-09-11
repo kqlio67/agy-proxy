@@ -109,6 +109,43 @@ class TestAntigravitySwitcher(unittest.IsolatedAsyncioTestCase):
         acc.refresh_access_token.assert_awaited_once_with(force=True)
         acc.onboard_user.assert_awaited_once()
 
+    async def test_activate_account_creates_backup(self):
+        # Create an existing token file
+        self.dest_path.write_text(json.dumps({"token": {"access_token": "original_token"}}), encoding="utf-8")
+        bak_file = self.dest_path.with_name(f"{self.dest_path.name}.bak")
+
+        acc = AccountSession(
+            account_id="acc_new",
+            auth_method="consumer",
+            email="newuser@gmail.com",
+            access_token="ya29.new",
+            refresh_token="1//new_refresh",
+            expiry_timestamp=2000000000,
+        )
+        await activate_account_in_antigravity(acc, target_paths=[self.dest_path])
+
+        # Verify backup exists and contains original content
+        self.assertTrue(bak_file.exists())
+        bak_content = json.loads(bak_file.read_text(encoding="utf-8"))
+        self.assertEqual(bak_content["token"]["access_token"], "original_token")
+
+        # Verify target file has new token
+        new_content = json.loads(self.dest_path.read_text(encoding="utf-8"))
+        self.assertEqual(new_content["token"]["access_token"], "ya29.new")
+
+    async def test_activate_account_readonly_mode(self):
+        acc = AccountSession(
+            account_id="acc_ro",
+            auth_method="consumer",
+            email="ro@gmail.com",
+            access_token="ya29.ro",
+            refresh_token="1//ro_refresh",
+            expiry_timestamp=2000000000,
+        )
+        with patch.dict(os.environ, {"AGY_READONLY_TOKEN": "1"}):
+            with self.assertRaises(PermissionError):
+                await activate_account_in_antigravity(acc, target_paths=[self.dest_path])
+
     def test_get_antigravity_token_destinations_fallback(self):
         with patch("agy_proxy.switcher.get_candidate_token_files", return_value=[]):
             dests = get_antigravity_token_destinations()

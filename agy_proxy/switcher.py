@@ -7,6 +7,7 @@ stored in accounts.json (e.g. when quota limits are reached on one account).
 import json
 import logging
 import os
+import shutil
 import stat
 import time
 from datetime import datetime, timezone
@@ -77,6 +78,16 @@ async def activate_account_in_antigravity(
     if account.auth_method != "consumer":
         raise ValueError(f"Cannot activate non-OAuth account ({account.auth_method}) into Antigravity CLI.")
 
+    # Protection: check if token switching is disabled via environment variable
+    if (
+        os.environ.get("AGY_READONLY_TOKEN", "").lower() in ("1", "true", "yes")
+        or os.environ.get("AGY_DISABLE_TOKEN_SWITCH", "").lower() in ("1", "true", "yes")
+    ):
+        raise PermissionError("Antigravity token modification is disabled via AGY_READONLY_TOKEN.")
+
+    if not account.refresh_token and not account.access_token:
+        raise ValueError("Cannot activate account with empty credentials.")
+
     # Refresh token if needed
     is_expired = account.is_token_expired() if hasattr(account, "is_token_expired") else ((getattr(account, "expiry_timestamp", 0) - time.time()) <= 60)
     if force_refresh or not account.access_token or is_expired:
@@ -94,6 +105,7 @@ async def activate_account_in_antigravity(
     written: List[Path] = []
 
     for dest in destinations:
+        tmp_dest: Optional[Path] = None
         try:
             dest.parent.mkdir(parents=True, exist_ok=True)
             try:
@@ -101,14 +113,35 @@ async def activate_account_in_antigravity(
             except Exception:
                 pass
 
-            dest.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+            # Protection: create backup of existing token before overwriting
+            if dest.is_file() and dest.stat().st_size > 0:
+                bak_file = dest.with_name(f"{dest.name}.bak")
+                try:
+                    shutil.copy2(dest, bak_file)
+                    try:
+                        os.chmod(bak_file, 0o600)
+                    except Exception:
+                        pass
+                    logger.info("Created backup of existing token at %s", bak_file)
+                except Exception as bak_err:
+                    logger.warning("Could not create backup for %s: %s", dest, bak_err)
+
+            # Atomic write: write to temp file then replace
+            tmp_dest = dest.with_name(f".{dest.name}.tmp.{os.getpid()}")
+            tmp_dest.write_text(json.dumps(payload, indent=2), encoding="utf-8")
             try:
-                os.chmod(dest, 0o600)
+                os.chmod(tmp_dest, 0o600)
             except Exception:
                 pass
+            os.replace(tmp_dest, dest)
             written.append(dest)
             logger.info("Activated account %s into %s", account.email, dest)
         except Exception as e:
+            if tmp_dest and tmp_dest.exists():
+                try:
+                    tmp_dest.unlink()
+                except Exception:
+                    pass
             logger.error("Failed writing active token to %s: %s", dest, e)
 
     return written

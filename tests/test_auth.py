@@ -286,7 +286,7 @@ class TestAccountPoolTokenSync(unittest.TestCase):
         data = json.loads(custom_token_path.read_text())
         self.assertEqual(data["token"]["access_token"], "ya29.access-123")
         self.assertEqual(data["token"]["refresh_token"], "1//refresh-123")
-        self.assertEqual(data["email"], "test@gmail.com")
+        self.assertEqual(data["auth_method"], "consumer")
 
     def test_auth_manager_primary_account(self):
         pool = AccountPool(accounts_file=self.accounts_file)

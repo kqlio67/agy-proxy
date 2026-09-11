@@ -1339,6 +1339,11 @@ https://your-tunnel.trycloudflare.com/v1</pre>
 
     // Activate Account for Google Antigravity CLI / IDE
     async function activateCliAccount(accountId) {
+      const acc = accounts.find(a => a.account_id === accountId);
+      const accName = acc ? (acc.email || acc.name || accountId) : accountId;
+      if (!confirm(`Switch active Google Antigravity CLI / IDE session to "${accName}"?\n\nThis will update your local antigravity-oauth-token file.`)) {
+        return;
+      }
       try {
         showToast('Activating session in Antigravity CLI...', 'info');
         const res = await fetch(`/api/accounts/${encodeURIComponent(accountId)}/activate-cli`, { method: 'POST' });
@@ -1356,6 +1361,9 @@ https://your-tunnel.trycloudflare.com/v1</pre>
 
     // Rotate to Next Available CLI Account
     async function switchNextCliAccount() {
+      if (!confirm('Rotate active Google Antigravity CLI / IDE session to the next account with highest remaining quota?')) {
+        return;
+      }
       try {
         showToast('Rotating CLI session to next available account...', 'info');
         const res = await fetch('/api/accounts/switch-next-cli', { method: 'POST' });
