@@ -321,6 +321,16 @@ class TestAccountSessionRegionCode(unittest.IsolatedAsyncioTestCase):
 
 
 class TestPolymorphicAccountHierarchy(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        self.tmp_dir = tempfile.TemporaryDirectory()
+        self.temp_path = Path(self.tmp_dir.name)
+        self.accounts_file = self.temp_path / "accounts.json"
+        self.api_keys_file = self.temp_path / "api_keys.json"
+        self.web_sessions_file = self.temp_path / "web_sessions.json"
+
+    def tearDown(self):
+        self.tmp_dir.cleanup()
+
     def test_factory_instantiation_oauth(self):
         acc = AccountSession(account_id="oa_1", refresh_token="1//refresh", auth_method="consumer")
         self.assertIsInstance(acc, BaseAccountSession)
@@ -343,7 +353,7 @@ class TestPolymorphicAccountHierarchy(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(acc.is_model_supported("claude-3-5-haiku"))
 
     async def test_pool_add_api_key_account(self):
-        pool = AccountPool()
+        pool = AccountPool(accounts_file=self.accounts_file)
         acc = await pool.add_api_key_account("AIzaSyDirectTestKey", name="My Key")
         self.assertIsInstance(acc, AIStudioApiKeySession)
         self.assertEqual(acc.api_key, "AIzaSyDirectTestKey")
@@ -351,8 +361,21 @@ class TestPolymorphicAccountHierarchy(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(acc.is_model_supported("gemini-2.5-flash"))
         self.assertFalse(acc.is_model_supported("claude-sonnet-4"))
 
+        # Verify it was saved to api_keys.json, NOT accounts.json
+        self.assertTrue(self.api_keys_file.exists())
+        with open(self.api_keys_file, "r", encoding="utf-8") as f:
+            key_data = json.load(f)
+        self.assertEqual(len(key_data.get("api_keys", [])), 1)
+        self.assertEqual(key_data["api_keys"][0]["api_key"], "AIzaSyDirectTestKey")
+
+        # accounts.json should not contain this API key
+        if self.accounts_file.exists():
+            with open(self.accounts_file, "r", encoding="utf-8") as f:
+                acc_data = json.load(f)
+            self.assertEqual(len(acc_data.get("accounts", [])), 0)
+
     def test_get_candidate_accounts_model_isolation(self):
-        pool = AccountPool()
+        pool = AccountPool(accounts_file=self.accounts_file)
         oauth_acc = AntigravityOAuthSession(account_id="o1", refresh_token="r1", email="oauth@example.com")
         api_acc = AIStudioApiKeySession(account_id="k1", api_key="AIzaKey", email="key@example.com")
         pool.accounts["o1"] = oauth_acc
@@ -367,8 +390,81 @@ class TestPolymorphicAccountHierarchy(unittest.IsolatedAsyncioTestCase):
         candidates_gemini = pool.get_candidate_accounts("gemini-2.5-pro")
         self.assertEqual(len(candidates_gemini), 2)
 
+    def test_split_files_storage_and_reload(self):
+        # 1. Create pool and add both OAuth and API key accounts
+        pool = AccountPool(accounts_file=self.accounts_file)
+        oa = AntigravityOAuthSession(account_id="oa1", refresh_token="tok1", email="oa@example.com")
+        ak = AIStudioApiKeySession(account_id="ak1", api_key="key123", email="ak@example.com")
+        pool.accounts["oa1"] = oa
+        pool.accounts["ak1"] = ak
+
+        # 2. Save
+        pool.save_accounts()
+
+        # 3. Verify separation on disk
+        self.assertTrue(self.accounts_file.exists())
+        self.assertTrue(self.api_keys_file.exists())
+
+        with open(self.accounts_file, "r", encoding="utf-8") as f:
+            oa_data = json.load(f)
+        self.assertEqual(len(oa_data["accounts"]), 1)
+        self.assertEqual(oa_data["accounts"][0]["account_id"], "oa1")
+
+        with open(self.api_keys_file, "r", encoding="utf-8") as f:
+            ak_data = json.load(f)
+        self.assertEqual(len(ak_data["api_keys"]), 1)
+        self.assertEqual(ak_data["api_keys"][0]["account_id"], "ak1")
+
+        # 4. Reload in a new pool
+        pool2 = AccountPool(accounts_file=self.accounts_file)
+        pool2.load_accounts()
+        self.assertEqual(len(pool2.accounts), 2)
+        self.assertIn("oa1", pool2.accounts)
+        self.assertIn("ak1", pool2.accounts)
+        self.assertEqual(pool2.accounts["oa1"].auth_method, "consumer")
+        self.assertEqual(pool2.accounts["ak1"].auth_method, "api_key")
+
+    def test_split_files_auto_migration_from_unified(self):
+        # Create legacy unified accounts.json containing both OAuth and API key
+        self.accounts_file.write_text(json.dumps({
+            "accounts": [
+                {
+                    "account_id": "legacy_oa",
+                    "refresh_token": "rt1",
+                    "email": "user@gmail.com",
+                    "auth_method": "consumer",
+                },
+                {
+                    "account_id": "legacy_key",
+                    "refresh_token": "AQ.Key999",
+                    "email": "key@aistudio.google",
+                    "auth_method": "api_key",
+                },
+            ]
+        }))
+
+        # Load with pool — should auto-migrate into split files
+        pool = AccountPool(accounts_file=self.accounts_file)
+        pool.load_accounts()
+
+        self.assertEqual(len(pool.accounts), 2)
+        self.assertIn("legacy_oa", pool.accounts)
+        self.assertIn("legacy_key", pool.accounts)
+
+        # Verify disk files after migration
+        with open(self.accounts_file, "r", encoding="utf-8") as f:
+            oa_data = json.load(f)
+        self.assertEqual(len(oa_data["accounts"]), 1)
+        self.assertEqual(oa_data["accounts"][0]["account_id"], "legacy_oa")
+
+        with open(self.api_keys_file, "r", encoding="utf-8") as f:
+            ak_data = json.load(f)
+        self.assertEqual(len(ak_data["api_keys"]), 1)
+        self.assertEqual(ak_data["api_keys"][0]["account_id"], "legacy_key")
+
 
 if __name__ == "__main__":
     unittest.main()
+
 
 

@@ -297,13 +297,16 @@ def parse_antigravity_token_file(t_path: Optional[Union[Path, str]]) -> Optional
 
 # Dedicated proxy config and accounts directory
 CONFIG_DIR = Path.home() / ".config" / "agy-proxy"
-DEFAULT_ACCOUNTS_FILE = CONFIG_DIR / "accounts.json"
+DEFAULT_ACCOUNTS_FILE = CONFIG_DIR / "accounts.json"        # OAuth (consumer) accounts
+DEFAULT_API_KEYS_FILE = CONFIG_DIR / "api_keys.json"        # Google AI Studio API keys
+DEFAULT_WEB_SESSIONS_FILE = CONFIG_DIR / "web_sessions.json"  # Gemini Web browser sessions
 
 # Legacy files for seamless auto-migration
 LEGACY_ACCOUNTS_FILES = [
     Path.home() / ".gemini" / "antigravity-cli" / "proxy_accounts.json",
     Path.home() / ".gemini" / "antigravity-ide" / "proxy_accounts.json",
 ]
+
 
 
 def generate_pkce_pair() -> Tuple[str, str, str]:
@@ -1606,18 +1609,63 @@ class AccountPool:
         self,
         token_path: Optional[Union[Path, str]] = None,
         accounts_file: Optional[Union[Path, str]] = None,
+        api_keys_file: Optional[Union[Path, str]] = None,
+        web_sessions_file: Optional[Union[Path, str]] = None,
     ):
         self.token_path = Path(token_path) if token_path else None
-        self.accounts_file = Path(accounts_file) if accounts_file else DEFAULT_ACCOUNTS_FILE
+        self._accounts_file = Path(accounts_file) if accounts_file else None
+        self._api_keys_file = Path(api_keys_file) if api_keys_file else None
+        self._web_sessions_file = Path(web_sessions_file) if web_sessions_file else None
+
         self.accounts: Dict[str, AccountSession] = {}
         self.round_robin_index = 0
         self.pending_pkce_flows: Dict[str, Tuple[str, float]] = {}  # state -> (verifier, timestamp)
         self.last_quota_refresh_time: float = 0.0
         self._lock = asyncio.Lock()
+        self._is_loaded: bool = False
+
+    @property
+    def accounts_file(self) -> Path:
+        return self._accounts_file if self._accounts_file else DEFAULT_ACCOUNTS_FILE
+
+    @accounts_file.setter
+    def accounts_file(self, val: Optional[Union[Path, str]]):
+        self._accounts_file = Path(val) if val else None
+
+    @property
+    def api_keys_file(self) -> Path:
+        if self._api_keys_file:
+            return self._api_keys_file
+        if self.accounts_file.parent == DEFAULT_ACCOUNTS_FILE.parent:
+            return DEFAULT_API_KEYS_FILE
+        return self.accounts_file.parent / "api_keys.json"
+
+    @api_keys_file.setter
+    def api_keys_file(self, val: Optional[Union[Path, str]]):
+        self._api_keys_file = Path(val) if val else None
+
+    @property
+    def web_sessions_file(self) -> Path:
+        if self._web_sessions_file:
+            return self._web_sessions_file
+        if self.accounts_file.parent == DEFAULT_ACCOUNTS_FILE.parent:
+            return DEFAULT_WEB_SESSIONS_FILE
+        return self.accounts_file.parent / "web_sessions.json"
+
+    @web_sessions_file.setter
+    def web_sessions_file(self, val: Optional[Union[Path, str]]):
+        self._web_sessions_file = Path(val) if val else None
+
 
     def load_accounts(self):
-        """Loads accounts from ~/.config/agy-proxy/accounts.json as the authoritative source of truth."""
-        # Snapshot existing in-memory stats to preserve across reloads
+        """
+        Loads accounts from separate storage files:
+          - accounts.json     → OAuth consumer accounts
+          - api_keys.json     → Google AI Studio API keys
+          - web_sessions.json → Gemini Web browser sessions
+        Auto-migrates from legacy unified accounts.json if needed.
+        """
+        # Snapshot in-memory stats to preserve across reloads
         existing_stats = {
             aid: {
                 "total_requests": getattr(a, "total_requests", 0),
@@ -1631,7 +1679,14 @@ class AccountPool:
         }
         self.accounts.clear()
 
-        # 1. Check for legacy migration if ~/.config/agy-proxy/accounts.json does not exist
+        # ── Step 0: ensure config dir exists ──────────────────────────────
+        try:
+            self.accounts_file.parent.mkdir(parents=True, exist_ok=True)
+            os.chmod(self.accounts_file.parent, 0o700)
+        except Exception:
+            pass
+
+        # ── Step 1: legacy migration (old proxy_accounts.json) ────────────
         if self.accounts_file == DEFAULT_ACCOUNTS_FILE and not self.accounts_file.exists():
             for legacy_path in LEGACY_ACCOUNTS_FILES:
                 if legacy_path.exists():
@@ -1639,33 +1694,129 @@ class AccountPool:
                     try:
                         with open(legacy_path, "r", encoding="utf-8") as f:
                             legacy_data = json.load(f)
-                        self.accounts_file.parent.mkdir(parents=True, exist_ok=True)
-                        try:
-                            os.chmod(self.accounts_file.parent, 0o700)
-                        except Exception:
-                            pass
                         with open(self.accounts_file, "w", encoding="utf-8") as f:
                             json.dump(legacy_data, f, indent=2)
-                        try:
-                            os.chmod(self.accounts_file, 0o600)
-                        except Exception:
-                            pass
+                        os.chmod(self.accounts_file, 0o600)
                         break
                     except Exception as e:
                         logger.warning("Failed to migrate legacy accounts file %s: %s", legacy_path, e)
 
-        # 2. Multi-account storage file (~/.config/agy-proxy/accounts.json)
+        # ── Step 2: auto-migrate unified → split files ────────────────────
         if self.accounts_file.exists():
             try:
                 with open(self.accounts_file, "r", encoding="utf-8") as f:
-                    accounts_data = json.load(f)
+                    unified = json.load(f)
+                accs = unified.get("accounts", [])
+                has_non_consumer = any(
+                    a.get("auth_method") in ("api_key", "gemini_web") or a.get("api_key")
+                    for a in accs
+                )
+                if has_non_consumer:
+                    logger.info("Auto-migrating accounts from %s into separate files", self.accounts_file)
+                    oauth_items, key_items, web_items = [], [], []
+                    for item in accs:
+                        am = item.get("auth_method", "consumer")
+                        if am == "api_key" or item.get("api_key"):
+                            key_items.append(item)
+                        elif am == "gemini_web":
+                            web_items.append(item)
+                        else:
+                            oauth_items.append(item)
 
-                for item in accounts_data.get("accounts", []):
-                    acc_id = item.get("account_id")
-                    if not acc_id:
-                        acc_id = f"acc_{os.urandom(4).hex()}"
+                    # Update accounts.json to only contain OAuth accounts
+                    with open(self.accounts_file, "w", encoding="utf-8") as f:
+                        json.dump({"accounts": oauth_items}, f, indent=2)
+                    try:
+                        os.chmod(self.accounts_file, 0o600)
+                    except Exception:
+                        pass
 
-                    prev = existing_stats.get(acc_id, {})
+                    # Merge key_items into api_keys.json
+                    if key_items:
+                        existing_keys = []
+                        if self.api_keys_file.exists():
+                            try:
+                                with open(self.api_keys_file, "r", encoding="utf-8") as f:
+                                    existing_keys = json.load(f).get("api_keys", [])
+                            except Exception:
+                                existing_keys = []
+                        key_map = {}
+                        for k in existing_keys:
+                            k_id = k.get("account_id") or k.get("api_key")
+                            if k_id:
+                                key_map[k_id] = k
+                        for k in key_items:
+                            raw_k = k.get("api_key") or k.get("refresh_token") or ""
+                            k_id = k.get("account_id") or raw_k
+                            if k_id and k_id not in key_map:
+                                key_map[k_id] = {
+                                    "account_id": k.get("account_id") or f"key_{os.urandom(4).hex()}",
+                                    "email": k.get("email"),
+                                    "name": k.get("name") or "Gemini API Key",
+                                    "picture": k.get("picture"),
+                                    "api_key": raw_k,
+                                    "project_id": k.get("project_id", "google-ai-studio"),
+                                    "region_code": k.get("region_code"),
+                                    "enabled": k.get("enabled", True),
+                                    "is_primary": k.get("is_primary", False),
+                                    "total_requests": k.get("total_requests", 0),
+                                    "last_used_timestamp": k.get("last_used_timestamp", 0.0),
+                                    "last_used_model": k.get("last_used_model"),
+                                    "last_client_type": k.get("last_client_type"),
+                                }
+                        # Filter out dummy test key if real keys exist
+                        clean_keys = [v for v in key_map.values() if v.get("api_key") != "AIzaSyDirectTestKey"]
+                        keys_to_write = clean_keys if clean_keys else list(key_map.values())
+                        self.api_keys_file.parent.mkdir(parents=True, exist_ok=True)
+                        with open(self.api_keys_file, "w", encoding="utf-8") as f:
+                            json.dump({"api_keys": keys_to_write}, f, indent=2)
+                        try:
+                            os.chmod(self.api_keys_file, 0o600)
+                        except Exception:
+                            pass
+
+                    # Merge web_items into web_sessions.json
+                    if web_items:
+                        self.web_sessions_file.parent.mkdir(parents=True, exist_ok=True)
+                        with open(self.web_sessions_file, "w", encoding="utf-8") as f:
+                            json.dump({"web_sessions": web_items}, f, indent=2)
+                        try:
+                            os.chmod(self.web_sessions_file, 0o600)
+                        except Exception:
+                            pass
+
+                    logger.info(
+                        "Auto-migration complete: %d OAuth in %s, %d API keys in %s",
+                        len(oauth_items), self.accounts_file.name, len(keys_to_write if key_items else []), self.api_keys_file.name,
+                    )
+            except Exception as e:
+                logger.error("Auto-migration failed: %s", e)
+
+        # ── Step 3: helper to restore in-memory stats ─────────────────────
+        def _restore_stats(acc: AccountSession, item: dict):
+            prev = existing_stats.get(acc.account_id, {})
+            acc.total_requests = (
+                prev.get("total_requests") if prev.get("total_requests") is not None
+                else item.get("total_requests", 0)
+            )
+            acc.last_used_timestamp = (
+                prev.get("last_used_timestamp") if prev.get("last_used_timestamp") is not None
+                else item.get("last_used_timestamp", 0.0)
+            )
+            acc.last_used_model = prev.get("last_used_model") or item.get("last_used_model")
+            acc.last_client_type = prev.get("last_client_type") or item.get("last_client_type")
+            if prev.get("quota_summary") and not getattr(acc, "quota_summary", None):
+                acc.quota_summary = prev["quota_summary"]
+
+        # ── Step 4: load OAuth accounts (accounts.json) ───────────────────
+        if self.accounts_file.exists():
+            try:
+                with open(self.accounts_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                for item in data.get("accounts", []):
+                    if item.get("auth_method", "consumer") != "consumer":
+                        continue
+                    acc_id = item.get("account_id") or f"acc_{os.urandom(4).hex()}"
                     acc = AccountSession(
                         account_id=acc_id,
                         refresh_token=item.get("refresh_token", ""),
@@ -1674,27 +1825,74 @@ class AccountPool:
                         email=item.get("email"),
                         name=item.get("name"),
                         picture=item.get("picture"),
-                        auth_method=item.get("auth_method", "consumer"),
+                        auth_method="consumer",
                         project_id=item.get("project_id"),
-                        region_code=item.get("region_code") or prev.get("region_code"),
+                        region_code=item.get("region_code") or existing_stats.get(acc_id, {}).get("region_code"),
                         is_primary=bool(item.get("is_primary", acc_id == "primary" or len(self.accounts) == 0)),
                         enabled=bool(item.get("enabled", True)),
                         on_token_refreshed=self.save_accounts,
                     )
-                    prev = existing_stats.get(acc_id, {})
-                    acc.total_requests = prev.get("total_requests") if prev.get("total_requests") is not None else item.get("total_requests", 0)
-                    acc.last_used_timestamp = prev.get("last_used_timestamp") if prev.get("last_used_timestamp") is not None else item.get("last_used_timestamp", 0.0)
-                    acc.last_used_model = prev.get("last_used_model") or item.get("last_used_model")
-                    acc.last_client_type = prev.get("last_client_type") or item.get("last_client_type")
-                    if prev.get("quota_summary") and not acc.quota_summary:
-                        acc.quota_summary = prev.get("quota_summary")
-
+                    _restore_stats(acc, item)
                     self.accounts[acc_id] = acc
-                    logger.debug("Loaded account %s (%s, enabled=%s)", acc_id, acc.email, acc.enabled)
+                    logger.debug("Loaded OAuth account %s (%s)", acc_id, acc.email)
             except Exception as e:
                 logger.error("Error reading accounts file %s: %s", self.accounts_file, e)
 
-        # 3. Synchronize explicit custom token_path if provided
+        # ── Step 5: load API keys (api_keys.json) ─────────────────────────
+        if self.api_keys_file.exists():
+            try:
+                with open(self.api_keys_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                for item in data.get("api_keys", []):
+                    raw_key = item.get("api_key") or item.get("refresh_token") or item.get("access_token") or ""
+                    if raw_key == "AIzaSyDirectTestKey" and len(data.get("api_keys", [])) > 1:
+                        continue
+                    acc_id = item.get("account_id") or f"key_{os.urandom(4).hex()}"
+                    from agy_proxy.auth import AIStudioApiKeySession  # noqa: avoid circular at module level
+                    acc = AIStudioApiKeySession(
+                        account_id=acc_id,
+                        api_key=raw_key,
+                        name=item.get("name"),
+                        email=item.get("email"),
+                        picture=item.get("picture"),
+                        project_id=item.get("project_id"),
+                        region_code=item.get("region_code"),
+                        is_primary=bool(item.get("is_primary", False)),
+                        enabled=bool(item.get("enabled", True)),
+                        on_token_refreshed=self.save_accounts,
+                    )
+                    _restore_stats(acc, item)
+                    self.accounts[acc_id] = acc
+                    logger.debug("Loaded API key account %s (%s)", acc_id, acc.email)
+            except Exception as e:
+                logger.error("Error reading API keys file %s: %s", self.api_keys_file, e)
+
+
+        # ── Step 6: load Gemini Web sessions (web_sessions.json) ──────────
+        if self.web_sessions_file.exists():
+            try:
+                with open(self.web_sessions_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                for item in data.get("web_sessions", []):
+                    acc_id = item.get("account_id") or f"gw_{os.urandom(4).hex()}"
+                    from agy_proxy.auth import GeminiWebSession  # noqa
+                    acc = GeminiWebSession(
+                        account_id=acc_id,
+                        name=item.get("name"),
+                        email=item.get("email"),
+                        picture=item.get("picture"),
+                        cdp_port=item.get("cdp_port", 9222),
+                        is_primary=bool(item.get("is_primary", False)),
+                        enabled=bool(item.get("enabled", True)),
+                        on_token_refreshed=self.save_accounts,
+                    )
+                    _restore_stats(acc, item)
+                    self.accounts[acc_id] = acc
+                    logger.debug("Loaded GeminiWeb session %s (%s)", acc_id, acc.name)
+            except Exception as e:
+                logger.error("Error reading web sessions file %s: %s", self.web_sessions_file, e)
+
+        # ── Step 7: sync explicit custom token_path if provided ───────────
         if self.token_path:
             parsed = parse_antigravity_token_file(self.token_path)
             if parsed and (parsed.get("refresh_token") or parsed.get("access_token")):
@@ -1747,7 +1945,7 @@ class AccountPool:
                     logger.info("Imported explicit token file %s as primary account %s", self.token_path, acc_id)
                 self.save_accounts()
 
-        # 4. If still no accounts loaded from accounts.json or explicit token, discover from candidate token files (read-only import)
+        # ── Step 8: discover from candidate token files if pool is empty ──
         if not self.accounts:
             for t_path in get_candidate_token_files():
                 parsed = parse_antigravity_token_file(t_path)
@@ -1772,9 +1970,20 @@ class AccountPool:
                     self.save_accounts()
                     break
 
+        self._is_loaded = True
+
+
+
     def save_accounts(self):
-        """Saves all accounts to ~/.config/agy-proxy/accounts.json without touching CLI/IDE tokens."""
-        # 1. If an explicit custom token_path was provided (outside system Antigravity files), sync primary token to it
+        """
+        Saves accounts to separate files by auth_method:
+          - accounts.json     → OAuth consumer accounts  (mode 0o600)
+          - api_keys.json     → Google AI Studio API keys (mode 0o600)
+          - web_sessions.json → Gemini Web sessions (no cookies) (mode 0o600)
+        Never overwrites a file that has MORE entries than the current pool
+        (safety guard against partial-load test imports wiping real data).
+        """
+        # ── 1. Sync primary OAuth token to custom token_path if provided ──
         if self.token_path and not is_candidate_token_file(self.token_path):
             primary_acc = self.accounts.get("primary")
             if not primary_acc:
@@ -1814,69 +2023,108 @@ class AccountPool:
                 except Exception as e:
                     logger.warning("Failed to save custom token file %s: %s", self.token_path, e)
 
-        # 2. Save all accounts to ~/.config/agy-proxy/accounts.json
-        try:
-            self.accounts_file.parent.mkdir(parents=True, exist_ok=True)
-            try:
-                os.chmod(self.accounts_file.parent, 0o700)
-            except Exception:
-                pass
+        # ── 2. Bucket accounts by auth_method ────────────────────────────
+        oauth_list: list = []
+        key_list: list = []
+        web_list: list = []
 
-            # Safety guard: if the file on disk has MORE accounts than our pool,
-            # don't silently overwrite it (prevents test runs or stale pools from wiping real accounts)
-            real_accounts_in_pool = [a for a in self.accounts.values() if a.auth_method in ("consumer", "api_key", "gemini_web")]
-            if self.accounts_file.exists() and len(real_accounts_in_pool) < 2:
+        seen: set = set()
+        for acc in self.accounts.values():
+            # Deduplication key
+            if acc.auth_method == "consumer" and acc.email and acc.email != "unknown@gmail.com":
+                dedup_key = ("consumer", acc.email.lower())
+            elif acc.auth_method == "api_key":
+                dedup_key = ("api_key", getattr(acc, "api_key", acc.refresh_token))
+            else:
+                dedup_key = (acc.auth_method, acc.account_id)
+            if dedup_key in seen:
+                continue
+            seen.add(dedup_key)
+
+            if acc.auth_method == "consumer":
+                oauth_list.append({
+                    "account_id": acc.account_id,
+                    "email": acc.email,
+                    "name": acc.name,
+                    "picture": acc.picture,
+                    "refresh_token": acc.refresh_token,
+                    "access_token": acc.access_token,
+                    "expiry_timestamp": acc.expiry_timestamp,
+                    "auth_method": "consumer",
+                    "project_id": getattr(acc, "project_id", None),
+                    "region_code": getattr(acc, "region_code", None),
+                    "enabled": acc.enabled,
+                    "is_primary": acc.is_primary,
+                    "total_requests": getattr(acc, "total_requests", 0),
+                    "last_used_timestamp": getattr(acc, "last_used_timestamp", 0.0),
+                    "last_used_model": getattr(acc, "last_used_model", None),
+                    "last_client_type": getattr(acc, "last_client_type", None),
+                })
+            elif acc.auth_method == "api_key":
+                raw_key = getattr(acc, "api_key", "") or acc.refresh_token or ""
+                key_list.append({
+                    "account_id": acc.account_id,
+                    "email": acc.email,
+                    "name": acc.name,
+                    "picture": acc.picture,
+                    "api_key": raw_key,
+                    "project_id": getattr(acc, "project_id", None),
+                    "region_code": getattr(acc, "region_code", None),
+                    "enabled": acc.enabled,
+                    "is_primary": acc.is_primary,
+                    "total_requests": getattr(acc, "total_requests", 0),
+                    "last_used_timestamp": getattr(acc, "last_used_timestamp", 0.0),
+                    "last_used_model": getattr(acc, "last_used_model", None),
+                    "last_client_type": getattr(acc, "last_client_type", None),
+                })
+            elif acc.auth_method == "gemini_web":
+                # cookies intentionally NOT saved to disk
+                web_list.append({
+                    "account_id": acc.account_id,
+                    "email": acc.email,
+                    "name": acc.name,
+                    "picture": acc.picture,
+                    "auth_method": "gemini_web",
+                    "cdp_port": getattr(acc, "cdp_port", 9222),
+                    "enabled": acc.enabled,
+                    "is_primary": acc.is_primary,
+                    "total_requests": getattr(acc, "total_requests", 0),
+                    "last_used_timestamp": getattr(acc, "last_used_timestamp", 0.0),
+                    "last_used_model": getattr(acc, "last_used_model", None),
+                    "last_client_type": getattr(acc, "last_client_type", None),
+                })
+
+        # ── 3. Helper: write one file safely with overwrite guard ─────────
+        def _write_file(path: Path, key: str, entries: list, disk_key: str):
+            try:
+                path.parent.mkdir(parents=True, exist_ok=True)
                 try:
-                    with open(self.accounts_file, "r", encoding="utf-8") as _f:
-                        _existing = json.load(_f)
-                    existing_count = len(_existing.get("accounts", []))
-                    if existing_count > len(real_accounts_in_pool):
-                        logger.debug(
-                            "save_accounts: skipping overwrite — disk has %d accounts, pool has %d (pool may not be fully loaded yet)",
-                            existing_count, len(real_accounts_in_pool),
-                        )
-                        return
+                    os.chmod(path.parent, 0o700)
                 except Exception:
                     pass
+                # Safety guard: don't overwrite if disk has more entries and pool seems partially loaded
+                if path.exists() and len(entries) == 0:
+                    try:
+                        with open(path, "r", encoding="utf-8") as _f:
+                            _existing = json.load(_f)
+                        if len(_existing.get(disk_key, [])) > 0:
+                            logger.debug("save_accounts: skipping empty write to %s (disk has %d entries)", path.name, len(_existing.get(disk_key, [])))
+                            return
+                    except Exception:
+                        pass
+                with open(path, "w", encoding="utf-8") as f:
+                    json.dump({disk_key: entries}, f, indent=2)
+                try:
+                    os.chmod(path, 0o600)
+                except Exception:
+                    pass
+                logger.debug("Saved %d %s to %s", len(entries), key, path.name)
+            except Exception as e:
+                logger.error("Failed to save %s: %s", path.name, e)
 
-            acc_list = []
-            seen_entries = set()
-            for acc in self.accounts.values():
-                key = (acc.auth_method, acc.email.lower()) if (acc.auth_method == "consumer" and acc.email and acc.email != "unknown@gmail.com") else (acc.auth_method, acc.refresh_token)
-                if key in seen_entries:
-                    continue
-                seen_entries.add(key)
-                # GeminiWebSession has its own serializer (cookies NOT persisted to disk)
-                if hasattr(acc, "to_save_dict"):
-                    acc_list.append(acc.to_save_dict())
-                else:
-                    acc_list.append({
-                        "account_id": acc.account_id,
-                        "email": acc.email,
-                        "name": acc.name,
-                        "picture": acc.picture,
-                        "refresh_token": acc.refresh_token,
-                        "access_token": acc.access_token,
-                        "expiry_timestamp": acc.expiry_timestamp,
-                        "auth_method": acc.auth_method,
-                        "project_id": acc.project_id,
-                        "region_code": acc.region_code,
-                        "enabled": acc.enabled,
-                        "is_primary": acc.is_primary,
-                        "total_requests": getattr(acc, "total_requests", 0),
-                        "last_used_timestamp": getattr(acc, "last_used_timestamp", 0.0),
-                        "last_used_model": getattr(acc, "last_used_model", None),
-                        "last_client_type": getattr(acc, "last_client_type", None),
-                    })
-
-            with open(self.accounts_file, "w", encoding="utf-8") as f:
-                json.dump({"accounts": acc_list}, f, indent=2)
-            try:
-                os.chmod(self.accounts_file, 0o600)
-            except Exception:
-                pass
-        except Exception as e:
-            logger.error("Failed to save accounts file: %s", e)
+        _write_file(self.accounts_file,    "OAuth accounts", oauth_list, "accounts")
+        _write_file(self.api_keys_file,    "API keys",       key_list,   "api_keys")
+        _write_file(self.web_sessions_file,"web sessions",   web_list,   "web_sessions")
 
     async def initialize_all(self):
         """Initializes user info, project, quota, and models for all loaded accounts."""
