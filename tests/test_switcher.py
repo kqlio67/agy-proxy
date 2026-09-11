@@ -100,10 +100,16 @@ class TestAntigravitySwitcher(unittest.IsolatedAsyncioTestCase):
             refresh_token="1//refresh",
             expiry_timestamp=1000,  # Far past
         )
-        acc.refresh_access_token = AsyncMock(return_value=True)
+        async def fake_refresh(*args, **kwargs):
+            acc.expiry_timestamp = 2000000000
+            acc.access_token = "ya29.new"
+            return "ya29.new"
+        acc.refresh_access_token = AsyncMock(side_effect=fake_refresh)
+        acc.onboard_user = AsyncMock(return_value=True)
 
         await activate_account_in_antigravity(acc, target_paths=[self.dest_path])
         acc.refresh_access_token.assert_awaited_once_with(force=True)
+        acc.onboard_user.assert_awaited_once()
 
     def test_get_antigravity_token_destinations_fallback(self):
         with patch("agy_proxy.switcher.get_candidate_token_files", return_value=[]):

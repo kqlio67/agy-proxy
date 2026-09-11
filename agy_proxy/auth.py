@@ -665,6 +665,8 @@ class AntigravityOAuthSession(AccountSession):
                 self.tier_info = data.get("currentTier", {})
                 self.project_id = data.get("cloudaicompanionProject") or "aicode-consumers"
                 logger.info("[%s] Discovered project: %s (Tier: %s)", self.email, self.project_id, self.tier_info.get("name"))
+                # Automatically ensure account is onboarded to grant backend serviceUsage permissions
+                await self.onboard_user(tier_id=self.tier_info.get("id", "free-tier"))
             else:
                 logger.warning("[%s] loadCodeAssist returned %d", self.email, resp.status_code)
                 if not self.project_id:
@@ -675,6 +677,29 @@ class AntigravityOAuthSession(AccountSession):
                 self.project_id = "aicode-consumers"
 
         return self.project_id
+
+    async def onboard_user(self, tier_id: str = "free-tier") -> bool:
+        """
+        Enrolls/onboards account into Gemini Code Assist (aicode-consumers project).
+        Required to grant roles/serviceusage.serviceUsageConsumer on Google's backend.
+        """
+        headers = await self.get_auth_headers()
+        client = await self.get_http_client()
+        try:
+            resp = await client.post(
+                f"{CLOUDCODE_BASE_URL}/v1internal:onboardUser",
+                headers=headers,
+                json={"tierId": tier_id, "metadata": {"ideType": "ANTIGRAVITY"}},
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get("done"):
+                    logger.info("[%s] Successfully onboarded to %s in %s", self.email, tier_id, self.project_id)
+                    return True
+            logger.warning("[%s] onboardUser returned %d: %s", self.email, resp.status_code, resp.text[:200])
+        except Exception as e:
+            logger.debug("[%s] onboardUser failed: %s", self.email, e)
+        return False
 
     async def fetch_cloudcode_user_info(self) -> Dict[str, Any]:
         """Fetches CloudCode user settings and detected geographic regionCode."""

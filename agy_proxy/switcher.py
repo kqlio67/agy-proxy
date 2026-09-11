@@ -89,6 +89,13 @@ async def activate_account_in_antigravity(
     if force_refresh or not account.access_token or is_expired:
         await account.refresh_access_token(force=True)
 
+    # Ensure user is onboarded into Gemini Code Assist (grants serviceusage permissions)
+    if hasattr(account, "onboard_user"):
+        try:
+            await account.onboard_user()
+        except Exception as e:
+            logger.debug("onboard_user failed during activation: %s", e)
+
     destinations = target_paths if target_paths else get_antigravity_token_destinations()
     payload = format_antigravity_token_payload(account)
     written: List[Path] = []
