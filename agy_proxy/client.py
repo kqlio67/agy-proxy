@@ -197,7 +197,78 @@ class CloudCodeClient:
                     client = await acc.get_http_client()
                     headers = await acc.get_auth_headers()
 
+                    # ── Gemini Web (experimental browser session) ──────────────────
+                    if acc.auth_method == "gemini_web":
+                        from agy_proxy.auth import GeminiWebSession
+                        if not isinstance(acc, GeminiWebSession):
+                            break
+                        acc_label = acc.name or acc.email
+                        # Extract plain user message text from the payload builder result
+                        _payload_probe = payload_builder_fn("gemini-web")
+                        _contents = _payload_probe.get("request", _payload_probe).get("contents", [])
+                        user_message_text = ""
+                        for _content in reversed(_contents):
+                            if isinstance(_content, dict) and _content.get("role") == "user":
+                                _parts = _content.get("parts", [])
+                                for _p in _parts:
+                                    if isinstance(_p, dict) and "text" in _p:
+                                        user_message_text += _p["text"]
+                                if user_message_text:
+                                    break
+                        if not user_message_text:
+                            user_message_text = "(empty message)"
+
+                        logger.info("[%s] %s (Gemini Web Browser)", acc_label, model_name)
+                        acc.total_requests += 1
+                        acc.last_used_timestamp = time.time()
+                        acc.last_used_model = model_name
+                        acc.last_client_type = "Gemini Web"
+
+                        if session_key:
+                            session_affinity.pin_session(session_key, acc.account_id, f"gw-{uuid.uuid4().hex[:8]}")
+
+                        try:
+                            async for chunk in acc.stream_generate(user_message_text):
+                                if chunk["type"] == "error":
+                                    raise RuntimeError(chunk["message"])
+                                elif chunk["type"] == "text":
+                                    yield {
+                                        "candidates": [{
+                                            "content": {"parts": [{"text": chunk["text"]}], "role": "model"},
+                                            "finishReason": None,
+                                            "index": 0,
+                                        }]
+                                    }
+                                elif chunk["type"] == "thinking":
+                                    yield {
+                                        "candidates": [{
+                                            "content": {"parts": [{"thought": True, "text": chunk["text"]}], "role": "model"},
+                                            "finishReason": None,
+                                            "index": 0,
+                                        }]
+                                    }
+                                elif chunk["type"] == "done":
+                                    yield {
+                                        "candidates": [{
+                                            "content": {"parts": [{"text": ""}], "role": "model"},
+                                            "finishReason": "STOP",
+                                            "index": 0,
+                                        }],
+                                        "usageMetadata": {"promptTokenCount": 0, "candidatesTokenCount": 0},
+                                    }
+                            return
+                        except RuntimeError as gw_err:
+                            logger.warning("[%s] GeminiWeb stream error: %s", acc_label, gw_err)
+                            last_error = gw_err
+                            break
+                        except Exception as gw_err:
+                            logger.warning("[%s] GeminiWeb unexpected error: %s", acc_label, gw_err)
+                            last_error = gw_err
+                            break
+
+                    # ── Google AI Studio API Key ───────────────────────────────────
                     if acc.auth_method == "api_key":
+
                         # Route to Google AI Studio REST API
                         payload = payload_builder_fn("google-ai-studio")
                         backend_m = payload.get("model", model_name)
@@ -254,6 +325,76 @@ class CloudCodeClient:
                     if session_key:
                         backend_sess_id = payload.get("request", {}).get("sessionId", f"sess-{uuid.uuid4().hex[:8]}")
                         session_affinity.pin_session(session_key, acc.account_id, backend_sess_id)
+
+                    if acc.auth_method == "gemini_web":
+                        # Route to Gemini Web browser session (experimental)
+                        from agy_proxy.auth import GeminiWebSession
+                        if not isinstance(acc, GeminiWebSession):
+                            break
+                        acc_label = acc.name or acc.email
+                        # Extract plain user message text from the payload builder result
+                        _payload_probe = payload_builder_fn("gemini-web")
+                        _contents = _payload_probe.get("request", _payload_probe).get("contents", [])
+                        user_message_text = ""
+                        for _content in reversed(_contents):
+                            if isinstance(_content, dict) and _content.get("role") == "user":
+                                _parts = _content.get("parts", [])
+                                for _p in _parts:
+                                    if isinstance(_p, dict) and "text" in _p:
+                                        user_message_text += _p["text"]
+                                if user_message_text:
+                                    break
+                        if not user_message_text:
+                            user_message_text = "(empty message)"
+
+                        logger.info("[%s] %s (Gemini Web Browser)", acc_label, model_name)
+                        acc.total_requests += 1
+                        acc.last_used_timestamp = time.time()
+                        acc.last_used_model = model_name
+                        acc.last_client_type = "Gemini Web"
+
+                        if session_key:
+                            session_affinity.pin_session(session_key, acc.account_id, f"gw-{uuid.uuid4().hex[:8]}")
+
+                        try:
+                            async for chunk in acc.stream_generate(user_message_text):
+                                if chunk["type"] == "error":
+                                    raise RuntimeError(chunk["message"])
+                                elif chunk["type"] == "text":
+                                    # Yield as a Gemini-compatible SSE candidate
+                                    yield {
+                                        "candidates": [{
+                                            "content": {"parts": [{"text": chunk["text"]}], "role": "model"},
+                                            "finishReason": None,
+                                            "index": 0,
+                                        }]
+                                    }
+                                elif chunk["type"] == "thinking":
+                                    yield {
+                                        "candidates": [{
+                                            "content": {"parts": [{"thought": True, "text": chunk["text"]}], "role": "model"},
+                                            "finishReason": None,
+                                            "index": 0,
+                                        }]
+                                    }
+                                elif chunk["type"] == "done":
+                                    yield {
+                                        "candidates": [{
+                                            "content": {"parts": [{"text": ""}], "role": "model"},
+                                            "finishReason": "STOP",
+                                            "index": 0,
+                                        }],
+                                        "usageMetadata": {"promptTokenCount": 0, "candidatesTokenCount": 0},
+                                    }
+                            return
+                        except RuntimeError as gw_err:
+                            logger.warning("[%s] GeminiWeb stream error: %s", acc_label, gw_err)
+                            last_error = gw_err
+                            break
+                        except Exception as gw_err:
+                            logger.warning("[%s] GeminiWeb unexpected error: %s", acc_label, gw_err)
+                            last_error = gw_err
+                            break
 
                     try:
                         async with client.stream("POST", url, headers=headers, json=req_body, timeout=timeout) as response:

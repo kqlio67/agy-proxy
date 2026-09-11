@@ -16,7 +16,7 @@ import time
 import re
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple, Union
 import httpx
 
 logger = logging.getLogger("agy_proxy.auth")
@@ -452,6 +452,8 @@ class AccountSession(BaseAccountSession):
                 auth_method = args[7]
             if auth_method == "api_key":
                 return object.__new__(AIStudioApiKeySession)
+            elif auth_method == "gemini_web":
+                return object.__new__(GeminiWebSession)
             else:
                 return object.__new__(AntigravityOAuthSession)
         return super().__new__(cls)
@@ -1035,8 +1037,570 @@ class AIStudioApiKeySession(AccountSession):
 
 
 
+class GeminiWebSession(AccountSession):
+    """
+    Manages gemini.google.com web sessions via browser cookies (experimental).
+    Auto-fetches cookies from Helium/Chrome via CDP (Chrome DevTools Protocol).
+    auth_method = 'gemini_web'
+    """
+
+    GEMINI_WEB_BASE = "https://gemini.google.com"
+    STREAM_GENERATE_PATH = "/_/BardChatUi/data/assistant.lamda.BardFrontendService/StreamGenerate"
+    CDP_DEFAULT_PORT = 9222
+    COOKIE_KEYS = [
+        "__Secure-1PSID",
+        "__Secure-1PSIDTS",
+        "__Secure-1PSIDCC",
+        "HSID",
+        "SID",
+        "SSID",
+        "APISID",
+        "SAPISID",
+    ]
+    # Build label — extracted from first StreamGenerate response or hard-coded fallback
+    _DEFAULT_BL = "boq_assistant-bard-web-server_20260907.07_p3"
+
+    def __init__(
+        self,
+        account_id: str,
+        refresh_token: str = "",
+        access_token: Optional[str] = None,
+        expiry_timestamp: float = 0.0,
+        email: Optional[str] = None,
+        name: Optional[str] = None,
+        picture: Optional[str] = None,
+        auth_method: str = "gemini_web",
+        project_id: Optional[str] = None,
+        region_code: Optional[str] = None,
+        is_primary: bool = False,
+        enabled: bool = True,
+        on_token_refreshed: Optional[Any] = None,
+        cookies: Optional[Dict[str, str]] = None,
+        cdp_port: int = 9222,
+        **kwargs,
+    ):
+        super().__init__(
+            account_id=account_id,
+            name=name or "Gemini Web",
+            email=email or "gemini-web@browser.local",
+            picture=picture or "https://www.gstatic.com/lamda/images/gemini_favicon_f069958c85030456e93de685481c559f160ea06.svg",
+            auth_method="gemini_web",
+            is_primary=is_primary,
+            enabled=enabled,
+            on_token_refreshed=on_token_refreshed,
+        )
+        self._cookies: Dict[str, str] = cookies or {}
+        self._at_token: Optional[str] = None
+        self._bl_token: str = self._DEFAULT_BL
+        self._conv_id: Optional[str] = None
+        self._resp_id: Optional[str] = None
+        self.cdp_port: int = cdp_port
+        self.project_id: Optional[str] = project_id
+        self.region_code: Optional[str] = region_code
+        self.expiry_timestamp: float = expiry_timestamp or (time.time() + 86400.0)
+        self.available_models: Dict[str, Any] = {
+            "gemini-2.5-pro": {"displayName": "Gemini 2.5 Pro (Web)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
+            "gemini-2.5-flash": {"displayName": "Gemini 2.5 Flash (Web)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
+        }
+        self.quota_summary: Dict[str, Any] = {}
+        self.tier_info: Dict[str, Any] = {"name": "Gemini Web (Browser)"}
+
+    # ------------------------------------------------------------------ #
+    # Property compatibility shims
+    # ------------------------------------------------------------------ #
+    @property
+    def refresh_token(self) -> str:
+        return ""
+
+    @refresh_token.setter
+    def refresh_token(self, val: str):
+        pass  # no-op — web session has no refresh token
+
+    @property
+    def access_token(self) -> str:
+        return ""
+
+    @access_token.setter
+    def access_token(self, val: str):
+        pass
+
+    # ------------------------------------------------------------------ #
+    # CDP cookie extraction
+    # ------------------------------------------------------------------ #
+    async def refresh_cookies_from_browser(self) -> bool:
+        """
+        Connects to Chrome DevTools Protocol on localhost:<cdp_port> and
+        retrieves all decrypted google.com cookies.
+        Returns True if at least one auth cookie was extracted.
+        """
+        try:
+            import urllib.request as _urllib_req
+            import json as _json
+
+            # 1. Discover the live WebSocket debugger URL
+            version_url = f"http://127.0.0.1:{self.cdp_port}/json/version"
+            try:
+                with _urllib_req.urlopen(version_url, timeout=3) as resp:
+                    version_info = _json.loads(resp.read().decode())
+            except Exception as e:
+                logger.warning("[GeminiWeb] CDP version endpoint unreachable at port %d: %s", self.cdp_port, e)
+                return False
+
+            ws_url = version_info.get("webSocketDebuggerUrl")
+            if not ws_url:
+                logger.warning("[GeminiWeb] CDP version endpoint returned no webSocketDebuggerUrl")
+                return False
+
+            # 2. Connect via WebSocket and fetch all cookies
+            import websockets  # type: ignore[import]
+
+            async with websockets.connect(ws_url, ping_interval=None) as ws:
+                msg = _json.dumps({"id": 1, "method": "Storage.getCookies", "params": {}})
+                await ws.send(msg)
+                raw = await asyncio.wait_for(ws.recv(), timeout=10.0)
+                result = _json.loads(raw)
+
+            cookies_list = result.get("result", {}).get("cookies", [])
+            new_cookies: Dict[str, str] = {}
+            for cookie in cookies_list:
+                domain = cookie.get("domain", "")
+                name = cookie.get("name", "")
+                value = cookie.get("value", "")
+                if "google.com" in domain and name in self.COOKIE_KEYS and value:
+                    new_cookies[name] = value
+
+            if not new_cookies.get("__Secure-1PSID"):
+                logger.warning("[GeminiWeb] CDP returned cookies but __Secure-1PSID not found among google.com cookies")
+                return False
+
+            self._cookies = new_cookies
+            self._at_token = None  # invalidate cached AT token when cookies change
+            logger.info("[GeminiWeb] Successfully extracted %d cookies from browser via CDP", len(new_cookies))
+            return True
+
+        except Exception as e:
+            logger.warning("[GeminiWeb] CDP cookie extraction failed: %s", e)
+            return False
+
+    def set_cookies_manual(self, cookies: Dict[str, str]) -> None:
+        """Allows manually providing cookies when browser is not available."""
+        self._cookies = dict(cookies)
+        self._at_token = None
+        logger.info("[GeminiWeb] Cookies updated manually (%d keys)", len(cookies))
+
+    def _build_cookie_header(self) -> str:
+        parts = []
+        for k in self.COOKIE_KEYS:
+            if k in self._cookies:
+                parts.append(f"{k}={self._cookies[k]}")
+        # Add any extra cookies not in COOKIE_KEYS
+        for k, v in self._cookies.items():
+            if k not in self.COOKIE_KEYS:
+                parts.append(f"{k}={v}")
+        return "; ".join(parts)
+
+    # ------------------------------------------------------------------ #
+    # AT (CSRF) token
+    # ------------------------------------------------------------------ #
+    async def _fetch_at_token(self) -> Optional[str]:
+        """Fetches the Gemini web app page and extracts the AT/SNlM0e CSRF token."""
+        if not self._cookies.get("__Secure-1PSID"):
+            return None
+        client = await self.get_http_client()
+        try:
+            resp = await client.get(
+                f"{self.GEMINI_WEB_BASE}/app",
+                headers={
+                    "Cookie": self._build_cookie_header(),
+                    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                    "Accept-Language": "en-US,en;q=0.9",
+                },
+                timeout=15.0,
+                follow_redirects=True,
+            )
+            if resp.status_code != 200:
+                logger.warning("[GeminiWeb] /app returned HTTP %d (cookies may be expired)", resp.status_code)
+                return None
+            html = resp.text
+            # Extract AT token: "SNlM0e":"<token>"
+            m = re.search(r'"SNlM0e"\s*:\s*"([^"]+)"', html)
+            if m:
+                token = m.group(1)
+                self._at_token = token
+                logger.debug("[GeminiWeb] AT token extracted (%d chars)", len(token))
+                return token
+            # Try alternate key cfb2h
+            m2 = re.search(r'"cfb2h"\s*:\s*"([^"]+)"', html)
+            if m2:
+                token = m2.group(1)
+                self._at_token = token
+                logger.debug("[GeminiWeb] AT token extracted via cfb2h (%d chars)", len(token))
+                return token
+            logger.warning("[GeminiWeb] AT token (SNlM0e/cfb2h) not found in /app response — cookies may be stale")
+            return None
+        except Exception as e:
+            logger.warning("[GeminiWeb] Error fetching AT token: %s", e)
+            return None
+
+    async def get_at_token(self, force_refresh: bool = False) -> Optional[str]:
+        """Returns cached AT token or fetches fresh one."""
+        if self._at_token and not force_refresh:
+            return self._at_token
+        return await self._fetch_at_token()
+
+    # ------------------------------------------------------------------ #
+    # Auth interface (compatible with BaseAccountSession)
+    # ------------------------------------------------------------------ #
+    async def refresh_access_token(self, force: bool = False) -> str:
+        """For GeminiWeb, refreshing means updating cookies from CDP."""
+        if force or not self._cookies.get("__Secure-1PSID"):
+            await self.refresh_cookies_from_browser()
+        return ""
+
+    async def get_valid_token(self) -> str:
+        if not self._cookies.get("__Secure-1PSID"):
+            await self.refresh_cookies_from_browser()
+        return ""
+
+    async def get_auth_headers(self) -> Dict[str, str]:
+        return {
+            "Cookie": self._build_cookie_header(),
+            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Origin": self.GEMINI_WEB_BASE,
+            "Referer": f"{self.GEMINI_WEB_BASE}/app",
+            "Accept": "*/*",
+            "Accept-Language": "en-US,en;q=0.9",
+            "X-Same-Domain": "1",
+        }
+
+    async def fetch_user_info(self) -> Dict[str, Any]:
+        return {"email": self.email, "name": self.name}
+
+    async def initialize_project(self, force: bool = False) -> str:
+        return "gemini-web"
+
+    async def fetch_cloudcode_user_info(self) -> Dict[str, Any]:
+        return {}
+
+    async def fetch_quota(self) -> Dict[str, Any]:
+        return self.quota_summary
+
+    async def fetch_models(self) -> Dict[str, Any]:
+        return self.available_models
+
+    def is_model_supported(self, model_name: str) -> bool:
+        """GeminiWeb only supports Gemini models, not Claude/3P."""
+        m = model_name.lower()
+        if any(k in m for k in ("claude", "sonnet", "opus", "haiku", "gpt-oss", "fable", "3p")):
+            return False
+        return True
+
+    def get_quota_details(self) -> Dict[str, Any]:
+        return {
+            "gemini": {
+                "fraction": 1.0,
+                "percent": 100.0,
+                "reset_time": None,
+                "window": "browser",
+                "description": "Gemini Web (Browser Session)",
+                "is_rate_limited": self.is_rate_limited("gemini"),
+                "5h": {"fraction": 1.0, "percent": 100.0, "reset_time": None, "description": "Browser"},
+                "weekly": {"fraction": 1.0, "percent": 100.0, "reset_time": None, "description": "Browser"},
+            },
+            "3p": {
+                "fraction": 0.0,
+                "percent": 0.0,
+                "reset_time": None,
+                "window": "n/a",
+                "description": "Gemini Web does not support Claude / 3P models",
+                "is_rate_limited": False,
+                "5h": {"fraction": 0.0, "percent": 0.0, "reset_time": None, "description": ""},
+                "weekly": {"fraction": 0.0, "percent": 0.0, "reset_time": None, "description": ""},
+            },
+        }
+
+    def get_model_quota(self, model: str) -> Dict[str, Any]:
+        if not self.is_model_supported(model):
+            return {"remainingFraction": 0.0, "resetTime": None, "window": "n/a", "description": "Unsupported model"}
+        return {"remainingFraction": 1.0, "resetTime": None, "window": "browser", "description": "Browser Session"}
+
+    # ------------------------------------------------------------------ #
+    # StreamGenerate request builder
+    # ------------------------------------------------------------------ #
+    def _build_stream_generate_body(
+        self,
+        user_message: str,
+        *,
+        image_parts: Optional[List[Dict[str, Any]]] = None,
+    ) -> Dict[str, str]:
+        """
+        Builds the URL-encoded form body for StreamGenerate.
+        On first message conv_id/resp_id are None (new conversation).
+        Subsequent calls reuse self._conv_id / self._resp_id.
+        """
+        import urllib.parse as _up
+
+        # Inner context triple: [conv_id, resp_id, rc_id, ...continuation...]
+        if self._conv_id and self._resp_id:
+            ctx = [self._conv_id, self._resp_id, "", None, None, None, None, None, None, ""]
+        else:
+            ctx = [None, None, None]
+
+        # Image inline_data parts if any
+        content_parts: List[Any] = []
+        if image_parts:
+            for img in image_parts:
+                content_parts.append([None, None, None, None, [img.get("data", ""), img.get("mime_type", "image/png"), None, None, None, None, img.get("name", "image")]])
+        content_parts.append([user_message, 0, None, None, None, None, 0])
+
+        inner = [
+            content_parts,
+            ["en"],
+            ctx,
+            self._bl_token,
+            None,
+            None,
+            [1],
+        ]
+
+        outer = [None, json.dumps(inner)]
+        f_req = json.dumps(outer)
+
+        return {
+            "f.req": f_req,
+            "at": self._at_token or "",
+        }
+
+    # ------------------------------------------------------------------ #
+    # Streaming generation (core)
+    # ------------------------------------------------------------------ #
+    async def stream_generate(
+        self,
+        user_message: str,
+        *,
+        image_parts: Optional[List[Dict[str, Any]]] = None,
+        timeout: float = 120.0,
+    ) -> AsyncGenerator[Dict[str, Any], None]:
+        """
+        Calls Gemini Web StreamGenerate endpoint and yields parsed chunks:
+            {"type": "text", "text": "..."}
+            {"type": "thinking", "text": "..."}
+            {"type": "done", "conv_id": "...", "resp_id": "...", "model": "..."}
+            {"type": "error", "message": "..."}
+        """
+        # 1. Ensure we have cookies
+        if not self._cookies.get("__Secure-1PSID"):
+            refreshed = await self.refresh_cookies_from_browser()
+            if not refreshed:
+                yield {"type": "error", "message": "No browser cookies available. Open Helium / Chrome with gemini.google.com logged in."}
+                return
+
+        # 2. Ensure AT token
+        at_token = await self.get_at_token()
+        if not at_token:
+            # Try refreshing cookies once more (they may have expired)
+            await self.refresh_cookies_from_browser()
+            at_token = await self.get_at_token(force_refresh=True)
+            if not at_token:
+                yield {"type": "error", "message": "Failed to fetch CSRF token from Gemini Web. Cookies may be expired."}
+                return
+
+        # 3. Build request
+        body = self._build_stream_generate_body(user_message, image_parts=image_parts)
+        url = (
+            f"{self.GEMINI_WEB_BASE}{self.STREAM_GENERATE_PATH}"
+            f"?bl={self._bl_token}&hl=en&rt=c"
+        )
+        headers = await self.get_auth_headers()
+
+        client = await self.get_http_client()
+
+        try:
+            async with client.stream(
+                "POST",
+                url,
+                headers=headers,
+                data=body,
+                timeout=httpx.Timeout(timeout=timeout, connect=15.0, read=timeout, write=30.0),
+            ) as response:
+                if response.status_code == 401 or response.status_code == 403:
+                    yield {"type": "error", "message": f"Auth error ({response.status_code}) — cookies expired. Re-login to Gemini in browser."}
+                    return
+                if response.status_code != 200:
+                    err = await response.aread()
+                    yield {"type": "error", "message": f"StreamGenerate returned HTTP {response.status_code}: {err.decode('utf-8', 'ignore')[:200]}"}
+                    return
+
+                # 4. Parse chunked response: skip ")]}'" header line, then hex-length + JSON pairs
+                accumulated_text = ""
+                accumulated_thinking = ""
+                new_conv_id: Optional[str] = None
+                new_resp_id: Optional[str] = None
+                detected_model: Optional[str] = None
+
+                raw_buffer = b""
+                async for chunk in response.aiter_bytes():
+                    raw_buffer += chunk
+
+                # Parse the full response
+                text_body = raw_buffer.decode("utf-8", errors="replace")
+                # Strip leading security prefix
+                if text_body.startswith(")]}'"):
+                    text_body = text_body[len(")]}'\n"):]
+
+                # Split on chunk boundaries: each chunk is: <hex_len>\n<JSON_data>\n
+                lines = text_body.split("\n")
+                i = 0
+                prev_text = ""
+                while i < len(lines):
+                    line = lines[i].strip()
+                    # Skip empty lines and hex-length markers
+                    if not line or (len(line) <= 8 and all(c in "0123456789abcdefABCDEF" for c in line)):
+                        i += 1
+                        continue
+                    # Try to parse as JSON array (outer wrapper)
+                    if line.startswith("[") or line.startswith("\""):
+                        try:
+                            outer = json.loads(line)
+                            # outer[0][2] is the inner serialized JSON payload
+                            if isinstance(outer, list) and len(outer) > 0:
+                                outer0 = outer[0]
+                                if isinstance(outer0, list) and len(outer0) > 2:
+                                    inner_str = outer0[2]
+                                    if isinstance(inner_str, str) and inner_str:
+                                        try:
+                                            inner = json.loads(inner_str)
+                                        except Exception:
+                                            i += 1
+                                            continue
+
+                                        # Extract conv_id / resp_id from inner[1]
+                                        try:
+                                            if isinstance(inner, list) and len(inner) > 1 and isinstance(inner[1], list) and len(inner[1]) >= 2:
+                                                new_conv_id = new_conv_id or inner[1][0]
+                                                new_resp_id = new_resp_id or inner[1][1]
+                                        except Exception:
+                                            pass
+
+                                        # Extract model name from inner[42] if available
+                                        try:
+                                            if isinstance(inner, list) and len(inner) > 42 and isinstance(inner[42], str):
+                                                detected_model = inner[42]
+                                        except Exception:
+                                            pass
+
+                                        # Extract text from inner[4][0][1] (array of progressive text chunks)
+                                        try:
+                                            if (isinstance(inner, list) and len(inner) > 4
+                                                    and isinstance(inner[4], list) and inner[4]
+                                                    and isinstance(inner[4][0], list) and len(inner[4][0]) > 1
+                                                    and isinstance(inner[4][0][1], list)):
+                                                text_parts = inner[4][0][1]
+                                                if text_parts and isinstance(text_parts[0], list) and len(text_parts[0]) > 1:
+                                                    full_text = text_parts[0][1]
+                                                    if isinstance(full_text, str) and full_text != prev_text:
+                                                        delta = full_text[len(prev_text):]
+                                                        if delta:
+                                                            accumulated_text += delta
+                                                            yield {"type": "text", "text": delta}
+                                                        prev_text = full_text
+                                        except Exception:
+                                            pass
+
+                                        # Extract thinking from inner[4][0][37]
+                                        try:
+                                            if (isinstance(inner, list) and len(inner) > 4
+                                                    and isinstance(inner[4], list) and inner[4]
+                                                    and isinstance(inner[4][0], list) and len(inner[4][0]) > 37):
+                                                thinking_data = inner[4][0][37]
+                                                if isinstance(thinking_data, list) and thinking_data:
+                                                    thinking_text = None
+                                                    if isinstance(thinking_data[0], list) and thinking_data[0]:
+                                                        if isinstance(thinking_data[0][0], str):
+                                                            thinking_text = thinking_data[0][0]
+                                                        elif isinstance(thinking_data[0][0], list) and thinking_data[0][0]:
+                                                            thinking_text = thinking_data[0][0][0]
+                                                    if thinking_text and thinking_text != accumulated_thinking:
+                                                        delta = thinking_text[len(accumulated_thinking):]
+                                                        if delta:
+                                                            accumulated_thinking += delta
+                                                            yield {"type": "thinking", "text": delta}
+                                        except Exception:
+                                            pass
+                        except (json.JSONDecodeError, IndexError, TypeError):
+                            pass
+                    i += 1
+
+                # Update conversation state
+                if new_conv_id:
+                    self._conv_id = new_conv_id
+                if new_resp_id:
+                    self._resp_id = new_resp_id
+
+                yield {
+                    "type": "done",
+                    "conv_id": self._conv_id,
+                    "resp_id": self._resp_id,
+                    "model": detected_model or "Gemini Web",
+                    "text": accumulated_text,
+                }
+
+        except Exception as e:
+            logger.warning("[GeminiWeb] stream_generate error: %s", e)
+            yield {"type": "error", "message": str(e)[:200]}
+
+    async def validate_live(self) -> Dict[str, Any]:
+        """Validates by attempting to fetch the AT token from Gemini Web."""
+        result: Dict[str, Any] = {"token_ok": None, "error": "", "quota_summary": {}}
+        try:
+            if not self._cookies.get("__Secure-1PSID"):
+                await self.refresh_cookies_from_browser()
+
+            at = await self.get_at_token(force_refresh=True)
+            result["token_ok"] = bool(at)
+            if not at:
+                result["error"] = "No AT token returned — cookies expired or not logged in"
+        except Exception as e:
+            result["token_ok"] = False
+            result["error"] = str(e)[:80]
+        return result
+
+    def to_dict(self) -> Dict[str, Any]:
+        d = super().to_dict()
+        has_cookies = bool(self._cookies.get("__Secure-1PSID"))
+        d["has_cookies"] = has_cookies
+        d["cookies_count"] = len(self._cookies)
+        d["has_at_token"] = bool(self._at_token)
+        d["conv_id"] = self._conv_id
+        d["tier_name"] = "Gemini Web (Browser)"
+        return d
+
+    def to_save_dict(self) -> Dict[str, Any]:
+        """Minimal serializable data for accounts.json persistence."""
+        return {
+            "account_id": self.account_id,
+            "email": self.email,
+            "name": self.name,
+            "picture": self.picture,
+            "auth_method": "gemini_web",
+            "cdp_port": self.cdp_port,
+            "enabled": self.enabled,
+            "is_primary": self.is_primary,
+            "total_requests": getattr(self, "total_requests", 0),
+            "last_used_timestamp": getattr(self, "last_used_timestamp", 0.0),
+            "last_used_model": getattr(self, "last_used_model", None),
+            "last_client_type": getattr(self, "last_client_type", None),
+            # NOTE: cookies are intentionally NOT persisted to disk for security
+        }
+
+
+
+
 class AccountPool:
     """Manages multiple AccountSessions, intelligent quota-based routing, and failovers."""
+
 
     def __init__(
         self,
@@ -1264,24 +1828,29 @@ class AccountPool:
                 if key in seen_entries:
                     continue
                 seen_entries.add(key)
-                acc_list.append({
-                    "account_id": acc.account_id,
-                    "email": acc.email,
-                    "name": acc.name,
-                    "picture": acc.picture,
-                    "refresh_token": acc.refresh_token,
-                    "access_token": acc.access_token,
-                    "expiry_timestamp": acc.expiry_timestamp,
-                    "auth_method": acc.auth_method,
-                    "project_id": acc.project_id,
-                    "region_code": acc.region_code,
-                    "enabled": acc.enabled,
-                    "is_primary": acc.is_primary,
-                    "total_requests": getattr(acc, "total_requests", 0),
-                    "last_used_timestamp": getattr(acc, "last_used_timestamp", 0.0),
-                    "last_used_model": getattr(acc, "last_used_model", None),
-                    "last_client_type": getattr(acc, "last_client_type", None),
-                })
+                # GeminiWebSession has its own serializer (cookies NOT persisted to disk)
+                if hasattr(acc, "to_save_dict"):
+                    acc_list.append(acc.to_save_dict())
+                else:
+                    acc_list.append({
+                        "account_id": acc.account_id,
+                        "email": acc.email,
+                        "name": acc.name,
+                        "picture": acc.picture,
+                        "refresh_token": acc.refresh_token,
+                        "access_token": acc.access_token,
+                        "expiry_timestamp": acc.expiry_timestamp,
+                        "auth_method": acc.auth_method,
+                        "project_id": acc.project_id,
+                        "region_code": acc.region_code,
+                        "enabled": acc.enabled,
+                        "is_primary": acc.is_primary,
+                        "total_requests": getattr(acc, "total_requests", 0),
+                        "last_used_timestamp": getattr(acc, "last_used_timestamp", 0.0),
+                        "last_used_model": getattr(acc, "last_used_model", None),
+                        "last_client_type": getattr(acc, "last_client_type", None),
+                    })
+
             with open(self.accounts_file, "w", encoding="utf-8") as f:
                 json.dump({"accounts": acc_list}, f, indent=2)
             try:
@@ -1704,6 +2273,32 @@ class AccountPool:
         self.accounts[acc_id] = acc
         self.save_accounts()
         logger.info("Successfully added API key account %s (%s) to pool!", acc_id, masked_key)
+        return acc
+
+    async def add_gemini_web_account(self, name: Optional[str] = None, cdp_port: int = 9222) -> "GeminiWebSession":
+        """
+        Adds a Gemini Web (gemini.google.com browser session) to the pool.
+        Automatically fetches cookies from Helium/Chrome via CDP.
+        """
+        acc_id = f"gw_{os.urandom(4).hex()}"
+        display_name = name.strip() if (name and name.strip()) else "Gemini Web"
+
+        acc = GeminiWebSession(
+            account_id=acc_id,
+            name=display_name,
+            is_primary=len(self.accounts) == 0,
+            on_token_refreshed=self.save_accounts,
+            cdp_port=cdp_port,
+        )
+
+        # Attempt to pull cookies from browser immediately
+        refreshed = await acc.refresh_cookies_from_browser()
+        if not refreshed:
+            logger.warning("[GeminiWeb] Added account %s but no cookies extracted — browser must be open with gemini.google.com logged in", acc_id)
+
+        self.accounts[acc_id] = acc
+        self.save_accounts()
+        logger.info("Successfully added GeminiWeb account %s (cookies=%s)", acc_id, "yes" if refreshed else "no")
         return acc
 
     def remove_account(self, account_id: str) -> bool:
