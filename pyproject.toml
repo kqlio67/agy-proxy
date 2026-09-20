@@ -13,6 +13,7 @@ dependencies = [
     "rich>=13.7.0",
     "sse-starlette>=2.0.0",
     "jinja2>=3.1.0",
+    "websockets>=12.0",
 ]
 
 [project.scripts]
@@ -26,4 +27,16 @@ build-backend = "setuptools.build_meta"
 include = ["agy_proxy*"]
 
 [tool.setuptools.package-data]
-agy_proxy = ["static/*", "templates/*"]
+agy_proxy = ["static/*", "templates/*", "*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = [
+    "ignore::DeprecationWarning:starlette.*",
+]
+
+[tool.ruff]
+line-length = 200
+
+[tool.ruff.lint]
+ignore = ["E501"]
