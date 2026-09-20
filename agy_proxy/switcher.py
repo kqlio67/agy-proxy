@@ -27,6 +27,26 @@ from agy_proxy.auth import (
 logger = logging.getLogger("agy_proxy.switcher")
 
 
+def resolve_antigravity_destinations(target_env: str = "both") -> List[Path]:
+    """
+    Resolves target destination paths for Google Antigravity tokens based on the target environment:
+    - 'cli': ~/.gemini/antigravity-cli/antigravity-oauth-token (or ANTIGRAVITY_TOKEN_FILE)
+    - 'ide': ~/.gemini/antigravity-ide/antigravity-oauth-token
+    - 'both': both CLI and IDE destinations
+    """
+    home = Path.home()
+    cli_dest = Path(os.environ.get("ANTIGRAVITY_TOKEN_FILE") or (home / ".gemini" / "antigravity-cli" / "antigravity-oauth-token"))
+    ide_dest = home / ".gemini" / "antigravity-ide" / "antigravity-oauth-token"
+
+    env = (target_env or "both").strip().lower()
+    if env in ("cli", "c"):
+        return [cli_dest]
+    elif env in ("ide", "i"):
+        return [ide_dest]
+    else:
+        return [cli_dest, ide_dest]
+
+
 def get_antigravity_token_destinations() -> List[Path]:
     """
     Returns existing Antigravity token destinations on the system,
@@ -46,14 +66,17 @@ def get_antigravity_token_destinations() -> List[Path]:
 
 
 def format_antigravity_token_payload(account: AccountSession) -> Dict[str, Any]:
-    """Formats an AccountSession into the exact token JSON structure expected by Google Antigravity."""
-    expiry_iso = ""
+    """Formats an AccountSession into the exact official token JSON structure expected by Google Antigravity CLI and IDE.
+    Matches ~/.gemini/antigravity-cli/antigravity-oauth-token schema strictly with zero extra fields.
+    """
     if account.expiry_timestamp > 0:
         dt = datetime.fromtimestamp(account.expiry_timestamp, timezone.utc).astimezone()
         expiry_iso = dt.isoformat()
+    else:
+        dt = datetime.fromtimestamp(time.time() + 3600, timezone.utc).astimezone()
+        expiry_iso = dt.isoformat()
 
     id_tok = getattr(account, "id_token", None) or ""
-    project_id = getattr(account, "project_id", None) or "aicode-consumers"
 
     return {
         "token": {
@@ -70,7 +93,9 @@ def format_antigravity_token_payload(account: AccountSession) -> Dict[str, Any]:
 async def activate_account_in_antigravity(
     account: AccountSession,
     target_paths: Optional[List[Path]] = None,
+    target_env: str = "both",
     force_refresh: bool = False,
+    allow_overwrite: bool = False,
 ) -> List[Path]:
     """
     Ensures tokens are refreshed and writes the active session payload to Antigravity token files.
@@ -86,15 +111,26 @@ async def activate_account_in_antigravity(
     ):
         raise PermissionError("Antigravity token modification is disabled via AGY_READONLY_TOKEN.")
 
-    # Strict protection: do not overwrite host ~/.gemini token files without explicit permission
-    effective_targets = target_paths or get_antigravity_token_destinations()
-    for dest in effective_targets:
-        if is_candidate_token_file(dest):
-            if os.environ.get("AGY_ALLOW_CLI_TOKEN_OVERWRITE", "").lower() not in ("1", "true", "yes"):
-                raise PermissionError(
-                    "Direct Antigravity CLI token file modification (~/.gemini/) is disabled by default "
-                    "to protect host credentials. Set AGY_ALLOW_CLI_TOKEN_OVERWRITE=1 to enable."
-                )
+    # Strict protection: do not overwrite host ~/.gemini token files without explicit permission.
+    # Priority order:
+    #   1. If allow_overwrite=True (explicit caller intent), always permit.
+    #   2. If AGY_ALLOW_CLI_TOKEN_OVERWRITE=0/false/no, deny (system-level hard block).
+    #   3. If AGY_ALLOW_CLI_TOKEN_OVERWRITE=1/true/yes, permit.
+    #   4. Default (env var unset): deny unless allow_overwrite=True.
+    effective_targets = target_paths if target_paths is not None else resolve_antigravity_destinations(target_env)
+    has_candidate_targets = any(is_candidate_token_file(p) for p in effective_targets)
+
+    if has_candidate_targets and not allow_overwrite:
+        env_val = os.environ.get("AGY_ALLOW_CLI_TOKEN_OVERWRITE", "").lower()
+        if env_val in ("0", "false", "no"):
+            raise PermissionError(
+                "Direct Antigravity CLI token file modification (~/.gemini/) is disabled via AGY_ALLOW_CLI_TOKEN_OVERWRITE=0."
+            )
+        if env_val not in ("1", "true", "yes"):
+            raise PermissionError(
+                "Direct Antigravity CLI token file modification (~/.gemini/) is disabled by default "
+                "to protect host credentials. Pass allow_overwrite=True or set AGY_ALLOW_CLI_TOKEN_OVERWRITE=1."
+            )
 
     if not account.refresh_token and not account.access_token:
         raise ValueError("Cannot activate account with empty credentials.")
@@ -111,7 +147,7 @@ async def activate_account_in_antigravity(
         except Exception as e:
             logger.debug("onboard_user failed during activation: %s", e)
 
-    destinations = target_paths if target_paths else get_antigravity_token_destinations()
+    destinations = target_paths if target_paths is not None else resolve_antigravity_destinations(target_env)
     payload = format_antigravity_token_payload(account)
     written: List[Path] = []
 
@@ -139,7 +175,8 @@ async def activate_account_in_antigravity(
 
             # Atomic write: write to temp file then replace
             tmp_dest = dest.with_name(f".{dest.name}.tmp.{os.getpid()}")
-            tmp_dest.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+            # Write exact compact JSON matching official Go json.Marshal format
+            tmp_dest.write_text(json.dumps(payload, separators=(",", ":")), encoding="utf-8")
             try:
                 os.chmod(tmp_dest, 0o600)
             except Exception:
@@ -163,6 +200,9 @@ async def switch_antigravity_session(
     pool: Optional[AccountPool] = None,
     to_next: bool = False,
     target_paths: Optional[List[Path]] = None,
+    target_env: str = "both",
+    allow_overwrite: bool = True,
+    set_primary: bool = False,
 ) -> Tuple[AccountSession, List[Path]]:
     """
     Switches active Antigravity session to specified account or the next available account.
@@ -171,6 +211,9 @@ async def switch_antigravity_session(
     :param pool: Optional AccountPool instance (loads default if None).
     :param to_next: If True, selects the next OAuth account with the highest quota.
     :param target_paths: Optional custom destination file paths.
+    :param target_env: Target destination environment ('cli', 'ide', or 'both'; default: 'both').
+    :param allow_overwrite: If True, permits overwriting candidate token destinations.
+    :param set_primary: If True, also marks the selected account as primary in proxy pool (default False).
     :return: (selected_account, list_of_updated_files)
     """
     if pool is None:
@@ -229,13 +272,315 @@ async def switch_antigravity_session(
         # Default: pick primary account
         selected_account = next((a for a in oauth_accounts if a.is_primary), oauth_accounts[0])
 
-    # Mark as primary in pool
-    for a in pool.accounts.values():
-        a.is_primary = False
-    selected_account.is_primary = True
-    selected_account.enabled = True
-    pool.save_accounts()
+    # Mark as primary in pool only if explicitly requested
+    if set_primary:
+        for a in pool.accounts.values():
+            a.is_primary = False
+        selected_account.is_primary = True
+        selected_account.enabled = True
+        pool.save_accounts()
 
     # Write to Antigravity token destinations
-    written_paths = await activate_account_in_antigravity(selected_account, target_paths=target_paths)
+    effective_targets = target_paths if target_paths is not None else resolve_antigravity_destinations(target_env)
+    written_paths = await activate_account_in_antigravity(
+        selected_account, target_paths=effective_targets, target_env=target_env, allow_overwrite=allow_overwrite
+    )
+    try:
+        await selected_account.fetch_quota()
+    except Exception:
+        pass
     return selected_account, written_paths
+
+
+def format_progress_bar(fraction: float, width: int = 50) -> str:
+    """Formats a 50-character progress bar matching Google Antigravity official display."""
+    rem = max(0.0, min(1.0, float(fraction)))
+    pct = rem * 100.0
+    filled = int(round(rem * width))
+    bar = "█" * filled + " " * (width - filled)
+    return f"[{bar}] {pct:.2f}%"
+
+
+def format_agy_quota_display(account: AccountSession) -> str:
+    """
+    Formats the account's quota summary matching the exact agreed-upon official Google Antigravity (agy) format:
+
+    └ Models & Quota
+
+    Account: <email>
+
+    GEMINI MODELS
+    Models within this group: Gemini Flash, Gemini Pro
+
+    Weekly Limit Remaining
+    [██████████████████████████████████████████████████] 100.00%
+    Quota available
+
+    Five Hour Limit Remaining
+    [██████████████████████████████████████████████████] 100.00%
+    Quota available
+
+
+    CLAUDE AND GPT MODELS
+    Models within this group: Claude Opus, Claude Sonnet, GPT-OSS
+
+    Weekly Limit Remaining
+    [██████████████████████████████████████████████████] 100.00%
+    Quota available
+    """
+    email_label = getattr(account, "email", None) or getattr(account, "account_id", "Unknown")
+    lines = ["└ Models & Quota", "", f"Account: {email_label}"]
+
+    qs = getattr(account, "quota_summary", None) or {}
+    groups = qs.get("groups", [])
+
+    if not groups:
+        # Fallback to structured quota_details if quota_summary is not yet populated
+        q_det = getattr(account, "quota_details", None)
+        if not q_det and hasattr(account, "get_quota_details"):
+            q_det = account.get_quota_details()
+        q_det = q_det or {}
+        gemini_q = q_det.get("gemini", {})
+        claude_q = q_det.get("3p", {}) or q_det.get("claude", {})
+
+        def _get_fraction(bucket: dict) -> float:
+            if not isinstance(bucket, dict):
+                return 1.0
+            if "fraction" in bucket:
+                return float(bucket["fraction"])
+            if "percent" in bucket:
+                return float(bucket["percent"]) / 100.0
+            return 1.0
+
+        gem_5h = _get_fraction(gemini_q.get("5h", {}))
+        gem_wk = _get_fraction(gemini_q.get("weekly", {}))
+        c_wk = _get_fraction(claude_q.get("weekly", {}))
+        c_5h = _get_fraction(claude_q.get("5h", {}))
+
+        lines.extend([
+            "",
+            "GEMINI MODELS",
+            "Models within this group: Gemini Flash, Gemini Pro",
+            "",
+            "Weekly Limit Remaining",
+            format_progress_bar(gem_wk),
+            gemini_q.get("weekly", {}).get("description") or "Quota available",
+            "",
+            "Five Hour Limit Remaining",
+            format_progress_bar(gem_5h),
+            gemini_q.get("5h", {}).get("description") or "Quota available",
+            "",
+            "",
+            "CLAUDE AND GPT MODELS",
+            "Models within this group: Claude Opus, Claude Sonnet, GPT-OSS",
+            "",
+            "Weekly Limit Remaining",
+            format_progress_bar(c_wk),
+            claude_q.get("weekly", {}).get("description") or "Quota available",
+        ])
+        if c_5h < 0.999 or claude_q.get("5h", {}).get("description"):
+            lines.extend([
+                "",
+                "Five Hour Limit Remaining",
+                format_progress_bar(c_5h),
+                claude_q.get("5h", {}).get("description") or "Quota available",
+            ])
+        return "\n".join(lines)
+
+    for i, group in enumerate(groups):
+        lines.append("")
+        g_name = (group.get("displayName") or "MODELS").upper()
+        lines.append(g_name)
+        desc = group.get("description", "")
+        if desc:
+            lines.append(desc)
+        lines.append("")
+
+        buckets = group.get("buckets", [])
+        is_first_bucket = True
+        for b in buckets:
+            b_id = b.get("bucketId", "")
+            f = float(b.get("remainingFraction", 1.0))
+            d = b.get("description", "")
+            # In official agy, 3p-5h is an internal smoothing window and is omitted when full and without notice
+            if b_id == "3p-5h" and f >= 0.999 and not d:
+                continue
+
+            if not is_first_bucket:
+                lines.append("")
+            is_first_bucket = False
+
+            b_name = b.get("displayName") or "Limit Remaining"
+            lines.append(b_name)
+            lines.append(format_progress_bar(f))
+            lines.append(d if d else "Quota available")
+
+        if not buckets and "remainingFraction" in group:
+            f = float(group.get("remainingFraction", 1.0))
+            d = group.get("description", "")
+            lines.append("Quota Limit Remaining")
+            lines.append(format_progress_bar(f))
+            lines.append(d if d else "Quota available")
+
+        # Blank separation between groups
+        if i < len(groups) - 1:
+            lines.append("")
+
+    return "\n".join(lines)
+
+
+def main():
+    """CLI entry point for switcher.py."""
+    import argparse
+    import asyncio
+    import sys
+
+    parser = argparse.ArgumentParser(
+        description="Google Antigravity Session Switcher - switch active Antigravity CLI and IDE sessions between pooled accounts."
+    )
+    parser.add_argument("target", nargs="*", default=[], help="Target account email, name, account_id, #, or 'usage' [target]")
+    parser.add_argument("--usage", "-u", action="store_true", help="View model quota usage")
+    parser.add_argument("--quota", "-q", action="store_true", help="Alias for --usage")
+    parser.add_argument("--set-primary", action="store_true", default=False, help="Also set as primary proxy account (default False)")
+    parser.add_argument("--next", "-n", action="store_true", help="Rotate to next account with highest remaining quota")
+    parser.add_argument("--list", "-l", action="store_true", help="List available accounts and status")
+    parser.add_argument("--env", "--target-env", dest="target_env", choices=["cli", "ide", "both"], default=None, help="Target destination environment (cli, ide, or both; default: both)")
+    parser.add_argument("--cli", action="store_true", help="Switch session ONLY for Antigravity CLI")
+    parser.add_argument("--ide", action="store_true", help="Switch session ONLY for Antigravity IDE")
+    parser.add_argument("--both", action="store_true", help="Switch session for BOTH Antigravity CLI and IDE (default)")
+
+    args = parser.parse_args()
+
+    async def _run():
+        pool = AccountPool()
+        pool.load_accounts()
+
+        oauth_accounts = [a for a in pool.accounts.values() if a.auth_method == "consumer" and a.refresh_token]
+        if not oauth_accounts:
+            print("❌ No Google OAuth accounts found in accounts.json.", file=sys.stderr)
+            print("Add an account first via: agy-proxy auth login", file=sys.stderr)
+            sys.exit(1)
+
+        # Usage / Quota display
+        target_args = args.target if isinstance(args.target, list) else ([args.target] if args.target else [])
+        is_usage = args.usage or args.quota or any(t in ("usage", "quota") for t in target_args)
+        real_targets = [t for t in target_args if t not in ("usage", "quota")]
+        target = real_targets[0] if real_targets else None
+
+        if is_usage:
+            if target:
+                target_acc = pool.get_account(target)
+                if not target_acc:
+                    print(f"❌ Account not found: {target}", file=sys.stderr)
+                    sys.exit(1)
+                accounts_to_show = [target_acc]
+            else:
+                # Show all OAuth accounts when no target specified
+                accounts_to_show = oauth_accounts
+
+            for target_acc in accounts_to_show:
+                try:
+                    await target_acc.fetch_quota()
+                except Exception:
+                    pass
+                print()
+                print(format_agy_quota_display(target_acc))
+                if len(accounts_to_show) > 1:
+                    print("─" * 60)
+            return
+
+        # Resolve target environment (cli, ide, both)
+        target_env = "both"
+        env_explicitly_set = False
+        if args.cli:
+            target_env = "cli"
+            env_explicitly_set = True
+        elif args.ide:
+            target_env = "ide"
+            env_explicitly_set = True
+        elif args.both:
+            target_env = "both"
+            env_explicitly_set = True
+        elif args.target_env:
+            target_env = args.target_env
+            env_explicitly_set = True
+
+        # Interactive or list mode
+        if args.list or (not real_targets and not args.next):
+            print("\nGoogle Antigravity Session Switcher")
+            print("=" * 60)
+            print(f"{'#':<3} {'Account / Email':<32} {'Name':<20} {'Status'}")
+            print("-" * 60)
+            for idx, acc in enumerate(oauth_accounts, start=1):
+                status = "Active (Primary) ⭐" if acc.is_primary else "Ready"
+                email_str = acc.email or acc.account_id
+                name_str = (acc.name or "")[:18]
+                print(f"{idx:<3} {email_str:<32} {name_str:<20} {status}")
+            print("-" * 60)
+
+            if args.list:
+                return
+
+            try:
+                choice = input("\nEnter account #, email, name, or 'next' [next]: ").strip()
+            except (KeyboardInterrupt, EOFError):
+                print("\nCancelled by user.")
+                sys.exit(0)
+
+            if not choice or choice.lower() in ("next", "n"):
+                to_next = True
+                target = None
+            else:
+                to_next = False
+                target = choice
+
+            if not env_explicitly_set:
+                try:
+                    env_input = input("Target environment [both/cli/ide] (default: both): ").strip().lower()
+                    if env_input in ("cli", "c"):
+                        target_env = "cli"
+                    elif env_input in ("ide", "i"):
+                        target_env = "ide"
+                    elif env_input in ("both", "b"):
+                        target_env = "both"
+                except (KeyboardInterrupt, EOFError):
+                    print("\nCancelled by user.")
+                    sys.exit(0)
+        else:
+            to_next = args.next
+            target = real_targets[0] if real_targets else None
+
+        env_label = "CLI only" if target_env == "cli" else ("IDE only" if target_env == "ide" else "Both CLI & IDE")
+        print(f"\nSwitching Antigravity session [{env_label}]...")
+        try:
+            acc, written = await switch_antigravity_session(
+                identifier=target,
+                pool=pool,
+                to_next=to_next,
+                target_env=target_env,
+                allow_overwrite=True,
+                set_primary=args.set_primary,
+            )
+            paths_str = "\n".join(f"  - {p}" for p in written)
+            print(f"\n✓ Activated Antigravity Session: {acc.email} ({acc.name or 'OAuth'}) [{env_label}]")
+            print(f"Updated token destinations:\n{paths_str}")
+            if target_env == "cli":
+                print("Your `agy` CLI commands will now execute under this account.")
+            elif target_env == "ide":
+                print("Your Antigravity IDE editor will now execute under this account.")
+            else:
+                print("Your `agy` CLI and IDE commands will now execute under this account.")
+            print("\nRun `python switcher.py usage` or `agy-proxy usage` to view model quota usage.")
+        except Exception as e:
+            print(f"\n❌ Failed to switch session: {e}", file=sys.stderr)
+            sys.exit(1)
+
+    try:
+        asyncio.run(_run())
+    except KeyboardInterrupt:
+        print("\nCancelled by user.")
+        sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()
