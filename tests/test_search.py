@@ -56,5 +56,12 @@ class TestWebSearchQueryExtraction(unittest.TestCase):
         self.assertIsNone(result)
 
 
+class TestTrawlerCacheAndRewriteUri(unittest.IsolatedAsyncioTestCase):
+    async def test_trawler_no_pool(self):
+        from agy_proxy.search import fetch_url_via_trawler, rewrite_uri
+        self.assertIsNone(await fetch_url_via_trawler("https://example.com", None))
+        self.assertIsNone(await rewrite_uri("https://example.com", None))
+
+
 if __name__ == "__main__":
     unittest.main()

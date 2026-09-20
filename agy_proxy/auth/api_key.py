@@ -3,11 +3,9 @@ Google AI Studio / Gemini API Key session management.
 Handles direct GenerativeLanguage REST API calls, model discovery, and key validation.
 """
 
-import logging
 import time
-from typing import Any, Dict, Optional
+from typing import Any
 
-import httpx
 
 from agy_proxy.auth.base import AccountSession
 from agy_proxy.auth.constants import GENAI_BASE_URL, USER_AGENT, logger
@@ -20,18 +18,18 @@ class AIStudioApiKeySession(AccountSession):
         self,
         account_id: str,
         refresh_token: str = "",
-        access_token: Optional[str] = None,
+        access_token: str | None = None,
         expiry_timestamp: float = 0.0,
-        email: Optional[str] = None,
-        name: Optional[str] = None,
-        picture: Optional[str] = None,
+        email: str | None = None,
+        name: str | None = None,
+        picture: str | None = None,
         auth_method: str = "api_key",
-        project_id: Optional[str] = "google-ai-studio",
-        region_code: Optional[str] = None,
+        project_id: str | None = "google-ai-studio",
+        region_code: str | None = None,
         is_primary: bool = False,
         enabled: bool = True,
-        on_token_refreshed: Optional[Any] = None,
-        api_key: Optional[str] = None,
+        on_token_refreshed: Any | None = None,
+        api_key: str | None = None,
         **kwargs,
     ):
         raw_key = api_key or refresh_token or access_token or ""
@@ -50,9 +48,9 @@ class AIStudioApiKeySession(AccountSession):
         self.project_id = project_id or "google-ai-studio"
         self.region_code = region_code
         self.expiry_timestamp = expiry_timestamp or (time.time() + 86400.0 * 365.0)
-        self.available_models: Dict[str, Any] = {}
-        self.quota_summary: Dict[str, Any] = {}
-        self.tier_info: Dict[str, Any] = {"name": "Google AI Studio"}
+        self.available_models: dict[str, Any] = {}
+        self.quota_summary: dict[str, Any] = {}
+        self.tier_info: dict[str, Any] = {"name": "Google AI Studio"}
 
     @property
     def refresh_token(self) -> str:
@@ -76,26 +74,26 @@ class AIStudioApiKeySession(AccountSession):
     async def get_valid_token(self) -> str:
         return self.api_key
 
-    async def get_auth_headers(self) -> Dict[str, str]:
+    async def get_auth_headers(self) -> dict[str, str]:
         return {
             "x-goog-api-key": self.api_key,
             "Content-Type": "application/json",
             "User-Agent": USER_AGENT,
         }
 
-    async def fetch_user_info(self) -> Dict[str, Any]:
+    async def fetch_user_info(self) -> dict[str, Any]:
         return {}
 
     async def initialize_project(self, force: bool = False) -> str:
         return self.project_id
 
-    async def fetch_cloudcode_user_info(self) -> Dict[str, Any]:
+    async def fetch_cloudcode_user_info(self) -> dict[str, Any]:
         return {}
 
-    async def fetch_quota(self) -> Dict[str, Any]:
+    async def fetch_quota(self) -> dict[str, Any]:
         return self.quota_summary
 
-    async def fetch_models(self) -> Dict[str, Any]:
+    async def fetch_models(self) -> dict[str, Any]:
         """Fetches available model catalog from Google AI Studio REST API."""
         client = await self.get_http_client()
         try:
@@ -106,7 +104,7 @@ class AIStudioApiKeySession(AccountSession):
             if resp.status_code == 200:
                 self.error_message = None
                 models_list = resp.json().get("models", [])
-                res_dict: Dict[str, Any] = {}
+                res_dict: dict[str, Any] = {}
                 for m in models_list:
                     methods = m.get("supportedGenerationMethods", [])
                     if "generateContent" not in methods:
@@ -142,8 +140,17 @@ class AIStudioApiKeySession(AccountSession):
             return False
         return True
 
-    def get_quota_details(self) -> Dict[str, Any]:
+    def get_quota_details(self) -> dict[str, Any]:
         """Calculates structured quota fractions for Google AI Studio API Key."""
+        is_gemini_limited = self.is_rate_limited("gemini")
+        now = time.time()
+        max_limit = 0.0
+        for rk, rv in self.rate_limited_models.items():
+            if not any(sub in rk.lower() for sub in ["claude", "gpt", "3p", "anthropic", "sonnet", "opus"]):
+                if rv > max_limit:
+                    max_limit = rv
+        cooldown = max(0, int(max_limit - now)) if max_limit > now else 0
+
         return {
             "gemini": {
                 "fraction": 1.0,
@@ -151,7 +158,8 @@ class AIStudioApiKeySession(AccountSession):
                 "reset_time": None,
                 "window": "unlimited",
                 "description": "Google AI Studio API Key (PayG / Free)",
-                "is_rate_limited": self.is_rate_limited("gemini"),
+                "is_rate_limited": is_gemini_limited,
+                "cooldown_seconds": cooldown,
                 "5h": {"fraction": 1.0, "percent": 100.0, "reset_time": None, "description": "PayG"},
                 "weekly": {"fraction": 1.0, "percent": 100.0, "reset_time": None, "description": "PayG"},
             },
@@ -162,20 +170,21 @@ class AIStudioApiKeySession(AccountSession):
                 "window": "n/a",
                 "description": "API Key accounts do not support Claude / 3P models",
                 "is_rate_limited": False,
+                "cooldown_seconds": 0,
                 "5h": {"fraction": 0.0, "percent": 0.0, "reset_time": None, "description": ""},
                 "weekly": {"fraction": 0.0, "percent": 0.0, "reset_time": None, "description": ""},
             },
         }
 
-    def get_model_quota(self, model: str) -> Dict[str, Any]:
+    def get_model_quota(self, model: str) -> dict[str, Any]:
         """Returns the effective quota fraction and reset time for an AI Studio model."""
         if not self.is_model_supported(model):
             return {"remainingFraction": 0.0, "resetTime": None, "window": "n/a", "description": "Unsupported model"}
         return {"remainingFraction": 1.0, "resetTime": None, "window": "unlimited", "description": "API Key"}
 
-    async def validate_live(self) -> Dict[str, Any]:
+    async def validate_live(self) -> dict[str, Any]:
         """Validates API key against Google AI Studio API."""
-        result: Dict[str, Any] = {"token_ok": None, "error": "", "quota_summary": {}}
+        result: dict[str, Any] = {"token_ok": None, "error": "", "quota_summary": {}}
         try:
             client = await self.get_http_client()
             resp = await client.get(
@@ -191,7 +200,7 @@ class AIStudioApiKeySession(AccountSession):
             result["error"] = str(e)[:60]
         return result
 
-    async def test_connection(self) -> Dict[str, Any]:
+    async def test_connection(self) -> dict[str, Any]:
         """Tests whether the API key is active and valid."""
         res = await self.validate_live()
         ok = bool(res.get("token_ok"))
@@ -204,7 +213,7 @@ class AIStudioApiKeySession(AccountSession):
         else:
             return {"ok": False, "error": res.get("error") or "API key validation failed"}
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         d = super().to_dict()
         d["api_key"] = f"{self.api_key[:6]}...{self.api_key[-4:]}" if len(self.api_key) > 10 else "api_key"
         d["tier_name"] = "Google AI Studio"

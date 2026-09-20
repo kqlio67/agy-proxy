@@ -8,18 +8,15 @@ import json
 import logging
 import os
 import shutil
-import stat
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from agy_proxy.auth import (
     DEFAULT_TOKEN_FILE,
     AccountPool,
     AccountSession,
-    AntigravityOAuthSession,
-    find_existing_token_file,
     get_candidate_token_files,
     is_candidate_token_file,
 )
@@ -27,7 +24,7 @@ from agy_proxy.auth import (
 logger = logging.getLogger("agy_proxy.switcher")
 
 
-def resolve_antigravity_destinations(target_env: str = "both") -> List[Path]:
+def resolve_antigravity_destinations(target_env: str = "both") -> list[Path]:
     """
     Resolves target destination paths for Google Antigravity tokens based on the target environment:
     - 'cli': ~/.gemini/antigravity-cli/antigravity-oauth-token (or ANTIGRAVITY_TOKEN_FILE)
@@ -47,12 +44,12 @@ def resolve_antigravity_destinations(target_env: str = "both") -> List[Path]:
         return [cli_dest, ide_dest]
 
 
-def get_antigravity_token_destinations() -> List[Path]:
+def get_antigravity_token_destinations() -> list[Path]:
     """
     Returns existing Antigravity token destinations on the system,
     or the default ~/.gemini/antigravity-cli/antigravity-oauth-token path if none exist yet.
     """
-    existing: List[Path] = []
+    existing: list[Path] = []
     for cand in get_candidate_token_files():
         try:
             if cand.is_file() and cand.stat().st_size > 0:
@@ -65,16 +62,16 @@ def get_antigravity_token_destinations() -> List[Path]:
     return [DEFAULT_TOKEN_FILE]
 
 
-def get_active_antigravity_accounts(pool: AccountPool) -> Tuple[Optional[AccountSession], Optional[AccountSession]]:
+def get_active_antigravity_accounts(pool: AccountPool) -> tuple[AccountSession | None, AccountSession | None]:
     """Reads the Antigravity token files and resolves which accounts are currently active in CLI and IDE."""
     cli_path = resolve_antigravity_destinations("cli")[0]
     ide_path = resolve_antigravity_destinations("ide")[0]
 
-    def _resolve(token_path: Path) -> Optional[AccountSession]:
+    def _resolve(token_path: Path) -> AccountSession | None:
         if not token_path or not token_path.is_file() or token_path.stat().st_size == 0:
             return None
         try:
-            with open(token_path, "r", encoding="utf-8") as f:
+            with open(token_path, encoding="utf-8") as f:
                 tok_data = json.load(f)
             file_refresh = (tok_data.get("token") or {}).get("refresh_token", "").strip()
             if file_refresh:
@@ -88,7 +85,7 @@ def get_active_antigravity_accounts(pool: AccountPool) -> Tuple[Optional[Account
     return _resolve(cli_path), _resolve(ide_path)
 
 
-def format_antigravity_token_payload(account: AccountSession) -> Dict[str, Any]:
+def format_antigravity_token_payload(account: AccountSession) -> dict[str, Any]:
     """Formats an AccountSession into the exact official token JSON structure expected by Google Antigravity CLI and IDE.
     Matches ~/.gemini/antigravity-cli/antigravity-oauth-token schema strictly with zero extra fields.
     """
@@ -115,11 +112,11 @@ def format_antigravity_token_payload(account: AccountSession) -> Dict[str, Any]:
 
 async def activate_account_in_antigravity(
     account: AccountSession,
-    target_paths: Optional[List[Path]] = None,
+    target_paths: list[Path] | None = None,
     target_env: str = "both",
     force_refresh: bool = False,
     allow_overwrite: bool = False,
-) -> List[Path]:
+) -> list[Path]:
     """
     Ensures tokens are refreshed and writes the active session payload to Antigravity token files.
     Sets file permissions to 0o600.
@@ -172,10 +169,10 @@ async def activate_account_in_antigravity(
 
     destinations = target_paths if target_paths is not None else resolve_antigravity_destinations(target_env)
     payload = format_antigravity_token_payload(account)
-    written: List[Path] = []
+    written: list[Path] = []
 
     for dest in destinations:
-        tmp_dest: Optional[Path] = None
+        tmp_dest: Path | None = None
         try:
             dest.parent.mkdir(parents=True, exist_ok=True)
             try:
@@ -219,14 +216,14 @@ async def activate_account_in_antigravity(
 
 
 async def switch_antigravity_session(
-    identifier: Optional[str] = None,
-    pool: Optional[AccountPool] = None,
+    identifier: str | None = None,
+    pool: AccountPool | None = None,
     to_next: bool = False,
-    target_paths: Optional[List[Path]] = None,
+    target_paths: list[Path] | None = None,
     target_env: str = "both",
     allow_overwrite: bool = True,
     set_primary: bool = False,
-) -> Tuple[AccountSession, List[Path]]:
+) -> tuple[AccountSession, list[Path]]:
     """
     Switches active Antigravity session to specified account or the next available account.
 
@@ -247,7 +244,7 @@ async def switch_antigravity_session(
     if not oauth_accounts:
         raise RuntimeError("No Google OAuth accounts found in accounts.json.")
 
-    selected_account: Optional[AccountSession] = None
+    selected_account: AccountSession | None = None
 
     if to_next:
         # Find the next best account with highest quota

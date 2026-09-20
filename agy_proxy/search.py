@@ -11,7 +11,7 @@ import asyncio
 import logging
 import re
 import urllib.parse
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 import httpx
 
 logger = logging.getLogger("agy_proxy.search")
@@ -27,8 +27,8 @@ DEFAULT_SEARCH_HEADERS = {
 }
 
 
-async def _search_duckduckgo(client: httpx.AsyncClient, query: str, max_results: int) -> List[Dict[str, str]]:
-    results: List[Dict[str, str]] = []
+async def _search_duckduckgo(client: httpx.AsyncClient, query: str, max_results: int) -> list[dict[str, str]]:
+    results: list[dict[str, str]] = []
     # Tier 1: HTML POST
     try:
         url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(query)}"
@@ -82,8 +82,8 @@ async def _search_duckduckgo(client: httpx.AsyncClient, query: str, max_results:
     return results
 
 
-async def _search_bing(client: httpx.AsyncClient, query: str, max_results: int) -> List[Dict[str, str]]:
-    results: List[Dict[str, str]] = []
+async def _search_bing(client: httpx.AsyncClient, query: str, max_results: int) -> list[dict[str, str]]:
+    results: list[dict[str, str]] = []
     try:
         url = f"https://www.bing.com/search?q={urllib.parse.quote(query)}"
         resp = await client.get(url, headers=DEFAULT_SEARCH_HEADERS)
@@ -105,8 +105,8 @@ async def _search_bing(client: httpx.AsyncClient, query: str, max_results: int) 
     return results
 
 
-async def _search_brave(client: httpx.AsyncClient, query: str, max_results: int) -> List[Dict[str, str]]:
-    results: List[Dict[str, str]] = []
+async def _search_brave(client: httpx.AsyncClient, query: str, max_results: int) -> list[dict[str, str]]:
+    results: list[dict[str, str]] = []
     try:
         url = f"https://search.brave.com/search?q={urllib.parse.quote(query)}"
         resp = await client.get(url, headers=DEFAULT_SEARCH_HEADERS)
@@ -130,7 +130,7 @@ async def search_google_grounding(
     query: str,
     max_results: int = 5,
     timeout: float = 10.0,
-) -> List[Dict[str, str]]:
+) -> list[dict[str, str]]:
     """Performs live web search using Google's native Grounding tool (gemini-3.1-flash-lite / googleSearch)."""
     if not account_pool or not query:
         return []
@@ -195,7 +195,7 @@ async def search_google_grounding(
                 cand = candidates[0]
                 grounding = cand.get("groundingMetadata", {})
                 chunks = grounding.get("groundingChunks", [])
-                results: List[Dict[str, str]] = []
+                results: list[dict[str, str]] = []
                 parts = cand.get("content", {}).get("parts", [])
                 summary_text = parts[0].get("text", "") if parts else ""
 
@@ -221,12 +221,12 @@ async def search_google_grounding(
 
 async def search_multi_engine(
     query: str,
-    allowed_domains: Optional[List[str]] = None,
-    blocked_domains: Optional[List[str]] = None,
+    allowed_domains: list[str] | None = None,
+    blocked_domains: list[str] | None = None,
     max_results: int = 10,
     timeout: float = 8.0,
-    account_pool: Optional[Any] = None,
-) -> List[Dict[str, str]]:
+    account_pool: Any | None = None,
+) -> list[dict[str, str]]:
     """
     Executes concurrent web search across Google Grounding, DuckDuckGo, Bing, and Brave.
     Deduplicates URLs and ranks by relevance.
@@ -252,7 +252,7 @@ async def search_multi_engine(
             domain_filter = " OR ".join(f"site:{d}" for d in allowed_domains[:3])
             effective_query = f"({domain_filter}) {effective_query}"
 
-    all_raw_results: List[Dict[str, str]] = []
+    all_raw_results: list[dict[str, str]] = []
 
     async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
         # Fan-out to multiple search engines in parallel
@@ -268,8 +268,8 @@ async def search_multi_engine(
                 all_raw_results.extend(res)
 
     # Deduplicate by normalized URL
-    seen_urls: Set[str] = set()
-    deduped_results: List[Dict[str, str]] = []
+    seen_urls: set[str] = set()
+    deduped_results: list[dict[str, str]] = []
 
     for r in all_raw_results:
         raw_url = r.get("url", "").strip()
@@ -306,7 +306,49 @@ async def search_multi_engine(
 search_duckduckgo = search_multi_engine
 
 
-async def fetch_url_via_trawler(url: str, account_pool: Optional[Any] = None, timeout: float = 12.0) -> Optional[str]:
+async def rewrite_uri(
+    original_uri: str,
+    account_pool: Any | None = None,
+    timeout: float = 8.0,
+) -> str | None:
+    """
+    Calls Google's internal URI rewriting service (v1internal:rewriteUri).
+    """
+    if not account_pool or not getattr(account_pool, "accounts", None):
+        return None
+    try:
+        acc = next(
+            (a for a in account_pool.accounts.values() if getattr(a, "enabled", True) and getattr(a, "auth_method", "") != "api_key"),
+            None,
+        )
+        if not acc:
+            return None
+        from agy_proxy.auth import CLOUDCODE_BASE_URL, USER_AGENT
+        token = await acc.get_valid_token()
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+            "User-Agent": USER_AGENT,
+        }
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            resp = await client.post(
+                f"{CLOUDCODE_BASE_URL}/v1internal:rewriteUri",
+                headers=headers,
+                json={"originalUri": original_uri},
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                return data.get("rewrittenUri") or original_uri
+    except Exception as e:
+        logger.debug("rewriteUri error for %s: %s", original_uri, e)
+    return None
+
+
+async def fetch_url_via_trawler(
+    url: str,
+    account_pool: Any | None = None,
+    timeout: float = 12.0,
+) -> str | None:
     """
     Fetches web content using Google's native internal crawler endpoint (v1internal:fetchFromTrawlerCache).
     Requests are made directly from Googlebot / Jetski crawler infrastructure, bypassing Cloudflare,
@@ -315,20 +357,23 @@ async def fetch_url_via_trawler(url: str, account_pool: Optional[Any] = None, ti
     if not account_pool or not getattr(account_pool, "accounts", None):
         return None
     try:
-        acc = next((a for a in account_pool.accounts.values() if getattr(a, "enabled", True)), None)
+        acc = next(
+            (a for a in account_pool.accounts.values() if getattr(a, "enabled", True) and getattr(a, "auth_method", "") != "api_key"),
+            None,
+        )
         if not acc:
             return None
-        from agy_proxy.auth import USER_AGENT
+        from agy_proxy.auth import CLOUDCODE_BASE_URL, USER_AGENT
         token = await acc.get_valid_token()
         headers = {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
             "User-Agent": USER_AGENT,
         }
-        payload = {"url": url, "liveFetch": True}
+        payload = {"url": url}
         async with httpx.AsyncClient(timeout=timeout) as client:
             resp = await client.post(
-                "https://daily-cloudcode-pa.googleapis.com/v1internal:fetchFromTrawlerCache",
+                f"{CLOUDCODE_BASE_URL}/v1internal:fetchFromTrawlerCache",
                 headers=headers,
                 json=payload,
             )

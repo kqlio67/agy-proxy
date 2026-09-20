@@ -5,15 +5,15 @@ and interfaces directly with Google's StreamGenerate endpoint.
 """
 
 import asyncio
+import codecs
 import inspect
 import json
-import logging
-import os
 import re
 import time
 import urllib.request as _urllib_req
 import uuid
-from typing import Any, AsyncGenerator, Dict, List, Optional, Union
+from typing import Any
+from collections.abc import AsyncGenerator
 
 import httpx
 import websockets
@@ -22,7 +22,7 @@ from agy_proxy.auth.base import AccountSession
 from agy_proxy.auth.constants import logger
 
 
-def extract_cookies_from_raw(raw: Union[str, Dict[str, Any], List[Any]]) -> Dict[str, str]:
+def extract_cookies_from_raw(raw: str | dict[str, Any] | list[Any]) -> dict[str, str]:
     """
     Extracts Google session cookies from:
       - Cookie header string ("Cookie: __Secure-1PSID=...; SID=...")
@@ -32,11 +32,11 @@ def extract_cookies_from_raw(raw: Union[str, Dict[str, Any], List[Any]]) -> Dict
       - DevTools cookie export JSON list ([{"name": "...", "value": "..."}, ...])
       - Plain dictionary of cookies ({"__Secure-1PSID": "..."})
     """
-    cookies: Dict[str, str] = {}
+    cookies: dict[str, str] = {}
     if not raw:
         return cookies
 
-    def _parse_cookie_header(header_val: str) -> Dict[str, str]:
+    def _parse_cookie_header(header_val: str) -> dict[str, str]:
         res = {}
         for part in re.split(r'[;\n]+', header_val):
             part = part.strip()
@@ -126,7 +126,7 @@ class GeminiWebSession(AccountSession):
     # Build label — extracted from first StreamGenerate response or hard-coded fallback
     _DEFAULT_BL = "boq_assistant-bard-web-server_20260907.07_p3"
 
-    MODEL_CONFIGS: Dict[str, Dict[str, Any]] = {
+    MODEL_CONFIGS: dict[str, dict[str, Any]] = {
         "gemini-3.5-flash-lite-extended": {
             "model_id": 6,
             "mode": 2,
@@ -169,18 +169,18 @@ class GeminiWebSession(AccountSession):
         self,
         account_id: str,
         refresh_token: str = "",
-        access_token: Optional[str] = None,
+        access_token: str | None = None,
         expiry_timestamp: float = 0.0,
-        email: Optional[str] = None,
-        name: Optional[str] = None,
-        picture: Optional[str] = None,
+        email: str | None = None,
+        name: str | None = None,
+        picture: str | None = None,
         auth_method: str = "gemini_web",
-        project_id: Optional[str] = None,
-        region_code: Optional[str] = None,
+        project_id: str | None = None,
+        region_code: str | None = None,
         is_primary: bool = False,
         enabled: bool = True,
-        on_token_refreshed: Optional[Any] = None,
-        cookies: Optional[Dict[str, str]] = None,
+        on_token_refreshed: Any | None = None,
+        cookies: dict[str, str] | None = None,
         cdp_port: int = 9222,
         **kwargs,
     ):
@@ -194,21 +194,23 @@ class GeminiWebSession(AccountSession):
             enabled=enabled,
             on_token_refreshed=on_token_refreshed,
         )
-        self._cookies: Dict[str, str] = cookies or {}
-        self._at_token: Optional[str] = None
-        self._f_sid: Optional[str] = None
+        self._cookies: dict[str, str] = cookies or {}
+        self._at_token: str | None = None
+        self._f_sid: str | None = None
         self._bl_token: str = self._DEFAULT_BL
-        self._conv_id: Optional[str] = None
-        self._resp_id: Optional[str] = None
-        self._rc_id: Optional[str] = None
-        self._continuation_token: Optional[str] = None
+        self._conv_id: str | None = None
+        self._resp_id: str | None = None
+        self._rc_id: str | None = None
+        self._continuation_token: str | None = None
         self._turn_index: int = 0
+        # Multi-session tracking: session_id -> {conv_id, resp_id, rc_id, continuation_token, turn_index, last_active}
+        self._sessions: dict[str, dict[str, Any]] = {}
         self._req_id: int = 4257099
         self.cdp_port: int = cdp_port
-        self.project_id: Optional[str] = project_id
-        self.region_code: Optional[str] = region_code
+        self.project_id: str | None = project_id
+        self.region_code: str | None = region_code
         self.expiry_timestamp: float = expiry_timestamp or (time.time() + 86400.0)
-        self.available_models: Dict[str, Any] = {
+        self.available_models: dict[str, Any] = {
             "gemini-3.5-flash-lite-extended": {"displayName": "Gemini 3.5 Flash-Lite Extended (Web Thinking)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
             "gemini-3.5-flash-lite": {"displayName": "Gemini 3.5 Flash-Lite (Web)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
             "gemini-3.8-flash-extended": {"displayName": "Gemini 3.8 Flash Extended (Web Thinking)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
@@ -222,11 +224,39 @@ class GeminiWebSession(AccountSession):
             "gemini-2.5-pro": {"displayName": "Gemini 2.5 Pro (Web)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
             "gemini-2.5-flash": {"displayName": "Gemini 2.5 Flash (Web)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
         }
-        self.quota_summary: Dict[str, Any] = {}
-        self.tier_info: Dict[str, Any] = {"name": "Gemini Web (Browser)"}
+        self.quota_summary: dict[str, Any] = {}
+        self.tier_info: dict[str, Any] = {"name": "Gemini Web (Browser)"}
 
-    def reset_conversation(self) -> None:
-        """Resets the active conversation context for this web session."""
+    def get_session_context(self, session_id: str | None = None) -> dict[str, Any]:
+        """Gets or initializes the conversation state for a specific session_id."""
+        sid = (session_id or "__default__").strip()
+        now = time.time()
+        # Clean up sessions inactive for > 1 hour
+        expired = [k for k, v in self._sessions.items() if now - v.get("last_active", 0.0) > 3600.0]
+        for k in expired:
+            self._sessions.pop(k, None)
+
+        if sid not in self._sessions:
+            if len(self._sessions) >= 100:
+                oldest_key = min(self._sessions.keys(), key=lambda k: self._sessions[k].get("last_active", 0.0))
+                self._sessions.pop(oldest_key, None)
+            self._sessions[sid] = {
+                "conv_id": None,
+                "resp_id": None,
+                "rc_id": None,
+                "continuation_token": None,
+                "turn_index": 0,
+                "last_active": now,
+            }
+        return self._sessions[sid]
+
+    def reset_conversation(self, session_id: str | None = None) -> None:
+        """Resets the active conversation context for a session, or all sessions if session_id is None."""
+        if session_id:
+            sid = session_id.strip()
+            self._sessions.pop(sid, None)
+        else:
+            self._sessions.clear()
         self._conv_id = None
         self._resp_id = None
         self._rc_id = None
@@ -238,7 +268,7 @@ class GeminiWebSession(AccountSession):
         self._req_id += random.randint(1000000, 2500000)
         return self._req_id
 
-    def get_model_config(self, model: Optional[str]) -> Dict[str, Any]:
+    def get_model_config(self, model: str | None) -> dict[str, Any]:
         """Resolves model name or alias to model ID, mode (standard/extended), and hash."""
         if not model:
             return self.MODEL_CONFIGS["gemini-3.5-flash-lite-extended"]
@@ -282,12 +312,15 @@ class GeminiWebSession(AccountSession):
     # ------------------------------------------------------------------ #
     # CDP cookie extraction
     # ------------------------------------------------------------------ #
-    async def refresh_cookies_from_browser(self) -> bool:
+    async def refresh_cookies_from_browser(self, force: bool = False) -> bool:
         """
         Connects to Chrome DevTools Protocol on localhost:<cdp_port> and
         retrieves all decrypted google.com cookies.
         Returns True if at least one auth cookie was extracted.
         """
+        if not self.enabled and not force:
+            logger.debug("[GeminiWeb] Skipping CDP cookie refresh for disabled session %s", self.account_id)
+            return False
         try:
             # 1. Discover the live WebSocket debugger URL
             version_url = f"http://127.0.0.1:{self.cdp_port}/json/version"
@@ -311,7 +344,7 @@ class GeminiWebSession(AccountSession):
                 result = json.loads(raw)
 
             cookies_list = result.get("result", {}).get("cookies", [])
-            new_cookies: Dict[str, str] = {}
+            new_cookies: dict[str, str] = {}
             for cookie in cookies_list:
                 domain = cookie.get("domain", "")
                 name = cookie.get("name", "")
@@ -360,7 +393,7 @@ class GeminiWebSession(AccountSession):
 
             # If no AT token was extracted from open tab, fetch via /app
             if not self._at_token:
-                await self._fetch_at_token()
+                await self._fetch_at_token(force=force)
 
             return True
 
@@ -368,7 +401,7 @@ class GeminiWebSession(AccountSession):
             logger.warning("[GeminiWeb] CDP cookie extraction failed: %s", e)
             return False
 
-    def set_cookies_manual(self, cookies: Dict[str, str]) -> None:
+    def set_cookies_manual(self, cookies: dict[str, str]) -> None:
         """Allows manually providing cookies when browser is not available."""
         self._cookies = dict(cookies)
         self._at_token = None
@@ -396,6 +429,8 @@ class GeminiWebSession(AccountSession):
         return updated
 
     async def _notify_token_refreshed(self) -> None:
+        if not self.enabled:
+            return
         if self.on_token_refreshed:
             try:
                 if inspect.iscoroutinefunction(self.on_token_refreshed):
@@ -419,8 +454,10 @@ class GeminiWebSession(AccountSession):
     # ------------------------------------------------------------------ #
     # AT (CSRF) token
     # ------------------------------------------------------------------ #
-    async def _fetch_at_token(self) -> Optional[str]:
+    async def _fetch_at_token(self, force: bool = False) -> str | None:
         """Fetches the Gemini web app page and extracts the AT/SNlM0e CSRF token."""
+        if not self.enabled and not force:
+            return None
         if not self._cookies.get("__Secure-1PSID"):
             return None
         client = await self.get_http_client()
@@ -441,9 +478,9 @@ class GeminiWebSession(AccountSession):
 
             if resp.status_code != 200:
                 logger.warning("[GeminiWeb] /app returned HTTP %d (cookies may be expired)", resp.status_code)
-                if self.cdp_port:
+                if self.cdp_port and (self.enabled or force):
                     logger.info("[GeminiWeb] Attempting cookie refresh via CDP (port %d)...", self.cdp_port)
-                    if await self.refresh_cookies_from_browser():
+                    if await self.refresh_cookies_from_browser(force=force):
                         await self._notify_token_refreshed()
                         # Retry /app with fresh cookies
                         retry_resp = await client.get(
@@ -499,27 +536,33 @@ class GeminiWebSession(AccountSession):
             logger.warning("[GeminiWeb] Error fetching AT token: %s", e)
             return None
 
-    async def get_at_token(self, force_refresh: bool = False) -> Optional[str]:
+    async def get_at_token(self, force_refresh: bool = False) -> str | None:
         """Returns cached AT token or fetches fresh one."""
+        if not self.enabled and not force_refresh:
+            return self._at_token
         if self._at_token and not force_refresh:
             return self._at_token
-        return await self._fetch_at_token()
+        return await self._fetch_at_token(force=force_refresh)
 
     # ------------------------------------------------------------------ #
     # Auth interface (compatible with BaseAccountSession)
     # ------------------------------------------------------------------ #
     async def refresh_access_token(self, force: bool = False) -> str:
         """For GeminiWeb, refreshing means updating cookies from CDP."""
+        if not self.enabled and not force:
+            return ""
         if force or not self._cookies.get("__Secure-1PSID"):
-            await self.refresh_cookies_from_browser()
+            await self.refresh_cookies_from_browser(force=force)
         return ""
 
     async def get_valid_token(self) -> str:
+        if not self.enabled:
+            return ""
         if not self._cookies.get("__Secure-1PSID"):
             await self.refresh_cookies_from_browser()
         return ""
 
-    async def get_auth_headers(self) -> Dict[str, str]:
+    async def get_auth_headers(self) -> dict[str, str]:
         return {
             "Cookie": self._build_cookie_header(),
             "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
@@ -531,19 +574,19 @@ class GeminiWebSession(AccountSession):
             "X-Same-Domain": "1",
         }
 
-    async def fetch_user_info(self) -> Dict[str, Any]:
+    async def fetch_user_info(self) -> dict[str, Any]:
         return {"email": self.email, "name": self.name}
 
     async def initialize_project(self, force: bool = False) -> str:
         return "gemini-web"
 
-    async def fetch_cloudcode_user_info(self) -> Dict[str, Any]:
+    async def fetch_cloudcode_user_info(self) -> dict[str, Any]:
         return {}
 
-    async def fetch_quota(self) -> Dict[str, Any]:
+    async def fetch_quota(self) -> dict[str, Any]:
         return self.quota_summary
 
-    async def fetch_models(self) -> Dict[str, Any]:
+    async def fetch_models(self) -> dict[str, Any]:
         return self.available_models
 
     def is_model_supported(self, model_name: str) -> bool:
@@ -553,7 +596,16 @@ class GeminiWebSession(AccountSession):
             return False
         return True
 
-    def get_quota_details(self) -> Dict[str, Any]:
+    def get_quota_details(self) -> dict[str, Any]:
+        is_gemini_limited = self.is_rate_limited("gemini")
+        now = time.time()
+        max_limit = 0.0
+        for rk, rv in self.rate_limited_models.items():
+            if not any(sub in rk.lower() for sub in ["claude", "gpt", "3p", "anthropic", "sonnet", "opus"]):
+                if rv > max_limit:
+                    max_limit = rv
+        cooldown = max(0, int(max_limit - now)) if max_limit > now else 0
+
         return {
             "gemini": {
                 "fraction": 1.0,
@@ -561,7 +613,8 @@ class GeminiWebSession(AccountSession):
                 "reset_time": None,
                 "window": "browser",
                 "description": "Gemini Web (Browser Session)",
-                "is_rate_limited": self.is_rate_limited("gemini"),
+                "is_rate_limited": is_gemini_limited,
+                "cooldown_seconds": cooldown,
                 "5h": {"fraction": 1.0, "percent": 100.0, "reset_time": None, "description": "Browser"},
                 "weekly": {"fraction": 1.0, "percent": 100.0, "reset_time": None, "description": "Browser"},
             },
@@ -572,12 +625,13 @@ class GeminiWebSession(AccountSession):
                 "window": "n/a",
                 "description": "Gemini Web does not support Claude / 3P models",
                 "is_rate_limited": False,
+                "cooldown_seconds": 0,
                 "5h": {"fraction": 0.0, "percent": 0.0, "reset_time": None, "description": ""},
                 "weekly": {"fraction": 0.0, "percent": 0.0, "reset_time": None, "description": ""},
             },
         }
 
-    def get_model_quota(self, model: str) -> Dict[str, Any]:
+    def get_model_quota(self, model: str) -> dict[str, Any]:
         if not self.is_model_supported(model):
             return {"remainingFraction": 0.0, "resetTime": None, "window": "n/a", "description": "Unsupported model"}
         return {"remainingFraction": 1.0, "resetTime": None, "window": "browser", "description": "Browser Session"}
@@ -589,20 +643,32 @@ class GeminiWebSession(AccountSession):
         self,
         user_message: str,
         *,
-        model_config: Dict[str, Any],
+        model_config: dict[str, Any],
         client_uuid: str,
-        image_parts: Optional[List[Dict[str, Any]]] = None,
-    ) -> Dict[str, str]:
+        conv_id: str | None = None,
+        resp_id: str | None = None,
+        rc_id: str | None = None,
+        continuation_token: str | None = None,
+        turn_index: int = 0,
+        image_parts: list[dict[str, Any]] | None = None,
+    ) -> dict[str, str]:
         """
         Builds the URL-encoded form body for StreamGenerate matching real Google Web client.
         Constructs the exact 99-element inner list including turn index and model configuration.
         """
+        # Fall back to instance attributes if not explicitly passed
+        active_conv_id = conv_id if conv_id is not None else self._conv_id
+        active_resp_id = resp_id if resp_id is not None else self._resp_id
+        active_rc_id = rc_id if rc_id is not None else self._rc_id
+        active_continuation = continuation_token if continuation_token is not None else self._continuation_token
+        active_turn_index = turn_index if (turn_index != 0 or not active_conv_id) else self._turn_index
+
         # Initialize 99 elements to None
-        inner: List[Any] = [None] * 99
+        inner: list[Any] = [None] * 99
 
         # Image inline_data parts if any
         if image_parts:
-            content_parts: List[Any] = []
+            content_parts: list[Any] = []
             for img in image_parts:
                 content_parts.append([None, None, None, None, [img.get("data", ""), img.get("mime_type", "image/png"), None, None, None, None, img.get("name", "image")]])
             content_parts.append([user_message, 0, None, None, None, None, 0])
@@ -611,13 +677,13 @@ class GeminiWebSession(AccountSession):
             inner[0] = [user_message, 0, None, None, None, None, 0]
 
         # Turn context
-        if self._conv_id and self._resp_id:
+        if active_conv_id and active_resp_id:
             ctx = [
-                self._conv_id,
-                self._resp_id,
-                self._rc_id or "",
+                active_conv_id,
+                active_resp_id,
+                active_rc_id or "",
                 None, None, None, None, None, None,
-                self._continuation_token or "",
+                active_continuation or "",
             ]
         else:
             ctx = ["", "", "", None, None, None, None, None, None, ""]
@@ -630,7 +696,7 @@ class GeminiWebSession(AccountSession):
         inner[7] = 1
         inner[10] = 1
         inner[11] = 0
-        inner[17] = [[self._turn_index]]
+        inner[17] = [[active_turn_index]]
         inner[18] = 0
         inner[27] = 1
         inner[30] = [4]
@@ -660,10 +726,11 @@ class GeminiWebSession(AccountSession):
         self,
         user_message: str,
         *,
-        model: Optional[str] = None,
-        image_parts: Optional[List[Dict[str, Any]]] = None,
+        model: str | None = None,
+        session_id: str | None = None,
+        image_parts: list[dict[str, Any]] | None = None,
         timeout: float = 120.0,
-    ) -> AsyncGenerator[Dict[str, Any], None]:
+    ) -> AsyncGenerator[dict[str, Any], None]:
         """
         Calls Gemini Web StreamGenerate endpoint with model and turn tracking.
         Yields parsed chunks:
@@ -672,6 +739,18 @@ class GeminiWebSession(AccountSession):
             {"type": "done", "conv_id": "...", "resp_id": "...", "model": "..."}
             {"type": "error", "message": "..."}
         """
+        if not self.enabled:
+            yield {"type": "error", "message": "Gemini Web session is paused/disabled."}
+            return
+
+        # Retrieve or initialize conversation state for this session
+        sess_ctx = self.get_session_context(session_id)
+        conv_id = sess_ctx.get("conv_id")
+        resp_id = sess_ctx.get("resp_id")
+        rc_id = sess_ctx.get("rc_id")
+        continuation_token = sess_ctx.get("continuation_token")
+        turn_index = sess_ctx.get("turn_index", 0)
+
         # 1. Ensure we have cookies
         if not self._cookies.get("__Secure-1PSID"):
             refreshed = await self.refresh_cookies_from_browser()
@@ -708,6 +787,11 @@ class GeminiWebSession(AccountSession):
                 user_message,
                 model_config=model_config,
                 client_uuid=client_uuid,
+                conv_id=conv_id,
+                resp_id=resp_id,
+                rc_id=rc_id,
+                continuation_token=continuation_token,
+                turn_index=turn_index,
                 image_parts=image_parts,
             )
 
@@ -781,6 +865,9 @@ class GeminiWebSession(AccountSession):
                         return
 
                     if response.status_code != 200:
+                        if conv_id:
+                            logger.warning("[GeminiWeb] Continuation request failed with HTTP %d, resetting session %s", response.status_code, session_id)
+                            self.reset_conversation(session_id)
                         err = await response.aread()
                         yield {"type": "error", "message": f"StreamGenerate returned HTTP {response.status_code}: {err.decode('utf-8', 'ignore')[:200]}"}
                         return
@@ -788,18 +875,20 @@ class GeminiWebSession(AccountSession):
                     accumulated_text = ""
                     accumulated_thinking = ""
                     prev_text = ""
-                    new_conv_id: Optional[str] = None
-                    new_resp_id: Optional[str] = None
-                    new_rc_id: Optional[str] = None
-                    detected_model: Optional[str] = None
+                    new_conv_id: str | None = None
+                    new_resp_id: str | None = None
+                    new_rc_id: str | None = None
+                    detected_continuation: str | None = None
+                    detected_model: str | None = None
 
                     text_buffer = ""
                     has_stripped_xssi = False
+                    utf8_decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
 
                     async for chunk_bytes in response.aiter_bytes():
                         if not chunk_bytes:
                             continue
-                        text_chunk = chunk_bytes.decode("utf-8", errors="replace")
+                        text_chunk = utf8_decoder.decode(chunk_bytes, final=False)
                         text_buffer += text_chunk
 
                         if not has_stripped_xssi:
@@ -842,7 +931,8 @@ class GeminiWebSession(AccountSession):
                                                     try:
                                                         if isinstance(inner, list) and len(inner) > 2 and isinstance(inner[2], dict):
                                                             if "26" in inner[2]:
-                                                                self._continuation_token = inner[2]["26"]
+                                                                detected_continuation = inner[2]["26"]
+                                                                self._continuation_token = detected_continuation
                                                     except Exception:
                                                         pass
 
@@ -896,6 +986,9 @@ class GeminiWebSession(AccountSession):
                                 except (json.JSONDecodeError, IndexError, TypeError):
                                     pass
 
+                    # Flush any remaining bytes from decoder
+                    text_buffer += utf8_decoder.decode(b"", final=True)
+
                     # Process leftover buffer
                     leftover = text_buffer.strip()
                     if leftover.startswith("["):
@@ -922,19 +1015,28 @@ class GeminiWebSession(AccountSession):
                             pass
 
                     # Update conversation state
-                    self._turn_index += 1
+                    turn_index += 1
+                    sess_ctx["turn_index"] = turn_index
                     if new_conv_id:
+                        sess_ctx["conv_id"] = new_conv_id
                         self._conv_id = new_conv_id
                     if new_resp_id:
+                        sess_ctx["resp_id"] = new_resp_id
                         self._resp_id = new_resp_id
                     if new_rc_id:
+                        sess_ctx["rc_id"] = new_rc_id
                         self._rc_id = new_rc_id
+                    if detected_continuation:
+                        sess_ctx["continuation_token"] = detected_continuation
+                        self._continuation_token = detected_continuation
+                    sess_ctx["last_active"] = time.time()
+                    self._turn_index = turn_index
 
                     yield {
                         "type": "done",
-                        "conv_id": self._conv_id,
-                        "resp_id": self._resp_id,
-                        "rc_id": self._rc_id,
+                        "conv_id": sess_ctx.get("conv_id") or self._conv_id,
+                        "resp_id": sess_ctx.get("resp_id") or self._resp_id,
+                        "rc_id": sess_ctx.get("rc_id") or self._rc_id,
                         "model": detected_model or model_config["displayName"],
                         "text": accumulated_text,
                     }
@@ -951,9 +1053,9 @@ class GeminiWebSession(AccountSession):
                 yield {"type": "error", "message": str(e)[:200]}
                 return
 
-    async def validate_live(self) -> Dict[str, Any]:
+    async def validate_live(self) -> dict[str, Any]:
         """Validates by attempting to fetch the AT token from Gemini Web."""
-        result: Dict[str, Any] = {"token_ok": None, "error": "", "quota_summary": {}}
+        result: dict[str, Any] = {"token_ok": None, "error": "", "quota_summary": {}}
         try:
             if not self._cookies.get("__Secure-1PSID"):
                 await self.refresh_cookies_from_browser()
@@ -967,7 +1069,7 @@ class GeminiWebSession(AccountSession):
             result["error"] = str(e)[:80]
         return result
 
-    async def test_connection(self) -> Dict[str, Any]:
+    async def test_connection(self) -> dict[str, Any]:
         """Tests whether the session cookies and connection are active and valid."""
         res = await self.validate_live()
         ok = bool(res.get("token_ok"))
@@ -990,7 +1092,7 @@ class GeminiWebSession(AccountSession):
                 "has_at_token": False,
             }
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         d = super().to_dict()
         has_cookies = bool(self._cookies.get("__Secure-1PSID"))
         d["has_cookies"] = has_cookies
@@ -1002,7 +1104,7 @@ class GeminiWebSession(AccountSession):
         d["cdp_port"] = getattr(self, "cdp_port", 9222)
         return d
 
-    def to_save_dict(self) -> Dict[str, Any]:
+    def to_save_dict(self) -> dict[str, Any]:
         """Minimal serializable data for web_sessions.json persistence."""
         return {
             "account_id": self.account_id,

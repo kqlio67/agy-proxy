@@ -8,7 +8,7 @@ import hashlib
 import json
 import logging
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 import httpx
 
 logger = logging.getLogger("agy_proxy.cache")
@@ -28,13 +28,13 @@ class SessionAffinityManager:
     def __init__(self, session_ttl: float = 3600.0):
         self.session_ttl = session_ttl
         # session_key -> {"account_id": str, "backend_session_id": str, "last_active": float, "req_count": int}
-        self._sessions: Dict[str, Dict[str, Any]] = {}
+        self._sessions: dict[str, dict[str, Any]] = {}
 
     def get_session_key(
         self,
-        raw_messages: List[Dict[str, Any]],
+        raw_messages: list[dict[str, Any]],
         system_prompt: str = "",
-        client_session_id: Optional[str] = None,
+        client_session_id: str | None = None,
     ) -> str:
         """Derives a deterministic session key from client header or the conversation start."""
         if client_session_id and str(client_session_id).strip():
@@ -66,7 +66,7 @@ class SessionAffinityManager:
         )
         return str(val)
 
-    def get_pinned_account(self, session_key: str) -> Optional[Tuple[str, str]]:
+    def get_pinned_account(self, session_key: str) -> tuple[str, str] | None:
         """Returns (account_id, backend_session_id) if valid session exists."""
         self._cleanup_expired()
         entry = self._sessions.get(session_key)
@@ -107,13 +107,13 @@ class GoogleContextCacheManager:
         self.min_chars = min_chars
         self.ttl_seconds = ttl_seconds
         # cache_key -> {"cached_content_name": str, "created_at": float, "expires_at": float, "tokens_saved": int}
-        self._cache_map: Dict[str, Dict[str, Any]] = {}
+        self._cache_map: dict[str, dict[str, Any]] = {}
         self._unsupported_keys: set = set()
         self.total_tokens_saved: int = 0
         self.cache_hits: int = 0
         self.cache_misses: int = 0
 
-    def compute_prefix_hash(self, system_instruction: Dict[str, Any], tools: List[Dict[str, Any]], contents: List[Dict[str, Any]]) -> str:
+    def compute_prefix_hash(self, system_instruction: dict[str, Any], tools: list[dict[str, Any]], contents: list[dict[str, Any]]) -> str:
         """Generates a SHA256 hash of the static context (system instruction + tools + prefix)."""
         data = {
             "sys": system_instruction,
@@ -128,10 +128,10 @@ class GoogleContextCacheManager:
         self,
         api_key: str,
         model_name: str,
-        system_instruction: Optional[Dict[str, Any]],
-        tools: Optional[List[Dict[str, Any]]],
-        contents: List[Dict[str, Any]],
-    ) -> Optional[str]:
+        system_instruction: dict[str, Any] | None,
+        tools: list[dict[str, Any]] | None,
+        contents: list[dict[str, Any]],
+    ) -> str | None:
         """
         Looks up or creates a Google AI Studio cachedContents resource.
         Returns the resource name (e.g. 'cachedContents/12345678') if available.
@@ -171,7 +171,7 @@ class GoogleContextCacheManager:
             clean_model = "gemini-1.5-flash"
 
         create_url = f"https://generativelanguage.googleapis.com/v1beta/cachedContents?key={api_key}"
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "model": f"models/{clean_model}",
             "ttl": f"{self.ttl_seconds}s",
         }

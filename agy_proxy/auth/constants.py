@@ -29,7 +29,7 @@ SCOPES = [
 
 _os_name = "darwin" if platform.system().lower() == "darwin" else "linux"
 _arch_name = "arm64" if platform.machine().lower() in ("arm64", "aarch64") else "amd64"
-USER_AGENT = f"antigravity/cli/1.2.1 (aidev_client; os_type={_os_name}; arch={_arch_name}; cl=979485360; auth_method=consumer)"
+USER_AGENT = f"antigravity/cli/1.2.5 (aidev_client; os_type={_os_name}; arch={_arch_name}; cl=982839923; auth_method=consumer)"
 
 DEFAULT_TOKEN_FILE = Path.home() / ".gemini" / "antigravity-cli" / "antigravity-oauth-token"
 

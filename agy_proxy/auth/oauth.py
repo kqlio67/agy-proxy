@@ -5,12 +5,9 @@ Handles token refreshing, project discovery, quota tracking, and gcloud integrat
 
 import asyncio
 import inspect
-import logging
 import time
-from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any
 
-import httpx
 
 from agy_proxy.auth.base import AccountSession
 from agy_proxy.auth.constants import (
@@ -32,19 +29,19 @@ class AntigravityOAuthSession(AccountSession):
         self,
         account_id: str,
         refresh_token: str = "",
-        access_token: Optional[str] = None,
+        access_token: str | None = None,
         expiry_timestamp: float = 0.0,
-        email: Optional[str] = None,
-        name: Optional[str] = None,
-        picture: Optional[str] = None,
+        email: str | None = None,
+        name: str | None = None,
+        picture: str | None = None,
         auth_method: str = "consumer",
-        project_id: Optional[str] = None,
-        region_code: Optional[str] = None,
+        project_id: str | None = None,
+        region_code: str | None = None,
         client_id: str = DEFAULT_CLIENT_ID,
         client_secret: str = DEFAULT_CLIENT_SECRET,
         is_primary: bool = False,
         enabled: bool = True,
-        on_token_refreshed: Optional[Any] = None,
+        on_token_refreshed: Any | None = None,
         **kwargs,
     ):
         super().__init__(
@@ -66,12 +63,13 @@ class AntigravityOAuthSession(AccountSession):
         self.client_secret = client_secret
         self.id_token = kwargs.get("id_token")
 
-        self.tier_info: Dict[str, Any] = {}
-        self.available_models: Dict[str, Any] = {}
-        self.quota_summary: Dict[str, Any] = {}
+        self.tier_info: dict[str, Any] = {}
+        self.available_models: dict[str, Any] = {}
+        self.quota_summary: dict[str, Any] = kwargs.get("quota_summary") or {}
+        self.quota_details: dict[str, Any] | None = kwargs.get("quota_details")
 
     @property
-    def api_key(self) -> Optional[str]:
+    def api_key(self) -> str | None:
         return None
 
     @api_key.setter
@@ -146,7 +144,7 @@ class AntigravityOAuthSession(AccountSession):
             return await self.refresh_access_token()
         return self.access_token
 
-    async def get_auth_headers(self) -> Dict[str, str]:
+    async def get_auth_headers(self) -> dict[str, str]:
         token = await self.get_valid_token()
         return {
             "Authorization": f"Bearer {token}",
@@ -154,7 +152,7 @@ class AntigravityOAuthSession(AccountSession):
             "User-Agent": USER_AGENT,
         }
 
-    async def fetch_user_info(self) -> Dict[str, Any]:
+    async def fetch_user_info(self) -> dict[str, Any]:
         """Fetches Google user info (email, name, picture)."""
         headers = await self.get_auth_headers()
         client = await self.get_http_client()
@@ -223,7 +221,7 @@ class AntigravityOAuthSession(AccountSession):
             logger.debug("[%s] onboardUser failed: %s", self.email, e)
         return False
 
-    async def fetch_cloudcode_user_info(self) -> Dict[str, Any]:
+    async def fetch_cloudcode_user_info(self) -> dict[str, Any]:
         """Fetches CloudCode user settings and detected geographic regionCode."""
         project = await self.initialize_project()
         headers = await self.get_auth_headers()
@@ -245,7 +243,7 @@ class AntigravityOAuthSession(AccountSession):
             logger.debug("[%s] Error fetching CloudCode user info: %s", self.email, e)
         return {}
 
-    async def fetch_quota(self) -> Dict[str, Any]:
+    async def fetch_quota(self) -> dict[str, Any]:
         """Fetches live quota summary and bucket remaining fractions."""
         project = await self.initialize_project()
         headers = await self.get_auth_headers()
@@ -258,40 +256,12 @@ class AntigravityOAuthSession(AccountSession):
             )
             if resp.status_code == 200:
                 self.quota_summary = resp.json()
-                now = time.time()
-                for group in self.quota_summary.get("groups", []):
-                    g_name = (group.get("displayName") or "").lower()
-                    key = "3p" if ("claude" in g_name or "gpt" in g_name or "3p" in g_name) else "gemini"
-                    is_exhausted = False
-                    earliest_reset = None
-                    for bucket in group.get("buckets", []):
-                        if bucket.get("disabled", False):
-                            continue
-                        rem = float(bucket.get("remainingFraction", 1.0))
-                        if rem <= 0.001:
-                            is_exhausted = True
-                            rst = bucket.get("resetTime")
-                            if rst:
-                                try:
-                                    dt = datetime.fromisoformat(rst.replace("Z", "+00:00"))
-                                    diff = dt.timestamp() - now
-                                    if diff > 0:
-                                        earliest_reset = min(earliest_reset, diff) if earliest_reset else diff
-                                except Exception:
-                                    pass
-                    if is_exhausted:
-                        duration = earliest_reset if (earliest_reset and earliest_reset > 0) else 3600
-                        self.rate_limited_models[key] = now + duration
-                    else:
-                        current_limit = self.rate_limited_models.get(key, 0)
-                        if current_limit <= now or current_limit > now + 600:
-                            self.rate_limited_models.pop(key, None)
                 return self.quota_summary
         except Exception as e:
             logger.debug("[%s] retrieveUserQuotaSummary error: %s", self.email, e)
         return self.quota_summary
 
-    async def fetch_models(self) -> Dict[str, Any]:
+    async def fetch_models(self) -> dict[str, Any]:
         """Fetches available model catalog and quota fractions from CloudCode."""
         project = await self.initialize_project()
         headers = await self.get_auth_headers()
@@ -313,38 +283,39 @@ class AntigravityOAuthSession(AccountSession):
         """Antigravity OAuth accounts support both Gemini and 3P models (Claude, Opus, GPT-OSS)."""
         return True
 
-    def get_quota_details(self) -> Dict[str, Any]:
+    def get_quota_details(self) -> dict[str, Any]:
         """Calculates structured quota fractions, window, reset times, and descriptions for Gemini and Claude/3P."""
         is_gemini_limited = self.is_rate_limited("gemini")
         is_claude_limited = self.is_rate_limited("claude")
 
         res = {
             "gemini": {
-                "fraction": 0.0 if is_gemini_limited else 1.0,
-                "percent": 0.0 if is_gemini_limited else 100.0,
+                "fraction": 1.0,
+                "percent": 100.0,
                 "reset_time": None,
                 "window": "5h",
                 "description": "",
                 "is_rate_limited": is_gemini_limited,
-                "5h": {"fraction": 0.0 if is_gemini_limited else 1.0, "percent": 0.0 if is_gemini_limited else 100.0, "reset_time": None, "description": ""},
-                "weekly": {"fraction": 0.0 if is_gemini_limited else 1.0, "percent": 0.0 if is_gemini_limited else 100.0, "reset_time": None, "description": ""},
+                "5h": {"fraction": 1.0, "percent": 100.0, "reset_time": None, "description": ""},
+                "weekly": {"fraction": 1.0, "percent": 100.0, "reset_time": None, "description": ""},
             },
             "3p": {
-                "fraction": 0.0 if is_claude_limited else 1.0,
-                "percent": 0.0 if is_claude_limited else 100.0,
+                "fraction": 1.0,
+                "percent": 100.0,
                 "reset_time": None,
                 "window": "weekly",
                 "description": "",
                 "is_rate_limited": is_claude_limited,
-                "5h": {"fraction": 0.0 if is_claude_limited else 1.0, "percent": 0.0 if is_claude_limited else 100.0, "reset_time": None, "description": ""},
-                "weekly": {"fraction": 0.0 if is_claude_limited else 1.0, "percent": 0.0 if is_claude_limited else 100.0, "reset_time": None, "description": ""},
+                "5h": {"fraction": 1.0, "percent": 100.0, "reset_time": None, "description": ""},
+                "weekly": {"fraction": 1.0, "percent": 100.0, "reset_time": None, "description": ""},
             },
         }
 
-        if self.quota_summary and isinstance(self.quota_summary, dict):
-            for group in self.quota_summary.get("groups", []):
+        qs = getattr(self, "quota_summary", None)
+        if qs and isinstance(qs, dict):
+            for group in qs.get("groups", []):
                 g_name = (group.get("displayName") or "").lower()
-                key = "3p" if ("claude" in g_name or "gpt" in g_name or "3p" in g_name) else "gemini"
+                key = "3p" if any(sub in g_name for sub in ("claude", "gpt", "3p", "anthropic", "sonnet", "opus")) else "gemini"
                 buckets = group.get("buckets", [])
 
                 b_5h = None
@@ -352,27 +323,47 @@ class AntigravityOAuthSession(AccountSession):
                 for b in buckets:
                     wid = str(b.get("window", "")).lower()
                     bid = str(b.get("bucketId", "")).lower()
-                    if wid == "5h" or "5h" in bid:
+                    dname = str(b.get("displayName", "")).lower()
+                    is_5h_bucket = (
+                        wid in ("5h", "5-hour", "5hour", "five-hour", "five_hour")
+                        or "5h" in bid
+                        or "5-hour" in bid
+                        or "5hour" in bid
+                        or "five-hour" in bid
+                        or "five_hour" in bid
+                        or "five hour" in dname
+                        or "5-hour" in dname
+                        or "5h" in dname
+                    )
+                    is_wk_bucket = (
+                        wid in ("weekly", "week", "1w", "7d", "wk")
+                        or "weekly" in bid
+                        or "week" in bid
+                        or "wk" in bid
+                        or "weekly" in dname
+                        or "week" in dname
+                    )
+                    if is_5h_bucket:
                         b_5h = b
-                    elif wid == "weekly" or "weekly" in bid:
+                    elif is_wk_bucket:
                         b_wk = b
 
                 is_limited = self.is_rate_limited("claude" if key == "3p" else "gemini")
                 res[key]["is_rate_limited"] = is_limited
 
                 if b_5h:
-                    f_5h = float(b_5h.get("remainingFraction", 1.0))
+                    f_5h = max(0.0, min(1.0, float(b_5h.get("remainingFraction", 1.0))))
                     res[key]["5h"] = {
-                        "fraction": 0.0 if is_limited else f_5h,
-                        "percent": 0.0 if is_limited else round(f_5h * 100, 1),
+                        "fraction": f_5h,
+                        "percent": round(f_5h * 100, 2),
                         "reset_time": b_5h.get("resetTime"),
                         "description": b_5h.get("description", ""),
                     }
                 if b_wk:
-                    f_wk = float(b_wk.get("remainingFraction", 1.0))
+                    f_wk = max(0.0, min(1.0, float(b_wk.get("remainingFraction", 1.0))))
                     res[key]["weekly"] = {
-                        "fraction": 0.0 if is_limited else f_wk,
-                        "percent": 0.0 if is_limited else round(f_wk * 100, 1),
+                        "fraction": f_wk,
+                        "percent": round(f_wk * 100, 2),
                         "reset_time": b_wk.get("resetTime"),
                         "description": b_wk.get("description", ""),
                     }
@@ -381,21 +372,57 @@ class AntigravityOAuthSession(AccountSession):
                 if active_buckets:
                     target = min(active_buckets, key=lambda b: float(b.get("remainingFraction", 1.0)))
 
-                    fraction = float(target.get("remainingFraction", 1.0))
-                    if is_limited:
-                        fraction = 0.0
+                    fraction = max(0.0, min(1.0, float(target.get("remainingFraction", 1.0))))
 
                     btn_window = "5h" if target == b_5h else ("weekly" if target == b_wk else str(target.get("window", "5h" if key == "gemini" else "weekly")))
 
                     res[key]["fraction"] = fraction
-                    res[key]["percent"] = round(fraction * 100, 1)
+                    res[key]["percent"] = round(fraction * 100, 2)
                     res[key]["reset_time"] = target.get("resetTime")
                     res[key]["window"] = btn_window
                     res[key]["description"] = target.get("description", "")
 
+                    if not b_5h and not b_wk:
+                        win_payload = {
+                            "fraction": fraction,
+                            "percent": round(fraction * 100, 2),
+                            "reset_time": target.get("resetTime"),
+                            "description": target.get("description", ""),
+                        }
+                        res[key]["5h"] = dict(win_payload)
+                        res[key]["weekly"] = dict(win_payload)
+                elif not buckets and "remainingFraction" in group:
+                    fraction = max(0.0, min(1.0, float(group.get("remainingFraction", 1.0))))
+                    res[key]["fraction"] = fraction
+                    res[key]["percent"] = round(fraction * 100, 2)
+                    res[key]["reset_time"] = group.get("resetTime")
+                    res[key]["description"] = group.get("description", "")
+                    win_payload = {
+                        "fraction": fraction,
+                        "percent": round(fraction * 100, 2),
+                        "reset_time": group.get("resetTime"),
+                        "description": group.get("description", ""),
+                    }
+                    res[key]["5h"] = dict(win_payload)
+                    res[key]["weekly"] = dict(win_payload)
+
+        now = time.time()
+        for k in ("gemini", "3p"):
+            is_3p = (k == "3p")
+            max_limit = 0.0
+            for rk, rv in self.rate_limited_models.items():
+                rk_is_3p = any(sub in rk.lower() for sub in ["claude", "gpt", "3p", "anthropic", "sonnet", "opus"])
+                if (is_3p and rk_is_3p) or (not is_3p and not rk_is_3p):
+                    if rv > max_limit:
+                        max_limit = rv
+            cooldown = max(0, int(max_limit - now)) if max_limit > now else 0
+            res[k]["cooldown_seconds"] = cooldown
+            if cooldown > 0:
+                res[k]["is_rate_limited"] = True
+
         return res
 
-    def get_model_quota(self, model: str) -> Dict[str, Any]:
+    def get_model_quota(self, model: str) -> dict[str, Any]:
         """Returns the effective quota fraction and reset time for a specific model."""
         is_3p = any(k in model.lower() for k in ["claude", "gpt-oss", "sonnet", "opus"])
         quotas = self.get_quota_details()
@@ -420,9 +447,9 @@ class AntigravityOAuthSession(AccountSession):
             "description": group_quota.get("description", ""),
         }
 
-    async def validate_live(self) -> Dict[str, Any]:
+    async def validate_live(self) -> dict[str, Any]:
         """Performs live OAuth token refresh and validation against Google."""
-        result: Dict[str, Any] = {"token_ok": None, "error": "", "quota_summary": {}}
+        result: dict[str, Any] = {"token_ok": None, "error": "", "quota_summary": {}}
         try:
             await self.get_valid_token()
             info = await self.fetch_user_info()
@@ -443,7 +470,7 @@ class AntigravityOAuthSession(AccountSession):
             result["error"] = str(e)[:60]
         return result
 
-    async def test_connection(self) -> Dict[str, Any]:
+    async def test_connection(self) -> dict[str, Any]:
         """Tests whether the account session is valid and active."""
         res = await self.validate_live()
         ok = bool(res.get("token_ok"))
@@ -457,7 +484,7 @@ class AntigravityOAuthSession(AccountSession):
         else:
             return {"ok": False, "error": res.get("error") or "OAuth token validation failed"}
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         d = super().to_dict()
         d["tier_name"] = self.tier_info.get("name", "Antigravity")
         return d

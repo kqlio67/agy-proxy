@@ -5,14 +5,13 @@ Token parsing, discovery, JWT extraction, and PKCE OAuth helpers.
 import base64
 import hashlib
 import json
-import logging
 import os
 import re
 import time
 import urllib.parse
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 from agy_proxy.auth.constants import (
     DEFAULT_CLIENT_ID,
@@ -22,7 +21,7 @@ from agy_proxy.auth.constants import (
 )
 
 
-def quota_percentages(quota_summary: Dict[str, Any]) -> Tuple[str, str]:
+def quota_percentages(quota_summary: dict[str, Any]) -> tuple[str, str]:
     """Helper to extract Gemini and Claude percentage strings from quota_summary."""
     if not quota_summary or not isinstance(quota_summary, dict):
         return "?", "?"
@@ -50,9 +49,9 @@ def quota_percentages(quota_summary: Dict[str, Any]) -> Tuple[str, str]:
     return gemini_q, claude_q
 
 
-def get_candidate_token_files() -> List[Path]:
+def get_candidate_token_files() -> list[Path]:
     """Returns candidate search paths for Antigravity OAuth tokens across OSes and env vars."""
-    candidates: List[Path] = []
+    candidates: list[Path] = []
 
     # 1. Explicit environment variables
     for env_var in ("ANTIGRAVITY_TOKEN_FILE", "AGY_TOKEN_FILE"):
@@ -112,7 +111,7 @@ def get_candidate_token_files() -> List[Path]:
 CANDIDATE_TOKEN_FILES = get_candidate_token_files()
 
 
-def is_candidate_token_file(path: Optional[Union[Path, str]]) -> bool:
+def is_candidate_token_file(path: Path | str | None) -> bool:
     """Checks whether the given path points to any candidate system Antigravity token file."""
     if not path:
         return False
@@ -132,7 +131,7 @@ def is_candidate_token_file(path: Optional[Union[Path, str]]) -> bool:
     return False
 
 
-def find_existing_token_file() -> Optional[Path]:
+def find_existing_token_file() -> Path | None:
     """Finds the first existing, non-empty candidate token file."""
     for p in get_candidate_token_files():
         try:
@@ -197,7 +196,7 @@ def _parse_expiry(val: Any, mtime: float = 0.0) -> float:
     return 0.0
 
 
-def _decode_jwt_payload(token: Optional[str]) -> Dict[str, Any]:
+def _decode_jwt_payload(token: str | None) -> dict[str, Any]:
     """Safely extracts claims from an unverified JWT (e.g. Google id_token) without external libraries."""
     if not token or not isinstance(token, str):
         return {}
@@ -214,7 +213,7 @@ def _decode_jwt_payload(token: Optional[str]) -> Dict[str, Any]:
     return {}
 
 
-def parse_token_dict(data: Any, mtime: float = 0.0) -> Optional[Dict[str, Any]]:
+def parse_token_dict(data: Any, mtime: float = 0.0) -> dict[str, Any] | None:
     """Extracts and normalizes token and account metadata from a parsed JSON dictionary or list."""
     if isinstance(data, list) and data and isinstance(data[0], dict):
         data = data[0]
@@ -283,7 +282,7 @@ def parse_token_dict(data: Any, mtime: float = 0.0) -> Optional[Dict[str, Any]]:
     return res
 
 
-def parse_antigravity_token_file(t_path: Optional[Union[Path, str]]) -> Optional[Dict[str, Any]]:
+def parse_antigravity_token_file(t_path: Path | str | None) -> dict[str, Any] | None:
     """Robustly reads and parses an Antigravity token file supporting snake_case,
     camelCase, nested token structures, ISO/timestamp expiry, and metadata."""
     if not t_path:
@@ -293,7 +292,7 @@ def parse_antigravity_token_file(t_path: Optional[Union[Path, str]]) -> Optional
         if not p.is_file() or p.stat().st_size == 0:
             return None
         mtime = p.stat().st_mtime
-        with open(p, "r", encoding="utf-8") as f:
+        with open(p, encoding="utf-8") as f:
             content = f.read().strip()
             if not content:
                 return None
@@ -304,7 +303,7 @@ def parse_antigravity_token_file(t_path: Optional[Union[Path, str]]) -> Optional
         return None
 
 
-def generate_pkce_pair() -> Tuple[str, str, str]:
+def generate_pkce_pair() -> tuple[str, str, str]:
     """Generates (code_verifier, code_challenge, state) for PKCE OAuth flow."""
     verifier = base64.urlsafe_b64encode(os.urandom(32)).decode("utf-8").rstrip("=")
     challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode("utf-8")).digest()).decode("utf-8").rstrip("=")

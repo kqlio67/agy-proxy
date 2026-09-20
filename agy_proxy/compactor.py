@@ -4,13 +4,10 @@ Automatically compresses long conversation histories using gemini-3.8-flash-low
 to prevent context overflow, reduce token consumption by 80%+, and optimize response latency.
 """
 
-import asyncio
 import json
 import logging
-import os
-import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 import httpx
 
 from agy_proxy.auth import CLOUDCODE_BASE_URL, GENAI_BASE_URL
@@ -45,7 +42,7 @@ class CompactorSettings:
     def load(self):
         if CONFIG_FILE.exists():
             try:
-                with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                with open(CONFIG_FILE, encoding="utf-8") as f:
                     data = json.load(f)
                 self.enabled = bool(data.get("enabled", True))
                 self.threshold_tokens = int(data.get("threshold_tokens", 95000))
@@ -77,7 +74,7 @@ class CompactorSettings:
         except Exception as e:
             logger.error("Failed to save compactor config: %s", e)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "enabled": self.enabled,
             "threshold_tokens": self.threshold_tokens,
@@ -164,7 +161,7 @@ def estimate_message_tokens(msg: Any) -> int:
     return total
 
 
-def estimate_total_tokens(messages: List[Any], system: Optional[Union[str, List[Any]]] = None) -> int:
+def estimate_total_tokens(messages: list[Any], system: str | list[Any] | None = None) -> int:
     """Calculates total estimated tokens for a conversation history."""
     total = 0
     if system:
@@ -180,11 +177,11 @@ def estimate_total_tokens(messages: List[Any], system: Optional[Union[str, List[
 
 
 def prune_tool_results(
-    messages: List[Any],
-    keep_last_tools: Optional[int] = None,
-    max_chars: Optional[int] = None,
-    enabled: Optional[bool] = None,
-) -> Tuple[List[Any], int, int]:
+    messages: list[Any],
+    keep_last_tools: int | None = None,
+    max_chars: int | None = None,
+    enabled: bool | None = None,
+) -> tuple[list[Any], int, int]:
     """
     Performs Smart Tool Pruning on conversation history:
     Keeps the most recent `keep_last_tools` outputs completely intact.
@@ -205,7 +202,7 @@ def prune_tool_results(
     pruned_count = 0
     total_chars_saved = 0
 
-    def truncate_content_str(content_str: str) -> Tuple[str, int]:
+    def truncate_content_str(content_str: str) -> tuple[str, int]:
         if not content_str or len(content_str) <= max_len:
             return content_str, 0
         keep_head = max(80, int(max_len * 0.6))
@@ -288,9 +285,9 @@ def prune_tool_results(
 
 
 def should_auto_compact(
-    messages: List[Any],
-    system: Optional[Union[str, List[Any]]] = None,
-    threshold_tokens: Optional[int] = None,
+    messages: list[Any],
+    system: str | list[Any] | None = None,
+    threshold_tokens: int | None = None,
     min_messages: int = 4,
 ) -> bool:
     """Determines if the conversation history has exceeded the compaction threshold."""
@@ -403,11 +400,11 @@ REMINDER: Do NOT call any tools. Respond with plain text only — an <analysis> 
 
 async def compact_conversation_history(
     account_pool: Any,
-    messages: List[Any],
-    keep_last_n: Optional[int] = None,
-    model: Optional[str] = None,
+    messages: list[Any],
+    keep_last_n: int | None = None,
+    model: str | None = None,
     timeout: float = 25.0,
-) -> Tuple[List[Any], int, int]:
+) -> tuple[list[Any], int, int]:
     """
     Summarizes older messages in the conversation and returns compacted history.
     Returns: (compacted_messages, tokens_before, tokens_after)
@@ -525,10 +522,10 @@ async def compact_conversation_history(
 
 async def generate_compact_summary(
     account_pool: Any,
-    messages: List[Any],
-    model: Optional[str] = None,
+    messages: list[Any],
+    model: str | None = None,
     timeout: float = 35.0,
-) -> Optional[str]:
+) -> str | None:
     """Generates an assistant summary string directly for explicit /compact requests."""
     if not messages:
         return "<summary>\n1. Primary Request and Intent:\n   Initial session started.\n</summary>"
@@ -582,7 +579,7 @@ async def _call_summarizer_llm(
     transcript: str,
     model: str = "gemini-3.8-flash-low",
     timeout: float = 35.0,
-) -> Optional[str]:
+) -> str | None:
     """Invokes summarizer model via active AccountSession for fast compaction."""
     if not account_pool or not getattr(account_pool, "accounts", None):
         return None

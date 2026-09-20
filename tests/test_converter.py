@@ -153,6 +153,36 @@ class TestOpenAIToCloudCode(unittest.TestCase):
         self.assertEqual(resp_schema["properties"]["age"]["type"], "integer")
         self.assertNotIn("additionalProperties", resp_schema)
 
+    def test_thinking_level_configuration(self):
+        # Gemini 3.8 Flash High -> thinkingLevel HIGH
+        req = OpenAIChatRequest(
+            model="gemini-3.8-flash-high",
+            messages=[{"role": "user", "content": "Explain relativity"}],
+        )
+        payload = openai_to_cloudcode_payload(req, project_id="test-project")
+        t_cfg = payload["request"]["generationConfig"]["thinkingConfig"]
+        self.assertEqual(t_cfg.get("thinkingLevel"), "HIGH")
+        self.assertEqual(t_cfg.get("thinkingBudget"), -1)
+
+        # Gemini 3.8 Flash Medium -> thinkingLevel MEDIUM
+        req_med = OpenAIChatRequest(
+            model="gemini-3.8-flash-medium",
+            messages=[{"role": "user", "content": "Explain relativity"}],
+        )
+        payload_med = openai_to_cloudcode_payload(req_med, project_id="test-project")
+        t_cfg_med = payload_med["request"]["generationConfig"]["thinkingConfig"]
+        self.assertEqual(t_cfg_med.get("thinkingLevel"), "MEDIUM")
+
+    def test_reasoning_effort_mapping(self):
+        req_effort = OpenAIChatRequest(
+            model="gemini-3.8-flash-high",
+            messages=[{"role": "user", "content": "Explain relativity"}],
+            reasoning_effort="low",
+        )
+        payload_effort = openai_to_cloudcode_payload(req_effort, project_id="test-project")
+        t_cfg_effort = payload_effort["request"]["generationConfig"]["thinkingConfig"]
+        self.assertEqual(t_cfg_effort.get("thinkingLevel"), "LOW")
+
 
 class TestAnthropicToCloudCode(unittest.TestCase):
     def test_anthropic_payload_conversion(self):
@@ -238,6 +268,63 @@ class TestAnthropicToCloudCode(unittest.TestCase):
         parts = payload["requestId"].split("/")
         self.assertEqual(len(parts), 5)
 
+    def test_anthropic_structured_outputs_json_schema(self):
+        req = AnthropicRequest(
+            model="anthropic.gemini-3.8-flash-high",
+            messages=[{"role": "user", "content": "Generate session title"}],
+            output_config={
+                "effort": "high",
+                "format": {
+                    "type": "json_schema",
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "title": {"type": "string"}
+                        },
+                        "required": ["title"],
+                        "additionalProperties": False,
+                    }
+                }
+            }
+        )
+        payload = anthropic_to_cloudcode_payload(req, project_id="test-project")
+        gen_config = payload["request"]["generationConfig"]
+        self.assertEqual(gen_config.get("responseMimeType"), "application/json")
+        self.assertIn("responseSchema", gen_config)
+        self.assertEqual(gen_config["responseSchema"]["type"], "object")
+        self.assertIn("title", gen_config["responseSchema"]["properties"])
+        self.assertEqual(gen_config["responseSchema"]["properties"]["title"]["type"], "string")
+        self.assertNotIn("additionalProperties", gen_config["responseSchema"])
+
+    def test_anthropic_title_generation_claude_code(self):
+        req = AnthropicRequest(
+            model="anthropic.gemini-3.8-flash-high",
+            system="You are Claude Code, Anthropic's official CLI. You are naming a coding session so the user can pick it out of a long list.",
+            messages=[
+                {
+                    "role": "user",
+                    "content": "<session>\nFix the bug in proxy\n</session>\nWrite the title in the predominant language.",
+                }
+            ],
+            output_config={
+                "format": {
+                    "type": "json_schema",
+                    "schema": {
+                        "type": "object",
+                        "properties": {"title": {"type": "string"}},
+                        "required": ["title"]
+                    }
+                }
+            }
+        )
+        payload = anthropic_to_cloudcode_payload(req, project_id="test-project")
+        self.assertEqual(payload["model"], "gemini-3.1-flash-lite")
+        self.assertEqual(payload["requestType"], "title")
+        t_cfg = payload["request"]["generationConfig"]["thinkingConfig"]
+        self.assertEqual(t_cfg.get("includeThoughts"), False)
+        self.assertEqual(t_cfg.get("thinkingBudget"), 0)
+        self.assertEqual(payload["request"]["generationConfig"].get("responseMimeType"), "application/json")
+
 
 class TestThoughtSignatures(unittest.TestCase):
     def test_save_and_retrieve_thought_signature(self):
@@ -309,5 +396,186 @@ class TestCandidateParsingAndChunking(unittest.TestCase):
         self.assertEqual(delta["reasoning_content"], "Thinking...")
 
 
+class TestModularConvertersPackage(unittest.TestCase):
+    def test_package_reexports_match_facade(self):
+        import agy_proxy.converter as facade
+        import agy_proxy.converters as pkg
+
+        # Check that all package exports are in the facade and identical
+        for name in pkg.__all__:
+            self.assertTrue(hasattr(facade, name), f"Facade missing {name}")
+            self.assertIs(getattr(facade, name), getattr(pkg, name), f"Mismatch for {name}")
+
+    def test_direct_submodule_imports(self):
+        from agy_proxy.converters.common import (
+            DEFAULT_THOUGHT_SIGNATURE,
+            _extract_message_text,
+            get_thought_signature,
+            sanitize_gemini_schema,
+            save_thought_signature,
+            to_dict,
+        )
+        from agy_proxy.converters.openai import openai_to_cloudcode_payload
+        from agy_proxy.converters.anthropic import anthropic_to_cloudcode_payload
+        from agy_proxy.converters.streaming import (
+            create_openai_chunk,
+            parse_gemini_sse_candidate,
+        )
+
+        self.assertIsNotNone(DEFAULT_THOUGHT_SIGNATURE)
+        self.assertTrue(callable(openai_to_cloudcode_payload))
+        self.assertTrue(callable(anthropic_to_cloudcode_payload))
+        self.assertTrue(callable(create_openai_chunk))
+        self.assertTrue(callable(parse_gemini_sse_candidate))
+        self.assertTrue(callable(sanitize_gemini_schema))
+        self.assertTrue(callable(to_dict))
+        self.assertTrue(callable(save_thought_signature))
+        self.assertTrue(callable(get_thought_signature))
+        self.assertTrue(callable(_extract_message_text))
+
+    def test_common_extract_message_text_edge_cases(self):
+        from agy_proxy.converters.common import _extract_message_text
+
+        self.assertEqual(_extract_message_text(None), "")
+        self.assertEqual(_extract_message_text(""), "")
+        self.assertEqual(_extract_message_text("simple text"), "simple text")
+        self.assertEqual(_extract_message_text({"content": "dict text"}), "dict text")
+        self.assertEqual(
+            _extract_message_text({"content": [{"type": "text", "text": "part1"}, {"type": "text", "text": "part2"}]}),
+            "part1 part2",
+        )
+
+    def test_extract_media_data_uri(self):
+        from agy_proxy.converters.common import _extract_media_from_url
+
+        mime, b64 = _extract_media_from_url("data:image/png;base64,aGVsbG8=")
+        self.assertEqual(mime, "image/png")
+        self.assertEqual(b64, "aGVsbG8=")
+
+        # Empty or non-data URL fallback
+        mime_empty, b64_empty = _extract_media_from_url("")
+        self.assertEqual(mime_empty, "image/jpeg")
+        self.assertEqual(b64_empty, "")
+
+    def test_streaming_candidate_with_function_call(self):
+        from agy_proxy.converters.streaming import parse_gemini_sse_candidate
+
+        candidate = {
+            "content": {
+                "parts": [
+                    {
+                        "functionCall": {
+                            "name": "lookup",
+                            "args": {"query": "python"},
+                            "id": "call_123",
+                        },
+                        "thoughtSignature": "test_sig_123",
+                    }
+                ]
+            }
+        }
+        text, thought, calls, finish_reason, sig = parse_gemini_sse_candidate(candidate)
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0]["function"]["name"], "lookup")
+        self.assertEqual(calls[0]["thought_signature"], "test_sig_123")
+        self.assertEqual(sig, "test_sig_123")
+
+    def test_models_normalization_exports(self):
+        import agy_proxy.converter as facade
+        import agy_proxy.converters as pkg
+        from agy_proxy.converters.common import DEFAULT_MODEL, normalize_model_name
+
+        self.assertEqual(normalize_model_name("claude-3-5-sonnet"), "claude-sonnet-4-6")
+        self.assertEqual(facade.normalize_model_name("gpt-4o"), "gemini-3.8-flash-high")
+        self.assertEqual(pkg.normalize_model_name("gpt-4o-mini"), "gemini-3.1-flash-lite")
+        self.assertEqual(facade.DEFAULT_MODEL, DEFAULT_MODEL)
+        self.assertEqual(pkg.DEFAULT_MODEL, DEFAULT_MODEL)
+
+    def test_request_types_exported_on_facade(self):
+        import agy_proxy.converter as facade
+        import agy_proxy.converters as pkg
+        from agy_proxy.models import AnthropicRequest, OpenAIChatRequest
+
+        self.assertIs(facade.OpenAIChatRequest, OpenAIChatRequest)
+        self.assertIs(facade.AnthropicRequest, AnthropicRequest)
+        self.assertIs(pkg.OpenAIChatRequest, OpenAIChatRequest)
+        self.assertIs(pkg.AnthropicRequest, AnthropicRequest)
+
+    def test_tools_sets_agent_request_type(self):
+        from agy_proxy.converters.anthropic import anthropic_to_cloudcode_payload
+        from agy_proxy.converters.openai import openai_to_cloudcode_payload
+        from agy_proxy.models import AnthropicRequest, OpenAIChatRequest
+
+        oai_req = OpenAIChatRequest(
+            model="gemini-3.8-flash-high",
+            messages=[{"role": "user", "content": "Run command"}],
+            tools=[{"type": "function", "function": {"name": "bash", "parameters": {}}}],
+        )
+        oai_payload = openai_to_cloudcode_payload(oai_req, project_id="test-p", session_id="sess-123")
+        self.assertEqual(oai_payload["requestType"], "agent")
+        self.assertTrue(oai_payload["requestId"].startswith("agent/"))
+
+        anth_req = AnthropicRequest(
+            model="claude-sonnet-4-6",
+            messages=[{"role": "user", "content": "Run command"}],
+            tools=[{"name": "bash", "description": "run", "input_schema": {"type": "object"}}],
+        )
+        anth_payload = anthropic_to_cloudcode_payload(anth_req, project_id="test-p", session_id="sess-123")
+        self.assertEqual(anth_payload["requestType"], "agent")
+        self.assertTrue(anth_payload["requestId"].startswith("agent/"))
+
+    def test_thinking_disabled_config(self):
+        from agy_proxy.converters.common import _apply_thinking_config
+
+        cfg = {"includeThoughts": True, "thinkingBudget": -1}
+        _apply_thinking_config(cfg, "claude-sonnet-4-6", thinking_req={"type": "disabled"})
+        self.assertFalse(cfg["includeThoughts"])
+        self.assertEqual(cfg["thinkingBudget"], 0)
+
+    def test_streaming_candidate_none_and_string_args(self):
+        from agy_proxy.converters.streaming import parse_gemini_sse_candidate
+
+        # None candidate
+        self.assertEqual(parse_gemini_sse_candidate(None), ("", "", [], None, None))
+        # Empty candidate
+        self.assertEqual(parse_gemini_sse_candidate({}), ("", "", [], None, None))
+
+        # Candidate with functionCall args already formatted as JSON string
+        cand = {
+            "content": {
+                "parts": [
+                    {"functionCall": {"name": "run", "args": '{"cmd": "ls"}'}}
+                ]
+            }
+        }
+        _, _, calls, _, _ = parse_gemini_sse_candidate(cand)
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0]["function"]["arguments"], '{"cmd": "ls"}')
+        self.assertEqual(json.loads(calls[0]["function"]["arguments"]), {"cmd": "ls"})
+
+    def test_media_extraction_mimetype_fallback(self):
+        from unittest.mock import MagicMock, patch
+        from agy_proxy.converters.common import _IMAGE_CACHE, _extract_media_from_url
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.headers = {"content-type": "application/octet-stream"}
+        mock_resp.content = b"fake-png-bytes"
+
+        with patch("httpx.Client") as mock_client:
+            mock_inst = MagicMock()
+            mock_inst.__enter__.return_value = mock_inst
+            mock_inst.get.return_value = mock_resp
+            mock_client.return_value = mock_inst
+
+            url = "https://example.com/images/architecture.png"
+            _IMAGE_CACHE.pop(url, None)
+            mime, b64 = _extract_media_from_url(url)
+            self.assertEqual(mime, "image/png")
+            self.assertNotEqual(b64, "")
+
+
 if __name__ == "__main__":
     unittest.main()
+
+

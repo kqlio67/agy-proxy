@@ -3,9 +3,8 @@ Base account session classes and polymorphic session factory.
 """
 
 import asyncio
-import logging
 import time
-from typing import Any, Dict, Optional
+from typing import Any
 
 import httpx
 
@@ -18,13 +17,14 @@ class BaseAccountSession:
     def __init__(
         self,
         account_id: str,
-        name: Optional[str] = None,
-        email: Optional[str] = None,
-        picture: Optional[str] = None,
+        name: str | None = None,
+        email: str | None = None,
+        picture: str | None = None,
         auth_method: str = "consumer",
         is_primary: bool = False,
         enabled: bool = True,
-        on_token_refreshed: Optional[Any] = None,
+        on_token_refreshed: Any | None = None,
+        **kwargs,
     ):
         self.account_id = account_id
         self.email = email or "unknown@gmail.com"
@@ -35,14 +35,15 @@ class BaseAccountSession:
         self.enabled = enabled
         self.on_token_refreshed = on_token_refreshed
 
-        self.error_message: Optional[str] = None
+        self.error_message: str | None = None
         self.total_requests: int = 0
         self.last_used_timestamp: float = 0.0
-        self.last_used_model: Optional[str] = None
-        self.last_client_type: Optional[str] = None
-        self.rate_limited_models: Dict[str, float] = {}  # model_group -> reset_timestamp
+        self.last_used_model: str | None = None
+        self.last_client_type: str | None = None
+        self.rate_limited_models: dict[str, float] = {}  # model_group -> reset_timestamp
+        self.quota_summary: dict[str, Any] = kwargs.get("quota_summary") or {}
         self._lock = asyncio.Lock()
-        self._http_client: Optional[httpx.AsyncClient] = None
+        self._http_client: httpx.AsyncClient | None = None
 
     @property
     def disabled(self) -> bool:
@@ -68,13 +69,32 @@ class BaseAccountSession:
     def is_rate_limited(self, model: str) -> bool:
         """Checks if account is currently marked rate-limited for the requested model."""
         now = time.time()
-        is_3p = any(k in model.lower() for k in ["claude", "gpt-oss", "sonnet", "opus"])
-        key = "3p" if is_3p else "gemini"
-        if key in self.rate_limited_models:
-            if now < self.rate_limited_models[key]:
+        # 1. Direct model key match
+        if model in self.rate_limited_models:
+            if now < self.rate_limited_models[model]:
                 return True
             else:
-                del self.rate_limited_models[key]
+                del self.rate_limited_models[model]
+
+        # 2. Group-level keys and aliases
+        is_3p = any(k in model.lower() for k in ["claude", "gpt-oss", "sonnet", "opus", "anthropic"])
+        key = "3p" if is_3p else "gemini"
+        aliases = ["3p", "claude"] if is_3p else ["gemini"]
+        for alias in aliases:
+            if alias in self.rate_limited_models:
+                if now < self.rate_limited_models[alias]:
+                    return True
+                else:
+                    del self.rate_limited_models[alias]
+
+        # 3. Any active model limit matching the same family
+        for k, v in list(self.rate_limited_models.items()):
+            k_is_3p = any(sub in k.lower() for sub in ["claude", "gpt-oss", "sonnet", "opus", "anthropic", "3p"])
+            if (is_3p and k_is_3p) or (not is_3p and not k_is_3p):
+                if now < v:
+                    return True
+                else:
+                    del self.rate_limited_models[k]
         return False
 
     def mark_rate_limited(self, model: str, duration: float = 3600.0):
@@ -95,13 +115,45 @@ class BaseAccountSession:
         """Determines if this account type is capable of serving the given model."""
         return True
 
-    def get_quota_details(self) -> Dict[str, Any]:
-        return {}
+    def get_quota_details(self) -> dict[str, Any]:
+        from agy_proxy.auth.oauth import AntigravityOAuthSession
+        return AntigravityOAuthSession.get_quota_details(self)
 
-    def get_model_quota(self, model: str) -> Dict[str, Any]:
+    def get_model_quota(self, model: str) -> dict[str, Any]:
         return {"remainingFraction": 1.0, "resetTime": None, "window": "unlimited", "description": ""}
 
-    def to_dict(self) -> Dict[str, Any]:
+    def is_quota_exhausted(self, model: str | None = None) -> bool:
+        """Checks if account has completely exhausted its quota (remainingFraction <= 0.001 or percent <= 0)."""
+        qd = self.get_quota_details()
+        if not model:
+            gemini_q = qd.get("gemini", {})
+            claude_q = qd.get("3p", {}) or qd.get("claude", {})
+            gemini_ex = (
+                gemini_q.get("percent", 100.0) <= 0.0
+                or gemini_q.get("fraction", 1.0) <= 0.001
+                or (gemini_q.get("weekly", {}).get("percent", 100.0) <= 0.0 if "weekly" in gemini_q else False)
+                or (gemini_q.get("5h", {}).get("percent", 100.0) <= 0.0 if "5h" in gemini_q else False)
+            )
+            claude_ex = (
+                claude_q.get("percent", 100.0) <= 0.0
+                or claude_q.get("fraction", 1.0) <= 0.001
+                or (claude_q.get("weekly", {}).get("percent", 100.0) <= 0.0 if "weekly" in claude_q else False)
+                or (claude_q.get("5h", {}).get("percent", 100.0) <= 0.0 if "5h" in claude_q else False)
+            )
+            return gemini_ex and claude_ex
+
+        is_3p = any(sub in model.lower() for sub in ["claude", "gpt", "3p", "anthropic", "sonnet", "opus"])
+        key = "3p" if is_3p else "gemini"
+        group_q = qd.get(key, {})
+        if group_q.get("percent", 100.0) <= 0.0 or group_q.get("fraction", 1.0) <= 0.001:
+            return True
+        if "weekly" in group_q and (group_q["weekly"].get("percent", 100.0) <= 0.0 or group_q["weekly"].get("fraction", 1.0) <= 0.001):
+            return True
+        if "5h" in group_q and (group_q["5h"].get("percent", 100.0) <= 0.0 or group_q["5h"].get("fraction", 1.0) <= 0.001):
+            return True
+        return False
+
+    def to_dict(self) -> dict[str, Any]:
         now = time.time()
         active_limits = {k: max(0, int(v - now)) for k, v in list(self.rate_limited_models.items()) if v > now}
         self.rate_limited_models = {k: v for k, v in self.rate_limited_models.items() if v > now}
@@ -126,7 +178,7 @@ class BaseAccountSession:
             "rate_limited_models": active_limits,
             "quota_summary": getattr(self, "quota_summary", {}),
             "quota_details": self.get_quota_details(),
-            "available_models": list(getattr(self, "available_models", {}).keys()),
+            "available_models": [m for m in getattr(self, "available_models", {}).keys() if not m.startswith(("tab_", "chat_"))],
             "error_message": self.error_message,
         }
 

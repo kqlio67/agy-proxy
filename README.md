@@ -19,22 +19,23 @@ Equipped with **Multi-Account Pooling**, **Automatic 429 Quota Failover**, and a
 
 ## 🌟 Key Features
 
-- 🔄 **OpenAI & Anthropic & Gemini Compatible APIs**:
+- 🔄 **OpenAI, Responses API, Anthropic & Gemini Compatible Endpoints**:
+  - Full support for OpenAI Chat Completions (`/v1/chat/completions`) and the latest **OpenAI Responses API (`/v1/responses`)** with native **WebSocket (`ws://`) and HTTP SSE streaming** for **OpenAI Codex CLI (v0.150+)**.
   - Full support for streaming (`stream: true` SSE) and non-streaming responses.
   - Thinking / Reasoning process extracted to `delta.reasoning_content` (OpenAI) and `thinking` blocks (Anthropic) for reasoning models (`gemini-3.8-flash-high`, `gemini-3.7-flash-high`, `claude-opus-4-6-thinking`).
   - Native Multi-turn Tool & Function Calling support (`tools`, `tool_choice`, `tool_use`, `tool_result`).
   - Multimodal input support (Images via base64 data URIs and URLs).
-  - 🌐 **Built-in Live Web Search**: Native **Google Grounding Search (Vertex AI)** with automatic multi-engine fallbacks (**DuckDuckGo**, **Bing**, **Brave**) for Claude Code (`WebSearch`) without requiring external API keys.
+  - 🌐 **Built-in Live Web Search**: Native **Google Grounding Search (Vertex AI)** with automatic multi-engine fallbacks (**DuckDuckGo**, **Bing**, **Brave**) for coding agents and tools (`WebSearch`, `web_search`) without requiring external API keys.
 - 🗜 **Context Compactor & Auto-Summarization (Token Saver)**:
   - Automatically compresses long conversation histories using `gemini-3.1-flash-lite` before reaching token limits, saving **80% to 95%+ tokens** and preventing Google's 1,048,576 token hard limit (Error 400).
-  - Native interception of Claude Code `/compact` and `/autocompact` commands with official 9-section summarization schema.
+  - Native interception of agent `/compact` and `/autocompact` commands with structured 9-section summarization schema.
   - Interactive threshold slider (30k – 200k tokens) and toggle controls in the Web Dashboard.
 - ⚡ **Intelligent Background Task Optimization**:
   - Automatically detects non-interactive tasks (title generation, context compaction, checkpoints) and routes them to lightweight, fast models (`gemini-3.1-flash-lite`) with 0 thinking budget to save 100% of your primary model quotas.
 - 👥 **Multi-Account Pooling & Limit Bypass**:
   - Pool multiple Google Antigravity accounts simultaneously to multiply your rate limits and concurrent request capacity.
   - **Automatic 429 Failover**: When Account A exhausts its quota bucket, the proxy seamlessly retries and routes the request to Account B without dropping the session!
-  - **Zero-Delay Recovery**: Injects standard `Retry-After: 2` headers to prevent Claude Code from locking up in 4-minute exponential backoff retry delays.
+  - **Zero-Delay Recovery**: Injects standard `Retry-After: 2` headers to prevent coding agents and clients (Claude Code, Cursor, Aider, Roo Code) from locking up in multi-minute exponential backoff retry delays.
 - 🔑 **Interactive OAuth PKCE Login (Web UI & CLI)**:
   - Add secondary Google accounts in 2 clicks via the Web UI ("➕ Add Google Account") or via terminal: `uv run python main.py auth login`.
   - Support for Google AI Studio API Keys with automatic dynamic model discovery.
@@ -42,9 +43,14 @@ Equipped with **Multi-Account Pooling**, **Automatic 429 Quota Failover**, and a
   - View all pooled Google accounts, avatars, active tiers, and live Gemini & Claude quota progress bars.
   - Interactive live chat playground with markdown rendering and collapsible thinking blocks.
   - Dynamic Context Compactor card with configurable auto-summarization thresholds.
+  - Collapsible account groups (OAuth, Web, API Keys) with per-section Enable/Disable controls and "Collapse All / Expand All" toolbar buttons.
   - Toggle switch to enable/pause specific accounts and one-click account deletion.
+- 🔄 **Antigravity CLI & IDE Session Switcher**:
+  - Live detection showing which accounts are currently active in **Antigravity CLI** (`~/.gemini/antigravity-cli/`) and **Antigravity IDE** (`~/.gemini/antigravity-ide/`).
+  - Interactive Web UI modal to switch sessions selectively: **CLI Only**, **IDE Only**, or **Both (CLI + IDE)**.
+  - Strict compliance with official `antigravity-oauth-token` JSON schema (atomic writes, zero extra metadata, automated `.bak` backups, strict `0600` permissions).
 - 🚀 **One-Click Launchers**:
-  - Pre-configured shell scripts: `./run_claude.sh` (with custom port and model flags) and `./start_proxy.sh`.
+  - Pre-configured launch scripts (`./start_proxy.sh`, `run_claude.sh`/`bat` with custom port and model flags).
 
 ---
 
@@ -179,6 +185,9 @@ Open **`http://localhost:8000`** in your browser to access the Web Dashboard & A
 
 ## 🛠 Integration Guides
 
+> [!TIP]
+> **Universal Compatibility**: Antigravity Proxy works seamlessly with **any** AI coding agent, editor, extension, or CLI tool that connects to OpenAI (`/v1/chat/completions`) or Anthropic (`/v1/messages`) APIs—including **Cursor**, **Windsurf**, **VS Code** (Continue, Roo Code / Cline), **Aider**, **Claude Code**, **OpenCode**, and custom scripts.
+
 ### 1. 🤖 Claude Code CLI
 
 #### 🔹 Linux / macOS / Termux
@@ -271,7 +280,33 @@ Add the following to your `~/.continue/config.json`:
 
 ---
 
-### 3. ⌨️ CLI Coding Tools (Aider, OpenCode)
+### 3. ⌨️ CLI Coding Tools (Codex CLI, Aider, OpenCode)
+
+#### 🔹 OpenAI Codex CLI
+Codex CLI (v0.150+) uses the new OpenAI Responses API (`/v1/responses`). Antigravity Proxy natively supports both **WebSocket (`ws://`)** and **HTTP SSE streaming** for Codex CLI with zero latency.
+
+**Option A — Quick launch:**
+```bash
+export OPENAI_API_KEY="dummy"
+codex -c 'openai_base_url="http://127.0.0.1:8000/v1"' -m "gemini-3.8-flash-high"
+```
+
+**Option B — Persistent configuration (`~/.codex/config.toml`):**
+Configure automatically using the built-in setup helper:
+```bash
+agy-proxy setup-codex
+```
+Or manually add the proxy base URL and custom model catalog to `~/.codex/config.toml`:
+```toml
+openai_base_url = "http://127.0.0.1:8000/v1"
+model = "gemini-3.8-flash-high"
+model_catalog_json = "~/.codex/antigravity_models.json"
+```
+```bash
+export OPENAI_API_KEY="dummy"
+codex
+```
+> **Tip:** Even without `model_catalog_json`, Codex CLI's built-in models (`gpt-6-astra`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.5`, `gpt-5.2`) are automatically routed to our Gemini backend models (`gemini-3.8-flash-high`, `gemini-3.8-flash-medium`, `gemini-3.1-flash-lite`, `gemini-3.7-flash-high`).
 
 #### 🔹 Aider
 ```bash
@@ -314,7 +349,7 @@ cd cloudflare
 npx wrangler secret put ACCOUNTS_JSON < ~/.config/agy-proxy/accounts.json
 npx wrangler deploy
 ```
-*Use your Worker URL directly in Cursor / Claude Code / Windsurf:* `https://agy-proxy-edge.<your-subdomain>.workers.dev/v1`
+*Use your Worker URL directly in Cursor, Windsurf, VS Code, Claude Code, Aider, or custom agents:* `https://agy-proxy-edge.<your-subdomain>.workers.dev/v1`
 
 #### 🔹 Quick Instant HTTPS Tunnel (`cloudflared`)
 If you just want an instant secure public HTTPS URL for your local proxy without deploying anything:
@@ -344,6 +379,49 @@ uv run python main.py auth login
 uv run python main.py auth list
 ```
 
+### 🔄 Switching Active Antigravity CLI & IDE Sessions
+Antigravity Proxy can directly synchronize your pooled Google accounts with your native system **Antigravity CLI** (`~/.gemini/antigravity-cli/`) and **Antigravity IDE** (`~/.gemini/antigravity-ide/`) sessions without requiring manual re-authentication.
+
+#### 🔹 Via Web Dashboard (Interactive Modal):
+1. In the **Google Antigravity Accounts (OAuth)** section, click the **`AGY CLI`** / **`In CLI`** / **`In IDE`** button on any account card or table row.
+2. A modal dialog will open displaying the account details and the current active sessions:
+   - **CLI Only** (`~/.gemini/antigravity-cli/`): Updates terminal CLI session.
+   - **IDE Only** (`~/.gemini/antigravity-ide/`): Updates Cursor / VS Code extension session.
+   - **Both (CLI + IDE)**: Switches both environments simultaneously.
+3. (Optional) Keep **"Also set as Primary Proxy Account"** checked.
+4. Click **"Confirm Switch"** — the proxy writes the official token file, creates a safety `.bak` backup, and updates live status indicators immediately.
+
+#### 🔹 Via CLI Commands:
+```bash
+# List available OAuth accounts and their current active statuses (CLI/IDE):
+agy-proxy switch --list
+# Example output will show clear indicators like "Active (CLI) ⭐" or "Active (IDE) ⭐"
+
+# Switch to a specific account for both CLI and IDE:
+agy-proxy switch "developer@gmail.com"
+
+# Switch an account ONLY for the CLI terminal:
+agy-proxy switch "developer@gmail.com" --cli
+
+# Switch an account ONLY for the IDE extension:
+agy-proxy switch "developer@gmail.com" --ide
+
+# Automatically rotate to the account with the highest remaining quota:
+agy-proxy switch --next
+```
+
+#### 🔒 Official Token Schema & Security:
+The proxy guarantees strict compliance with Google's official Antigravity token format:
+- **Exact Official Schema**: Strictly writes the 3 official top-level keys (`token`, `auth_method`, `id_token`) and 4 token keys (`access_token`, `token_type`, `refresh_token`, `expiry`). Zero proxy-specific fields are added.
+- **Go `json.Marshal` Compatibility**: Serialized as compact JSON matching Google Antigravity's native binary format.
+- **Automated Backups**: A `.bak` backup is created automatically before modifying any existing token file.
+- **Atomic Writes & Permissions**: Writes to a temporary file first and replaces atomically with strict `0600` file permissions.
+
+### 🗂️ Dashboard Section Management & Bulk Actions
+- **Collapsible Groups**: Click any section header (OAuth, Web, API Keys) to collapse or expand accounts. When collapsed, a compact status badge displays enabled and paused counts.
+- **Collapse All / Expand All**: Toolbar controls in the Active Account Pool header allow 1-click collapsing or expanding of all account groups.
+- **Per-Section Enable / Disable**: Each section header has independent **▶ Enable** and **⏸ Disable** buttons to bulk-toggle only accounts belonging to that category (e.g. pause all API keys without affecting OAuth).
+
 ---
 
 ## 🗜 Context Compactor & Auto-Summarization (Token Saver)
@@ -353,15 +431,15 @@ Antigravity Proxy features an intelligent **Context Compactor Engine** that cont
 ### 🌟 Why it matters:
 - **80% to 98% Token Reduction**: Large 500,000+ token sessions (with full file contents, diffs, and bash outputs) are safely compressed down into a clean ~1,500-token structured context.
 - **Zero 400 Context Overflow Errors**: Prevents hitting Google CloudCode's hard limit of `1,048,576 tokens`.
-- **Zero Claude Quota Wasted**: Compactions and summaries are processed in milliseconds via `gemini-3.1-flash-lite`, using **0% of your primary model quota**.
-- **Full History Retention**: Uses Claude Code's official 9-section summarization prompt schema, retaining all project architectures, file paths, pending tasks, and user instructions.
+- **Zero Primary Model Quota Wasted**: Compactions and summaries are processed in milliseconds via `gemini-3.1-flash-lite`, using **0% of your primary model quota** (Claude Sonnet/Opus, Gemini Pro).
+- **Full History Retention**: Uses a battle-tested 9-section summarization prompt schema, retaining all project architectures, file paths, pending tasks, and user instructions.
 
 ### ⚙️ Configuration (Web UI & REST API)
 You can configure the compactor dynamically from the Web Dashboard (`http://localhost:8000`) or via REST API:
 
 - **Auto-Summarize Threshold**: Set token threshold from `30,000` to `200,000` tokens (Default: `85,000` tokens).
 - **Preserve Last Messages**: Choose how many recent messages to keep uncompressed in full detail (e.g., 4 to 8 messages).
-- **Manual `/compact` Command**: Type `/compact` inside Claude Code CLI anytime to trigger instantaneous background compression.
+- **Manual `/compact` Command**: Type `/compact` inside supported coding agents (e.g., Claude Code CLI) anytime to trigger instantaneous background compression.
 
 ```bash
 # Get current compactor settings
@@ -377,12 +455,12 @@ curl -X POST http://127.0.0.1:8000/api/context/settings \
 
 ## 🌐 Live Web Search & Google Grounding
 
-Antigravity Proxy natively equips coding agents (like Claude Code) with live internet access without needing paid API keys from third-party search providers.
+Antigravity Proxy natively equips coding agents and IDEs (Cursor, Windsurf, Roo Code, Claude Code, Aider, etc.) with live internet access without needing paid API keys from third-party search providers.
 
 ### 🔍 Search Architecture:
 1. **Google Grounding (Vertex AI)**: Real-time search indexing directly from Google's search engine.
 2. **Multi-Engine Concurrent Fan-Out**: Automatic parallel querying across **DuckDuckGo**, **Bing**, and **Brave** with URL deduplication, domain ranking, and domain filtering (`site:` filters).
-3. **Transparent Claude Tool Interception**: Automatically handles Claude Code's `WebSearch` and `web_search` tool calls, returning clean, grounded results with citations and URLs.
+3. **Transparent WebSearch Tool Interception**: Automatically handles `WebSearch` and `web_search` tool calls from coding agents and extensions, returning clean, grounded results with citations and URLs.
 
 ---
 

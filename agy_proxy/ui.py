@@ -5,7 +5,6 @@ with support for standalone PyInstaller binaries and development hot-reloading.
 """
 
 import logging
-import os
 import sys
 from pathlib import Path
 

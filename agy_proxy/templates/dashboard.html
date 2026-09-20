@@ -269,6 +269,15 @@
             <i class="fa-solid fa-rotate-left text-slate-400 text-[10px]"></i>
             <span>Reset Stats</span>
           </button>
+          <div class="h-4 border-l border-slate-700"></div>
+          <button onclick="collapseAllSections()" class="text-[11px] px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-800 font-medium transition flex items-center space-x-1" title="Collapse all account sections">
+            <i class="fa-solid fa-angles-up text-slate-400 text-[10px]"></i>
+            <span>Collapse All</span>
+          </button>
+          <button onclick="expandAllSections()" class="text-[11px] px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-800 font-medium transition flex items-center space-x-1" title="Expand all account sections">
+            <i class="fa-solid fa-angles-down text-slate-400 text-[10px]"></i>
+            <span>Expand All</span>
+          </button>
         </div>
       </div>
 
@@ -412,10 +421,10 @@
           <!-- Real-time Model Search Input -->
           <div class="relative">
             <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-slate-500"></i>
-            <input 
-              type="text" 
-              id="modelSearchInput" 
-              placeholder="Search 50+ models (e.g. flash, claude, 3.7)..." 
+            <input
+              type="text"
+              id="modelSearchInput"
+              placeholder="Search exact models (e.g. 3.8-flash, sonnet-4-6, opus)..."
               class="w-full bg-slate-900 border border-slate-700/80 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition font-mono"
               oninput="filterModelCatalog()"
             >
@@ -519,6 +528,10 @@
             <i class="fa-solid fa-copy text-emerald-400 group-hover:scale-110 transition text-xs"></i>
             <span class="font-bold text-white">AGY CLI</span>
           </button>
+          <button onclick="copySnippet('codex')" class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700/80 text-xs font-mono transition flex items-center space-x-2 group shadow-sm" title="Copy OpenAI Codex CLI command">
+            <i class="fa-solid fa-terminal text-teal-400 group-hover:scale-110 transition text-xs"></i>
+            <span class="font-bold text-white">Codex CLI</span>
+          </button>
           <button onclick="copySnippet('baseurl')" class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700/80 text-xs font-mono transition flex items-center space-x-2 group shadow-sm" title="Copy API Base URL for Cursor/Cline">
             <i class="fa-solid fa-link text-cyan-400 group-hover:scale-110 transition text-xs"></i>
             <span class="font-bold text-white">Base URL (:8000/v1)</span>
@@ -539,7 +552,7 @@
             </button>
           </div>
           <code id="codeOpenAiEndpoint" class="text-xs font-mono text-indigo-400 block truncate select-all">http://localhost:8000/v1</code>
-          <p class="text-[10px] text-slate-500">For Cursor, Windsurf, Cline, Continue.dev, Aider, and standard OpenAI SDK.</p>
+          <p class="text-[10px] text-slate-500">For Codex CLI, Cursor, Windsurf, Cline, Continue.dev, Aider, and standard OpenAI SDK.</p>
         </div>
 
         <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
@@ -553,7 +566,7 @@
             </button>
           </div>
           <code id="codeAnthropicEndpoint" class="text-xs font-mono text-purple-400 block truncate select-all">http://localhost:8000</code>
-          <p class="text-[10px] text-slate-500">Use with ANTHROPIC_BASE_URL for Claude Code CLI and Anthropic SDK.</p>
+          <p class="text-[10px] text-slate-500">Use with ANTHROPIC_BASE_URL for Claude Code, Roo Code / Cline, Aider, and Anthropic SDK.</p>
         </div>
       </div>
     </div>
@@ -636,7 +649,38 @@ Model:    gemini-3.7-flash-high</pre>
           </div>
         </div>
 
-        <!-- 3. Roo Code / Cline (VS Code) -->
+        <!-- 3. OpenAI Codex CLI -->
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800/90 space-y-3 flex flex-col hover:border-teal-500/40 transition group">
+          <div class="space-y-1">
+            <div class="font-bold text-slate-200 text-sm flex items-center justify-between">
+              <span class="flex items-center space-x-2">
+                <div class="w-6 h-6 rounded-lg bg-teal-600/20 text-teal-400 flex items-center justify-center text-xs">
+                  <i class="fa-solid fa-terminal"></i>
+                </div>
+                <span>OpenAI Codex CLI</span>
+              </span>
+              <span class="text-[10px] px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-400 border border-teal-500/20 font-semibold">Responses API</span>
+            </div>
+            <p class="text-[11px] text-slate-400 leading-snug">Terminal agent via native WebSocket / Responses API.</p>
+          </div>
+
+          <div class="relative bg-slate-950 rounded-xl border border-slate-800 p-2.5 flex-1 flex flex-col justify-center">
+            <button onclick="copySnippet('codeCodexCli', this)" class="absolute top-2 right-2 px-2 py-1 rounded-md bg-slate-800/80 hover:bg-teal-600 text-slate-300 hover:text-white text-[10px] transition flex items-center space-x-1 shadow" title="Copy code">
+              <i class="fa-regular fa-copy"></i>
+              <span>Copy</span>
+            </button>
+            <pre id="codeCodexCli" class="text-slate-300 font-mono text-[10.5px] overflow-x-auto custom-scrollbar pr-12"># 1-Line Launch:
+OPENAI_API_KEY="dummy" codex -c 'openai_base_url="http://localhost:8000/v1"' -m "gemini-3.8-flash-high"
+
+# Persistent config (~/.codex/config.toml) with all models:
+# (Or run: agy-proxy setup-codex)
+openai_base_url = "http://localhost:8000/v1"
+model = "gemini-3.8-flash-high"
+model_catalog_json = "~/.codex/antigravity_models.json"</pre>
+          </div>
+        </div>
+
+        <!-- 4. Roo Code / Cline (VS Code) -->
         <div class="p-4 rounded-xl bg-slate-900 border border-slate-800/90 space-y-3 flex flex-col hover:border-purple-500/40 transition group">
           <div class="space-y-1">
             <div class="font-bold text-slate-200 text-sm flex items-center justify-between">
@@ -1061,6 +1105,115 @@ https://your-tunnel.trycloudflare.com/v1</pre>
     </div>
   </div>
 
+  <!-- Switch Antigravity Session Modal (CLI / IDE / Both) -->
+  <div id="activateSessionModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-dark-card border border-dark-border rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-dark-border pb-3">
+        <h3 class="text-sm font-bold text-white flex items-center">
+          <i class="fa-solid fa-user-check mr-2 text-emerald-400"></i> Switch Antigravity Session
+        </h3>
+        <button onclick="closeActivateSessionModal()" class="text-slate-400 hover:text-white text-base">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Account Info Preview -->
+      <div id="activateModalAccountPreview" class="p-3 rounded-xl bg-slate-900 border border-slate-800 flex items-center space-x-3">
+      </div>
+
+      <!-- Choose target environment -->
+      <div class="space-y-2">
+        <label class="text-[11px] text-slate-400 font-medium block">Select Destination Environment</label>
+        <div class="grid grid-cols-3 gap-2">
+          <label class="flex flex-col items-center justify-center p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500/60 cursor-pointer transition text-center relative has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-500/10 group">
+            <input type="radio" name="agyTargetEnv" value="cli" class="sr-only">
+            <i class="fa-solid fa-terminal text-base text-emerald-400 mb-1.5"></i>
+            <span class="text-xs font-bold text-white">CLI Only</span>
+            <span class="text-[9px] text-slate-400 mt-0.5">Terminal / agy</span>
+          </label>
+          <label class="flex flex-col items-center justify-center p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-cyan-500/60 cursor-pointer transition text-center relative has-[:checked]:border-cyan-500 has-[:checked]:bg-cyan-500/10 group">
+            <input type="radio" name="agyTargetEnv" value="ide" class="sr-only">
+            <i class="fa-solid fa-code text-base text-cyan-400 mb-1.5"></i>
+            <span class="text-xs font-bold text-white">IDE Only</span>
+            <span class="text-[9px] text-slate-400 mt-0.5">Cursor / VS Code</span>
+          </label>
+          <label class="flex flex-col items-center justify-center p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-indigo-500/60 cursor-pointer transition text-center relative has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-500/10 group">
+            <input type="radio" name="agyTargetEnv" value="both" checked class="sr-only">
+            <i class="fa-solid fa-bolt text-base text-indigo-400 mb-1.5"></i>
+            <span class="text-xs font-bold text-white">Both</span>
+            <span class="text-[9px] text-slate-400 mt-0.5">CLI + IDE</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Current Sessions Status Info -->
+      <div class="p-2.5 rounded-xl bg-slate-900/70 border border-slate-800/80 text-[11px] text-slate-400 space-y-1.5">
+        <div class="flex justify-between items-center">
+          <span class="flex items-center space-x-1"><i class="fa-solid fa-terminal text-emerald-400 text-[10px]"></i><span>Active CLI:</span></span>
+          <span class="font-mono text-emerald-300 font-medium truncate max-w-[210px]" id="modalCurrentCli">-</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="flex items-center space-x-1"><i class="fa-solid fa-code text-cyan-400 text-[10px]"></i><span>Active IDE:</span></span>
+          <span class="font-mono text-cyan-300 font-medium truncate max-w-[210px]" id="modalCurrentIde">-</span>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-2 pt-0.5">
+        <input type="checkbox" id="modalSetPrimaryToggle" class="rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-0">
+        <label for="modalSetPrimaryToggle" class="text-xs text-slate-300 cursor-pointer select-none">Also set as Primary Proxy Account</label>
+      </div>
+
+      <div class="flex items-center justify-end space-x-2.5 pt-2 border-t border-dark-border">
+        <button onclick="closeActivateSessionModal()" class="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition">
+          Cancel
+        </button>
+        <button onclick="submitActivateSessionModal()" id="modalConfirmActivateBtn" class="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center space-x-1.5 transition shadow">
+          <i class="fa-solid fa-check text-xs"></i>
+          <span>Confirm Switch</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Official Antigravity Models & Quota Modal -->
+  <div id="modelsQuotaModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-dark-card border border-dark-border rounded-2xl max-w-lg w-full p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-dark-border pb-3">
+        <h3 class="text-sm font-bold text-white flex items-center">
+          <i class="fa-solid fa-chart-pie mr-2 text-indigo-400"></i> Models & Quota
+        </h3>
+        <button onclick="closeQuotaModal()" class="text-slate-400 hover:text-white text-base">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div id="quotaModalAccountHeader" class="text-xs text-slate-400 font-mono flex items-center justify-between">
+        <span id="quotaModalAccountEmail" class="truncate max-w-[280px] text-slate-300"></span>
+        <span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">Antigravity Format</span>
+      </div>
+
+      <div class="relative">
+        <pre id="quotaModalContent" class="bg-slate-950/90 border border-slate-800 rounded-xl p-4 text-xs font-mono text-emerald-300/90 overflow-x-auto whitespace-pre leading-relaxed select-all" style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; min-height: 200px; max-height: 420px;">Loading quota statistics...</pre>
+      </div>
+
+      <div class="flex items-center justify-between pt-2 border-t border-dark-border">
+        <button onclick="refreshQuotaModalContent()" id="quotaModalRefreshBtn" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center space-x-1.5 transition">
+          <i class="fa-solid fa-rotate text-xs"></i>
+          <span>Refresh Quota</span>
+        </button>
+        <div class="flex items-center space-x-2">
+          <button onclick="copyQuotaModalContent()" id="quotaModalCopyBtn" class="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center space-x-1.5 transition shadow">
+            <i class="fa-regular fa-copy text-xs"></i>
+            <span>Copy Quota</span>
+          </button>
+          <button onclick="closeQuotaModal()" class="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Update Modal -->
   <div id="updateModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-dark-card border border-dark-border rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl">
@@ -1130,6 +1283,11 @@ https://your-tunnel.trycloudflare.com/v1</pre>
     let rawAccountsData = [];
     let currentAccountView = 'grid';
     let currentAccountFilter = 'all';
+    let collapsedSections = new Set(); // tracks which section addTypes are collapsed
+    let cliActiveAccountId = null;    // account_id currently active in AGY CLI
+    let ideActiveAccountId = null;    // account_id currently active in AGY IDE
+    let cliActiveInfo = { cli: null, ide: null };
+    let targetActivateAccountId = null;
 
     function setAccountView(mode) {
       currentAccountView = mode;
@@ -1378,6 +1536,9 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       } else if (param === 'agy') {
         text = `agy --model gemini-pro-agent --dangerously-skip-permissions`;
         name = 'AGY command';
+      } else if (param === 'codex') {
+        text = `OPENAI_API_KEY="dummy" codex -c 'openai_base_url="http://127.0.0.1:8000/v1"' -m "gemini-3.8-flash-high"`;
+        name = 'Codex CLI launcher';
       } else if (param === 'baseurl') {
         text = `http://127.0.0.1:8000/v1`;
         name = 'Base URL';
@@ -1411,36 +1572,190 @@ https://your-tunnel.trycloudflare.com/v1</pre>
     async function setPrimaryAccount(accountId) {
       try {
         const res = await fetch(`/api/accounts/${encodeURIComponent(accountId)}/primary`, { method: 'POST' });
+        let data = {};
+        try {
+          data = await res.json();
+        } catch (_) {
+          const text = await res.text();
+          data = { detail: text || `HTTP ${res.status}` };
+        }
         if (res.ok) {
           showToast('Account set as primary!', 'success');
           loadAccounts();
         } else {
-          showToast('Failed to set primary account', 'error');
+          showToast(data.detail || data.error || 'Failed to set primary account', 'error');
         }
       } catch (err) {
         showToast(`Error: ${err.message}`, 'error');
       }
     }
 
-    // Activate Account for Google Antigravity CLI / IDE
-    async function activateCliAccount(accountId) {
-      const acc = accounts.find(a => a.account_id === accountId);
-      const accName = acc ? (acc.email || acc.name || accountId) : accountId;
-      if (!confirm(`Switch active Google Antigravity CLI / IDE session to "${accName}"?\n\nThis will update your local antigravity-oauth-token file.`)) {
-        return;
+    // Activate Account for Google Antigravity CLI / IDE - Opens Selection Modal
+    function activateCliAccount(accountId) {
+      openActivateSessionModal(accountId);
+    }
+
+    function openActivateSessionModal(accountId) {
+      targetActivateAccountId = accountId;
+      const acc = rawAccountsData.find(a => a.account_id === accountId);
+      if (!acc) return;
+
+      const previewContainer = document.getElementById('activateModalAccountPreview');
+      if (previewContainer) {
+        previewContainer.innerHTML = `
+          ${renderAvatar(acc, 'w-9 h-9', 'text-sm')}
+          <div class="min-w-0 flex-1">
+            <div class="font-bold text-white text-xs sm:text-sm truncate">${acc.name || acc.email}</div>
+            <div class="text-[11px] text-slate-400 font-mono truncate">${acc.email}</div>
+          </div>
+        `;
       }
+
+      // Populate current sessions
+      const cliName = cliActiveInfo?.cli?.name || cliActiveInfo?.cli?.email || 'None';
+      const ideName = cliActiveInfo?.ide?.name || cliActiveInfo?.ide?.email || 'None';
+      const curCli = document.getElementById('modalCurrentCli');
+      const curIde = document.getElementById('modalCurrentIde');
+      if (curCli) curCli.innerText = cliName;
+      if (curIde) curIde.innerText = ideName;
+
+      // Reset radio to both
+      const radios = document.getElementsByName('agyTargetEnv');
+      for (const r of radios) {
+        if (r.value === 'both') r.checked = true;
+      }
+
+      // Reset primary checkbox to false (do NOT set primary when switching CLI/IDE only)
+      const setPrimaryCheckbox = document.getElementById('modalSetPrimaryToggle');
+      if (setPrimaryCheckbox) setPrimaryCheckbox.checked = false;
+
+      document.getElementById('activateSessionModal').classList.remove('hidden');
+    }
+
+    function closeActivateSessionModal() {
+      document.getElementById('activateSessionModal').classList.add('hidden');
+      targetActivateAccountId = null;
+    }
+
+    async function submitActivateSessionModal() {
+      if (!targetActivateAccountId) return;
+      const radios = document.getElementsByName('agyTargetEnv');
+      let target = 'both';
+      for (const r of radios) {
+        if (r.checked) {
+          target = r.value;
+          break;
+        }
+      }
+      const setPrimary = document.getElementById('modalSetPrimaryToggle')?.checked ?? false;
+      const acc = rawAccountsData.find(a => a.account_id === targetActivateAccountId);
+      const accName = acc ? (acc.name || acc.email) : targetActivateAccountId;
+
+      const targetLabel = target === 'cli' ? 'CLI' : (target === 'ide' ? 'IDE' : 'CLI + IDE');
+      showToast(`Activating ${accName} in ${targetLabel}...`, 'info');
+      closeActivateSessionModal();
+
       try {
-        showToast('Activating session in Antigravity CLI...', 'info');
-        const res = await fetch(`/api/accounts/${encodeURIComponent(accountId)}/activate-cli`, { method: 'POST' });
-        const data = await res.json();
+        const res = await fetch(`/api/accounts/${encodeURIComponent(targetActivateAccountId)}/activate-cli?target=${encodeURIComponent(target)}&set_primary=${setPrimary}`, {
+          method: 'POST'
+        });
+        let data = {};
+        try {
+          data = await res.json();
+        } catch (_) {
+          const text = await res.text();
+          data = { detail: text || `HTTP ${res.status}` };
+        }
         if (res.ok && data.status === 'activated') {
-          showToast(`Active in Antigravity CLI (${data.email || accountId})!`, 'success');
+          showToast(`Active in ${targetLabel}: ${data.email || accName}!`, 'success');
           loadAccounts();
         } else {
-          showToast(data.detail || data.error || 'Failed to activate CLI session', 'error');
+          showToast(data.detail || data.error || 'Failed to activate session', 'error');
         }
       } catch (err) {
         showToast(`Error: ${err.message}`, 'error');
+      }
+    }
+
+    let currentQuotaModalAccountId = null;
+
+    async function openQuotaModal(accountId) {
+      currentQuotaModalAccountId = accountId;
+      const modal = document.getElementById('modelsQuotaModal');
+      const content = document.getElementById('quotaModalContent');
+      const emailElem = document.getElementById('quotaModalAccountEmail');
+      const acc = rawAccountsData ? rawAccountsData.find(a => a.account_id === accountId) : null;
+      if (emailElem) {
+        emailElem.textContent = acc ? (acc.name ? `${acc.name} (${acc.email})` : acc.email) : accountId;
+      }
+      if (modal) modal.classList.remove('hidden');
+      if (content) content.textContent = 'Loading models and quota statistics...';
+
+      try {
+        const res = await fetch(`/api/accounts/${encodeURIComponent(accountId)}/quota-display`);
+        const data = await res.json();
+        if (data.quota_display) {
+          if (content) content.textContent = data.quota_display;
+        } else if (data.error) {
+          if (content) content.textContent = `Error: ${data.error}`;
+        } else {
+          if (content) content.textContent = 'No quota statistics available for this account.';
+        }
+      } catch (err) {
+        if (content) content.textContent = `Failed to fetch quota: ${err.message}`;
+      }
+    }
+
+    function closeQuotaModal() {
+      const modal = document.getElementById('modelsQuotaModal');
+      if (modal) modal.classList.add('hidden');
+      currentQuotaModalAccountId = null;
+    }
+
+    async function refreshQuotaModalContent() {
+      if (!currentQuotaModalAccountId) return;
+      const refreshBtn = document.getElementById('quotaModalRefreshBtn');
+      const content = document.getElementById('quotaModalContent');
+      let origHtml = '';
+      if (refreshBtn) {
+        origHtml = refreshBtn.innerHTML;
+        refreshBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-xs"></i><span>Refreshing...</span>';
+        refreshBtn.disabled = true;
+      }
+      try {
+        await fetch(`/api/accounts/${encodeURIComponent(currentQuotaModalAccountId)}/refresh-quota`, { method: 'POST' });
+        const res = await fetch(`/api/accounts/${encodeURIComponent(currentQuotaModalAccountId)}/quota-display`);
+        const data = await res.json();
+        if (data.quota_display && content) {
+          content.textContent = data.quota_display;
+        }
+        loadAccounts();
+      } catch (err) {
+        console.error('Error refreshing quota modal:', err);
+      } finally {
+        if (refreshBtn) {
+          refreshBtn.innerHTML = origHtml;
+          refreshBtn.disabled = false;
+        }
+      }
+    }
+
+    async function copyQuotaModalContent() {
+      const content = document.getElementById('quotaModalContent');
+      const copyBtn = document.getElementById('quotaModalCopyBtn');
+      if (!content) return;
+      try {
+        await navigator.clipboard.writeText(content.textContent);
+        if (copyBtn) {
+          const origText = copyBtn.innerHTML;
+          copyBtn.innerHTML = '<i class="fa-solid fa-check text-xs"></i><span>Copied!</span>';
+          setTimeout(() => {
+            copyBtn.innerHTML = origText;
+          }, 2000);
+        }
+        showToast('Models & Quota copied to clipboard', 'success');
+      } catch (err) {
+        showToast('Failed to copy to clipboard', 'error');
       }
     }
 
@@ -1596,9 +1911,18 @@ https://your-tunnel.trycloudflare.com/v1</pre>
         dot.className = 'w-2 h-2 rounded-full bg-amber-400 animate-ping';
       }
       try {
-        const res = await fetch('/api/accounts');
+        const [res, cliRes] = await Promise.all([
+          fetch('/api/accounts'),
+          fetch('/api/accounts/cli-active').catch(() => null),
+        ]);
         const data = await res.json();
         rawAccountsData = data.accounts || [];
+        if (cliRes && cliRes.ok) {
+          const cliData = await cliRes.json();
+          cliActiveInfo = cliData || { cli: null, ide: null };
+          cliActiveAccountId = cliData?.cli?.account_id || null;
+          ideActiveAccountId = cliData?.ide?.account_id || null;
+        }
         renderAccounts();
         populatePlaygroundAccounts();
         if (currentActiveTab === 'analytics') {
@@ -1845,8 +2169,28 @@ https://your-tunnel.trycloudflare.com/v1</pre>
         const claude5hReset = claude5h?.reset_time || (claudeWindow === '5h' ? claudeQ.reset_time : null);
         const claudeWkReset = claudeWk?.reset_time || (claudeWindow === 'weekly' ? claudeQ.reset_time : null);
 
-        const isRateLimited = Boolean(acc.rate_limited || (acc.rate_limited_models && Object.keys(acc.rate_limited_models).length > 0));
-        const isExhausted = (geminiPct <= 0 && claudePct <= 0) || isRateLimited;
+        const geminiCooldown = (acc.rate_limited_models && acc.rate_limited_models.gemini) ? acc.rate_limited_models.gemini : (geminiQ.cooldown_seconds || 0);
+        const claudeCooldown = (acc.rate_limited_models && (acc.rate_limited_models['3p'] || acc.rate_limited_models.claude)) ? (acc.rate_limited_models['3p'] || acc.rate_limited_models.claude) : (claudeQ.cooldown_seconds || 0);
+        const maxCooldown = Math.max(
+          acc.rate_limited_models && Object.keys(acc.rate_limited_models).length > 0
+            ? Math.max(0, ...Object.values(acc.rate_limited_models))
+            : 0,
+          geminiCooldown,
+          claudeCooldown
+        );
+        const isRateLimited = maxCooldown > 0 || Boolean(acc.rate_limited);
+        const isExhausted = (geminiPct <= 0 && claudePct <= 0);
+
+        let statusBadge = '';
+        if (isExhausted) {
+          statusBadge = '<span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20">Exhausted</span>';
+        } else if (isRateLimited) {
+          statusBadge = `<span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1"><i class="fa-solid fa-clock-rotate-left text-[9px]"></i>Cooldown (${maxCooldown}s)</span>`;
+        } else if (geminiPct > 20 && claudePct > 20) {
+          statusBadge = '<span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Ready</span>';
+        } else {
+          statusBadge = '<span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">Constrained</span>';
+        }
 
         html += `
           <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3.5 ${!isEnabled ? 'opacity-60' : ''}">
@@ -1859,10 +2203,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
                 </div>
               </div>
               <div class="flex items-center space-x-1 shrink-0">
-                ${!isEnabled ? '<span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">Paused</span>' : ''}
-                <span class="text-[10px] font-mono px-2 py-0.5 rounded-full ${isExhausted ? 'bg-red-500/10 text-red-400 border border-red-500/20' : (geminiPct > 20 && claudePct > 20 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20')}">
-                  ${isExhausted ? 'Exhausted' : (geminiPct > 20 && claudePct > 20 ? 'Ready' : 'Constrained')}
-                </span>
+                ${!isEnabled ? '<span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">Paused</span>' : statusBadge}
               </div>
             </div>
 
@@ -1874,10 +2215,10 @@ https://your-tunnel.trycloudflare.com/v1</pre>
                   <span class="font-medium text-slate-300">Gemini</span>
                   <span class="text-[9px] px-1 py-0.2 rounded bg-slate-800 text-indigo-300 font-mono">${geminiWindow === 'weekly' ? 'Weekly Limit' : '5h Window'}</span>
                 </span>
-                <span class="font-bold font-mono ${geminiPct > 20 ? 'text-slate-200' : 'text-red-400'}">${geminiPct}%</span>
+                <span class="font-bold font-mono ${geminiPct <= 0 ? 'text-red-400' : (geminiPct > 20 ? 'text-slate-200' : 'text-amber-400')}">${geminiPct}%</span>
               </div>
               <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                <div class="h-full ${geminiPct <= 0 ? 'bg-red-500' : (geminiPct > 30 ? 'bg-indigo-500' : 'bg-amber-500')} rounded-full transition-all" style="width: ${geminiPct}%"></div>
+                <div class="h-full ${geminiPct <= 0 ? 'bg-red-500' : (geminiPct > 30 ? 'bg-indigo-500' : 'bg-amber-500')} rounded-full transition-all" style="width: ${Math.max(0, Math.min(100, geminiPct))}%"></div>
               </div>
               <div class="grid grid-cols-2 gap-2 text-[10px] font-mono text-slate-400 pt-0.5">
                 <div class="bg-slate-950/60 px-2 py-1 rounded border border-slate-800/80 flex justify-between items-center">
@@ -1899,10 +2240,10 @@ https://your-tunnel.trycloudflare.com/v1</pre>
                   <span class="font-medium text-slate-300">Claude & GPT</span>
                   <span class="text-[9px] px-1 py-0.2 rounded bg-slate-800 text-purple-300 font-mono">${claudeWindow === '5h' ? '5h Window' : 'Weekly Cap'}</span>
                 </span>
-                <span class="font-bold font-mono ${claudePct > 20 ? 'text-slate-200' : 'text-red-400'}">${claudePct}%</span>
+                <span class="font-bold font-mono ${claudePct <= 0 ? 'text-red-400' : (claudePct > 20 ? 'text-slate-200' : 'text-amber-400')}">${claudePct}%</span>
               </div>
               <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                <div class="h-full ${claudePct <= 0 ? 'bg-red-500' : (claudePct > 30 ? 'bg-purple-500' : 'bg-amber-500')} rounded-full transition-all" style="width: ${claudePct}%"></div>
+                <div class="h-full ${claudePct <= 0 ? 'bg-red-500' : (claudePct > 30 ? 'bg-purple-500' : 'bg-amber-500')} rounded-full transition-all" style="width: ${Math.max(0, Math.min(100, claudePct))}%"></div>
               </div>
               <div class="grid grid-cols-2 gap-2 text-[10px] font-mono text-slate-400 pt-0.5">
                 <div class="bg-slate-950/60 px-2 py-1 rounded border border-slate-800/80 flex justify-between items-center">
@@ -1968,8 +2309,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
           }
         }
 
-        const isRateLimited = Boolean(acc.rate_limited || (acc.rate_limited_models && Object.keys(acc.rate_limited_models).length > 0));
-        if (!isApiKey && !isWeb && (isRateLimited || (geminiPct <= 0 && claudePct <= 0))) {
+        if (!isApiKey && !isWeb && (geminiPct <= 0 && claudePct <= 0)) {
           totalExhausted++;
         }
       });
@@ -2019,7 +2359,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
 
         if (currentAccountFilter === 'exhausted') {
           if (isApiKey || isWeb) return false;
-          if (geminiPct > 0 && claudePct > 0) return false;
+          if (geminiPct > 0 || claudePct > 0) return false;
         }
 
         if (searchQ) {
@@ -2079,7 +2419,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
           'fa-solid fa-shield-halved',
           { bg: 'bg-indigo-500/15', border: 'border-indigo-500/30', text: 'text-indigo-400', pillBg: 'bg-indigo-500/20', pillText: 'text-indigo-300', pillBorder: 'border-indigo-500/30' },
           oauthAccounts.length,
-          'Full CloudCode integration with Claude Sonnet/Opus & Gemini quota rotation',
+          'Full integration with Claude Sonnet/Opus & Gemini quota rotation',
           'oauth',
           oauthAccounts,
           currentAccountView === 'grid'
@@ -2121,7 +2461,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
         if (currentAccountFilter === 'oauth') {
           title = 'Google Antigravity Accounts (OAuth)';
           icon = 'fa-solid fa-shield-halved';
-          desc = 'Full CloudCode integration with Claude Sonnet/Opus & Gemini quota rotation';
+          desc = 'Full integration with Claude Sonnet/Opus & Gemini quota rotation';
           addType = 'oauth';
         } else if (currentAccountFilter === 'web') {
           title = 'Gemini Web Browser Sessions';
@@ -2156,31 +2496,132 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       }
     }
 
+    // Section collapse/expand
+    function toggleSection(addType, event) {
+      if (event && event.target && event.target.closest('[onclick]') && event.target.closest('[onclick]') !== event.currentTarget) return;
+      if (collapsedSections.has(addType)) {
+        collapsedSections.delete(addType);
+      } else {
+        collapsedSections.add(addType);
+      }
+      renderAccounts();
+    }
+
+    function collapseAllSections() {
+      ['oauth', 'web', 'apikey'].forEach(t => collapsedSections.add(t));
+      renderAccounts();
+    }
+
+    function expandAllSections() {
+      collapsedSections.clear();
+      renderAccounts();
+    }
+
+    async function toggleSectionAccounts(addType, enable) {
+      const typeMap = { oauth: 'consumer', web: 'gemini_web', apikey: 'api_key' };
+      const authMethod = typeMap[addType];
+      const targets = rawAccountsData.filter(a => {
+        if (addType === 'oauth') return a.auth_method === 'consumer' || (!a.auth_method && !a.api_key);
+        return a.auth_method === authMethod;
+      });
+      if (targets.length === 0) return;
+      const action = enable ? 'enable' : 'disable';
+      showToast(`${enable ? 'Enabling' : 'Disabling'} all ${addType} accounts...`, 'info');
+      try {
+        const resp = await fetch(`/api/accounts/section/${encodeURIComponent(addType)}/toggle`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enabled: enable, auth_method: authMethod })
+        });
+        if (!resp.ok) {
+          await Promise.all(targets.map(acc =>
+            fetch(`/api/accounts/${encodeURIComponent(acc.account_id)}/toggle`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ enabled: enable })
+            })
+          ));
+        }
+        showToast(`All ${addType} accounts ${action}d!`, 'success');
+        await loadAccounts();
+        await loadModels();
+      } catch (err) {
+        showToast(`Error: ${err.message}`, 'error');
+      }
+    }
+
     function renderSection(title, icon, iconColor, count, desc, addType, items, isGrid) {
       let addBtnText = addType === 'web' ? '+ Add Web Session' : (addType === 'apikey' ? '+ Add API Key' : '+ Add OAuth');
       let addBtnColor = addType === 'web' ? 'bg-teal-600 hover:bg-teal-500' : (addType === 'apikey' ? 'bg-amber-600 hover:bg-amber-500' : 'bg-indigo-600 hover:bg-indigo-500');
+      const sectionId = 'acc-section-' + addType;
+      const isCollapsed = collapsedSections.has(addType);
+
+      // Collapsed summary: show enabled/disabled counts
+      const enabledCount = items.filter(a => a.enabled !== false).length;
+      const disabledCount = items.length - enabledCount;
+      const summaryBadge = `<span class="text-[10px] text-slate-400 font-mono">${enabledCount} enabled${disabledCount > 0 ? `, ${disabledCount} paused` : ''}</span>`;
+
+      // Find active AGY accounts for oauth section
+      let agyActivePills = '';
+      if (addType === 'oauth') {
+        const cliAcc = items.find(a => a.account_id === cliActiveAccountId);
+        const ideAcc = items.find(a => a.account_id === ideActiveAccountId);
+
+        if (cliAcc && ideAcc && cliAcc.account_id === ideAcc.account_id) {
+          agyActivePills += `<span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center space-x-1 shrink-0" title="Active in both Antigravity CLI and IDE"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span><span>CLI+IDE: <b class="text-white">${cliAcc.name || cliAcc.email}</b></span></span>`;
+        } else {
+          if (cliAcc) {
+            agyActivePills += `<span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center space-x-1 shrink-0" title="Active in Antigravity CLI"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span><span>CLI: <b class="text-white">${cliAcc.name || cliAcc.email}</b></span></span>`;
+          }
+          if (ideAcc) {
+            agyActivePills += `<span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 flex items-center space-x-1 shrink-0" title="Active in Antigravity IDE"><span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span><span>IDE: <b class="text-white">${ideAcc.name || ideAcc.email}</b></span></span>`;
+          }
+        }
+      }
 
       let html = `
-        <div class="space-y-3.5 pt-1">
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-800/80">
-            <div class="flex items-center space-x-2.5 min-w-0">
+        <div class="space-y-0 pt-1" id="${sectionId}">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-800/80 cursor-pointer group" onclick="toggleSection('${addType}', event)">
+            <div class="flex items-center space-x-2.5 min-w-0 flex-1">
               <div class="w-8 h-8 rounded-xl ${iconColor.bg} border ${iconColor.border} flex items-center justify-center ${iconColor.text} text-sm shrink-0">
                 <i class="${icon}"></i>
               </div>
-              <div class="min-w-0">
-                <div class="flex items-center space-x-2">
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center space-x-2 flex-wrap gap-y-1">
                   <h3 class="text-sm sm:text-base font-bold text-white truncate">${title}</h3>
                   <span class="text-[10px] font-mono px-2 py-0.5 rounded-full ${iconColor.pillBg} ${iconColor.pillText} border ${iconColor.pillBorder} font-bold shrink-0">${count}</span>
+                  ${agyActivePills}
+                  ${isCollapsed ? summaryBadge : ''}
                 </div>
-                <p class="text-[11px] text-slate-400 mt-0.5 truncate">${desc}</p>
+                ${desc ? `<p class="text-[11px] text-slate-400 mt-0.5 truncate">${desc}</p>` : ''}
               </div>
             </div>
-            <button onclick="openAddAccountModal('${addType}')" class="self-start sm:self-auto text-xs px-3 py-1.5 rounded-xl ${addBtnColor} text-white font-semibold transition flex items-center space-x-1.5 shadow-sm shrink-0">
-              <i class="fa-solid fa-plus text-[10px]"></i>
-              <span>${addBtnText}</span>
-            </button>
+            <div class="flex items-center gap-1.5 shrink-0" onclick="event.stopPropagation()">
+              <button onclick="toggleSectionAccounts('${addType}', true)" class="text-[10px] px-2 py-1 rounded-lg bg-slate-900 hover:bg-emerald-600 hover:text-white text-slate-400 border border-slate-800 font-medium transition flex items-center space-x-1" title="Enable all in this section">
+                <i class="fa-solid fa-play text-emerald-400 text-[9px]"></i>
+                <span>Enable</span>
+              </button>
+              <button onclick="toggleSectionAccounts('${addType}', false)" class="text-[10px] px-2 py-1 rounded-lg bg-slate-900 hover:bg-amber-600 hover:text-white text-slate-400 border border-slate-800 font-medium transition flex items-center space-x-1" title="Disable all in this section">
+                <i class="fa-solid fa-pause text-amber-400 text-[9px]"></i>
+                <span>Disable</span>
+              </button>
+              <button onclick="openAddAccountModal('${addType}')" class="text-xs px-3 py-1.5 rounded-xl ${addBtnColor} text-white font-semibold transition flex items-center space-x-1.5 shadow-sm">
+                <i class="fa-solid fa-plus text-[10px]"></i>
+                <span>${addBtnText}</span>
+              </button>
+              <button class="text-slate-500 hover:text-white p-1 transition group-hover:text-slate-300" title="${isCollapsed ? 'Expand' : 'Collapse'}">
+                <i class="fa-solid ${isCollapsed ? 'fa-chevron-down' : 'fa-chevron-up'} text-[11px]"></i>
+              </button>
+            </div>
           </div>
       `;
+
+      if (isCollapsed) {
+        html += '</div>';
+        return html;
+      }
+
+      html += '<div class="space-y-3.5 pt-3.5">';
 
       if (items.length === 0) {
         html += `
@@ -2191,7 +2632,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
               <span>${addBtnText}</span>
             </button>
           </div>
-        </div>
+        </div></div>
         `;
         return html;
       }
@@ -2245,16 +2686,27 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       const claude5h = claudeQ['5h'];
       const claudeWk = claudeQ['weekly'];
 
-      const gemini5hPct = gemini5h ? Math.round(gemini5h.percent ?? (gemini5h.fraction * 100)) : geminiPct;
-      const geminiWkPct = geminiWk ? Math.round(geminiWk.percent ?? (geminiWk.fraction * 100)) : geminiPct;
-      const claude5hPct = claude5h ? Math.round(claude5h.percent ?? (claude5h.fraction * 100)) : claudePct;
-      const claudeWkPct = claudeWk ? Math.round(claudeWk.percent ?? (claudeWk.fraction * 100)) : claudePct;
+      const gemini5hPct = gemini5h != null ? Math.round(gemini5h.percent ?? (gemini5h.fraction * 100)) : (geminiWindow === '5h' ? geminiPct : 100);
+      const geminiWkPct = geminiWk != null ? Math.round(geminiWk.percent ?? (geminiWk.fraction * 100)) : (geminiWindow === 'weekly' ? geminiPct : 100);
+      const claude5hPct = claude5h != null ? Math.round(claude5h.percent ?? (claude5h.fraction * 100)) : (claudeWindow === '5h' ? claudePct : 100);
+      const claudeWkPct = claudeWk != null ? Math.round(claudeWk.percent ?? (claudeWk.fraction * 100)) : (claudeWindow === 'weekly' ? claudePct : 100);
 
       const geminiResetBadge = formatResetBadge(geminiQ.reset_time, geminiPct, geminiWindow === 'weekly' ? 'Wk' : '5h');
       const claudeResetBadge = formatResetBadge(claudeQ.reset_time, claudePct, claudeWindow === '5h' ? '5h' : 'Wk');
 
-      const geminiIsExhausted = geminiPct <= 0 || (acc.rate_limited_models && acc.rate_limited_models.gemini !== undefined);
-      const claudeIsExhausted = claudePct <= 0 || (acc.rate_limited_models && acc.rate_limited_models['3p'] !== undefined);
+      const geminiIsExhausted = (geminiWkPct <= 0 || gemini5hPct <= 0);
+      const geminiCooldown = (acc.rate_limited_models && acc.rate_limited_models.gemini) ? acc.rate_limited_models.gemini : (geminiQ.cooldown_seconds || 0);
+      const geminiIsRateLimited = geminiCooldown > 0 || (Boolean(geminiQ.is_rate_limited) && !geminiIsExhausted);
+
+      const claudeIsExhausted = (claudeWkPct <= 0 || claude5hPct <= 0);
+      const claudeCooldown = (acc.rate_limited_models && (acc.rate_limited_models['3p'] || acc.rate_limited_models.claude)) ? (acc.rate_limited_models['3p'] || acc.rate_limited_models.claude) : (claudeQ.cooldown_seconds || 0);
+      const claudeIsRateLimited = claudeCooldown > 0 || (Boolean(claudeQ.is_rate_limited) && !claudeIsExhausted);
+
+      const maxAccountCooldown = Math.max(
+        acc.rate_limited_models && Object.keys(acc.rate_limited_models).length > 0 ? Math.max(0, ...Object.values(acc.rate_limited_models)) : 0,
+        geminiCooldown,
+        claudeCooldown
+      );
 
       let quotaSectionHtml = '';
       if (isWeb) {
@@ -2328,52 +2780,119 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       } else {
         quotaSectionHtml = `
           <div class="grid grid-cols-2 gap-2 text-xs pt-1">
-            <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1.5 flex flex-col justify-between" title="${geminiQ.description || '5-hour rolling limit + weekly cap'}">
-              <div>
-                <div class="flex justify-between text-[11px] items-center">
-                  <span class="text-slate-400 font-medium flex items-center gap-1">
+            <!-- Gemini Models Box -->
+            <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2 flex flex-col justify-between" title="${geminiQ.description || 'Gemini Models: Weekly + 5-Hour Limits'}">
+              <div class="space-y-1.5">
+                <div class="flex justify-between text-[11px] items-center border-b border-slate-800/80 pb-1">
+                  <span class="text-slate-300 font-semibold flex items-center gap-1.5">
+                    <i class="fa-brands fa-google text-indigo-400 text-[10px]"></i>
                     <span>Gemini</span>
-                    <span class="text-[9px] px-1 py-0.2 rounded bg-slate-800 text-indigo-300 font-mono">${geminiWindow === 'weekly' ? 'Wk' : '5h'}</span>
                   </span>
-                  <span class="font-bold font-mono ${geminiIsExhausted ? 'text-red-400 font-bold' : 'text-slate-200'}">${geminiPct}%</span>
+                  <button onclick="openQuotaModal('${acc.account_id}')" class="text-[9px] text-indigo-400 hover:text-indigo-300 hover:underline flex items-center gap-0.5" title="View official agy Models & Quota">
+                    <i class="fa-solid fa-chart-pie text-[8px]"></i><span>Quota</span>
+                  </button>
                 </div>
-                <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mt-1">
-                  <div class="h-full ${geminiIsExhausted ? 'bg-red-500' : (geminiPct > 30 ? 'bg-indigo-500' : 'bg-amber-500')}" style="width: ${geminiPct}%"></div>
+                <div>
+                  <div class="flex justify-between text-[10px] items-center text-slate-400">
+                    <span class="truncate">Weekly Limit</span>
+                    <span class="font-bold font-mono ${geminiWkPct <= 0 ? 'text-red-400' : 'text-slate-200'}">${geminiWkPct}%</span>
+                  </div>
+                  <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mt-0.5">
+                    <div class="h-full ${geminiWkPct <= 0 ? 'bg-red-500' : (geminiWkPct > 30 ? 'bg-indigo-500' : 'bg-amber-500')}" style="width: ${Math.max(0, Math.min(100, geminiWkPct))}%"></div>
+                  </div>
+                </div>
+                <div>
+                  <div class="flex justify-between text-[10px] items-center text-slate-400">
+                    <span class="truncate">5-Hour Limit</span>
+                    <span class="font-bold font-mono ${gemini5hPct <= 0 ? 'text-red-400' : 'text-slate-200'}">${gemini5hPct}%</span>
+                  </div>
+                  <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mt-0.5">
+                    <div class="h-full ${gemini5hPct <= 0 ? 'bg-red-500' : (gemini5hPct > 30 ? 'bg-cyan-500' : 'bg-amber-500')}" style="width: ${Math.max(0, Math.min(100, gemini5hPct))}%"></div>
+                  </div>
                 </div>
               </div>
-              <div class="text-[10px] flex justify-between items-center text-slate-500">
-                <span class="font-mono text-[9px] text-slate-400" title="${geminiWindow === 'weekly' ? '5-hour window' : 'Weekly limit'}">${geminiWindow === 'weekly' ? '5h: ' + gemini5hPct + '%' : 'Wk: ' + geminiWkPct + '%'}</span>
-                <span class="${geminiIsExhausted ? 'text-red-400 font-semibold' : 'text-slate-400'}">${geminiResetBadge}</span>
+              <div class="text-[10px] flex justify-between items-center text-slate-500 pt-1 border-t border-slate-800/60">
+                <span class="text-[9px] text-slate-400 truncate">${
+                  geminiIsExhausted
+                    ? '<span class="text-red-400 font-semibold">Exhausted</span>'
+                    : (geminiCooldown > 0
+                        ? `<span class="text-amber-400 font-semibold flex items-center gap-1"><i class="fa-solid fa-clock-rotate-left text-[8px]"></i>Cooldown (${geminiCooldown}s)</span>`
+                        : 'Quota available')
+                }</span>
+                <span class="${geminiIsExhausted ? 'text-red-400 font-semibold' : (geminiCooldown > 0 ? 'text-amber-400' : 'text-slate-400')}">${geminiResetBadge}</span>
               </div>
             </div>
 
-            <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1.5 flex flex-col justify-between" title="${claudeQ.description || 'Weekly quota + 5-hour smoothing'}">
-              <div>
-                <div class="flex justify-between text-[11px] items-center">
-                  <span class="text-slate-400 font-medium flex items-center gap-1">
-                    <span>Claude & GPT</span>
-                    <span class="text-[9px] px-1 py-0.2 rounded bg-slate-800 text-purple-300 font-mono">${claudeWindow === '5h' ? '5h' : 'Wk'}</span>
+            <!-- Claude & GPT Models Box -->
+            <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2 flex flex-col justify-between" title="${claudeQ.description || 'Claude & GPT Models: Weekly + 5-Hour Limits'}">
+              <div class="space-y-1.5">
+                <div class="flex justify-between text-[11px] items-center border-b border-slate-800/80 pb-1">
+                  <span class="text-slate-300 font-semibold flex items-center gap-1.5">
+                    <i class="fa-solid fa-brain text-purple-400 text-[10px]"></i>
+                    <span class="truncate">Claude & GPT</span>
                   </span>
-                  <span class="font-bold font-mono ${claudeIsExhausted ? 'text-red-400 font-bold' : 'text-slate-200'}">${claudePct}%</span>
+                  <button onclick="openQuotaModal('${acc.account_id}')" class="text-[9px] text-purple-400 hover:text-purple-300 hover:underline flex items-center gap-0.5" title="View official agy Models & Quota">
+                    <i class="fa-solid fa-chart-pie text-[8px]"></i><span>Quota</span>
+                  </button>
                 </div>
-                <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mt-1">
-                  <div class="h-full ${claudeIsExhausted ? 'bg-red-500' : (claudePct > 30 ? 'bg-purple-500' : 'bg-amber-500')}" style="width: ${claudePct}%"></div>
+                <div>
+                  <div class="flex justify-between text-[10px] items-center text-slate-400">
+                    <span class="truncate">Weekly Limit</span>
+                    <span class="font-bold font-mono ${claudeWkPct <= 0 ? 'text-red-400' : 'text-slate-200'}">${claudeWkPct}%</span>
+                  </div>
+                  <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mt-0.5">
+                    <div class="h-full ${claudeWkPct <= 0 ? 'bg-red-500' : (claudeWkPct > 30 ? 'bg-purple-500' : 'bg-amber-500')}" style="width: ${Math.max(0, Math.min(100, claudeWkPct))}%"></div>
+                  </div>
+                </div>
+                <div>
+                  <div class="flex justify-between text-[10px] items-center text-slate-400">
+                    <span class="truncate">5-Hour Limit</span>
+                    <span class="font-bold font-mono ${claude5hPct <= 0 ? 'text-red-400' : 'text-slate-200'}">${claude5hPct}%</span>
+                  </div>
+                  <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mt-0.5">
+                    <div class="h-full ${claude5hPct <= 0 ? 'bg-red-500' : (claude5hPct > 30 ? 'bg-fuchsia-500' : 'bg-amber-500')}" style="width: ${Math.max(0, Math.min(100, claude5hPct))}%"></div>
+                  </div>
                 </div>
               </div>
-              <div class="text-[10px] flex justify-between items-center text-slate-500">
-                <span class="font-mono text-[9px] text-slate-400" title="${claudeWindow === '5h' ? 'Weekly cap' : '5-hour smoothing window'}">${claudeWindow === '5h' ? 'Wk: ' + claudeWkPct + '%' : '5h: ' + claude5hPct + '%'}</span>
-                <span class="${claudeIsExhausted ? 'text-red-400 font-semibold' : 'text-slate-400'}">${claudeResetBadge}</span>
+              <div class="text-[10px] flex justify-between items-center text-slate-500 pt-1 border-t border-slate-800/60">
+                <span class="text-[9px] text-slate-400 truncate">${
+                  claudeIsExhausted
+                    ? '<span class="text-red-400 font-semibold">Exhausted</span>'
+                    : (claudeCooldown > 0
+                        ? `<span class="text-amber-400 font-semibold flex items-center gap-1"><i class="fa-solid fa-clock-rotate-left text-[8px]"></i>Cooldown (${claudeCooldown}s)</span>`
+                        : 'Quota available')
+                }</span>
+                <span class="${claudeIsExhausted ? 'text-red-400 font-semibold' : (claudeCooldown > 0 ? 'text-amber-400' : 'text-slate-400')}">${claudeResetBadge}</span>
               </div>
             </div>
           </div>
         `;
       }
 
+      const isCliActive = !isWeb && !isApiKey && (acc.account_id === cliActiveAccountId);
+      const isIdeActive = !isWeb && !isApiKey && (acc.account_id === ideActiveAccountId);
+      const isBothActive = isCliActive && isIdeActive;
+
+      let agyActiveCardBadge = '';
+      if (isBothActive) {
+        agyActiveCardBadge = '<span class="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30 flex items-center space-x-1 shrink-0 shadow-sm" title="Active session in both Antigravity CLI and IDE"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span><span>CLI + IDE</span></span>';
+      } else if (isCliActive) {
+        agyActiveCardBadge = '<span class="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30 flex items-center space-x-1 shrink-0 shadow-sm" title="Active session in Antigravity CLI"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span><span>CLI Active</span></span>';
+      } else if (isIdeActive) {
+        agyActiveCardBadge = '<span class="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-semibold border border-cyan-500/30 flex items-center space-x-1 shrink-0 shadow-sm" title="Active session in Antigravity IDE"><span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span><span>IDE Active</span></span>';
+      }
+
       return `
         <div class="p-4 sm:p-5 rounded-2xl border transition space-y-3 relative overflow-hidden min-w-0 ${
-          isEnabled
-            ? 'bg-dark-card border-dark-border shadow-sm'
-            : 'bg-slate-900/40 border-slate-800/80 opacity-60'
+          isBothActive
+            ? 'bg-dark-card border-emerald-500/40 ring-1 ring-emerald-500/25 shadow-md shadow-emerald-950/20'
+            : (isCliActive
+                ? 'bg-dark-card border-emerald-500/40 ring-1 ring-emerald-500/20 shadow-sm'
+                : (isIdeActive
+                    ? 'bg-dark-card border-cyan-500/40 ring-1 ring-cyan-500/20 shadow-sm'
+                    : (isEnabled
+                        ? 'bg-dark-card border-dark-border shadow-sm'
+                        : 'bg-slate-900/40 border-slate-800/80 opacity-60')))
         }">
           <div class="flex items-start justify-between gap-2">
             <div class="flex items-center space-x-2.5 sm:space-x-3 min-w-0 flex-1">
@@ -2387,7 +2906,8 @@ https://your-tunnel.trycloudflare.com/v1</pre>
                   ${acc.is_primary 
                     ? '<span class="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30 flex items-center space-x-1 shrink-0 shadow-sm"><i class="fa-solid fa-star text-amber-400 text-[9px]"></i><span>Primary</span></span>' 
                     : `<button onclick="setPrimaryAccount('${acc.account_id}')" class="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-slate-800/90 hover:bg-indigo-600 hover:text-white text-slate-400 border border-slate-700 transition flex items-center space-x-1 shrink-0" title="Set as primary active account"><i class="fa-regular fa-star text-[9px]"></i><span>Set Primary</span></button>`}
-                  ${acc.region_code ? `<span class="text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 font-mono font-semibold border border-sky-500/30 shrink-0" title="Detected Region: ${acc.region_code}">🌍 ${acc.region_code}</span>` : ''}
+                  ${agyActiveCardBadge}
+                  ${(!isApiKey && !isWeb && geminiIsExhausted && claudeIsExhausted) ? '<span class="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 font-semibold border border-red-500/30 shrink-0">Exhausted</span>' : (maxAccountCooldown > 0 ? `<span class="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-semibold border border-amber-500/30 flex items-center space-x-1 shrink-0 shadow-sm" title="Rate limit cooldown active"><i class="fa-solid fa-clock-rotate-left text-amber-400 text-[9px]"></i><span>Cooldown (${maxAccountCooldown}s)</span></span>` : '')}
                   ${!isEnabled ? '<span class="text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-medium border border-slate-700 shrink-0">Paused</span>' : ''}
                 </div>
                 <div class="text-[11px] sm:text-xs text-slate-300 font-mono truncate flex items-center space-x-1.5 mt-0.5" title="${acc.email}">
@@ -2409,11 +2929,17 @@ https://your-tunnel.trycloudflare.com/v1</pre>
           <div class="flex items-center justify-between text-[10px] sm:text-[11px] text-slate-500 pt-1 border-t border-slate-800/50">
             <div class="flex items-center space-x-1.5">
               ${!isWeb && !isApiKey ? `
+                <button onclick="openQuotaModal('${acc.account_id}')" class="px-2 py-0.5 rounded bg-purple-500/15 hover:bg-purple-600 hover:text-white text-purple-300 font-medium text-[10px] transition border border-purple-500/30 flex items-center space-x-1" title="View official agy Models & Quota format">
+                  <i class="fa-solid fa-chart-pie text-[9px]"></i><span>Quota</span>
+                </button>
                 <button onclick="openPlaygroundForAccount('${acc.account_id}')" class="px-2 py-0.5 rounded bg-indigo-500/15 hover:bg-indigo-600 hover:text-white text-indigo-300 font-medium text-[10px] transition border border-indigo-500/30 flex items-center space-x-1" title="Test in Playground">
                   <i class="fa-solid fa-terminal text-[9px]"></i><span>Playground</span>
                 </button>
                 <button onclick="testAccount('${acc.account_id}')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-medium text-[10px] transition border border-slate-700 flex items-center space-x-1" title="Test connection">
                   <i class="fa-solid fa-vial-circle-check text-teal-400 text-[9px]"></i><span>Test</span>
+                </button>
+                <button onclick="openActivateSessionModal('${acc.account_id}')" class="px-2 py-0.5 rounded ${isBothActive ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border-emerald-500/40' : (isCliActive ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border-emerald-500/40' : (isIdeActive ? 'bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border-cyan-500/40' : 'bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-400 border-slate-700'))} font-medium text-[10px] transition border flex items-center space-x-1 shadow-sm" title="Switch or configure active Antigravity CLI / IDE session">
+                  <i class="fa-solid ${isBothActive ? 'fa-check text-emerald-400' : (isCliActive ? 'fa-terminal text-emerald-400' : (isIdeActive ? 'fa-code text-cyan-400' : 'fa-user-check text-[9px]'))}"></i><span>${isBothActive ? 'CLI + IDE' : (isCliActive ? 'In CLI' : (isIdeActive ? 'In IDE' : 'AGY CLI'))}</span>
                 </button>
               ` : ''}
               <span class="truncate max-w-[120px] sm:max-w-[150px]">Model: <code class="text-indigo-400 font-mono text-[9px] sm:text-[10px]">${acc.last_used_model || 'standby'}</code></span>
@@ -2449,19 +2975,39 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       const claude5h = claudeQ['5h'];
       const claudeWk = claudeQ['weekly'];
 
-      const gemini5hPct = gemini5h ? Math.round(gemini5h.percent ?? (gemini5h.fraction * 100)) : geminiPct;
-      const geminiWkPct = geminiWk ? Math.round(geminiWk.percent ?? (geminiWk.fraction * 100)) : geminiPct;
-      const claude5hPct = claude5h ? Math.round(claude5h.percent ?? (claude5h.fraction * 100)) : claudePct;
-      const claudeWkPct = claudeWk ? Math.round(claudeWk.percent ?? (claudeWk.fraction * 100)) : claudePct;
+      const gemini5hPct = gemini5h != null ? Math.round(gemini5h.percent ?? (gemini5h.fraction * 100)) : (geminiWindow === '5h' ? geminiPct : 100);
+      const geminiWkPct = geminiWk != null ? Math.round(geminiWk.percent ?? (geminiWk.fraction * 100)) : (geminiWindow === 'weekly' ? geminiPct : 100);
+      const claude5hPct = claude5h != null ? Math.round(claude5h.percent ?? (claude5h.fraction * 100)) : (claudeWindow === '5h' ? claudePct : 100);
+      const claudeWkPct = claudeWk != null ? Math.round(claudeWk.percent ?? (claudeWk.fraction * 100)) : (claudeWindow === 'weekly' ? claudePct : 100);
 
       const geminiResetBadge = formatResetBadge(geminiQ.reset_time, geminiPct, geminiWindow === 'weekly' ? 'Wk' : '5h');
       const claudeResetBadge = formatResetBadge(claudeQ.reset_time, claudePct, claudeWindow === '5h' ? '5h' : 'Wk');
 
-      const geminiIsExhausted = geminiPct <= 0 || (acc.rate_limited_models && acc.rate_limited_models.gemini !== undefined);
-      const claudeIsExhausted = claudePct <= 0 || (acc.rate_limited_models && acc.rate_limited_models['3p'] !== undefined);
+      const geminiIsExhausted = (geminiWkPct <= 0 || gemini5hPct <= 0);
+      const geminiCooldown = (acc.rate_limited_models && acc.rate_limited_models.gemini) ? acc.rate_limited_models.gemini : (geminiQ.cooldown_seconds || 0);
+      const claudeIsExhausted = (claudeWkPct <= 0 || claude5hPct <= 0);
+      const claudeCooldown = (acc.rate_limited_models && (acc.rate_limited_models['3p'] || acc.rate_limited_models.claude)) ? (acc.rate_limited_models['3p'] || acc.rate_limited_models.claude) : (claudeQ.cooldown_seconds || 0);
+      const maxAccountCooldown = Math.max(
+        acc.rate_limited_models && Object.keys(acc.rate_limited_models).length > 0 ? Math.max(0, ...Object.values(acc.rate_limited_models)) : 0,
+        geminiCooldown,
+        claudeCooldown
+      );
+
+      const isCliActive = !isWeb && !isApiKey && (acc.account_id === cliActiveAccountId);
+      const isIdeActive = !isWeb && !isApiKey && (acc.account_id === ideActiveAccountId);
+      const isBothActive = isCliActive && isIdeActive;
+
+      let agyActiveTableBadge = '';
+      if (isBothActive) {
+        agyActiveTableBadge = '<span class="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30 inline-flex items-center space-x-1" title="Active session in both Antigravity CLI and IDE"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse mr-1"></span>CLI + IDE</span>';
+      } else if (isCliActive) {
+        agyActiveTableBadge = '<span class="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30 inline-flex items-center space-x-1" title="Active session in Antigravity CLI"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse mr-1"></span>CLI Active</span>';
+      } else if (isIdeActive) {
+        agyActiveTableBadge = '<span class="text-[9px] px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 font-semibold border border-cyan-500/30 inline-flex items-center space-x-1" title="Active session in Antigravity IDE"><span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse mr-1"></span>IDE Active</span>';
+      }
 
       return `
-        <tr class="hover:bg-slate-800/40 transition ${!isEnabled ? 'opacity-50' : ''}">
+        <tr class="hover:bg-slate-800/40 transition ${!isEnabled ? 'opacity-50' : ''} ${isBothActive || isCliActive ? 'bg-emerald-500/[0.03]' : (isIdeActive ? 'bg-cyan-500/[0.03]' : '')}">
           <td class="px-4 py-3">
             <div class="flex items-center space-x-2.5">
               ${renderAvatar(acc, 'w-7 h-7', 'text-xs')}
@@ -2472,6 +3018,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
                   ${acc.is_primary
                     ? '<span class="text-[9px] px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30"><i class="fa-solid fa-star text-amber-400 mr-1 text-[8px]"></i>Primary</span>'
                     : `<button onclick="setPrimaryAccount('${acc.account_id}')" class="text-[9px] px-1.5 py-0.2 rounded bg-slate-800 hover:bg-indigo-600 text-slate-400 hover:text-white border border-slate-700 transition" title="Set as primary"><i class="fa-regular fa-star mr-1 text-[8px]"></i>Set Primary</button>`}
+                  ${agyActiveTableBadge}
                 </div>
                 <div class="text-[11px] text-slate-300 font-mono truncate max-w-[220px] flex items-center space-x-1 mt-0.5" title="${acc.email}">
                   <i class="fa-regular fa-envelope text-slate-500 text-[10px] shrink-0"></i>
@@ -2488,7 +3035,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
                 : (isApiKey
                   ? '<span class="inline-flex items-center text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20"><i class="fa-solid fa-key mr-1"></i> API Key</span>'
                   : '<span class="inline-flex items-center text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"><i class="fa-brands fa-google mr-1"></i> OAuth</span>')}
-              ${acc.region_code ? `<span class="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20 font-mono" title="Region: ${acc.region_code}">🌍 ${acc.region_code}</span>` : ''}
+              ${(!isApiKey && !isWeb && geminiIsExhausted && claudeIsExhausted) ? '<span class="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 font-mono">Exhausted</span>' : (maxAccountCooldown > 0 ? `<span class="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 font-mono"><i class="fa-solid fa-clock-rotate-left mr-1 text-[8px]"></i>Cooldown (${maxAccountCooldown}s)</span>` : '')}
               ${!isEnabled ? '<span class="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">Paused</span>' : ''}
             </div>
           </td>
@@ -2497,33 +3044,55 @@ https://your-tunnel.trycloudflare.com/v1</pre>
             <code class="text-[11px] font-mono ${acc.last_used_model ? 'text-indigo-400 font-semibold' : 'text-slate-500'}">${acc.last_used_model || '—'}</code>
           </td>
 
-          <td class="px-4 py-3 min-w-[140px]" title="${geminiQ.description || '5-hour rolling limit + weekly cap'}">
+          <td class="px-4 py-3 min-w-[150px]" title="${geminiQ.description || 'Gemini Models: Weekly + 5-Hour Limits'}">
             ${isWeb ? `
               <div class="flex items-center space-x-1.5">
-                ${acc.has_cookies ? '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span><span class="text-emerald-400 font-semibold text-[11px]">Ready (' + (acc.cookies_count||0) + ' cookies)</span>' : '<span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span><span class="text-amber-400 font-semibold text-[11px]">No Cookies</span>'}
+                ${!isEnabled 
+                  ? '<span class="px-2 py-0.5 rounded-full text-[10px] bg-slate-800 text-slate-400 font-semibold border border-slate-700 font-mono">Paused</span>'
+                  : (acc.has_cookies ? '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span><span class="text-emerald-400 font-semibold text-[11px]">Ready (' + (acc.cookies_count||0) + ' cookies)</span>' : '<span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span><span class="text-amber-400 font-semibold text-[11px]">No Cookies</span>')}
               </div>
-            ` : (isApiKey ? '<span class="text-emerald-400 font-semibold text-[11px]">PayG Active</span>' : `
-              <div>
-                <div class="flex justify-between items-center text-[10px] mb-1">
-                  <span class="font-bold ${geminiIsExhausted ? 'text-red-400' : 'text-slate-300'}">${geminiPct}% <span class="text-[9px] text-slate-500 font-normal">(${geminiWindow === 'weekly' ? 'Wk' : '5h'})</span></span>
-                  <span class="text-[9px] text-slate-400">${geminiWindow === 'weekly' ? '5h: ' + gemini5hPct + '%' : 'Wk: ' + geminiWkPct + '%'} · ${geminiResetBadge}</span>
+            ` : (isApiKey ? (!isEnabled ? '<span class="px-2 py-0.5 rounded-full text-[10px] bg-slate-800 text-slate-400 font-semibold border border-slate-700 font-mono">Paused</span>' : '<span class="text-emerald-400 font-semibold text-[11px]">PayG Active</span>') : `
+              <div class="space-y-1 cursor-pointer hover:opacity-90" onclick="openQuotaModal('${acc.account_id}')" title="Click to view official agy Models & Quota">
+                <div>
+                  <div class="flex justify-between items-center text-[10px]">
+                    <span class="text-slate-400">Wk: <span class="font-bold font-mono ${geminiWkPct <= 0 ? 'text-red-400' : 'text-slate-300'}">${geminiWkPct}%</span></span>
+                    <span class="text-[9px] ${geminiIsExhausted ? 'text-red-400 font-semibold' : (geminiCooldown > 0 ? 'text-amber-400 font-semibold' : 'text-slate-500')}">${geminiIsExhausted ? geminiResetBadge : (geminiCooldown > 0 ? 'Cooldown (' + geminiCooldown + 's)' : geminiResetBadge)}</span>
+                  </div>
+                  <div class="w-full h-1 bg-slate-800 rounded-full overflow-hidden mt-0.5">
+                    <div class="h-full ${geminiWkPct <= 0 ? 'bg-red-500' : (geminiWkPct > 30 ? 'bg-indigo-500' : 'bg-amber-500')}" style="width: ${Math.max(0, Math.min(100, geminiWkPct))}%"></div>
+                  </div>
                 </div>
-                <div class="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
-                  <div class="h-full ${geminiIsExhausted ? 'bg-red-500' : (geminiPct > 30 ? 'bg-indigo-500' : 'bg-amber-500')}" style="width: ${geminiPct}%"></div>
+                <div>
+                  <div class="flex justify-between items-center text-[10px]">
+                    <span class="text-slate-400">5h: <span class="font-bold font-mono ${gemini5hPct <= 0 ? 'text-red-400' : 'text-slate-300'}">${gemini5hPct}%</span></span>
+                  </div>
+                  <div class="w-full h-1 bg-slate-800 rounded-full overflow-hidden mt-0.5">
+                    <div class="h-full ${gemini5hPct <= 0 ? 'bg-red-500' : (gemini5hPct > 30 ? 'bg-cyan-500' : 'bg-amber-500')}" style="width: ${Math.max(0, Math.min(100, gemini5hPct))}%"></div>
+                  </div>
                 </div>
               </div>
             `)}
           </td>
 
-          <td class="px-4 py-3 min-w-[140px]" title="${claudeQ.description || 'Weekly quota + 5-hour smoothing'}">
+          <td class="px-4 py-3 min-w-[150px]" title="${claudeQ.description || 'Claude & GPT Models: Weekly + 5-Hour Limits'}">
             ${(isApiKey || isWeb) ? '<span class="text-slate-500 text-[11px]">—</span>' : `
-              <div>
-                <div class="flex justify-between items-center text-[10px] mb-1">
-                  <span class="font-bold ${claudeIsExhausted ? 'text-red-400' : 'text-slate-300'}">${claudePct}% <span class="text-[9px] text-slate-500 font-normal">(${claudeWindow === '5h' ? '5h' : 'Wk'})</span></span>
-                  <span class="text-[9px] text-slate-400">${claudeWindow === '5h' ? 'Wk: ' + claudeWkPct + '%' : '5h: ' + claude5hPct + '%'} · ${claudeResetBadge}</span>
+              <div class="space-y-1 cursor-pointer hover:opacity-90" onclick="openQuotaModal('${acc.account_id}')" title="Click to view official agy Models & Quota">
+                <div>
+                  <div class="flex justify-between items-center text-[10px]">
+                    <span class="text-slate-400">Wk: <span class="font-bold font-mono ${claudeWkPct <= 0 ? 'text-red-400' : 'text-slate-300'}">${claudeWkPct}%</span></span>
+                    <span class="text-[9px] ${claudeIsExhausted ? 'text-red-400 font-semibold' : (claudeCooldown > 0 ? 'text-amber-400 font-semibold' : 'text-slate-500')}">${claudeIsExhausted ? claudeResetBadge : (claudeCooldown > 0 ? 'Cooldown (' + claudeCooldown + 's)' : claudeResetBadge)}</span>
+                  </div>
+                  <div class="w-full h-1 bg-slate-800 rounded-full overflow-hidden mt-0.5">
+                    <div class="h-full ${claudeWkPct <= 0 ? 'bg-red-500' : (claudeWkPct > 30 ? 'bg-purple-500' : 'bg-amber-500')}" style="width: ${Math.max(0, Math.min(100, claudeWkPct))}%"></div>
+                  </div>
                 </div>
-                <div class="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
-                  <div class="h-full ${claudeIsExhausted ? 'bg-red-500' : (claudePct > 30 ? 'bg-purple-500' : 'bg-amber-500')}" style="width: ${claudePct}%"></div>
+                <div>
+                  <div class="flex justify-between items-center text-[10px]">
+                    <span class="text-slate-400">5h: <span class="font-bold font-mono ${claude5hPct <= 0 ? 'text-red-400' : 'text-slate-300'}">${claude5hPct}%</span></span>
+                  </div>
+                  <div class="w-full h-1 bg-slate-800 rounded-full overflow-hidden mt-0.5">
+                    <div class="h-full ${claude5hPct <= 0 ? 'bg-red-500' : (claude5hPct > 30 ? 'bg-fuchsia-500' : 'bg-amber-500')}" style="width: ${Math.max(0, Math.min(100, claude5hPct))}%"></div>
+                  </div>
                 </div>
               </div>
             `}
@@ -2542,8 +3111,10 @@ https://your-tunnel.trycloudflare.com/v1</pre>
 
           <td class="px-4 py-3 text-right">
             <div class="flex items-center justify-end space-x-1.5">
+              ${!isWeb && !isApiKey ? `<button onclick="openQuotaModal('${acc.account_id}')" class="text-slate-400 hover:text-purple-400 p-1 transition" title="View official agy Models & Quota"><i class="fa-solid fa-chart-pie text-xs"></i></button>` : ''}
               <button onclick="openPlaygroundForAccount('${acc.account_id}')" class="text-slate-400 hover:text-indigo-400 p-1 transition" title="Test in Live Playground"><i class="fa-solid fa-terminal text-xs"></i></button>
               <button onclick="testAccount('${acc.account_id}')" class="text-slate-400 hover:text-teal-400 p-1 transition" title="Test connection"><i class="fa-solid fa-vial-circle-check text-xs"></i></button>
+              ${!isWeb && !isApiKey ? `<button onclick="openActivateSessionModal('${acc.account_id}')" class="${isBothActive || isCliActive ? 'text-emerald-400 hover:text-emerald-300' : (isIdeActive ? 'text-cyan-400 hover:text-cyan-300' : 'text-slate-400 hover:text-emerald-400')} p-1 transition" title="${isBothActive ? 'Active in CLI + IDE (click to switch)' : (isCliActive ? 'Active in CLI (click to switch)' : (isIdeActive ? 'Active in IDE (click to switch)' : 'Configure or switch AGY session'))}"><i class="fa-solid ${isBothActive ? 'fa-check' : (isCliActive ? 'fa-terminal' : (isIdeActive ? 'fa-code' : 'fa-user-check'))} text-xs"></i></button>` : ''}
               ${isWeb ? `<button onclick="refreshWebCookies('${acc.account_id}')" class="text-slate-400 hover:text-teal-400 p-1 transition" title="Sync cookies from CDP port ${acc.cdp_port || 9222}"><i class="fa-solid fa-rotate text-xs"></i></button>` : ''}
               <button onclick="toggleAccount('${acc.account_id}', ${!isEnabled})" class="relative inline-flex h-4 w-7 flex-shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isEnabled ? 'bg-indigo-600' : 'bg-slate-700'}" title="${isEnabled ? 'Pause' : 'Enable'}">
                 <span class="pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${isEnabled ? 'translate-x-3' : 'translate-x-0'}"></span>
@@ -2615,15 +3186,18 @@ https://your-tunnel.trycloudflare.com/v1</pre>
         return;
       }
 
-      const filteredEntries = Object.entries(allModelsData).filter(([key, info]) => {
+      const cleanEntries = Object.entries(allModelsData).filter(([key]) => !key.startsWith('tab_') && !key.startsWith('chat_'));
+      const activeTotalCount = cleanEntries.length;
+
+      const filteredEntries = cleanEntries.filter(([key, info]) => {
         if (!q) return true;
         const name = (info.displayName || '').toLowerCase();
         return key.toLowerCase().includes(q) || name.includes(q);
       });
 
-      document.getElementById('modelCount').innerText = q 
-        ? `${filteredEntries.length} / ${totalCount} active` 
-        : `${totalCount} active model${totalCount === 1 ? '' : 's'}`;
+      document.getElementById('modelCount').innerText = q
+        ? `${filteredEntries.length} / ${activeTotalCount} active`
+        : `${activeTotalCount} active model${activeTotalCount === 1 ? '' : 's'}`;
 
       if (filteredEntries.length === 0) {
         container.innerHTML = `<div class="text-center py-8 text-slate-500 text-xs">No active models found matching "<span class="text-slate-300 font-semibold">${filterQuery}</span>"</div>`;
@@ -2722,16 +3296,31 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       { id: 'gemini-3.8-flash-high', name: 'gemini-3.8-flash-high (Thinking High)' },
       { id: 'gemini-3.8-flash-medium', name: 'gemini-3.8-flash-medium' },
       { id: 'gemini-3.8-flash-low', name: 'gemini-3.8-flash-low' },
-      { id: 'gemini-3.8-flash-tiered', name: 'gemini-3.8-flash-tiered (1M Context)' },
+      { id: 'gemini-3.8-flash-tiered', name: 'gemini-3.8-flash-tiered (Tiered)' },
       { id: 'gemini-3.7-flash-high', name: 'gemini-3.7-flash-high (Thinking)' },
-      { id: 'gemini-3.1-pro', name: 'gemini-3.1-pro (Deep Thinking)' },
-      { id: 'gemini-3-pro', name: 'gemini-3-pro (Deep Reasoning)' },
+      { id: 'gemini-3.7-flash-medium', name: 'gemini-3.7-flash-medium' },
+      { id: 'gemini-3.7-flash-low', name: 'gemini-3.7-flash-low' },
+      { id: 'gemini-3.7-flash-tiered', name: 'gemini-3.7-flash-tiered (Tiered)' },
+      { id: 'gemini-3.6-flash-high', name: 'gemini-3.6-flash-high' },
+      { id: 'gemini-3.6-flash-medium', name: 'gemini-3.6-flash-medium' },
+      { id: 'gemini-3.6-flash-low', name: 'gemini-3.6-flash-low' },
+      { id: 'gemini-3.6-flash-tiered', name: 'gemini-3.6-flash-tiered (Tiered)' },
+      { id: 'gemini-3.5-flash-low', name: 'gemini-3.5-flash-low' },
+      { id: 'gemini-3.5-flash-extra-low', name: 'gemini-3.5-flash-extra-low' },
+      { id: 'gemini-3.5-flash-lite', name: 'gemini-3.5-flash-lite' },
       { id: 'gemini-pro-agent', name: 'gemini-pro-agent (Agentic)' },
+      { id: 'gemini-3.1-pro-high', name: 'gemini-3.1-pro-high (Deep Reasoning)' },
+      { id: 'gemini-3.1-pro-low', name: 'gemini-3.1-pro-low' },
+      { id: 'gemini-3.1-flash-lite', name: 'gemini-3.1-flash-lite (Ultra Fast)' },
+      { id: 'gemini-3.1-flash-image', name: 'gemini-3.1-flash-image' },
+      { id: 'gemini-3-flash', name: 'gemini-3-flash' },
       { id: 'gemini-3-flash-agent', name: 'gemini-3-flash-agent (Fast Tooling)' },
-      { id: 'gemini-3.1-flash-lite', name: 'gemini-3.1-flash-lite (Zero Thinking)' },
-      { id: 'claude-sonnet-4-6', name: 'claude-sonnet-4-6 (Anthropic Protocol)' },
-      { id: 'claude-opus-4-6-thinking', name: 'claude-opus-4-6-thinking (Deep Reasoning)' },
       { id: 'gemini-2.5-pro', name: 'gemini-2.5-pro' },
+      { id: 'gemini-2.5-flash', name: 'gemini-2.5-flash' },
+      { id: 'gemini-2.5-flash-lite', name: 'gemini-2.5-flash-lite' },
+      { id: 'gemini-2.5-flash-thinking', name: 'gemini-2.5-flash-thinking' },
+      { id: 'claude-sonnet-4-6', name: 'claude-sonnet-4-6 (Thinking)' },
+      { id: 'claude-opus-4-6-thinking', name: 'claude-opus-4-6-thinking (Deep Reasoning)' },
       { id: 'gpt-oss-120b-medium', name: 'gpt-oss-120b-medium' },
     ];
 
@@ -2776,10 +3365,11 @@ https://your-tunnel.trycloudflare.com/v1</pre>
           select.value = list[0]?.id || 'gemini-2.5-pro';
         }
       } else if (acc && (acc.auth_method === 'consumer' || acc.auth_method === 'oauth')) {
-        // Antigravity CloudCode accounts (Gemini & Claude)
+        // Antigravity accounts (Gemini & Claude)
         let list = ANTIGRAVITY_MODELS;
-        if (acc.available_models && Array.isArray(acc.available_models) && acc.available_models.length > 0) {
-          const valid = acc.available_models.filter(m => !m.endsWith('-extended'));
+        if (acc.available_models) {
+          const rawList = Array.isArray(acc.available_models) ? acc.available_models : Object.keys(acc.available_models);
+          const valid = rawList.filter(m => !m.endsWith('-extended') && !m.startsWith('tab_') && !m.startsWith('chat_'));
           if (valid.length > 0) {
             list = valid.map(m => {
               const def = ANTIGRAVITY_MODELS.find(d => d.id === m);
@@ -2803,22 +3393,24 @@ https://your-tunnel.trycloudflare.com/v1</pre>
         const poolCount = Object.keys(allModelsData || {}).length;
         if (poolCount > 0) {
           const gCloud = document.createElement('optgroup');
-          gCloud.label = 'Google Antigravity (CloudCode)';
+          gCloud.label = 'Google Antigravity Accounts';
           const gWeb = document.createElement('optgroup');
           gWeb.label = 'Gemini Web Browser Sessions';
           const gApi = document.createElement('optgroup');
           gApi.label = 'Google AI Studio (API Keys)';
 
+          const hasCloudAccs = (rawAccountsData || []).some(a => (a.auth_method === 'consumer' || a.auth_method === 'oauth') && a.enabled !== false);
           const hasWebAccs = (rawAccountsData || []).some(a => a.auth_method === 'gemini_web' && a.enabled !== false);
           const hasApiAccs = (rawAccountsData || []).some(a => a.auth_method === 'api_key' && a.enabled !== false);
 
           for (const [key, info] of Object.entries(allModelsData)) {
+            if (key.startsWith('tab_') || key.startsWith('chat_')) continue;
             const opt = document.createElement('option');
             opt.value = key;
             opt.innerText = `${info.displayName || key} (${key})`;
-            if (key.includes('-extended') || key.startsWith('gemini-3.5-')) {
+            if (key.endsWith('-extended') || (info.displayName && info.displayName.includes('(Web'))) {
               gWeb.appendChild(opt);
-            } else if (key.startsWith('gemini-2.5-')) {
+            } else if (!hasCloudAccs && hasApiAccs) {
               gApi.appendChild(opt);
             } else {
               gCloud.appendChild(opt);
@@ -3030,11 +3622,10 @@ https://your-tunnel.trycloudflare.com/v1</pre>
           hintBox.innerHTML = `
             <div class="flex items-center space-x-1.5 text-indigo-400 font-semibold mb-1">
               <i class="fa-solid fa-shield-halved"></i>
-              <span>Antigravity CloudCode Account</span>
+              <span>Antigravity Account</span>
             </div>
             <div class="text-[10px] text-slate-400 leading-relaxed">
               Remaining Quota: Gemini <span class="font-mono text-indigo-300 font-bold">${g}%</span> | Claude/3P <span class="font-mono text-purple-300 font-bold">${c}%</span>.
-              Region: <span class="font-mono text-sky-300">${acc.region_code || 'US'}</span>.
             </div>
           `;
           hintBox.classList.remove('hidden');
@@ -3311,7 +3902,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
           } else {
             extraHtml = `
               <p class="text-[11px] text-indigo-300/90 bg-indigo-500/10 border border-indigo-500/20 p-2.5 rounded-xl">
-                🛡️ Antigravity CloudCode token verified. Service usage and quotas ready.
+                🛡️ Antigravity token verified. Service usage and quotas ready.
               </p>
             `;
           }

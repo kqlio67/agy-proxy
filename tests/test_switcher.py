@@ -17,6 +17,7 @@ from agy_proxy.switcher import (
     activate_account_in_antigravity,
     format_antigravity_token_payload,
     get_antigravity_token_destinations,
+    resolve_antigravity_destinations,
     switch_antigravity_session,
 )
 
@@ -184,17 +185,23 @@ class TestAntigravitySwitcher(unittest.IsolatedAsyncioTestCase):
         pool.accounts["acc_2"] = acc2
         pool.save_accounts = lambda: None  # mock save
 
-        # Switch by 1-based index "2"
+        # Switch by 1-based index "2" (default set_primary=False leaves pool primary unchanged)
         selected, written = await switch_antigravity_session("2", pool=pool, target_paths=[self.dest_path])
+        self.assertEqual(selected.account_id, "acc_2")
+        self.assertTrue(acc1.is_primary)
+        self.assertFalse(acc2.is_primary)
+
+        # Switch with explicit set_primary=True
+        selected, written = await switch_antigravity_session("2", pool=pool, target_paths=[self.dest_path], set_primary=True)
         self.assertEqual(selected.account_id, "acc_2")
         self.assertTrue(acc2.is_primary)
         self.assertFalse(acc1.is_primary)
 
-        # Switch by email
+        # Switch by email without set_primary
         selected, written = await switch_antigravity_session("first@gmail.com", pool=pool, target_paths=[self.dest_path])
         self.assertEqual(selected.account_id, "acc_1")
-        self.assertTrue(acc1.is_primary)
-        self.assertFalse(acc2.is_primary)
+        self.assertTrue(acc2.is_primary)
+        self.assertFalse(acc1.is_primary)
 
     async def test_switch_session_to_next(self):
         pool = AccountPool()
@@ -224,9 +231,17 @@ class TestAntigravitySwitcher(unittest.IsolatedAsyncioTestCase):
         pool.accounts["acc_2"] = acc2
         pool.save_accounts = lambda: None
 
+        # By default, rotating next account does not set primary in proxy pool
         selected, written = await switch_antigravity_session(pool=pool, to_next=True, target_paths=[self.dest_path])
         self.assertEqual(selected.account_id, "acc_2")
+        self.assertFalse(acc2.is_primary)
+        self.assertTrue(acc1.is_primary)
+
+        # With set_primary=True, it updates the primary account
+        selected, written = await switch_antigravity_session(pool=pool, to_next=True, target_paths=[self.dest_path], set_primary=True)
+        self.assertEqual(selected.account_id, "acc_2")
         self.assertTrue(acc2.is_primary)
+        self.assertFalse(acc1.is_primary)
 
     async def test_switch_session_empty_pool_raises(self):
         pool = AccountPool()
@@ -244,6 +259,58 @@ class TestAntigravitySwitcher(unittest.IsolatedAsyncioTestCase):
         pool.save_accounts = lambda: None
         with self.assertRaises(ValueError):
             await switch_antigravity_session("nonexistent@domain.com", pool=pool)
+
+    def test_resolve_antigravity_destinations(self):
+        cli_paths = resolve_antigravity_destinations("cli")
+        self.assertEqual(len(cli_paths), 1)
+        self.assertIn("antigravity-cli", str(cli_paths[0]))
+
+        ide_paths = resolve_antigravity_destinations("ide")
+        self.assertEqual(len(ide_paths), 1)
+        self.assertIn("antigravity-ide", str(ide_paths[0]))
+
+        both_paths = resolve_antigravity_destinations("both")
+        self.assertEqual(len(both_paths), 2)
+        self.assertIn("antigravity-cli", str(both_paths[0]))
+        self.assertIn("antigravity-ide", str(both_paths[1]))
+
+    async def test_switch_session_target_env_resolution(self):
+        pool = AccountPool()
+        acc = AccountSession(
+            account_id="acc_env",
+            auth_method="consumer",
+            email="env@gmail.com",
+            access_token="ya29.env",
+            refresh_token="1//env",
+            expiry_timestamp=2000000000,
+            is_primary=True,
+        )
+        pool.accounts["acc_env"] = acc
+
+        mock_cli_file = Path(self.tmp_dir.name) / "cli-token"
+        mock_ide_file = Path(self.tmp_dir.name) / "ide-token"
+
+        with patch("agy_proxy.switcher.resolve_antigravity_destinations") as mock_resolve:
+            mock_resolve.side_effect = lambda env: [mock_cli_file] if env == "cli" else ([mock_ide_file] if env == "ide" else [mock_cli_file, mock_ide_file])
+
+            # 1. Switch CLI only
+            _, written_cli = await switch_antigravity_session(pool=pool, target_env="cli")
+            self.assertEqual(written_cli, [mock_cli_file])
+            self.assertTrue(mock_cli_file.is_file())
+            self.assertFalse(mock_ide_file.is_file())
+
+            # 2. Switch IDE only
+            _, written_ide = await switch_antigravity_session(pool=pool, target_env="ide")
+            self.assertEqual(written_ide, [mock_ide_file])
+            self.assertTrue(mock_ide_file.is_file())
+
+            # 3. Switch both
+            mock_cli_file.unlink()
+            mock_ide_file.unlink()
+            _, written_both = await switch_antigravity_session(pool=pool, target_env="both")
+            self.assertEqual(written_both, [mock_cli_file, mock_ide_file])
+            self.assertTrue(mock_cli_file.is_file())
+            self.assertTrue(mock_ide_file.is_file())
 
 
 class TestServerSwitcherRoutes(unittest.IsolatedAsyncioTestCase):
@@ -313,6 +380,153 @@ class TestServerSwitcherRoutes(unittest.IsolatedAsyncioTestCase):
             data = resp.json()
             self.assertEqual(data["status"], "switched")
             self.assertEqual(data["account_id"], "acc_oauth_2")
+
+    async def test_activate_cli_by_email(self):
+        with patch("agy_proxy.switcher.activate_account_in_antigravity", return_value=[Path("/tmp/token")]):
+            resp = await self.client.post("/api/accounts/active_cli@gmail.com/activate-cli")
+            self.assertEqual(resp.status_code, 200)
+            data = resp.json()
+            self.assertEqual(data["status"], "activated")
+            self.assertEqual(data["email"], "active_cli@gmail.com")
+
+    def test_pool_get_account(self):
+        # By account_id
+        acc = self.pool.get_account("acc_oauth", reload_on_miss=False)
+        self.assertIsNotNone(acc)
+        self.assertEqual(acc.account_id, "acc_oauth")
+
+        # By email
+        acc = self.pool.get_account("active_cli@gmail.com", reload_on_miss=False)
+        self.assertIsNotNone(acc)
+        self.assertEqual(acc.email, "active_cli@gmail.com")
+
+        # By primary alias
+        acc = self.pool.get_account("primary", reload_on_miss=False)
+        self.assertIsNotNone(acc)
+        self.assertTrue(acc.is_primary)
+
+        # Nonexistent
+        self.assertIsNone(self.pool.get_account("nonexistent@example.com", reload_on_miss=False))
+
+    async def test_activate_account_allow_overwrite_behavior(self):
+        cand_path = Path.home() / ".gemini" / "antigravity-cli" / "antigravity-oauth-token"
+        acc = self.pool.accounts["acc_oauth"]
+
+        # If AGY_ALLOW_CLI_TOKEN_OVERWRITE=0, should raise PermissionError
+        with patch.dict(os.environ, {"AGY_ALLOW_CLI_TOKEN_OVERWRITE": "0"}):
+            with self.assertRaises(PermissionError):
+                await activate_account_in_antigravity(acc, target_paths=[cand_path])
+
+        # By default (allow_overwrite=False and no env var), candidate file overwrite should raise PermissionError
+        with patch.dict(os.environ, {}, clear=True):
+            with self.assertRaises(PermissionError):
+                await activate_account_in_antigravity(acc, target_paths=[cand_path])
+
+        # If allow_overwrite=False and no env var, should raise PermissionError
+        with patch.dict(os.environ, {}, clear=True):
+            with self.assertRaises(PermissionError):
+                await activate_account_in_antigravity(acc, target_paths=[cand_path], allow_overwrite=False)
+
+    def test_format_agy_quota_display(self):
+        from agy_proxy.switcher import format_agy_quota_display, format_progress_bar
+
+        self.assertEqual(format_progress_bar(1.0, 10), "[██████████] 100.00%")
+        self.assertEqual(format_progress_bar(0.0, 10), "[          ] 0.00%")
+        self.assertEqual(format_progress_bar(0.5, 10), "[█████     ] 50.00%")
+
+        acc = AccountSession(
+            account_id="acc_quota_test",
+            auth_method="consumer",
+            email="test_quota@gmail.com",
+            quota_details={
+                "gemini": {
+                    "weekly": {"percent": 100.0, "description": "Quota available"},
+                    "5h": {"percent": 80.0, "description": "5-hour limit reset in 1h"},
+                },
+                "3p": {
+                    "weekly": {"percent": 100.0, "description": "Quota available"},
+                    "5h": {"percent": 100.0, "description": ""},
+                },
+            },
+        )
+        display = format_agy_quota_display(acc)
+        self.assertIn("Models & Quota", display)
+        self.assertIn("Account: test_quota@gmail.com", display)
+        self.assertIn("GEMINI MODELS", display)
+        self.assertIn("Weekly Limit Remaining", display)
+        self.assertIn("100.00%", display)
+        self.assertIn("Five Hour Limit Remaining", display)
+        self.assertIn("80.00%", display)
+        self.assertIn("CLAUDE AND GPT MODELS", display)
+
+    async def test_quota_display_endpoint(self):
+        acc = self.pool.accounts["acc_oauth"]
+        acc.quota_details = {
+            "gemini": {"weekly": {"percent": 90.0, "description": "Refreshing soon"}},
+            "3p": {"weekly": {"percent": 100.0, "description": "Quota available"}},
+        }
+        resp = await self.client.get(f"/api/accounts/{acc.account_id}/quota-display")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data["account_id"], acc.account_id)
+        self.assertIn("Models & Quota", data["quota_display"])
+        self.assertIn("GEMINI MODELS", data["quota_display"])
+
+    async def test_switch_next_cli_with_target_env(self):
+        acc2 = AccountSession(
+            account_id="acc_oauth_2",
+            auth_method="consumer",
+            email="second@gmail.com",
+            access_token="ya29.token2",
+            refresh_token="1//rf2",
+            id_token="id_tok2",
+            expiry_timestamp=2000000000,
+            is_primary=False,
+            quota_details={"gemini": {"percent": 95.0}},
+        )
+        self.pool.accounts["acc_oauth_2"] = acc2
+
+        with patch("agy_proxy.switcher.activate_account_in_antigravity", return_value=[Path("/tmp/ide_token")]):
+            resp = await self.client.post("/api/accounts/switch-next-cli?target=ide")
+            self.assertEqual(resp.status_code, 200)
+            data = resp.json()
+            self.assertEqual(data["status"], "switched")
+            self.assertEqual(data["target"], "ide")
+            self.assertEqual(data["account_id"], "acc_oauth_2")
+
+    async def test_activate_cli_with_target_env(self):
+        with patch("agy_proxy.switcher.activate_account_in_antigravity", return_value=[Path("/tmp/cli_token")]):
+            resp = await self.client.post("/api/accounts/active_cli@gmail.com/activate-cli?target=cli")
+            self.assertEqual(resp.status_code, 200)
+            data = resp.json()
+            self.assertEqual(data["status"], "activated")
+            self.assertEqual(data["target"], "cli")
+
+    def test_cli_parsers_target_env(self):
+        from agy_proxy.cli import build_parser
+
+        parser = build_parser()
+
+        # Test agy-proxy switch --cli
+        args = parser.parse_args(["switch", "--cli"])
+        self.assertEqual(args.subcommand, "switch")
+        self.assertTrue(args.cli)
+        self.assertFalse(args.ide)
+
+        # Test agy-proxy switch --ide
+        args = parser.parse_args(["switch", "--ide"])
+        self.assertTrue(args.ide)
+        self.assertFalse(args.cli)
+
+        # Test agy-proxy switch --env both
+        args = parser.parse_args(["switch", "--env", "both"])
+        self.assertEqual(args.target_env, "both")
+
+        # Test agy-proxy auth switch --cli
+        args = parser.parse_args(["auth", "switch", "--cli"])
+        self.assertEqual(args.subcommand, "auth")
+        self.assertEqual(args.auth_action, "switch")
+        self.assertTrue(args.cli)
 
 
 if __name__ == "__main__":

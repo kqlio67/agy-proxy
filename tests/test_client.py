@@ -83,6 +83,36 @@ class TestCloudCodeClient(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(call3)
         self.assertEqual(preamble3, text3)
 
+        # Case 4: synonym mapping (model calls Read, declared tool is View) and arg normalization (file_path -> path)
+        declared_claude = [
+            {
+                "functionDeclarations": [
+                    {
+                        "name": "View",
+                        "description": "View file",
+                        "parameters": {"type": "OBJECT", "properties": {"path": {"type": "STRING"}}},
+                    },
+                    {
+                        "name": "Bash",
+                        "description": "Run shell command",
+                        "parameters": {"type": "OBJECT", "properties": {"command": {"type": "STRING"}}},
+                    },
+                ]
+            }
+        ]
+        text4 = '```json\n{\n  "name": "Read",\n  "arguments": {"file_path": "/var/log/syslog"}\n}\n```'
+        preamble4, call4 = CloudCodeClient._extract_gemini_web_tool_call(text4, declared_claude)
+        self.assertIsNotNone(call4)
+        self.assertEqual(call4["name"], "View")
+        self.assertEqual(call4["arguments"], {"path": "/var/log/syslog"})
+
+        # Case 5: bash command arg mapping (cmd -> command)
+        text5 = '```json\n{\n  "name": "bash",\n  "arguments": {"cmd": "ls -la"}\n}\n```'
+        preamble5, call5 = CloudCodeClient._extract_gemini_web_tool_call(text5, declared_claude)
+        self.assertIsNotNone(call5)
+        self.assertEqual(call5["name"], "Bash")
+        self.assertEqual(call5["arguments"], {"command": "ls -la"})
+
     def test_format_gemini_web_prompt_multi_turn(self):
         payload = {
             "tools": [{"functionDeclarations": [{"name": "Write", "description": "Write file"}]}],
@@ -93,7 +123,7 @@ class TestCloudCodeClient(unittest.IsolatedAsyncioTestCase):
             ],
         }
         prompt = CloudCodeClient._format_gemini_web_prompt(payload)
-        self.assertIn("[Available Tools / Functions:", prompt)
+        self.assertIn("Available tools:", prompt)
         self.assertIn("[Tool Call: Write(", prompt)
         self.assertIn("[Tool Result for Write: File created]", prompt)
 

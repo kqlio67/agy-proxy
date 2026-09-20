@@ -6,7 +6,7 @@ Fetches latest release info from GitHub Releases with caching and timeout safety
 import logging
 import subprocess
 import time
-from typing import Any, Dict, Optional
+from typing import Any
 import httpx
 
 from agy_proxy import __version__ as CURRENT_VERSION
@@ -16,7 +16,7 @@ logger = logging.getLogger("agy_proxy.updater")
 GITHUB_REPO = "kqlio67/agy-proxy"
 RELEASES_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 
-_cached_update_info: Optional[Dict[str, Any]] = None
+_cached_update_info: dict[str, Any] | None = None
 _last_check_timestamp: float = 0.0
 CHECK_INTERVAL_SECONDS = 3600  # 1 hour cache
 
@@ -28,7 +28,7 @@ def parse_simple_version(v_str: str):
     return tuple(map(int, parts)) if parts else (0,)
 
 
-async def check_for_updates(force: bool = False) -> Dict[str, Any]:
+async def check_for_updates(force: bool = False) -> dict[str, Any]:
     """
     Checks GitHub Releases for a newer version.
     Caches results for 1 hour to prevent GitHub rate limiting.
@@ -40,7 +40,7 @@ async def check_for_updates(force: bool = False) -> Dict[str, Any]:
     if not force and _cached_update_info is not None and (now - _last_check_timestamp < CHECK_INTERVAL_SECONDS):
         return _cached_update_info
 
-    result: Dict[str, Any] = {
+    result: dict[str, Any] = {
         "current_version": CURRENT_VERSION,
         "latest_version": CURRENT_VERSION,
         "has_update": False,
@@ -104,7 +104,7 @@ async def check_for_updates(force: bool = False) -> Dict[str, Any]:
     return result
 
 
-async def trigger_git_pull() -> Dict[str, Any]:
+async def trigger_git_pull() -> dict[str, Any]:
     """Executes git pull to update local repository."""
     try:
         proc = subprocess.run(
@@ -122,7 +122,7 @@ async def trigger_git_pull() -> Dict[str, Any]:
         return {"success": False, "error": str(e)}
 
 
-async def perform_self_update() -> Dict[str, Any]:
+async def perform_self_update() -> dict[str, Any]:
     """
     Intelligently updates Antigravity Proxy:
     - If running inside a git repo: executes git pull origin main

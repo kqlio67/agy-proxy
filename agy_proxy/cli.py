@@ -9,7 +9,6 @@ import logging
 import os
 import re
 import sys
-from typing import Optional
 import uvicorn
 from rich.console import Console
 from rich.panel import Panel
@@ -17,7 +16,7 @@ from rich.prompt import Prompt
 from rich.table import Table
 
 from agy_proxy import __version__ as APP_VERSION
-from agy_proxy.auth import AccountPool, AuthManager
+from agy_proxy.auth import AccountPool
 from agy_proxy.server import create_app
 
 console = Console()
@@ -180,7 +179,7 @@ async def handle_auth_list():
 
 
 async def handle_switch_command(
-    target: Optional[str] = None,
+    target: str | None = None,
     to_next: bool = False,
     list_only: bool = False,
     set_primary: bool = False,
@@ -267,7 +266,7 @@ async def handle_switch_command(
         console.print(f"[bold red]✗ Failed to switch session:[/bold red] {e}")
 
 
-async def handle_quota_command(target: Optional[str] = None):
+async def handle_quota_command(target: str | None = None):
     """Displays models and quota for the target account (or all accounts) matching agy format."""
     from agy_proxy.switcher import format_agy_quota_display
 
@@ -408,7 +407,7 @@ def handle_run_codex(port: int = 8000, model: str = "gemini-3.8-flash-high", ext
     env["OTEL_EXPORTER_OTLP_ENDPOINT"] = f"http://127.0.0.1:{port}"
     env["OTEL_EXPORTER_OTLP_PROTOCOL"] = "http/json"
 
-    console.print(f"[bold cyan]Launching Codex CLI (Ephemeral Mode - Zero Config Changes):[/bold cyan]\n")
+    console.print("[bold cyan]Launching Codex CLI (Ephemeral Mode - Zero Config Changes):[/bold cyan]\n")
     try:
         subprocess.run(cmd, env=env)
     except KeyboardInterrupt:
@@ -759,7 +758,7 @@ def main():
         pass
     except Exception as e:
         if not args.debug:
-            console.print(f"\n[bold yellow]Proxy stopped.[/bold yellow]")
+            console.print("\n[bold yellow]Proxy stopped.[/bold yellow]")
         else:
             raise e
     finally:

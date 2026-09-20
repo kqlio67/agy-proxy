@@ -8,7 +8,7 @@ import os
 import shutil
 import sys
 import time
-from typing import Any, Dict, List
+from typing import Any
 import httpx
 from rich.console import Console
 from rich.panel import Panel
@@ -19,7 +19,7 @@ from agy_proxy.auth import AccountPool, AccountSession, CLOUDCODE_BASE_URL, GENA
 console = Console()
 
 
-async def validate_account_live(acc: AccountSession) -> Dict[str, Any]:
+async def validate_account_live(acc: AccountSession) -> dict[str, Any]:
     """
     Performs real authentication validation for a single account:
     refreshes/validates the OAuth token (or API key) against Google and fetches live quotas.
@@ -27,7 +27,7 @@ async def validate_account_live(acc: AccountSession) -> Dict[str, Any]:
     if hasattr(acc, "validate_live"):
         return await acc.validate_live()
 
-    result: Dict[str, Any] = {"token_ok": None, "error": "", "quota_summary": {}}
+    result: dict[str, Any] = {"token_ok": None, "error": "", "quota_summary": {}}
     try:
         if acc.auth_method == "api_key":
             client = await acc.get_http_client()
@@ -61,7 +61,7 @@ async def validate_account_live(acc: AccountSession) -> Dict[str, Any]:
 
 
 
-async def check_network_endpoints(cloudflare_url: str = None) -> List[Dict[str, Any]]:
+async def check_network_endpoints(cloudflare_url: str = None) -> list[dict[str, Any]]:
     """Checks latency and connectivity to Google and Cloudflare endpoints."""
     results = []
     
@@ -111,7 +111,7 @@ async def check_network_endpoints(cloudflare_url: str = None) -> List[Dict[str, 
     return results
 
 
-def check_claude_cli() -> Dict[str, Any]:
+def check_claude_cli() -> dict[str, Any]:
     """Checks Claude Code CLI installation, binary path, and version."""
     claude_path = shutil.which("claude")
     if not claude_path:
@@ -209,7 +209,7 @@ async def run_doctor(host: str = "127.0.0.1", port: int = 8000, cloudflare_url: 
     pool.load_accounts()
 
     # Live-validate every account concurrently
-    live_results: Dict[str, Dict[str, Any]] = {}
+    live_results: dict[str, dict[str, Any]] = {}
     if pool.accounts:
         async def _safe_validate(a: AccountSession):
             try:

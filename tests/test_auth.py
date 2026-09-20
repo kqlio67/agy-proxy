@@ -2,6 +2,7 @@
 Unit tests for Antigravity OAuth token parsing, expiry handling, and AccountPool syncing.
 """
 
+import asyncio
 import base64
 import json
 import os
@@ -605,11 +606,95 @@ class TestGeminiWebSession(unittest.TestCase):
             }
         }
         res = CloudCodeClient._format_gemini_web_prompt(payload)
-        self.assertIn("Do NOT execute code internally via Google's data_analysis_tool", res)
-        self.assertIn("System Instructions:\nYou are an expert coder.", res)
+        self.assertIn("Output all code, text, and tool calls in direct text format", res)
+        self.assertIn("Instructions:\nYou are an expert coder.", res)
         self.assertIn("run_bash", res)
         self.assertIn("Conversation History:", res)
         self.assertIn("Execute 1+2", res)
+
+    def test_gemini_web_session_context_isolation_and_reset(self):
+        gw = GeminiWebSession(
+            account_id="gw_multi_sess",
+            cookies={"__Secure-1PSID": "test_psid"},
+        )
+        ctx_a = gw.get_session_context("session_a")
+        ctx_b = gw.get_session_context("session_b")
+
+        ctx_a["conv_id"] = "c_alpha"
+        ctx_a["resp_id"] = "r_alpha"
+        ctx_a["turn_index"] = 2
+
+        ctx_b["conv_id"] = "c_beta"
+        ctx_b["resp_id"] = "r_beta"
+        ctx_b["turn_index"] = 1
+
+        self.assertEqual(gw.get_session_context("session_a")["conv_id"], "c_alpha")
+        self.assertEqual(gw.get_session_context("session_b")["conv_id"], "c_beta")
+
+        # Reset single session
+        gw.reset_conversation("session_a")
+        self.assertIsNone(gw.get_session_context("session_a")["conv_id"])
+        self.assertEqual(gw.get_session_context("session_b")["conv_id"], "c_beta")
+
+        # Reset all sessions
+        gw.reset_conversation()
+        self.assertIsNone(gw.get_session_context("session_b")["conv_id"])
+
+    def test_format_gemini_web_prompt_continuation_and_tool_error(self):
+        from agy_proxy.client import CloudCodeClient
+        payload_err = {
+            "request": {
+                "contents": [
+                    {"role": "user", "parts": [{"text": "Edit the file test.md"}]},
+                    {"role": "model", "parts": [{"functionCall": {"name": "Edit", "args": {"file_path": "test.md"}}}]},
+                    {
+                        "role": "user",
+                        "parts": [{
+                            "functionResponse": {
+                                "name": "Edit",
+                                "response": {
+                                    "content": {
+                                        "result": "Error editing file: old_string not found",
+                                        "is_error": True,
+                                    }
+                                }
+                            }
+                        }]
+                    },
+                ],
+                "tools": [{"name": "Edit", "description": "Edit file"}],
+            }
+        }
+        # Initial turn (not continuation)
+        res_initial = CloudCodeClient._format_gemini_web_prompt(payload_err, is_continuation=False)
+        self.assertIn("Available tools:", res_initial)
+        self.assertIn("[TOOL ERROR for Edit:", res_initial)
+        self.assertIn("The action FAILED", res_initial)
+
+        # Continuation turn: sends ONLY the latest user turn without repeating system instructions or history
+        res_cont = CloudCodeClient._format_gemini_web_prompt(payload_err, is_continuation=True)
+        self.assertNotIn("Available tools:", res_cont)
+        self.assertNotIn("Conversation History", res_cont)
+        self.assertIn("[TOOL ERROR for Edit:", res_cont)
+
+    def test_gemini_web_incremental_utf8_cyrillic(self):
+        import codecs
+        cyrillic_text = "Привіт, це тестовий український файл!"
+        raw_bytes = cyrillic_text.encode("utf-8")
+
+        # Split across an odd byte boundary in the middle of a 2-byte Ukrainian character
+        chunk1 = raw_bytes[:5]
+        chunk2 = raw_bytes[5:]
+
+        # Standard decode with errors='replace' corrupts character:
+        bad_text = chunk1.decode("utf-8", errors="replace") + chunk2.decode("utf-8", errors="replace")
+        self.assertIn("\ufffd", bad_text)
+
+        # Incremental decoder reconstructs correctly across chunk boundaries:
+        decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
+        good_text = decoder.decode(chunk1, final=False) + decoder.decode(chunk2, final=True)
+        self.assertEqual(good_text, cyrillic_text)
+        self.assertNotIn("\ufffd", good_text)
 
     def test_gemini_web_persistence_in_pool(self):
         import asyncio
@@ -650,6 +735,106 @@ class TestGeminiWebSession(unittest.TestCase):
             d = loaded_acc.to_dict()
             self.assertTrue(d["has_cookies"])
             self.assertGreaterEqual(d["cookies_count"], 2)
+
+    def test_gemini_web_disabled_persistence_across_reloads(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            pool = AccountPool(
+                accounts_file=tmp / "accounts.json",
+                api_keys_file=tmp / "api_keys.json",
+                web_sessions_file=tmp / "web_sessions.json",
+            )
+            acc = asyncio.run(pool.add_gemini_web_account(
+                name="Web Test Session",
+                raw_cookies="__Secure-1PSID=persisted_cookie_val;",
+            ))
+            acc_id = acc.account_id
+            self.assertTrue(acc.enabled)
+
+            # Pause / disable the web account
+            ok = pool.set_account_enabled(acc_id, False)
+            self.assertTrue(ok)
+            self.assertFalse(acc.enabled)
+
+            # Check saved file on disk
+            with open(tmp / "web_sessions.json", "r", encoding="utf-8") as f:
+                disk_data = json.load(f)
+            self.assertFalse(disk_data["web_sessions"][0]["enabled"])
+
+            # Reload into brand new pool instance (simulating server reload/restart)
+            pool2 = AccountPool(
+                accounts_file=tmp / "accounts.json",
+                api_keys_file=tmp / "api_keys.json",
+                web_sessions_file=tmp / "web_sessions.json",
+            )
+            pool2.load_accounts()
+            self.assertIn(acc_id, pool2.accounts)
+            self.assertFalse(pool2.accounts[acc_id].enabled)
+
+            # Initialize pool (as server lifespan does)
+            asyncio.run(pool2.initialize_all())
+            self.assertFalse(pool2.accounts[acc_id].enabled)
+
+    def test_gemini_web_auto_migration_merge_preserves_disabled_state(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            web_file = tmp / "web_sessions.json"
+            accs_file = tmp / "accounts.json"
+
+            # Pre-populate web_sessions.json with a paused account
+            web_file.write_text(json.dumps({
+                "web_sessions": [{
+                    "account_id": "gw_pre_existing",
+                    "name": "Gemini Web Pre",
+                    "auth_method": "gemini_web",
+                    "cookies": {"__Secure-1PSID": "cookie_abc"},
+                    "enabled": False,
+                }]
+            }))
+
+            # Legacy accounts.json containing consumer + legacy gemini_web
+            accs_file.write_text(json.dumps({
+                "accounts": [
+                    {"account_id": "oa1", "email": "user@gmail.com", "auth_method": "consumer", "refresh_token": "rt1"},
+                    {"account_id": "gw_pre_existing", "name": "Gemini Web Legacy", "auth_method": "gemini_web", "cookies": {"__Secure-1PSID": "cookie_abc"}},
+                ]
+            }))
+
+            pool = AccountPool(accounts_file=accs_file, web_sessions_file=web_file)
+            pool.load_accounts()
+
+            # The paused web account must remain disabled after migration merge
+            self.assertIn("gw_pre_existing", pool.accounts)
+            self.assertFalse(pool.accounts["gw_pre_existing"].enabled)
+
+    def test_deterministic_web_session_id_when_account_id_missing(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            web_file = tmp / "web_sessions.json"
+
+            # Account without account_id
+            web_file.write_text(json.dumps({
+                "web_sessions": [{
+                    "name": "Gemini Web Missing ID",
+                    "email": "myweb@example.com",
+                    "auth_method": "gemini_web",
+                    "cookies": {"__Secure-1PSID": "cookie_unique_123"},
+                    "enabled": False,
+                }]
+            }))
+
+            pool1 = AccountPool(accounts_file=tmp / "accounts.json", web_sessions_file=web_file)
+            pool1.load_accounts()
+            id1 = list(pool1.accounts.keys())[0]
+
+            pool2 = AccountPool(accounts_file=tmp / "accounts.json", web_sessions_file=web_file)
+            pool2.load_accounts()
+            id2 = list(pool2.accounts.keys())[0]
+
+            # IDs across separate reloads must be deterministic and identical
+            self.assertEqual(id1, id2)
+            self.assertTrue(id1.startswith("gw_"))
+            self.assertFalse(pool2.accounts[id2].enabled)
 
     def test_specific_account_routing_and_validation(self):
         pool = AccountPool()
@@ -694,6 +879,248 @@ class TestGeminiWebSession(unittest.TestCase):
         with self.assertRaises((ValueError, RuntimeError)) as ctx:
             pool.get_candidate_accounts("claude-sonnet-4-6", specific_account_id="api_1")
         self.assertIn("does not support model", str(ctx.exception))
+
+    def test_gemini_web_full_restart_and_initialization_lifecycle(self):
+        """Verify enabled: False persistence across full restart/initialization lifecycle."""
+        from unittest.mock import patch, AsyncMock
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            web_file = tmp / "web_sessions.json"
+            pool1 = AccountPool(
+                accounts_file=tmp / "accounts.json",
+                web_sessions_file=web_file,
+            )
+            acc = asyncio.run(pool1.add_gemini_web_account(
+                name="Web LifeCycle Session",
+                raw_cookies="__Secure-1PSID=cookie_full_cycle_abc;",
+                cdp_port=9222,
+            ))
+            acc_id = acc.account_id
+            self.assertTrue(acc.enabled)
+
+            # Toggle account to disabled (enabled: false)
+            self.assertTrue(pool1.set_account_enabled(acc_id, False))
+            self.assertFalse(acc.enabled)
+
+            # Verify persisted to web_sessions.json
+            with open(web_file, "r", encoding="utf-8") as f:
+                disk_data = json.load(f)
+            self.assertEqual(len(disk_data["web_sessions"]), 1)
+            self.assertFalse(disk_data["web_sessions"][0]["enabled"])
+
+            # Create brand new pool instance (simulating full server restart)
+            pool2 = AccountPool(
+                accounts_file=tmp / "accounts.json",
+                web_sessions_file=web_file,
+            )
+            pool2.load_accounts()
+            self.assertIn(acc_id, pool2.accounts)
+            loaded_acc = pool2.accounts[acc_id]
+            self.assertFalse(loaded_acc.enabled)
+
+            # Ensure initialize_all does NOT call refresh_cookies_from_browser on disabled session
+            with patch.object(GeminiWebSession, "refresh_cookies_from_browser", new_callable=AsyncMock) as mock_cdp:
+                asyncio.run(pool2.initialize_all())
+                mock_cdp.assert_not_called()
+
+            # Verify account state is STILL disabled after initialize_all
+            self.assertFalse(pool2.accounts[acc_id].enabled)
+
+            # Verify web_sessions.json STILL contains enabled: false
+            with open(web_file, "r", encoding="utf-8") as f:
+                disk_after = json.load(f)
+            self.assertFalse(disk_after["web_sessions"][0]["enabled"])
+
+    def test_gemini_web_disabled_no_cdp_call(self):
+        """Disabled sessions must never poll browser CDP or trigger refresh callbacks."""
+        from unittest.mock import patch, MagicMock
+        cb = MagicMock()
+        acc = GeminiWebSession(
+            account_id="gw_disabled_test",
+            name="Disabled Test",
+            cookies={"__Secure-1PSID": "test_psid"},
+            enabled=False,
+            on_token_refreshed=cb,
+            cdp_port=9222,
+        )
+        # Calling refresh_cookies_from_browser without force must return False and not hit CDP
+        with patch("urllib.request.urlopen") as mock_urlopen:
+            res = asyncio.run(acc.refresh_cookies_from_browser(force=False))
+            self.assertFalse(res)
+            mock_urlopen.assert_not_called()
+
+        # Calling get_valid_token on disabled session returns empty string without CDP
+        with patch("urllib.request.urlopen") as mock_urlopen:
+            tok = asyncio.run(acc.get_valid_token())
+            self.assertEqual(tok, "")
+            mock_urlopen.assert_not_called()
+
+        # Callback on_token_refreshed must not be triggered
+        cb.assert_not_called()
+
+    def test_gemini_web_bulk_section_toggle_and_concurrency(self):
+        """Bulk section toggling and concurrent toggles must preserve state without file corruption."""
+        import concurrent.futures
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            web_file = tmp / "web_sessions.json"
+            pool = AccountPool(
+                accounts_file=tmp / "accounts.json",
+                web_sessions_file=web_file,
+            )
+            # Add 3 web sessions
+            for i in range(3):
+                asyncio.run(pool.add_gemini_web_account(
+                    name=f"Web Session {i}",
+                    raw_cookies=f"__Secure-1PSID=cookie_bulk_{i};",
+                ))
+            self.assertEqual(len(pool.accounts), 3)
+
+            # Section disable for 'web' / 'gemini_web'
+            disabled_count = pool.set_section_accounts_enabled("web", False)
+            self.assertEqual(disabled_count, 3)
+            for acc in pool.accounts.values():
+                self.assertFalse(acc.enabled)
+
+            # Verify in web_sessions.json
+            with open(web_file, "r", encoding="utf-8") as f:
+                saved = json.load(f)
+            self.assertEqual(len(saved["web_sessions"]), 3)
+            for s in saved["web_sessions"]:
+                self.assertFalse(s["enabled"])
+
+            # Test concurrent toggles across threads
+            acc_ids = list(pool.accounts.keys())
+            def _toggle_worker(idx):
+                target_id = acc_ids[idx % len(acc_ids)]
+                state = (idx % 2 == 0)
+                pool.set_account_enabled(target_id, state)
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+                futures = [executor.submit(_toggle_worker, i) for i in range(40)]
+                for f in futures:
+                    f.result()
+
+            # Verify file integrity after concurrent writes
+            with open(web_file, "r", encoding="utf-8") as f:
+                saved_concurrent = json.load(f)
+            self.assertEqual(len(saved_concurrent["web_sessions"]), 3)
+            for s in saved_concurrent["web_sessions"]:
+                self.assertIn("enabled", s)
+                self.assertIsInstance(s["enabled"], bool)
+
+    def test_gemini_web_dedup_preserves_disabled(self):
+        """Deduplication during load_accounts and initialize_all strictly preserves enabled: False."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            web_file = tmp / "web_sessions.json"
+
+            # web_sessions.json with two matching sessions (same PSID), one disabled and one enabled
+            web_file.write_text(json.dumps({
+                "web_sessions": [
+                    {
+                        "account_id": "gw_session_1",
+                        "name": "Web Session 1",
+                        "cookies": {"__Secure-1PSID": "shared_psid_999"},
+                        "enabled": False,
+                    },
+                    {
+                        "account_id": "gw_session_2",
+                        "name": "Web Session 2",
+                        "cookies": {"__Secure-1PSID": "shared_psid_999"},
+                        "enabled": True,
+                    },
+                ]
+            }))
+
+            pool = AccountPool(
+                accounts_file=tmp / "accounts.json",
+                web_sessions_file=web_file,
+            )
+            pool.load_accounts()
+
+            # Must have merged into 1 account with enabled == False
+            self.assertEqual(len(pool.accounts), 1)
+            survivor = list(pool.accounts.values())[0]
+            self.assertFalse(survivor.enabled)
+
+            # Run initialize_all and verify still False
+            asyncio.run(pool.initialize_all())
+            self.assertEqual(len(pool.accounts), 1)
+            survivor = list(pool.accounts.values())[0]
+            self.assertFalse(survivor.enabled)
+
+    def test_gemini_web_disabled_persists_across_restart_with_shared_email(self):
+        """Verify disabled Gemini Web session does not merge into OAuth account with same email and stays disabled across restart."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            acc_file = tmp / "accounts.json"
+            web_file = tmp / "web_sessions.json"
+
+            # 1. Save OAuth account and Gemini Web session sharing the same email address
+            shared_email = "developer@gmail.com"
+            acc_file.write_text(json.dumps({
+                "accounts": [
+                    {
+                        "account_id": "acc_oauth_1",
+                        "email": shared_email,
+                        "refresh_token": "rt_test_123",
+                        "access_token": "ya29.test",
+                        "auth_method": "consumer",
+                        "enabled": True,
+                        "is_primary": True,
+                    }
+                ]
+            }))
+            web_file.write_text(json.dumps({
+                "web_sessions": [
+                    {
+                        "account_id": "gw_session_1",
+                        "email": shared_email,
+                        "name": "Gemini Web Dev",
+                        "auth_method": "gemini_web",
+                        "cookies": {"__Secure-1PSID": "web_psid_unique"},
+                        "enabled": False,
+                        "is_primary": False,
+                    }
+                ]
+            }))
+
+            # 2. Load accounts in pool
+            pool = AccountPool(accounts_file=acc_file, web_sessions_file=web_file)
+            pool.load_accounts()
+
+            # Both accounts must exist independently without cross-merging
+            self.assertEqual(len(pool.accounts), 2)
+            oauth_acc = pool.accounts.get("acc_oauth_1")
+            web_acc = pool.accounts.get("gw_session_1")
+            self.assertIsNotNone(oauth_acc)
+            self.assertIsNotNone(web_acc)
+            self.assertEqual(oauth_acc.auth_method, "consumer")
+            self.assertEqual(web_acc.auth_method, "gemini_web")
+
+            # OAuth remains enabled, Web session remains disabled
+            self.assertTrue(oauth_acc.enabled)
+            self.assertFalse(web_acc.enabled)
+
+            # 3. Simulate pool save and full restart
+            pool.save_accounts()
+
+            # Re-read files from disk
+            with open(web_file, "r", encoding="utf-8") as f:
+                web_disk = json.load(f)
+            self.assertEqual(len(web_disk["web_sessions"]), 1)
+            self.assertFalse(web_disk["web_sessions"][0]["enabled"])
+
+            # New pool instance simulating server reboot
+            pool2 = AccountPool(accounts_file=acc_file, web_sessions_file=web_file)
+            pool2.load_accounts()
+            asyncio.run(pool2.initialize_all())
+
+            # Verify both accounts preserved correctly with web disabled
+            self.assertEqual(len(pool2.accounts), 2)
+            self.assertTrue(pool2.accounts["acc_oauth_1"].enabled)
+            self.assertFalse(pool2.accounts["gw_session_1"].enabled)
 
 
 if __name__ == "__main__":

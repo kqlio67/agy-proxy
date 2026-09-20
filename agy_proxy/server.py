@@ -9,12 +9,12 @@ import json
 import logging
 import os
 import random
-import re
 import time
 from contextlib import asynccontextmanager
-from typing import Any, Dict, List, Optional
+from typing import Any
+import urllib.parse
 import httpx
-from fastapi import FastAPI, HTTPException, Header, Request, status
+from fastapi import FastAPI, HTTPException, Header, Request, status, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response, StreamingResponse
@@ -36,26 +36,33 @@ from agy_proxy.models import (
     ModelCard,
     ModelListResponse,
     VALID_CLOUDCODE_MODELS,
+    PROXY_CATALOG_MODELS,
     OpenAIChatRequest,
     normalize_model_name,
 )
 from agy_proxy.converter import anthropic_to_cloudcode_payload
-from agy_proxy.ui import DASHBOARD_HTML, get_dashboard_html
+from agy_proxy.responses import (
+    responses_payload_to_openai_chat,
+    stream_responses_events,
+    format_sse_event,
+    generate_responses_dict,
+)
+from agy_proxy.ui import get_dashboard_html
 
 logger = logging.getLogger("agy_proxy.server")
 
 
 class OAuthCallbackRequest(BaseModel):
     code: str
-    state: Optional[str] = None
-    code_verifier: Optional[str] = None
+    state: str | None = None
+    code_verifier: str | None = None
 
 
 def create_app(
-    auth_manager: Optional[AuthManager] = None,
-    account_pool: Optional[AccountPool] = None,
-    api_key: Optional[str] = None,
-    allowed_origins: Optional[List[str]] = None,
+    auth_manager: AuthManager | None = None,
+    account_pool: AccountPool | None = None,
+    api_key: str | None = None,
+    allowed_origins: list[str] | None = None,
 ) -> FastAPI:
     """Creates and configures the FastAPI application."""
 
@@ -166,7 +173,7 @@ def create_app(
             allow_headers=["*"],
         )
 
-    def verify_api_key(authorization: Optional[str] = Header(None), x_api_key: Optional[str] = Header(None)):
+    def verify_api_key(authorization: str | None = Header(None), x_api_key: str | None = Header(None)):
         if not effective_api_key:
             return
         token = None
@@ -282,6 +289,21 @@ def create_app(
     async def mcp_registry_servers():
         return {"servers": []}
 
+    # -------------------------------------------------------------------------
+    # OpenTelemetry / OTLP sink — swallow all Codex/OpenAI telemetry locally.
+    # Codex CLI sends metrics to ab.chatgpt.com/otlp/v1/*; by pointing
+    # OTEL_EXPORTER_OTLP_ENDPOINT at the proxy we absorb them here and return
+    # 200 so the client never retries. Nothing is forwarded externally.
+    # -------------------------------------------------------------------------
+    @app.api_route("/otlp/v1/metrics", methods=["POST", "OPTIONS"])
+    @app.api_route("/otlp/v1/traces", methods=["POST", "OPTIONS"])
+    @app.api_route("/otlp/v1/logs", methods=["POST", "OPTIONS"])
+    @app.api_route("/v1/traces", methods=["POST", "OPTIONS"])
+    @app.api_route("/v1/logs", methods=["POST", "OPTIONS"])
+    async def otlp_sink(request: Request):
+        """Silent OTLP/OpenTelemetry sink — absorbs telemetry without forwarding."""
+        return JSONResponse({"success": True}, status_code=200)
+
     @app.post("/v1/messages/count_tokens")
     @app.post("/messages/count_tokens")
     async def count_tokens(request: Request):
@@ -289,7 +311,7 @@ def create_app(
             authorization=request.headers.get("Authorization"),
             x_api_key=request.headers.get("x-api-key"),
         )
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         try:
             body = await request.json()
         except Exception:
@@ -415,7 +437,7 @@ def create_app(
 
     class AddApiKeyRequest(BaseModel):
         api_key: str
-        name: Optional[str] = "Gemini API Key"
+        name: str | None = "Gemini API Key"
 
     @app.post("/api/accounts/apikey")
     async def add_account_api_key(req: AddApiKeyRequest):
@@ -427,10 +449,10 @@ def create_app(
             raise HTTPException(status_code=400, detail=str(e))
 
     class AddGeminiWebRequest(BaseModel):
-        name: Optional[str] = "Gemini Web"
-        cdp_port: Optional[int] = 9222
-        raw_cookies: Optional[str] = None
-        cookies: Optional[Dict[str, str]] = None
+        name: str | None = "Gemini Web"
+        cdp_port: int | None = 9222
+        raw_cookies: str | None = None
+        cookies: dict[str, str] | None = None
 
     @app.post("/api/accounts/gemini-web")
     async def add_account_gemini_web(req: AddGeminiWebRequest):
@@ -458,7 +480,7 @@ def create_app(
     async def refresh_gemini_web_cookies(account_id: str):
         """Re-fetches cookies from the browser via CDP for an existing Gemini Web account."""
         from agy_proxy.auth import GeminiWebSession
-        acc = pool.accounts.get(account_id)
+        acc = pool.get_account(account_id)
         if not acc:
             raise HTTPException(status_code=404, detail="Account not found.")
         if not isinstance(acc, GeminiWebSession):
@@ -468,7 +490,7 @@ def create_app(
             await acc.get_at_token(force_refresh=True)
         return {
             "status": "ok" if ok else "no_cookies",
-            "account_id": account_id,
+            "account_id": acc.account_id,
             "cookies_refreshed": ok,
             "cdp_port": acc.cdp_port,
             "has_at_token": bool(acc._at_token),
@@ -478,7 +500,7 @@ def create_app(
     @app.post("/api/accounts/{account_id}/test")
     async def test_account(account_id: str):
         """Tests connectivity and validity of an account (OAuth, API Key, or Gemini Web)."""
-        acc = pool.accounts.get(account_id)
+        acc = pool.get_account(account_id)
         if not acc:
             raise HTTPException(status_code=404, detail="Account not found.")
         start_t = time.time()
@@ -486,7 +508,7 @@ def create_app(
             res = await acc.test_connection()
             latency_ms = round((time.time() - start_t) * 1000, 1)
             return {
-                "account_id": account_id,
+                "account_id": acc.account_id,
                 "name": acc.name or acc.email,
                 "email": acc.email,
                 "auth_method": acc.auth_method,
@@ -498,7 +520,7 @@ def create_app(
             latency_ms = round((time.time() - start_t) * 1000, 1)
             logger.error("Error testing account %s: %s", account_id, e)
             return {
-                "account_id": account_id,
+                "account_id": acc.account_id,
                 "name": acc.name or acc.email,
                 "email": acc.email,
                 "auth_method": acc.auth_method,
@@ -514,24 +536,30 @@ def create_app(
     @app.post("/api/accounts/{account_id}/rename")
     @app.patch("/api/accounts/{account_id}/rename")
     async def rename_account(account_id: str, req: RenameAccountRequest):
-        if account_id not in pool.accounts:
+        acc = pool.get_account(account_id)
+        if not acc:
             raise HTTPException(status_code=404, detail="Account not found.")
         if not req.name or not req.name.strip():
             raise HTTPException(status_code=400, detail="Name cannot be empty.")
-        pool.rename_account(account_id, req.name.strip())
-        return {"status": "ok", "account_id": account_id, "name": req.name.strip()}
+        pool.rename_account(acc.account_id, req.name.strip())
+        return {"status": "ok", "account_id": acc.account_id, "name": req.name.strip()}
 
     class ToggleAccountRequest(BaseModel):
-        enabled: Optional[bool] = None
+        enabled: bool | None = None
+
+    class ToggleSectionRequest(BaseModel):
+        auth_method: str | None = None
+        enabled: bool | None = None
 
     @app.post("/api/accounts/{account_id}/toggle")
-    async def toggle_account(account_id: str, req: Optional[ToggleAccountRequest] = None):
-        if account_id not in pool.accounts:
+    async def toggle_account(account_id: str, req: ToggleAccountRequest | None = None):
+        acc = pool.get_account(account_id)
+        if not acc:
             raise HTTPException(status_code=404, detail="Account not found.")
-        current_state = pool.accounts[account_id].enabled
+        current_state = acc.enabled
         new_state = req.enabled if (req and req.enabled is not None) else not current_state
-        pool.set_account_enabled(account_id, new_state)
-        return {"status": "ok", "account_id": account_id, "enabled": new_state}
+        pool.set_account_enabled(acc.account_id, new_state)
+        return {"status": "ok", "account_id": acc.account_id, "enabled": new_state}
 
     @app.post("/api/accounts/toggle_all")
     async def toggle_all_accounts(req: ToggleAccountRequest):
@@ -539,12 +567,24 @@ def create_app(
         pool.set_all_accounts_enabled(new_state)
         return {"status": "ok", "enabled": new_state, "count": len(pool.accounts)}
 
+    @app.post("/api/accounts/section/{section}/toggle")
+    @app.post("/api/accounts/toggle_section")
+    async def toggle_section_accounts(
+        section: str | None = None,
+        req: ToggleSectionRequest | None = None,
+    ):
+        target_section = section or (req.auth_method if req else None) or "consumer"
+        new_state = req.enabled if (req and req.enabled is not None) else True
+        count = pool.set_section_accounts_enabled(target_section, new_state)
+        return {"status": "ok", "section": target_section, "enabled": new_state, "count": count}
+
     @app.post("/api/accounts/{account_id}/reset-stats")
     async def reset_account_stats_endpoint(account_id: str):
-        if account_id not in pool.accounts:
+        acc = pool.get_account(account_id)
+        if not acc:
             raise HTTPException(status_code=404, detail="Account not found.")
-        pool.reset_account_stats(account_id)
-        return {"status": "ok", "account_id": account_id, "total_requests": 0, "last_used_model": None}
+        pool.reset_account_stats(acc.account_id)
+        return {"status": "ok", "account_id": acc.account_id, "total_requests": 0, "last_used_model": None}
 
     @app.post("/api/accounts/reset_all_stats")
     async def reset_all_stats_endpoint():
@@ -553,51 +593,174 @@ def create_app(
 
     @app.delete("/api/accounts/{account_id}")
     async def delete_account(account_id: str):
-        removed = pool.remove_account(account_id)
+        acc = pool.get_account(account_id)
+        if not acc:
+            raise HTTPException(status_code=404, detail="Account not found.")
+        removed = pool.remove_account(acc.account_id)
         if not removed:
             raise HTTPException(status_code=404, detail="Account not found.")
-        return {"status": "deleted", "account_id": account_id}
+        return {"status": "deleted", "account_id": acc.account_id}
 
     @app.post("/api/accounts/{account_id}/primary")
     async def set_primary_account(account_id: str):
-        if account_id not in pool.accounts:
+        acc = pool.get_account(account_id)
+        if not acc:
             raise HTTPException(status_code=404, detail="Account not found.")
-        success = pool.set_primary(account_id)
+        success = pool.set_primary(acc.account_id)
         if not success:
             raise HTTPException(status_code=400, detail="Failed to set primary account.")
-        return {"status": "ok", "account_id": account_id, "is_primary": True}
+        return {"status": "ok", "account_id": acc.account_id, "is_primary": True}
 
     @app.post("/api/accounts/{account_id}/activate-cli")
-    async def activate_account_cli(account_id: str):
-        """Activates the specified OAuth account as the current Google Antigravity CLI/IDE session."""
-        if account_id not in pool.accounts:
+    async def activate_account_cli(
+        account_id: str,
+        target: str | None = "both",
+        set_primary: bool = False,
+    ):
+        """Activates the specified OAuth account as the current Google Antigravity CLI, IDE, or both session."""
+        unquoted_id = urllib.parse.unquote(account_id).strip()
+        acc = pool.get_account(unquoted_id) or pool.get_account(account_id)
+        if not acc:
             raise HTTPException(status_code=404, detail="Account not found.")
-        acc = pool.accounts[account_id]
         if acc.auth_method != "consumer":
-            raise HTTPException(status_code=400, detail="Only Google OAuth accounts can be activated in Antigravity CLI.")
-        from agy_proxy.switcher import activate_account_in_antigravity
-        pool.set_primary(account_id)
-        written = await activate_account_in_antigravity(acc)
+            raise HTTPException(status_code=400, detail="Only Google OAuth accounts can be activated in Antigravity CLI/IDE.")
+        from agy_proxy.switcher import (
+            activate_account_in_antigravity,
+            format_agy_quota_display,
+            resolve_antigravity_destinations,
+        )
+        if set_primary:
+            pool.set_primary(acc.account_id)
+
+        target_paths = resolve_antigravity_destinations(target or "both")
+
+        try:
+            written = await activate_account_in_antigravity(acc, target_paths=target_paths, target_env=target or "both", allow_overwrite=True)
+            try:
+                if hasattr(acc, "fetch_quota"):
+                    await acc.fetch_quota()
+            except Exception:
+                pass
+            quota_text = format_agy_quota_display(acc)
+            return {
+                "status": "activated",
+                "account_id": acc.account_id,
+                "target": target,
+                "email": acc.email,
+                "destinations": [str(p) for p in written],
+                "quota_display": quota_text,
+            }
+        except PermissionError as pe:
+            logger.warning("Permission error activating account %s in Antigravity: %s", acc.account_id, pe)
+            raise HTTPException(status_code=403, detail=str(pe))
+        except Exception as e:
+            logger.error("Failed to activate account in Antigravity: %s", e)
+            raise HTTPException(status_code=500, detail=f"Failed to activate session: {e}")
+
+    @app.get("/api/accounts/{account_id}/quota-display")
+    async def get_account_quota_display(account_id: str):
+        """Returns the official agy ASCII Models & Quota text representation for an account."""
+        unquoted_id = urllib.parse.unquote(account_id).strip()
+        acc = pool.get_account(unquoted_id) or pool.get_account(account_id)
+        if not acc:
+            raise HTTPException(status_code=404, detail="Account not found.")
+        try:
+            if hasattr(acc, "fetch_quota"):
+                await acc.fetch_quota()
+        except Exception:
+            pass
+        from agy_proxy.switcher import format_agy_quota_display
         return {
-            "status": "activated",
-            "account_id": account_id,
+            "account_id": acc.account_id,
             "email": acc.email,
-            "destinations": [str(p) for p in written],
+            "quota_display": format_agy_quota_display(acc),
+        }
+
+    @app.get("/api/accounts/cli-active")
+    async def get_cli_active_account():
+        """Reads the AGY CLI and IDE token files and returns which pool accounts are currently active in each."""
+        import json as _json
+        import base64 as _b64
+        from pathlib import Path
+
+        def resolve_account_from_file(token_path: Path):
+            if not token_path or not token_path.is_file() or token_path.stat().st_size == 0:
+                return None
+            try:
+                with open(token_path) as f:
+                    tok_data = _json.load(f)
+                file_refresh = (tok_data.get("token") or {}).get("refresh_token", "").strip()
+                file_access = (tok_data.get("token") or {}).get("access_token", "").strip()
+                file_id_token = (tok_data.get("id_token") or "").strip()
+                file_email = (tok_data.get("email") or "").strip().lower()
+
+                if not file_email and file_id_token and "." in file_id_token:
+                    parts = file_id_token.split(".")
+                    if len(parts) >= 2:
+                        p = parts[1]
+                        p += "=" * (-len(p) % 4)
+                        try:
+                            id_payload = _json.loads(_b64.urlsafe_b64decode(p.encode("ascii")))
+                            file_email = (id_payload.get("email") or "").strip().lower()
+                        except Exception:
+                            pass
+
+                for acc in pool.accounts.values():
+                    if acc.auth_method != "consumer":
+                        continue
+                    rt = (acc.refresh_token or "").strip()
+                    at = (acc.access_token or "").strip()
+                    acc_email = (acc.email or "").strip().lower()
+                    if file_email and acc_email and acc_email == file_email:
+                        return acc
+                    if file_refresh and rt and rt == file_refresh:
+                        return acc
+                    if file_access and at and at == file_access:
+                        return acc
+            except Exception as e:
+                logger.debug("cli-active check failed for %s: %s", token_path, e)
+            return None
+
+        home = Path.home()
+        cli_path = home / ".gemini" / "antigravity-cli" / "antigravity-oauth-token"
+        ide_path = home / ".gemini" / "antigravity-ide" / "antigravity-oauth-token"
+
+        cli_acc = resolve_account_from_file(cli_path)
+        ide_acc = resolve_account_from_file(ide_path)
+
+        return {
+            "cli": {
+                "account_id": cli_acc.account_id if cli_acc else None,
+                "email": cli_acc.email if cli_acc else None,
+                "name": (cli_acc.name or cli_acc.email) if cli_acc else None,
+            },
+            "ide": {
+                "account_id": ide_acc.account_id if ide_acc else None,
+                "email": ide_acc.email if ide_acc else None,
+                "name": (ide_acc.name or ide_acc.email) if ide_acc else None,
+            },
+            "account_id": cli_acc.account_id if cli_acc else (ide_acc.account_id if ide_acc else None),
+            "email": cli_acc.email if cli_acc else (ide_acc.email if ide_acc else None),
         }
 
     @app.post("/api/accounts/switch-next-cli")
-    async def switch_next_account_cli():
-        """Switches the Antigravity CLI session to the next available account with highest quota."""
+    async def switch_next_account_cli(target: str | None = "both"):
+        """Switches the Antigravity CLI/IDE session to the next available account with highest quota."""
         from agy_proxy.switcher import switch_antigravity_session
         try:
-            acc, written = await switch_antigravity_session(pool=pool, to_next=True)
+            acc, written = await switch_antigravity_session(pool=pool, to_next=True, target_env=target or "both")
             return {
                 "status": "switched",
                 "account_id": acc.account_id,
                 "email": acc.email,
+                "target": target or "both",
                 "destinations": [str(p) for p in written],
             }
+        except PermissionError as pe:
+            logger.warning("Permission error switching Antigravity session: %s", pe)
+            raise HTTPException(status_code=403, detail=str(pe))
         except Exception as e:
+            logger.error("Error switching Antigravity session: %s", e)
             raise HTTPException(status_code=400, detail=str(e))
 
     @app.post("/api/accounts/refresh_all")
@@ -686,6 +849,20 @@ def create_app(
     @app.get("/api/models")
     async def get_proxy_models():
         models_dict = await pool.get_pool_models() if pool.accounts else {}
+        if not models_dict:
+            from agy_proxy.models import EXACT_MODEL_METADATA, VALID_CLOUDCODE_MODELS
+            models_dict = {
+                m_id: {
+                    "displayName": EXACT_MODEL_METADATA.get(m_id, {}).get("displayName", m_id),
+                    "maxTokens": EXACT_MODEL_METADATA.get(m_id, {}).get("maxTokens", 1048576),
+                    "quotaInfo": {"remainingFraction": 0.0},
+                    "accounts": {},
+                    "available_accounts": 0,
+                    "total_accounts": len(pool.accounts),
+                    "pool_remaining_fraction": 0.0,
+                }
+                for m_id in sorted(VALID_CLOUDCODE_MODELS)
+            }
         return {"models": models_dict}
 
     @app.post("/api/refresh")
@@ -722,9 +899,10 @@ def create_app(
                 for m_id in sorted(VALID_CLOUDCODE_MODELS)
             }
 
-        model_cards: List[ModelCard] = []
+        model_cards: list[ModelCard] = []
         seen_ids = set()
 
+        # 1. Live models from pool / editor
         for m_id, info in models_dict.items():
             # Filter internal code-completion or hash models from public chat catalog
             if m_id.startswith(("tab_", "chat_")):
@@ -756,7 +934,69 @@ def create_app(
                         )
                     )
 
+        # 2. All available proxy models (OpenAI, Codex, Claude aliases, DeepSeek)
+        for m_id, info in PROXY_CATALOG_MODELS.items():
+            if m_id not in seen_ids:
+                seen_ids.add(m_id)
+                target_backend = normalize_model_name(m_id)
+                target_info = models_dict.get(target_backend, {})
+                quota_info = target_info.get("quotaInfo", {})
+                pool_rem = target_info.get("pool_remaining_fraction", quota_info.get("remainingFraction", 1.0))
+                model_cards.append(
+                    ModelCard(
+                        id=m_id,
+                        display_name=info.get("displayName", m_id),
+                        max_tokens=info.get("maxTokens", 128000),
+                        remaining_quota=pool_rem,
+                        reset_time=quota_info.get("resetTime"),
+                    )
+                )
+            for prefix in (f"anthropic/{m_id}", f"anthropic.{m_id}"):
+                if prefix not in seen_ids:
+                    seen_ids.add(prefix)
+                    model_cards.append(
+                        ModelCard(
+                            id=prefix,
+                            display_name=info.get("displayName", m_id),
+                            max_tokens=info.get("maxTokens", 128000),
+                            remaining_quota=pool_rem,
+                            reset_time=quota_info.get("resetTime"),
+                        )
+                    )
+
         return ModelListResponse(data=model_cards)
+
+    @app.get("/api/codex/models.json")
+    @app.get("/v1/models/codex.json")
+    async def get_codex_models():
+        """Serves Codex CLI ModelsResponse catalog containing all proxy models."""
+        from agy_proxy.codex_helper import get_catalog_dict
+        return get_catalog_dict()
+
+    @app.get("/api/codex/status")
+    async def get_codex_status_endpoint(request: Request):
+        """Returns installation and configuration status of OpenAI Codex CLI."""
+        from agy_proxy.codex_helper import get_codex_status
+        port = request.url.port or 8000
+        return get_codex_status(port=port)
+
+    class CodexSetupRequest(BaseModel):
+        port: int | None = None
+        model: str | None = "gemini-3.8-flash-high"
+
+    @app.post("/api/codex/setup")
+    async def setup_codex_endpoint(request: Request, req: CodexSetupRequest | None = None):
+        """Automatically configures OpenAI Codex CLI with full models catalog and safe backup."""
+        from agy_proxy.codex_helper import setup_codex
+        target_port = (req.port if req and req.port else None) or request.url.port or 8000
+        target_model = (req.model if req and req.model else "gemini-3.8-flash-high")
+        return setup_codex(port=target_port, model=target_model)
+
+    @app.post("/api/codex/restore")
+    async def restore_codex_endpoint():
+        """Restores original OpenAI Codex CLI configuration from backup."""
+        from agy_proxy.codex_helper import restore_codex
+        return restore_codex()
 
     @app.get("/v1/models/{model_id}")
     async def get_openai_model(model_id: str, request: Request):
@@ -774,7 +1014,7 @@ def create_app(
                 m_id: {"displayName": m_id, "maxTokens": 65536, "quotaInfo": {}}
                 for m_id in sorted(VALID_CLOUDCODE_MODELS)
             }
-        info = models_dict.get(normalized, {})
+        info = models_dict.get(normalized) or PROXY_CATALOG_MODELS.get(model_id) or PROXY_CATALOG_MODELS.get(normalized, {})
         return ModelCard(
             id=model_id,
             display_name=info.get("displayName", model_id),
@@ -843,6 +1083,156 @@ def create_app(
             logger.error("OpenAI Chat Completion Error: %s", e, exc_info=True)
             err_msg = str(e) or f"{type(e).__name__}: Upstream request failed"
             raise HTTPException(status_code=500, detail=err_msg)
+
+    # -------------------------------------------------------------------------
+    # OpenAI Responses API (/v1/responses) — Codex CLI & Agent compatibility
+    # -------------------------------------------------------------------------
+
+    @app.head("/v1/responses")
+    @app.head("/responses")
+    @app.head("/v1/v1/responses")
+    async def openai_responses_head():
+        return Response(status_code=200)
+
+    @app.post("/v1/responses")
+    @app.post("/responses")
+    @app.post("/v1/v1/responses")
+    async def openai_responses_endpoint(request: Request):
+        verify_api_key(
+            authorization=request.headers.get("Authorization"),
+            x_api_key=request.headers.get("x-api-key"),
+        )
+
+        try:
+            payload = await request.json()
+        except Exception:
+            payload = {}
+
+        chat_req, detected_session_key = responses_payload_to_openai_chat(payload)
+
+        session_id = (
+            request.headers.get("session-id")
+            or request.headers.get("x-session-id")
+            or request.headers.get("x-conversation-id")
+            or detected_session_key
+        )
+        target_account_id = (
+            request.headers.get("x-account-id")
+            or request.headers.get("account-id")
+            or request.query_params.get("account_id")
+            or payload.get("account_id")
+        )
+
+        is_stream = payload.get("stream", True)
+
+        try:
+            if is_stream:
+                async def event_generator():
+                    async for event in stream_responses_events(
+                        client=client,
+                        chat_req=chat_req,
+                        session_key=session_id,
+                        specific_account_id=target_account_id,
+                    ):
+                        yield format_sse_event(event)
+
+                return StreamingResponse(
+                    event_generator(),
+                    media_type="text/event-stream",
+                    headers={
+                        "Cache-Control": "no-cache",
+                        "Connection": "keep-alive",
+                        "X-Accel-Buffering": "no",
+                    },
+                )
+            else:
+                resp_data = await generate_responses_dict(
+                    client=client,
+                    chat_req=chat_req,
+                    session_key=session_id,
+                    specific_account_id=target_account_id,
+                )
+                return JSONResponse(content=resp_data)
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 429:
+                return JSONResponse(
+                    status_code=429,
+                    content={
+                        "error": {
+                            "message": "All accounts in pool have hit rate limit / quota (429). Please wait a few minutes or add more accounts.",
+                            "type": "insufficient_quota",
+                            "code": 429,
+                        }
+                    },
+                )
+            raise HTTPException(status_code=e.response.status_code, detail=str(e))
+        except Exception as e:
+            logger.error("OpenAI Responses Error: %s", e, exc_info=True)
+            err_msg = str(e) or f"{type(e).__name__}: Upstream request failed"
+            raise HTTPException(status_code=500, detail=err_msg)
+
+    @app.websocket("/v1/responses")
+    @app.websocket("/responses")
+    @app.websocket("/v1/v1/responses")
+    async def openai_responses_ws(websocket: WebSocket):
+        if effective_api_key:
+            token = None
+            auth_header = websocket.headers.get("authorization") or websocket.headers.get("x-api-key")
+            query_token = websocket.query_params.get("token") or websocket.query_params.get("api_key")
+            if auth_header and auth_header.startswith("Bearer "):
+                token = auth_header[7:].strip()
+            elif auth_header:
+                token = auth_header.strip()
+            elif query_token:
+                token = query_token.strip()
+
+            if token != effective_api_key:
+                await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Invalid or missing API key.")
+                return
+
+        await websocket.accept()
+        try:
+            while True:
+                msg_text = await websocket.receive_text()
+                if not msg_text:
+                    continue
+                try:
+                    data = json.loads(msg_text)
+                except Exception:
+                    continue
+
+                req_type = data.get("type")
+                if req_type == "response.create" or "input" in data or "model" in data:
+                    try:
+                        payload = data.get("response", data) if req_type == "response.create" else data
+                        chat_req, detected_session_key = responses_payload_to_openai_chat(payload)
+
+                        async for event in stream_responses_events(
+                            client=client,
+                            chat_req=chat_req,
+                            session_key=detected_session_key,
+                        ):
+                            await websocket.send_text(json.dumps(event, ensure_ascii=False))
+                    except Exception as err:
+                        logger.error("Responses WebSocket stream error: %s", err, exc_info=True)
+                        err_event = {
+                            "type": "response.failed",
+                            "response": {
+                                "status": "failed",
+                                "error": {
+                                    "message": str(err) or "Internal server error during responses stream",
+                                    "type": "server_error",
+                                },
+                            },
+                        }
+                        try:
+                            await websocket.send_text(json.dumps(err_event, ensure_ascii=False))
+                        except Exception:
+                            pass
+        except WebSocketDisconnect:
+            pass
+        except Exception as e:
+            logger.debug("Responses WebSocket closed: %s", e)
 
     # -------------------------------------------------------------------------
     # Anthropic Compatible API
