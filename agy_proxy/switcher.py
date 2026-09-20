@@ -65,6 +65,29 @@ def get_antigravity_token_destinations() -> List[Path]:
     return [DEFAULT_TOKEN_FILE]
 
 
+def get_active_antigravity_accounts(pool: AccountPool) -> Tuple[Optional[AccountSession], Optional[AccountSession]]:
+    """Reads the Antigravity token files and resolves which accounts are currently active in CLI and IDE."""
+    cli_path = resolve_antigravity_destinations("cli")[0]
+    ide_path = resolve_antigravity_destinations("ide")[0]
+
+    def _resolve(token_path: Path) -> Optional[AccountSession]:
+        if not token_path or not token_path.is_file() or token_path.stat().st_size == 0:
+            return None
+        try:
+            with open(token_path, "r", encoding="utf-8") as f:
+                tok_data = json.load(f)
+            file_refresh = (tok_data.get("token") or {}).get("refresh_token", "").strip()
+            if file_refresh:
+                for a in pool.accounts.values():
+                    if a.auth_method == "consumer" and getattr(a, "refresh_token", "") == file_refresh:
+                        return a
+        except Exception:
+            pass
+        return None
+
+    return _resolve(cli_path), _resolve(ide_path)
+
+
 def format_antigravity_token_payload(account: AccountSession) -> Dict[str, Any]:
     """Formats an AccountSession into the exact official token JSON structure expected by Google Antigravity CLI and IDE.
     Matches ~/.gemini/antigravity-cli/antigravity-oauth-token schema strictly with zero extra fields.
@@ -507,16 +530,28 @@ def main():
 
         # Interactive or list mode
         if args.list or (not real_targets and not args.next):
-            print("\nGoogle Antigravity Session Switcher")
-            print("=" * 60)
-            print(f"{'#':<3} {'Account / Email':<32} {'Name':<20} {'Status'}")
-            print("-" * 60)
+            cli_acc, ide_acc = get_active_antigravity_accounts(pool)
+            cli_id = cli_acc.account_id if cli_acc else None
+            ide_id = ide_acc.account_id if ide_acc else None
+
+            print("\nGoogle Antigravity Accounts in Pool")
+            print("=" * 70)
+            print(f"{'#':<3} {'Account / Email':<32} {'Name':<15} {'Status'}")
+            print("-" * 70)
             for idx, acc in enumerate(oauth_accounts, start=1):
-                status = "Active (Primary) ⭐" if acc.is_primary else "Ready"
+                statuses = []
+                if acc.account_id == cli_id and acc.account_id == ide_id:
+                    statuses.append("Active (CLI & IDE) ⭐")
+                elif acc.account_id == cli_id:
+                    statuses.append("Active (CLI) ⭐")
+                elif acc.account_id == ide_id:
+                    statuses.append("Active (IDE) ⭐")
+                
+                status = ", ".join(statuses) if statuses else "Ready"
                 email_str = acc.email or acc.account_id
-                name_str = (acc.name or "")[:18]
-                print(f"{idx:<3} {email_str:<32} {name_str:<20} {status}")
-            print("-" * 60)
+                name_str = (acc.name or "")[:15]
+                print(f"{idx:<3} {email_str:<32} {name_str:<15} {status}")
+            print("-" * 70)
 
             if args.list:
                 return

@@ -13,6 +13,7 @@ from typing import Optional
 import uvicorn
 from rich.console import Console
 from rich.panel import Panel
+from rich.prompt import Prompt
 from rich.table import Table
 
 from agy_proxy import __version__ as APP_VERSION
@@ -156,10 +157,15 @@ async def handle_auth_list():
             claude_q = "[dim]N/A[/dim]"
         else:
             q_details = acc.get_quota_details()
-            g_pct = int(q_details.get("gemini", {}).get("percent", 100))
-            c_pct = int(q_details.get("3p", {}).get("percent", 100))
-            gemini_q = f"[bold red]{g_pct}%[/bold red]" if g_pct <= 0 else f"{g_pct}%"
-            claude_q = f"[bold red]{c_pct}%[/bold red]" if c_pct <= 0 else f"{c_pct}%"
+            g_5h = int(q_details.get("gemini", {}).get("5h", {}).get("percent", q_details.get("gemini", {}).get("percent", 100)))
+            g_wk = int(q_details.get("gemini", {}).get("weekly", {}).get("percent", q_details.get("gemini", {}).get("percent", 100)))
+            c_wk = int(q_details.get("3p", {}).get("weekly", {}).get("percent", q_details.get("3p", {}).get("percent", 100)))
+            c_5h = int(q_details.get("3p", {}).get("5h", {}).get("percent", q_details.get("3p", {}).get("percent", 100)))
+
+            gemini_q = f"5h: [bold red]{g_5h}%[/bold red] | Wk: {g_wk}%" if g_5h <= 0 else f"5h: {g_5h}% | Wk: {g_wk}%"
+            claude_q = f"Wk: [bold red]{c_wk}%[/bold red]" if c_wk <= 0 else f"Wk: {c_wk}%"
+            if c_5h < 100:
+                claude_q += f" (5h: {c_5h}%)"
 
         table.add_row(
             display_name,
@@ -173,69 +179,126 @@ async def handle_auth_list():
     console.print(table)
 
 
-async def handle_switch_command(target: Optional[str] = None, to_next: bool = False, list_only: bool = False):
-    """Interactively switches active Antigravity CLI/IDE session between pooled Google accounts."""
+async def handle_switch_command(
+    target: Optional[str] = None,
+    to_next: bool = False,
+    list_only: bool = False,
+    set_primary: bool = False,
+    target_env: str = "both",
+    env_explicitly_set: bool = False,
+):
+    """Handles CLI session switching."""
     from agy_proxy.switcher import switch_antigravity_session
 
     pool = AccountPool()
     pool.load_accounts()
-    oauth_accounts = [a for a in pool.accounts.values() if a.auth_method == "consumer" and a.refresh_token]
 
+    oauth_accounts = [a for a in pool.accounts.values() if a.auth_method == "consumer" and a.refresh_token]
     if not oauth_accounts:
         console.print("[bold red]No Google OAuth accounts found in accounts.json.[/bold red]")
-        console.print("Add one first via: `agy-proxy auth login`")
+        console.print("Add an account first via: [cyan]agy-proxy auth login[/cyan]")
         return
 
-    # If list_only or (no target and not to_next), display interactive table
     if list_only or (not target and not to_next):
-        console.print(Panel("[bold cyan]Google Antigravity Session Switcher[/bold cyan]", border_style="blue"))
-        table = Table(title="Available Antigravity Accounts", border_style="blue")
-        table.add_column("#", justify="right", style="cyan")
+        from agy_proxy.switcher import get_active_antigravity_accounts
+        cli_acc, ide_acc = get_active_antigravity_accounts(pool)
+        cli_id = cli_acc.account_id if cli_acc else None
+        ide_id = ide_acc.account_id if ide_acc else None
+
+        table = Table(title="Google Antigravity Accounts in Pool", show_header=True, header_style="bold cyan")
+        table.add_column("#", style="dim", width=4)
         table.add_column("Account / Email", style="white")
-        table.add_column("Name", style="dim")
-        table.add_column("Gemini Quota", style="green")
-        table.add_column("Claude Quota", style="yellow")
-        table.add_column("Status", style="magenta")
+        table.add_column("Name", style="green")
+        table.add_column("Status", style="yellow")
 
         for idx, acc in enumerate(oauth_accounts, start=1):
-            q = acc.get_quota_details()
-            g_pct = int(q.get("gemini", {}).get("percent", 100))
-            c_pct = int(q.get("3p", {}).get("percent", 100))
-            status = "[bold green]Active (Primary)[/bold green]" if acc.is_primary else "[dim]Ready[/dim]"
-            table.add_row(
-                str(idx),
-                acc.email or acc.account_id,
-                acc.name or "OAuth Account",
-                f"{g_pct}%",
-                f"{c_pct}%",
-                status,
-            )
-        console.print(table)
+            if acc.account_id == cli_id and acc.account_id == ide_id:
+                status = "[bold green]Active (CLI & IDE) ⭐[/bold green]"
+            elif acc.account_id == cli_id:
+                status = "[bold green]Active (CLI) ⭐[/bold green]"
+            elif acc.account_id == ide_id:
+                status = "[bold green]Active (IDE) ⭐[/bold green]"
+            else:
+                status = "[dim]Ready[/dim]"
+            
+            table.add_row(str(idx), acc.email or acc.account_id, acc.name or "", status)
 
+        console.print(table)
         if list_only:
             return
 
-        try:
-            choice = input("\nEnter account #, email, or 'next' [next]: ").strip()
-        except (KeyboardInterrupt, EOFError):
-            console.print("\n[dim]Cancelled by user.[/dim]")
-            return
-
+        choice = Prompt.ask("\nEnter account #, email, name, or 'next' to rotate", default="next")
         if not choice or choice.lower() in ("next", "n"):
             to_next = True
             target = None
         else:
+            to_next = False
             target = choice
 
+        if not env_explicitly_set:
+            target_env = Prompt.ask(
+                "Target destination environment",
+                choices=["both", "cli", "ide"],
+                default="both",
+            )
+
     try:
-        console.print("[dim]Switching Antigravity session...[/dim]")
-        acc, paths = await switch_antigravity_session(identifier=target, pool=pool, to_next=to_next)
+        env_label = "CLI only" if target_env == "cli" else ("IDE only" if target_env == "ide" else "Both CLI & IDE")
+        console.print(f"[dim]Switching Antigravity session [{env_label}]...[/dim]")
+        acc, paths = await switch_antigravity_session(
+            identifier=target,
+            pool=pool,
+            to_next=to_next,
+            target_env=target_env,
+            allow_overwrite=True,
+            set_primary=set_primary,
+        )
         paths_str = ", ".join(str(p) for p in paths)
-        console.print(f"\n[bold green]✓ Activated Antigravity Session:[/bold green] [bold white]{acc.email}[/bold white] ({acc.name or 'OAuth'})")
+        console.print(f"\n[bold green]✓ Activated Antigravity Session:[/bold green] [bold white]{acc.email}[/bold white] ({acc.name or 'OAuth'}) [cyan][{env_label}][/cyan]")
         console.print(f"Updated token destination: [cyan]{paths_str}[/cyan]")
-        console.print("[dim]Your `agy` CLI commands will now execute under this account.[/dim]")
+        if target_env == "cli":
+            console.print("[dim]Your `agy` CLI commands will now execute under this account.[/dim]")
+        elif target_env == "ide":
+            console.print("[dim]Your Antigravity IDE editor will now execute under this account.[/dim]")
+        else:
+            console.print("[dim]Your `agy` CLI and IDE commands will now execute under this account.[/dim]")
+        console.print("[dim]Run [cyan]agy-proxy usage[/cyan] or [cyan]python switcher.py usage[/cyan] to view model quota usage.[/dim]")
     except Exception as e:
         console.print(f"[bold red]✗ Failed to switch session:[/bold red] {e}")
+
+
+async def handle_quota_command(target: Optional[str] = None):
+    """Displays models and quota for the target account (or all accounts) matching agy format."""
+    from agy_proxy.switcher import format_agy_quota_display
+
+    pool = AccountPool()
+    pool.load_accounts()
+
+    oauth_accounts = [a for a in pool.accounts.values() if a.auth_method == "consumer" and a.refresh_token]
+    if not oauth_accounts:
+        console.print("[bold red]No Google OAuth accounts found in accounts.json.[/bold red]")
+        return
+
+    if target:
+        acc = pool.get_account(target)
+        if not acc:
+            console.print(f"[bold red]Account not found:[/bold red] {target}")
+            return
+        accounts_to_show = [acc]
+    else:
+        # Show all OAuth accounts when no target specified
+        accounts_to_show = oauth_accounts
+
+    for acc in accounts_to_show:
+        try:
+            if hasattr(acc, "fetch_quota"):
+                await acc.fetch_quota()
+        except Exception:
+            pass
+        console.print()
+        console.print(format_agy_quota_display(acc))
+        if len(accounts_to_show) > 1:
+            console.print("[dim]" + "─" * 60 + "[/dim]")
 
 
 async def handle_update_command(check_only: bool = False):
@@ -278,8 +341,82 @@ async def handle_update_command(check_only: bool = False):
         console.print(f"[bold red]❌ Automatic update failed:[/bold red] {res.get('output') or res.get('error')}")
         console.print("\n[bold yellow]Manual update command:[/bold yellow] `git pull origin main`")
 
+def handle_setup_codex(port: int = 8000, model: str = "gemini-3.8-flash-high"):
+    """Configures Codex CLI to use Antigravity Proxy with the full 25+ model catalog."""
+    from agy_proxy.codex_helper import setup_codex
+    res = setup_codex(port=port, model=model)
+    backup_text = f"\n• [bold cyan]Backup Saved:[/bold cyan] [green]{res['backup_path']}[/green]" if res.get("backup_created") else ""
+    console.print(Panel(
+        f"[bold green]✓ Codex CLI Successfully Configured![/bold green]\n\n"
+        f"• [bold cyan]Model Catalog:[/bold cyan] [white]{res['catalog_path']}[/white] ({res['models_count']} models)\n"
+        f"• [bold cyan]Configuration:[/bold cyan] [white]{res['config_path']}[/white]\n"
+        f"• [bold cyan]Proxy Endpoint:[/bold cyan] [yellow]{res['proxy_url']}[/yellow]\n"
+        f"• [bold cyan]Default Model:[/bold cyan] [magenta]{res['model']}[/magenta]"
+        f"{backup_text}\n\n"
+        f"[dim]All 25+ models are now available in Codex CLI's [/dim][bold cyan]/model[/bold cyan][dim] menu.[/dim]\n"
+        f"[dim]To restore your original config anytime, run:[/dim] [bold yellow]agy-proxy restore-codex[/bold yellow]",
+        title="[bold white]Codex CLI Integration[/bold white]",
+        border_style="green",
+    ))
 
-def main():
+
+def handle_restore_codex():
+    """Restores the original Codex CLI configuration from backup."""
+    from agy_proxy.codex_helper import restore_codex
+    res = restore_codex()
+    if res.get("restored_from_backup"):
+        console.print("[bold green]✓ Successfully restored original ~/.codex/config.toml from backup![/bold green]")
+    elif res.get("cleaned_config"):
+        console.print("[bold green]✓ Cleaned up Antigravity Proxy settings from ~/.codex/config.toml.[/bold green]")
+    else:
+        console.print("[dim]No active Antigravity Proxy settings found in ~/.codex/config.toml.[/dim]")
+
+
+def handle_run_codex(port: int = 8000, model: str = "gemini-3.8-flash-high", extra_args: list = None):
+    """Launches Codex CLI in ephemeral test mode with proxy and catalog without modifying ~/.codex/config.toml."""
+    import shutil
+    import subprocess
+
+    codex_bin = shutil.which("codex")
+    if not codex_bin:
+        default_local = os.path.expanduser("~/.local/bin/codex")
+        if os.path.isfile(default_local) and os.access(default_local, os.X_OK):
+            codex_bin = default_local
+
+    if not codex_bin:
+        console.print("[bold red]Error:[/bold red] Codex CLI ('codex') is not found in PATH or ~/.local/bin/codex.")
+        console.print("[dim]Install Codex CLI first, e.g. via npm or standalone installer.[/dim]")
+        return
+
+    catalog_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "codex_models.json")
+    if not os.path.isfile(catalog_path):
+        catalog_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "codex_models.json")
+
+    cmd = [
+        codex_bin,
+        "-c", f'openai_base_url="http://127.0.0.1:{port}/v1"',
+        "-c", f'model_catalog_json="{catalog_path}"',
+        "-m", model,
+    ]
+    if extra_args:
+        cmd.extend(extra_args)
+
+    env = dict(os.environ)
+    if "OPENAI_API_KEY" not in env:
+        env["OPENAI_API_KEY"] = "dummy"
+    # Redirect Codex OpenTelemetry metrics to proxy sink (absorbed locally, never forwarded)
+    env["OTEL_EXPORTER_OTLP_ENDPOINT"] = f"http://127.0.0.1:{port}"
+    env["OTEL_EXPORTER_OTLP_PROTOCOL"] = "http/json"
+
+    console.print(f"[bold cyan]Launching Codex CLI (Ephemeral Mode - Zero Config Changes):[/bold cyan]\n")
+    try:
+        subprocess.run(cmd, env=env)
+    except KeyboardInterrupt:
+        pass
+
+
+def build_parser() -> argparse.ArgumentParser:
+    """Constructs the argument parser for agy-proxy CLI."""
     parser = argparse.ArgumentParser(
         description=f"Antigravity Proxy (v{APP_VERSION}) - OpenAI & Anthropic compatible API server for Antigravity with Multi-Account pooling."
     )
@@ -299,8 +436,18 @@ def main():
     # switch subcommand (agy-proxy switch)
     switch_parser = subparsers.add_parser("switch", help="Switch active Antigravity CLI/IDE session")
     switch_parser.add_argument("target", nargs="?", default=None, help="Target account email, name, ID, or #")
+    switch_parser.add_argument("--set-primary", action="store_true", default=False, help="Also set as primary proxy account (default False)")
     switch_parser.add_argument("--next", "-n", action="store_true", help="Switch to next account with highest quota")
     switch_parser.add_argument("--list", "-l", action="store_true", help="List available OAuth accounts and quotas")
+    switch_parser.add_argument("--env", "--target-env", dest="target_env", choices=["cli", "ide", "both"], default=None, help="Target destination environment (cli, ide, or both; default: both)")
+    switch_parser.add_argument("--cli", action="store_true", help="Switch session ONLY for Antigravity CLI")
+    switch_parser.add_argument("--ide", action="store_true", help="Switch session ONLY for Antigravity IDE")
+    switch_parser.add_argument("--both", action="store_true", help="Switch session for BOTH Antigravity CLI and IDE (default)")
+
+    # usage / quota subcommand (agy-proxy usage / agy-proxy quota)
+    for u_name in ("usage", "quota"):
+        u_p = subparsers.add_parser(u_name, help="View model quota usage")
+        u_p.add_argument("target", nargs="?", default=None, help="Target account email, name, ID, or #")
 
     # auth subcommand
     auth_parser = subparsers.add_parser("auth", help="Manage Antigravity Google accounts in pool")
@@ -311,8 +458,18 @@ def main():
     # auth switch subcommand (agy-proxy auth switch)
     auth_switch = auth_subparsers.add_parser("switch", help="Switch active Antigravity CLI/IDE session")
     auth_switch.add_argument("target", nargs="?", default=None, help="Target account email, name, ID, or #")
+    auth_switch.add_argument("--set-primary", action="store_true", default=False, help="Also set as primary proxy account (default False)")
     auth_switch.add_argument("--next", "-n", action="store_true", help="Switch to next account with highest quota")
     auth_switch.add_argument("--list", "-l", action="store_true", help="List available OAuth accounts and quotas")
+    auth_switch.add_argument("--env", "--target-env", dest="target_env", choices=["cli", "ide", "both"], default=None, help="Target destination environment (cli, ide, or both; default: both)")
+    auth_switch.add_argument("--cli", action="store_true", help="Switch session ONLY for Antigravity CLI")
+    auth_switch.add_argument("--ide", action="store_true", help="Switch session ONLY for Antigravity IDE")
+    auth_switch.add_argument("--both", action="store_true", help="Switch session for BOTH Antigravity CLI and IDE (default)")
+
+    # auth usage / quota subcommand (agy-proxy auth usage / agy-proxy auth quota)
+    for au_name in ("usage", "quota"):
+        au_p = auth_subparsers.add_parser(au_name, help="View model quota usage")
+        au_p.add_argument("target", nargs="?", default=None, help="Target account email, name, ID, or #")
 
     # Dedicated API key subcommands: `auth api` and `auth apikey`
     for alias_cmd in ("api", "apikey"):
@@ -321,6 +478,31 @@ def main():
         api_sub.add_argument("positional_name", nargs="?", default=None, help="Friendly display name for this API key")
         api_sub.add_argument("--key", "-k", type=str, default=None, help="Gemini API Key (AIza...)")
         api_sub.add_argument("--name", "-n", type=str, default=None, help="Friendly display name for this API key")
+
+    # setup-codex subcommand (agy-proxy setup-codex)
+    setup_codex_p = subparsers.add_parser(
+        "setup-codex",
+        aliases=["codex-setup"],
+        help="Configure OpenAI Codex CLI to use Antigravity Proxy with full model catalog",
+    )
+    setup_codex_p.add_argument("--port", "-p", type=int, default=8000, help="Proxy server port (default: 8000)")
+    setup_codex_p.add_argument("--model", "-m", type=str, default="gemini-3.8-flash-high", help="Default model (default: gemini-3.8-flash-high)")
+
+    # restore-codex subcommand (agy-proxy restore-codex)
+    subparsers.add_parser(
+        "restore-codex",
+        aliases=["codex-restore"],
+        help="Restore original OpenAI Codex CLI configuration from backup",
+    )
+
+    # codex ephemeral runner (agy-proxy codex)
+    codex_run_p = subparsers.add_parser(
+        "codex",
+        help="Launch OpenAI Codex CLI with proxy in ephemeral mode without modifying ~/.codex/config.toml",
+    )
+    codex_run_p.add_argument("--port", "-p", type=int, default=8000, help="Proxy server port (default: 8000)")
+    codex_run_p.add_argument("--model", "-m", type=str, default="gemini-3.8-flash-high", help="Model to use (default: gemini-3.8-flash-high)")
+    codex_run_p.add_argument("codex_args", nargs=argparse.REMAINDER, help="Additional arguments passed directly to codex")
 
     # Server arguments
     parser.add_argument(
@@ -366,7 +548,11 @@ def main():
         default=os.environ.get("CLOUDFLARE_UPSTREAM_URL", None),
         help="Route CloudCode traffic through Cloudflare Worker edge URL for Geo-Bypass",
     )
+    return parser
 
+
+def main():
+    parser = build_parser()
     args = parser.parse_args()
 
     if args.cloudflare_url:
@@ -378,10 +564,33 @@ def main():
         asyncio.run(handle_update_command(check_only=check_only))
         return
     elif args.subcommand == "switch":
+        target_env = "both"
+        env_set = False
+        if getattr(args, "cli", False):
+            target_env = "cli"
+            env_set = True
+        elif getattr(args, "ide", False):
+            target_env = "ide"
+            env_set = True
+        elif getattr(args, "both", False):
+            target_env = "both"
+            env_set = True
+        elif getattr(args, "target_env", None):
+            target_env = args.target_env
+            env_set = True
+
         asyncio.run(handle_switch_command(
             target=getattr(args, "target", None),
             to_next=getattr(args, "next", False),
             list_only=getattr(args, "list", False),
+            set_primary=getattr(args, "set_primary", False),
+            target_env=target_env,
+            env_explicitly_set=env_set,
+        ))
+        return
+    elif args.subcommand in ("usage", "quota"):
+        asyncio.run(handle_quota_command(
+            target=getattr(args, "target", None),
         ))
         return
     elif args.subcommand == "auth":
@@ -397,15 +606,51 @@ def main():
             asyncio.run(handle_auth_list())
             return
         elif args.auth_action == "switch":
+            target_env = "both"
+            env_set = False
+            if getattr(args, "cli", False):
+                target_env = "cli"
+                env_set = True
+            elif getattr(args, "ide", False):
+                target_env = "ide"
+                env_set = True
+            elif getattr(args, "both", False):
+                target_env = "both"
+                env_set = True
+            elif getattr(args, "target_env", None):
+                target_env = args.target_env
+                env_set = True
+
             asyncio.run(handle_switch_command(
                 target=getattr(args, "target", None),
                 to_next=getattr(args, "next", False),
                 list_only=getattr(args, "list", False),
+                set_primary=getattr(args, "set_primary", False),
+                target_env=target_env,
+                env_explicitly_set=env_set,
+            ))
+            return
+        elif args.auth_action in ("usage", "quota"):
+            asyncio.run(handle_quota_command(
+                target=getattr(args, "target", None),
             ))
             return
         else:
             auth_parser.print_help()
             return
+    elif args.subcommand in ("setup-codex", "codex-setup"):
+        handle_setup_codex(port=getattr(args, "port", 8000), model=getattr(args, "model", "gemini-3.8-flash-high"))
+        return
+    elif args.subcommand in ("restore-codex", "codex-restore"):
+        handle_restore_codex()
+        return
+    elif args.subcommand == "codex":
+        handle_run_codex(
+            port=getattr(args, "port", 8000),
+            model=getattr(args, "model", "gemini-3.8-flash-high"),
+            extra_args=getattr(args, "codex_args", []),
+        )
+        return
 
 
     # Configure logging
