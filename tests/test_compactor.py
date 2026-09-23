@@ -219,6 +219,12 @@ class TestSmartToolPruning(unittest.TestCase):
         self.assertIn("START", parsed["log"])
         self.assertIn("END", parsed["log"])
 
+    def test_summary_caching(self):
+        from agy_proxy.compactor import _get_cached_summary, _put_cached_summary
+        _put_cached_summary("test_key_123", "Cached summary text")
+        self.assertEqual(_get_cached_summary("test_key_123"), "Cached summary text")
+        self.assertIsNone(_get_cached_summary("non_existent_key"))
+
 
 if __name__ == "__main__":
     unittest.main()

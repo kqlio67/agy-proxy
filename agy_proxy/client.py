@@ -775,7 +775,7 @@ class CloudCodeClient:
                         async with client.stream("POST", url, headers=headers, json=req_body, timeout=timeout) as response:
                             if response.status_code == 401:
                                 error_text = await response.aread()
-                                logger.warning("[%s] Got 401 Unauthorized (%s). Refreshing token...", acc.email, error_text.decode("utf-8", "ignore")[:80])
+                                logger.warning("[%s] Got 401 Unauthorized (%s). Refreshing token...", acc.email, error_text.decode("utf-8", "ignore")[:500])
                                 if acc.auth_method != "api_key":
                                     try:
                                         await acc.refresh_access_token(force=True)
@@ -792,7 +792,7 @@ class CloudCodeClient:
                                 logger.warning(
                                     "[%s] Hit 429 quota limit (%s). Failing over to next account in pool...",
                                     acc.email,
-                                    error_text.decode("utf-8", "ignore")[:80],
+                                    error_text.decode("utf-8", "ignore")[:1000],
                                 )
                                 last_error = httpx.HTTPStatusError("429 Too Many Requests", request=response.request, response=response)
                                 break  # Proceed to next candidate account
@@ -805,9 +805,9 @@ class CloudCodeClient:
 
                             if response.status_code != 200:
                                 error_text = await response.aread()
-                                logger.error("[%s] Provider error [%d]: %s", acc.email, response.status_code, error_text.decode("utf-8", "ignore"))
+                                logger.error("[%s] Provider error [%d]: %s", acc.email, response.status_code, error_text.decode("utf-8", "ignore")[:1000])
                                 raise httpx.HTTPStatusError(
-                                    f"API returned {response.status_code}: {error_text.decode('utf-8', 'ignore')}",
+                                    f"API returned {response.status_code}: {error_text.decode('utf-8', 'ignore')[:1000]}",
                                     request=response.request,
                                     response=response,
                                 )

@@ -4,8 +4,10 @@ Automatically compresses long conversation histories using gemini-3.8-flash-low
 to prevent context overflow, reduce token consumption by 80%+, and optimize response latency.
 """
 
+import hashlib
 import json
 import logging
+import time
 from pathlib import Path
 from typing import Any
 import httpx
@@ -543,6 +545,29 @@ def _find_safe_compaction_split(messages: list[Any], target_keep_n: int) -> int:
     return desired_split
 
 
+_SUMMARY_CACHE: dict[str, tuple[str, float]] = {}
+
+
+def _get_cached_summary(key: str, ttl: float = 600.0) -> str | None:
+    now = time.time()
+    val = _SUMMARY_CACHE.get(key)
+    if val and (now - val[1]) < ttl:
+        return val[0]
+    return None
+
+
+def _put_cached_summary(key: str, text: str):
+    now = time.time()
+    if len(_SUMMARY_CACHE) > 50:
+        expired = [k for k, v in _SUMMARY_CACHE.items() if (now - v[1]) >= 600.0]
+        for k in expired:
+            _SUMMARY_CACHE.pop(k, None)
+        if len(_SUMMARY_CACHE) > 50:
+            oldest_key = min(_SUMMARY_CACHE.keys(), key=lambda k: _SUMMARY_CACHE[k][1])
+            _SUMMARY_CACHE.pop(oldest_key, None)
+    _SUMMARY_CACHE[key] = (text, now)
+
+
 async def compact_conversation_history(
     account_pool: Any,
     messages: list[Any],
@@ -614,15 +639,23 @@ async def compact_conversation_history(
         transcript_lines.append(f"[{role} #{idx+1}]: {content_str}")
 
     transcript_text = "\n\n".join(transcript_lines)
+    cache_key = hashlib.sha256(transcript_text.encode("utf-8")).hexdigest()
 
-    # Generate summary using gemini-3.8-flash-low
-    summary_text = await _call_summarizer_llm(
-        account_pool=account_pool,
-        transcript=transcript_text,
-        model=summary_model,
-        timeout=timeout,
-        prompt=prompt,
-    )
+    cached_summary = _get_cached_summary(cache_key)
+    if cached_summary:
+        logger.info("[Auto-Compactor] Reusing cached summary for %d messages (0ms, 0 tokens saved)", len(older_messages))
+        summary_text = cached_summary
+    else:
+        # Generate summary using gemini-3.8-flash-low
+        summary_text = await _call_summarizer_llm(
+            account_pool=account_pool,
+            transcript=transcript_text,
+            model=summary_model,
+            timeout=timeout,
+            prompt=prompt,
+        )
+        if summary_text:
+            _put_cached_summary(cache_key, summary_text)
 
     if not summary_text:
         logger.warning("Compaction summary call returned empty result; retaining original messages.")
