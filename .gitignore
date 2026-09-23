@@ -31,3 +31,8 @@ htmlcov/
 .DS_Store
 *.swp
 *.swo
+
+# Teamwork scratch
+.agents/*
+!.agents/ORIGINAL_REQUEST.md
+

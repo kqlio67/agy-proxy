@@ -155,10 +155,18 @@ async def activate_account_in_antigravity(
     if not account.refresh_token and not account.access_token:
         raise ValueError("Cannot activate account with empty credentials.")
 
-    # Refresh token if needed
+    # Refresh token if needed (best-effort: proceed if network/DNS temporarily fails, since CLI/IDE can refresh itself)
     is_expired = account.is_token_expired() if hasattr(account, "is_token_expired") else ((getattr(account, "expiry_timestamp", 0) - time.time()) <= 60)
     if force_refresh or not account.access_token or is_expired:
-        await account.refresh_access_token(force=True)
+        try:
+            await account.refresh_access_token(force=True)
+        except Exception as ref_err:
+            logger.warning(
+                "Could not refresh access token before activation for %s (%s); proceeding with existing credentials: %s",
+                account.email or account.account_id,
+                account.name or "OAuth",
+                ref_err,
+            )
 
     # Ensure user is onboarded into Gemini Code Assist (grants serviceusage permissions)
     if hasattr(account, "onboard_user"):

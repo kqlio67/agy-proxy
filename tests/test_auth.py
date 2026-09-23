@@ -566,6 +566,7 @@ class TestGeminiWebSession(unittest.TestCase):
         outer = json.loads(body["f.req"])
         inner = json.loads(outer[1])
         self.assertEqual(len(inner), 99)
+        self.assertEqual(inner[67], 0)
         self.assertEqual(inner[79], 6)
         self.assertEqual(inner[80], 2)
 

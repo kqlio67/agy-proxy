@@ -138,12 +138,15 @@ echo -e "   • URL:   ${GREEN}${PROXY_URL}${NC}"
 echo -e "   • Model: ${GREEN}${DEFAULT_MODEL}${NC}"
 echo -e "${CYAN}───────────────────────────────────────────────────${NC}"
 
-# Clean conflicting auth token variables
-unset ANTHROPIC_AUTH_TOKEN
-
-# Export environment variables for Claude Code
+# Use ANTHROPIC_AUTH_TOKEN (not ANTHROPIC_API_KEY) so Claude Code reports
+# authMethod="oauth_token" / loggedIn=true without triggering subscription
+# validation against its internal model catalog. With ANTHROPIC_API_KEY="dummy"
+# Claude Code resolves the "sonnet" alias from ~/.claude/settings.json against
+# its catalog, sees it requires a claude.ai subscription, and shows
+# "Not logged in · Run /login" even though API calls work fine.
+unset ANTHROPIC_API_KEY
+export ANTHROPIC_AUTH_TOKEN="agy-proxy-token"
 export ANTHROPIC_BASE_URL="${PROXY_URL}"
-export ANTHROPIC_API_KEY="dummy"
 export ANTHROPIC_MODEL="${DEFAULT_MODEL}"
 
 # Route auxiliary / haiku model requests through proxy

@@ -110,6 +110,24 @@ class TestAntigravitySwitcher(unittest.IsolatedAsyncioTestCase):
         acc.refresh_access_token.assert_awaited_once_with(force=True)
         acc.onboard_user.assert_awaited_once()
 
+    async def test_activate_account_proceeds_when_refresh_fails(self):
+        acc = AccountSession(
+            account_id="acc_dns_fail",
+            auth_method="consumer",
+            email="dns_fail@gmail.com",
+            access_token="ya29.old_token",
+            refresh_token="1//existing_refresh",
+            expiry_timestamp=1000,  # Expired
+        )
+        acc.refresh_access_token = AsyncMock(side_effect=OSError("[Errno -3] Temporary failure in name resolution"))
+        acc.onboard_user = AsyncMock(return_value=True)
+
+        written = await activate_account_in_antigravity(acc, target_paths=[self.dest_path])
+        self.assertEqual(len(written), 1)
+        self.assertTrue(self.dest_path.exists())
+        content = json.loads(self.dest_path.read_text(encoding="utf-8"))
+        self.assertEqual(content["token"]["refresh_token"], "1//existing_refresh")
+
     async def test_activate_account_creates_backup(self):
         # Create an existing token file
         self.dest_path.write_text(json.dumps({"token": {"access_token": "original_token"}}), encoding="utf-8")
@@ -359,6 +377,18 @@ class TestServerSwitcherRoutes(unittest.IsolatedAsyncioTestCase):
         resp = await self.client.post("/api/accounts/acc_api/activate-cli")
         self.assertEqual(resp.status_code, 400)
         self.assertIn("Only Google OAuth accounts", resp.json()["detail"])
+
+    async def test_activate_cli_prioritizes_consumer_when_shared_name(self):
+        # acc_api has name "Shared Name", acc_oauth has name "Shared Name"
+        self.pool.accounts["acc_api"].name = "Shared Name"
+        self.pool.accounts["acc_oauth"].name = "Shared Name"
+
+        with patch("agy_proxy.switcher.activate_account_in_antigravity", return_value=[Path("/tmp/token")]):
+            resp = await self.client.post("/api/accounts/Shared%20Name/activate-cli")
+            self.assertEqual(resp.status_code, 200)
+            data = resp.json()
+            self.assertEqual(data["status"], "activated")
+            self.assertEqual(data["account_id"], "acc_oauth")
 
     async def test_switch_next_cli_endpoint(self):
         acc2 = AccountSession(

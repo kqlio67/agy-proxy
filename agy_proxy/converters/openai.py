@@ -15,6 +15,7 @@ from agy_proxy.converters.common import (
     _extract_media_from_url,
     _extract_message_text,
     _is_title_generation,
+    ensure_tool_pairing_integrity,
     get_thought_signature,
     normalize_model_name,
     sanitize_gemini_schema,
@@ -149,14 +150,24 @@ def openai_to_cloudcode_payload(
 
         # Handle tool responses
         if role == "tool":
-            resp_content = content
+            resp_content: dict[str, Any]
             if isinstance(content, str):
                 try:
-                    resp_content = json.loads(content)
+                    parsed_c = json.loads(content)
+                    if isinstance(parsed_c, dict):
+                        resp_content = dict(parsed_c)
+                        if "result" not in resp_content:
+                            resp_content["result"] = content
+                    else:
+                        resp_content = {"result": parsed_c}
                 except Exception:
-                    resp_content = {"output": content}
-            elif not isinstance(content, dict):
-                resp_content = {"output": str(content)}
+                    resp_content = {"result": content}
+            elif isinstance(content, dict):
+                resp_content = dict(content)
+                if "result" not in resp_content:
+                    resp_content["result"] = content
+            else:
+                resp_content = {"result": str(content)}
 
             func_name = name or tool_id_to_name.get(tool_call_id, "") or "tool_call"
             func_resp = {
@@ -215,7 +226,7 @@ def openai_to_cloudcode_payload(
                 generation_config["responseSchema"] = sanitize_gemini_schema(req.response_format["schema"])
 
     inner_request: dict[str, Any] = {
-        "contents": contents,
+        "contents": ensure_tool_pairing_integrity(contents),
         "generationConfig": generation_config,
     }
 
@@ -229,17 +240,52 @@ def openai_to_cloudcode_payload(
     if req.tools:
         function_declarations: list[dict[str, Any]] = []
         for t in req.tools:
-            if t.get("type") == "function":
+            if not isinstance(t, dict):
+                continue
+            if t.get("type") == "function" and "function" in t:
                 fn = t.get("function", {})
+                tool_name = fn.get("name")
+                if not tool_name:
+                    continue
                 decl = {
-                    "name": fn.get("name"),
+                    "name": tool_name,
                     "description": fn.get("description", ""),
                 }
-                if "parameters" in fn:
-                    decl["parameters"] = sanitize_gemini_schema(fn["parameters"])
+                params = fn.get("parameters") or fn.get("input_schema")
+                if params and isinstance(params, dict):
+                    decl["parameters"] = sanitize_gemini_schema(params)
+                else:
+                    decl["parameters"] = {"type": "object", "properties": {}}
                 function_declarations.append(decl)
+            elif "name" in t:
+                tool_name = t.get("name")
+                if not tool_name:
+                    continue
+                decl = {
+                    "name": tool_name,
+                    "description": t.get("description", ""),
+                }
+                params = t.get("parameters") or t.get("input_schema")
+                if params and isinstance(params, dict):
+                    decl["parameters"] = sanitize_gemini_schema(params)
+                else:
+                    decl["parameters"] = {"type": "object", "properties": {}}
+                function_declarations.append(decl)
+
         if function_declarations:
             inner_request["tools"] = [{"functionDeclarations": function_declarations}]
+            tool_cfg: dict[str, Any] = {"functionCallingConfig": {"mode": "AUTO"}}
+            if req.tool_choice:
+                tc = req.tool_choice if isinstance(req.tool_choice, dict) else {"type": str(req.tool_choice)}
+                tc_type = str(tc.get("type", tc.get("mode", "auto"))).lower()
+                if tc_type in ("any", "required"):
+                    tool_cfg["functionCallingConfig"]["mode"] = "ANY"
+                elif tc_type == "function" and tc.get("function", {}).get("name"):
+                    tool_cfg["functionCallingConfig"]["mode"] = "ANY"
+                    tool_cfg["functionCallingConfig"]["allowedFunctionNames"] = [tc["function"]["name"]]
+                elif tc_type == "none":
+                    tool_cfg["functionCallingConfig"]["mode"] = "NONE"
+            inner_request["toolConfig"] = tool_cfg
 
     sys_text = "".join(str(p.get("text", "")) for p in system_parts if isinstance(p, dict) and p.get("text")).lower()
     is_title_gen = _is_title_generation(sys_text, req.messages)

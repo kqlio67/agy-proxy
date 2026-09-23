@@ -1100,12 +1100,15 @@ class AccountPool:
                         is_primary=len(self.accounts) == 0,
                         on_token_refreshed=self.save_accounts,
                     )
-                    await acc.refresh_access_token()
-                    await acc.fetch_user_info()
-                    await acc.initialize_project()
-                    await acc.fetch_cloudcode_user_info()
-                    await acc.fetch_quota()
-                    await acc.fetch_models()
+                    try:
+                        await acc.refresh_access_token()
+                        await acc.fetch_user_info()
+                        await acc.initialize_project()
+                        await acc.fetch_cloudcode_user_info()
+                        await acc.fetch_quota()
+                        await acc.fetch_models()
+                    except Exception as meta_err:
+                        logger.warning("Post-token exchange metadata initialization partial warning: %s", meta_err)
 
                     matched_acc = None
                     for existing in self.accounts.values():
@@ -1145,11 +1148,14 @@ class AccountPool:
                 is_primary=len(self.accounts) == 0,
                 on_token_refreshed=self.save_accounts,
             )
-            await acc.refresh_access_token()
-            await acc.fetch_user_info()
-            await acc.initialize_project()
-            await acc.fetch_quota()
-            await acc.fetch_models()
+            try:
+                await acc.refresh_access_token()
+                await acc.fetch_user_info()
+                await acc.initialize_project()
+                await acc.fetch_quota()
+                await acc.fetch_models()
+            except Exception as meta_err:
+                logger.warning("Post-refresh token initialization partial warning: %s", meta_err)
 
             matched_acc = None
             for existing in self.accounts.values():
@@ -1232,11 +1238,14 @@ class AccountPool:
                 on_token_refreshed=self.save_accounts,
             )
 
-            await acc.fetch_user_info()
-            await acc.initialize_project()
-            await acc.fetch_cloudcode_user_info()
-            await acc.fetch_quota()
-            await acc.fetch_models()
+            try:
+                await acc.fetch_user_info()
+                await acc.initialize_project()
+                await acc.fetch_cloudcode_user_info()
+                await acc.fetch_quota()
+                await acc.fetch_models()
+            except Exception as meta_err:
+                logger.warning("Post-OAuth token exchange metadata initialization partial warning: %s", meta_err)
 
             # Check if this email or refresh_token matches an existing account
             matched_acc = None

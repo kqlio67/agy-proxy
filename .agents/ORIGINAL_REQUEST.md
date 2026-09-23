@@ -103,3 +103,80 @@ When a user attempts to switch accounts (via CLI or UI), the operation must comp
 ---
 *Next: when approved → delegate via invoke_subagent (see Delegation Protocol)*
 
+## 2026-09-23T14:20:54Z
+
+`agy-proxy` is a local Python proxy that intercepts Claude Code API calls and routes them to Google Gemini.
+Claude Code v2.1.274 shows "Not logged in · Please run /login" in the status bar even though all `/v1/messages` API calls route correctly through the proxy — because Claude Code v2.1.274 resolves the user model name `"sonnet"` (from `~/.claude/settings.json`) at startup via an internal catalog lookup that ignores `ANTHROPIC_BASE_URL` and also makes subscription-validation calls directly to `api.anthropic.com:443`, bypassing the proxy.
+
+The fix lives inside the `run_claude.sh` launcher script (symlinked as `claude-agy`) and possibly in a small proxy endpoint addition in `agy_proxy/server.py`.
+
+Working directory: /home/qumhab/Documents/Projects/agy-proxy
+Integrity mode: development
+
+## Context
+
+- **Repo**: `/home/qumhab/Documents/Projects/agy-proxy`
+- **Launcher**: `/home/qumhab/Documents/Projects/agy-proxy/run_claude.sh` (symlinked to `~/.local/bin/claude-agy`)
+- **Claude Code binary**: `/home/qumhab/.local/bin/claude` — version 2.1.274
+- **User settings**: `~/.claude/settings.json` contains `"model": "sonnet"` — this makes Claude Code try to use model alias `"sonnet"` which is not in the proxy's model catalog, triggering model-restriction warning and subscription check
+- **Proxy**: running on `http://127.0.0.1:8000` — serves `/v1/messages`, `/api/hello` (200 OK) correctly
+- **Confirmed working**: `curl http://127.0.0.1:8000/v1/messages` with `x-api-key: dummy` returns proper SSE stream
+- **Root cause (confirmed via strace + `claude auth status`)**:
+  1. Without `ANTHROPIC_API_KEY` env var, `claude auth status` returns `"loggedIn": false` → shows "Not logged in"
+  2. With `ANTHROPIC_API_KEY=dummy` + `ANTHROPIC_BASE_URL=http://127.0.0.1:8000`, `claude auth status` returns `"loggedIn": true, "authMethod": "api_key"` ✅
+  3. BUT the `run_claude.sh` script calls `unset ANTHROPIC_AUTH_TOKEN` and then sets `export ANTHROPIC_API_KEY="dummy"` — this should work in theory
+  4. **Problem**: `~/.claude/settings.json` has `"model": "sonnet"` — Claude Code v2.1.274 resolves `"sonnet"` through its internal catalog (which maps to `claude-sonnet-5`), then checks if that model is accessible via the current auth method. Since our API key is `"dummy"` and the model catalog says `"sonnet"` = claude.ai subscription, Claude Code shows "Not logged in" for subscription validation even though `api_key` auth succeeded for API calls.
+  5. **Secondary**: Claude Code also connects to `api.anthropic.com:443` (160.79104.10) directly for managed settings / policy fetching — even with `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` (though with this flag the connections are fewer)
+
+## Requirements
+
+### R1. Eliminate "Not logged in" status bar message when launching via `claude-agy`
+
+The launcher script `run_claude.sh` must ensure Claude Code v2.1.274 starts without showing "Not logged in · Run /login" in the interactive TUI status bar.
+
+The correct approach is to pass a `--settings` JSON that includes `modelOverrides` or `modelPicker` entries so that Claude Code maps our proxy model IDs (`anthropic.gemini-3.8-flash-high`, etc.) to known model behaviors, OR to set the correct combination of environment variables that prevents the subscription validation step from firing.
+
+Specifically investigate and fix:
+- Whether adding `behavesAs` / `modelOverrides` mappings in the `--settings` JSON passed to `claude` resolves the catalog lookup issue
+- Whether the `"model"` key in `~/.claude/settings.json` being set to `"sonnet"` conflicts with proxy operation and should be overridden at launch time (e.g., via `--setting-sources` flag or by passing a `"model"` override in the `--settings` JSON)
+- Whether the proxy needs a fake `/account` or `/organizations` endpoint to answer Claude Code's subscription check
+
+### R2. Ensure the fix works for `claude-agy --resume <session_id>`
+
+Resume sessions must also start without "Not logged in". The fix must not break `--resume`, `--continue`, `-c`, `-p` (print mode), or `--dangerously-skip-permissions` passthrough.
+
+### R3. Keep `run_claude.sh` readable and maintainable
+
+All changes must be minimal and well-commented. Do not rewrite the entire script — make targeted additions only. Preserve all existing comments and logic.
+
+## Acceptance Criteria
+
+### Functional
+- [ ] Running `claude-agy` (or `./run_claude.sh`) against the running proxy at `http://127.0.0.1:8000` does NOT show "Not logged in · Run /login" in the TUI status bar
+- [ ] Running `claude-agy -p "Say hi"` (print mode) returns a non-empty response without error
+- [ ] Running `claude-agy --resume <any-session-id>` does not print "Not logged in"
+- [ ] `ANTHROPIC_BASE_URL=http://127.0.0.1:8000 ANTHROPIC_API_KEY=dummy claude auth status` outputs `"loggedIn": true`
+
+### Non-regression
+- [ ] `uv run pytest` in the repo root passes all existing tests (currently 214 tests)
+- [ ] The `--settings` JSON passed to `claude` is valid JSON
+- [ ] No hardcoded Anthropic API keys or secrets are introduced
+
+### Verification method
+Run `ANTHROPIC_BASE_URL=http://127.0.0.1:8000 ANTHROPIC_API_KEY=dummy claude -p "Say hi" --model anthropic.gemini-3.8-flash-high` — it must complete successfully within 30 seconds and print a non-empty response to stdout (exit code 0).
+
+## 2026-09-23T14:51:44Z
+
+Root cause identified and fix already applied directly in run_claude.sh. No further work needed on this task.
+
+**Root cause**: `run_claude.sh` used `ANTHROPIC_API_KEY="dummy"` which triggers Claude Code's subscription validation against its internal model catalog. The model `"sonnet"` from `~/.claude/settings.json` maps to `claude-sonnet-5` in that catalog, which requires a claude.ai subscription → "Not logged in".
+
+**Fix applied**: Use `ANTHROPIC_AUTH_TOKEN="agy-proxy-token"` (unset `ANTHROPIC_API_KEY`) instead. When `ANTHROPIC_AUTH_TOKEN` is set, Claude Code uses `authMethod="oauth_token"` / `loggedIn=true` without subscription validation. This is the same approach used by the DeepSeek launcher script.
+
+**Verified**:
+- `claude auth status` returns `"loggedIn": true, "authMethod": "oauth_token"` ✅  
+- TUI no longer shows "Not logged in · Run /login" ✅
+- `claude -p "Say hi"` exits 0 with response ✅
+
+The fix is a 3-line change in `run_claude.sh` (lines 141-150). You can stop the investigation. Task complete.
+

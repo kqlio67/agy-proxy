@@ -161,6 +161,64 @@ class TestSmartToolPruning(unittest.TestCase):
         self.assertEqual(tokens_saved, 0)
         self.assertEqual(messages[0]["content"][0]["content"], "Short status: OK")
 
+    def test_google_cascade_checkpointer_prompt_structure(self):
+        from agy_proxy.compactor import GOOGLE_CASCADE_CHECKPOINTER_PROMPT, SUMMARIZER_PROMPT
+
+        self.assertIn("<summary></summary>", GOOGLE_CASCADE_CHECKPOINTER_PROMPT)
+        self.assertIn("1. **Task Overview**", GOOGLE_CASCADE_CHECKPOINTER_PROMPT)
+        self.assertIn("2. **Progress**", GOOGLE_CASCADE_CHECKPOINTER_PROMPT)
+        self.assertIn("3. **Key Findings**", GOOGLE_CASCADE_CHECKPOINTER_PROMPT)
+        self.assertIn("4. **Active Context**", GOOGLE_CASCADE_CHECKPOINTER_PROMPT)
+        self.assertIn("5. **Next Steps**", GOOGLE_CASCADE_CHECKPOINTER_PROMPT)
+        self.assertIn("6. **Commitments & Constraints**", GOOGLE_CASCADE_CHECKPOINTER_PROMPT)
+        self.assertIn("<summary>", SUMMARIZER_PROMPT)
+
+    def test_compactor_safe_split_boundary_never_orphans_tool_results(self):
+        from agy_proxy.compactor import _find_safe_compaction_split
+
+        messages = [
+            {"role": "user", "content": "Query 1"},
+            {"role": "assistant", "tool_calls": [{"id": "c1", "function": {"name": "f1"}}]},
+            {"role": "tool", "tool_call_id": "c1", "content": "output 1"},
+            {"role": "user", "content": "Query 2"},
+            {"role": "assistant", "tool_calls": [{"id": "c2", "function": {"name": "f2"}}]},
+            {"role": "tool", "tool_call_id": "c2", "content": "output 2"},
+            {"role": "user", "content": "Query 3"},
+        ]
+        # If target_keep_n = 2, naive split would be at index 5 (which is role: "tool" - an orphan!)
+        split_idx = _find_safe_compaction_split(messages, target_keep_n=2)
+        # Safe split should back up to index 3 (clean user Query 2), keeping Query 2 + tool turn intact
+        self.assertEqual(split_idx, 3)
+        self.assertEqual(messages[split_idx]["role"], "user")
+        self.assertEqual(messages[split_idx]["content"], "Query 2")
+
+    def test_prune_tool_results_preserves_valid_json(self):
+        import json
+        large_json_content = json.dumps({
+            "status": "success",
+            "log": "START " + "z" * 2000 + " END",
+            "exit_code": 0,
+        })
+        messages = [
+            {"role": "tool", "tool_call_id": "call_json_1", "content": large_json_content},
+            {"role": "tool", "tool_call_id": "call_json_2", "content": "Short text"},
+        ]
+        pruned_msgs, count, tokens_saved = prune_tool_results(
+            messages,
+            keep_last_tools=1,
+            max_chars=200,
+            enabled=True,
+        )
+        self.assertEqual(count, 1)
+        pruned_content = messages[0]["content"]
+        # Must still be valid JSON!
+        parsed = json.loads(pruned_content)
+        self.assertEqual(parsed["status"], "success")
+        self.assertEqual(parsed["exit_code"], 0)
+        self.assertIn("... [agy-proxy:", parsed["log"])
+        self.assertIn("START", parsed["log"])
+        self.assertIn("END", parsed["log"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -621,9 +621,48 @@ def create_app(
         unquoted_id = urllib.parse.unquote(account_id).strip()
         acc = pool.get_account(unquoted_id) or pool.get_account(account_id)
         if not acc:
-            raise HTTPException(status_code=404, detail="Account not found.")
+            try:
+                pool.load_accounts()
+            except Exception:
+                pass
+            acc = pool.get_account(unquoted_id) or pool.get_account(account_id)
+
+        # Fallback search by ID, email, or name
+        if not acc:
+            targets = {unquoted_id.lower(), account_id.lower()}
+            for a in pool.accounts.values():
+                if (
+                    a.account_id.lower() in targets
+                    or (a.email and a.email.lower() in targets)
+                    or (a.name and a.name.lower() in targets)
+                ):
+                    acc = a
+                    break
+
+        if not acc:
+            raise HTTPException(status_code=404, detail=f"Account '{unquoted_id}' not found.")
+
+        # If matched account is non-consumer, look for a matching consumer (OAuth) account
         if acc.auth_method != "consumer":
-            raise HTTPException(status_code=400, detail="Only Google OAuth accounts can be activated in Antigravity CLI/IDE.")
+            consumer_match = next(
+                (
+                    a for a in pool.accounts.values()
+                    if a.auth_method == "consumer"
+                    and (
+                        a.account_id in (unquoted_id, account_id)
+                        or (a.email and a.email.lower() in (unquoted_id.lower(), account_id.lower()))
+                        or (a.name and a.name.lower() in (unquoted_id.lower(), account_id.lower()))
+                    )
+                ),
+                None,
+            )
+            if consumer_match:
+                acc = consumer_match
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Only Google OAuth accounts can be activated in Antigravity CLI/IDE. Found account '{acc.name or acc.account_id}' is '{acc.auth_method}'.",
+                )
         from agy_proxy.switcher import (
             activate_account_in_antigravity,
             format_agy_quota_display,
@@ -1061,6 +1100,7 @@ def create_app(
             if e.response.status_code == 429:
                 return JSONResponse(
                     status_code=429,
+                    headers={"Retry-After": "2"},
                     content={
                         "error": {
                             "message": "All accounts in pool have hit rate limit / quota (429). Please wait a few minutes or add more accounts.",
@@ -1157,6 +1197,7 @@ def create_app(
             if e.response.status_code == 429:
                 return JSONResponse(
                     status_code=429,
+                    headers={"Retry-After": "2"},
                     content={
                         "error": {
                             "message": "All accounts in pool have hit rate limit / quota (429). Please wait a few minutes or add more accounts.",
@@ -1360,10 +1401,15 @@ def create_app(
     # -------------------------------------------------------------------------
 
     @app.api_route("/v1internal:{action}", methods=["GET", "POST", "PUT", "DELETE"])
-    async def cloudcode_internal_passthrough(action: str, request: Request):
+    @app.api_route("/v1internal/{action_path:path}", methods=["GET", "POST", "PUT", "DELETE"])
+    async def cloudcode_internal_passthrough(
+        request: Request,
+        action: str | None = None,
+        action_path: str | None = None,
+    ):
         """Universal passthrough / compatibility router for CloudCode v1internal actions:
         (e.g., loadCodeAssist, fetchAvailableModels, fetchUserInfo, fetchAdminControls,
-        retrieveUserQuotaSummary, listExperiments, writeTrajectoryAcls)."""
+        retrieveUserQuotaSummary, listExperiments, writeTrajectoryAcls, cascadeNuxes)."""
         body = None
         if request.method in ("POST", "PUT", "PATCH"):
             try:
@@ -1379,10 +1425,14 @@ def create_app(
         if not acc:
             return JSONResponse(status_code=200, content={})
 
+        route_desc = f"/v1internal:{action}" if action else f"/v1internal/{action_path}"
         try:
             from agy_proxy.auth import CLOUDCODE_BASE_URL
             headers = await acc.get_auth_headers()
-            target_url = f"{CLOUDCODE_BASE_URL}/v1internal:{action}"
+            if action:
+                target_url = f"{CLOUDCODE_BASE_URL}/v1internal:{action}"
+            else:
+                target_url = f"{CLOUDCODE_BASE_URL}/v1internal/{action_path}"
             c = await acc.get_http_client()
             query_params = dict(request.query_params)
 
@@ -1408,7 +1458,7 @@ def create_app(
                     media_type=resp.headers.get("content-type", "application/json"),
                 )
         except Exception as e:
-            logger.debug("CloudCode internal passthrough error (/v1internal:%s): %s", action, e)
+            logger.debug("CloudCode internal passthrough error (%s): %s", route_desc, e)
 
         return JSONResponse(status_code=200, content={})
 

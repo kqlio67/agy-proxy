@@ -14,6 +14,7 @@ from agy_proxy.converters.common import (
     _extract_media_from_url,
     _extract_message_text,
     _is_title_generation,
+    ensure_tool_pairing_integrity,
     get_thought_signature,
     normalize_model_name,
     sanitize_gemini_schema,
@@ -220,7 +221,7 @@ def anthropic_to_cloudcode_payload(
                 generation_config["responseSchema"] = sanitize_gemini_schema(req.response_format["schema"])
 
     inner_request: dict[str, Any] = {
-        "contents": contents,
+        "contents": ensure_tool_pairing_integrity(contents),
         "generationConfig": generation_config,
     }
 
@@ -236,16 +237,41 @@ def anthropic_to_cloudcode_payload(
             t_dict = to_dict(t)
             if not isinstance(t_dict, dict):
                 continue
-            decl = {
-                "name": t_dict.get("name"),
-                "description": t_dict.get("description", ""),
+            t_custom = t_dict.get("custom") if isinstance(t_dict.get("custom"), dict) else {}
+            tool_name = t_dict.get("name") or t_custom.get("name")
+            if not tool_name:
+                continue
+            tool_desc = t_dict.get("description") or t_custom.get("description", "")
+            params = (
+                t_dict.get("input_schema")
+                or t_custom.get("input_schema")
+                or t_dict.get("parameters")
+                or t_custom.get("parameters")
+            )
+            decl: dict[str, Any] = {
+                "name": tool_name,
+                "description": tool_desc,
             }
-            params = t_dict.get("input_schema") or t_dict.get("parameters")
             if params and isinstance(params, dict):
                 decl["parameters"] = sanitize_gemini_schema(params)
+            else:
+                decl["parameters"] = {"type": "object", "properties": {}}
             function_declarations.append(decl)
+
         if function_declarations:
             inner_request["tools"] = [{"functionDeclarations": function_declarations}]
+            tool_cfg: dict[str, Any] = {"functionCallingConfig": {"mode": "AUTO"}}
+            if req.tool_choice:
+                tc = req.tool_choice if isinstance(req.tool_choice, dict) else {"type": str(req.tool_choice)}
+                tc_type = str(tc.get("type", "auto")).lower()
+                if tc_type == "any":
+                    tool_cfg["functionCallingConfig"]["mode"] = "ANY"
+                elif tc_type == "tool" and tc.get("name"):
+                    tool_cfg["functionCallingConfig"]["mode"] = "ANY"
+                    tool_cfg["functionCallingConfig"]["allowedFunctionNames"] = [tc["name"]]
+                elif tc_type == "none":
+                    tool_cfg["functionCallingConfig"]["mode"] = "NONE"
+            inner_request["toolConfig"] = tool_cfg
 
     sys_text = "".join(str(p.get("text", "")) for p in system_parts if isinstance(p, dict) and p.get("text")).lower()
     is_title_gen = _is_title_generation(sys_text, req.messages)

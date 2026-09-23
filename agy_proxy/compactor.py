@@ -202,21 +202,43 @@ def prune_tool_results(
     pruned_count = 0
     total_chars_saved = 0
 
+    def _truncate_raw_str(s: str) -> tuple[str, int]:
+        if not s or len(s) <= max_len:
+            return s, 0
+        keep_head = max(80, int(max_len * 0.6))
+        keep_tail = max(40, int(max_len * 0.4))
+        if len(s) <= keep_head + keep_tail + 60:
+            return s, 0
+        chars_omitted = len(s) - (keep_head + keep_tail)
+        replacement = (
+            f"{s[:keep_head]}\n\n"
+            f"... [agy-proxy: {chars_omitted:,} chars pruned from earlier tool output to save tokens] ...\n\n"
+            f"{s[-keep_tail:]}"
+        )
+        saved = len(s) - len(replacement)
+        return replacement, max(0, saved)
+
     def truncate_content_str(content_str: str) -> tuple[str, int]:
         if not content_str or len(content_str) <= max_len:
             return content_str, 0
-        keep_head = max(80, int(max_len * 0.6))
-        keep_tail = max(40, int(max_len * 0.4))
-        if len(content_str) <= keep_head + keep_tail + 60:
-            return content_str, 0
-        chars_omitted = len(content_str) - (keep_head + keep_tail)
-        replacement = (
-            f"{content_str[:keep_head]}\n\n"
-            f"... [agy-proxy: {chars_omitted:,} chars pruned from earlier tool output to save tokens] ...\n\n"
-            f"{content_str[-keep_tail:]}"
-        )
-        saved = len(content_str) - len(replacement)
-        return replacement, max(0, saved)
+        try:
+            parsed = json.loads(content_str)
+            if isinstance(parsed, dict):
+                max_k = None
+                max_v_len = 0
+                for k, v in parsed.items():
+                    if isinstance(v, str) and len(v) > max_v_len:
+                        max_v_len = len(v)
+                        max_k = k
+                if max_k and max_v_len > max_len:
+                    new_val, saved = _truncate_raw_str(parsed[max_k])
+                    if saved > 0:
+                        parsed[max_k] = new_val
+                        new_json = json.dumps(parsed)
+                        return new_json, max(0, len(content_str) - len(new_json))
+        except Exception:
+            pass
+        return _truncate_raw_str(content_str)
 
     for i in range(len(messages) - 1, -1, -1):
         m = messages[i]
@@ -299,6 +321,51 @@ def should_auto_compact(
     threshold = threshold_tokens or compactor_settings.threshold_tokens
     estimated = estimate_total_tokens(messages, system=system)
     return estimated >= threshold
+
+
+GOOGLE_CASCADE_CHECKPOINTER_PROMPT = """You have been working on the task described above but have not yet completed it. Write a continuation summary that will allow you (or another instance of yourself) to resume work efficiently in a future context window where the full conversation history will NOT be available—only this summary.
+
+This summary is all that will be available to you going forward in the future context window. Do not call any tools, simply just provide the summary based on the information available in the current context window.
+
+Your summary must be structured, concise, and actionable. Optimize for enabling immediate resumption with zero redundant work.
+
+Include the following sections:
+
+1. **Task Overview**
+   - The user's core request and success criteria
+   - Constraints, preferences, or scope boundaries they specified
+   - Any ambiguities that were resolved (and how)
+
+2. **Progress**
+   - What has been completed, with concrete references (file paths, resource identifiers, tool outputs, URLs, etc.)
+   - Key artifacts produced and their current state
+   - What is in progress but incomplete, and its current state
+
+3. **Key Findings**
+   - Technical constraints, requirements, or domain details uncovered
+   - Decisions made and their rationale
+   - Errors encountered and their resolutions
+   - Approaches that were tried and abandoned (and why—this prevents the successor from repeating them)
+
+4. **Active Context**
+   - State of any external resources, sessions, or environments in use
+   - Relevant intermediate results, hypotheses, or working assumptions
+   - Dependencies between components or steps
+
+5. **Next Steps**
+   - Specific actions needed to complete the task, in priority order
+   - Known blockers or open questions that must be resolved
+   - For each step, note any prerequisites or risks
+
+6. **Commitments & Constraints**
+   - Promises made to the user (e.g., "I said I would do X before Y")
+   - User preferences or style requirements
+   - Any boundaries the user set on approach, tools, or scope
+
+Be concise but complete—err on the side of including anything that would prevent duplicate work, repeated mistakes, or broken promises. Do not include information that is obvious from the task description itself.
+
+Wrap your response in <summary></summary> tags.
+"""
 
 
 SUMMARIZER_PROMPT = """CRITICAL: Respond with TEXT ONLY. Do NOT call any tools.
@@ -398,12 +465,91 @@ REMINDER: Do NOT call any tools. Respond with plain text only — an <analysis> 
 """
 
 
+def _is_tool_response(msg: Any) -> bool:
+    """Checks if a message is a tool response (OpenAI role='tool'/'function' or Anthropic tool_result block)."""
+    if isinstance(msg, dict):
+        role = str(msg.get("role", "")).lower()
+        if role in ("tool", "function"):
+            return True
+        content = msg.get("content", [])
+        if isinstance(content, list):
+            for b in content:
+                if isinstance(b, dict) and b.get("type") == "tool_result":
+                    return True
+                elif getattr(b, "type", None) == "tool_result":
+                    return True
+    else:
+        role = str(getattr(msg, "role", "")).lower()
+        if role in ("tool", "function"):
+            return True
+        content = getattr(msg, "content", [])
+        if isinstance(content, list):
+            for b in content:
+                if getattr(b, "type", None) == "tool_result" or (isinstance(b, dict) and b.get("type") == "tool_result"):
+                    return True
+    return False
+
+
+def _has_tool_calls(msg: Any) -> bool:
+    """Checks if a message contains tool calls (OpenAI tool_calls or Anthropic tool_use block)."""
+    if isinstance(msg, dict):
+        if msg.get("tool_calls"):
+            return True
+        content = msg.get("content", [])
+        if isinstance(content, list):
+            for b in content:
+                if isinstance(b, dict) and b.get("type") == "tool_use":
+                    return True
+    else:
+        if getattr(msg, "tool_calls", None):
+            return True
+        content = getattr(msg, "content", [])
+        if isinstance(content, list):
+            for b in content:
+                if getattr(b, "type", None) == "tool_use" or (isinstance(b, dict) and b.get("type") == "tool_use"):
+                    return True
+    return False
+
+
+def _find_safe_compaction_split(messages: list[Any], target_keep_n: int) -> int:
+    """
+    Finds a clean message split boundary that never splits an assistant tool_use
+    from its matching user tool_result, preventing orphaned tool turns.
+    """
+    n = len(messages)
+    if n <= target_keep_n:
+        return 0
+
+    desired_split = max(1, n - target_keep_n)
+
+    # Walk backwards if desired_split points to a tool response or tool call turn
+    curr = desired_split
+    while curr > 1 and (_is_tool_response(messages[curr]) or _has_tool_calls(messages[curr])):
+        curr -= 1
+
+    # If curr is a clean turn (not a tool response), use it
+    if curr > 0 and not _is_tool_response(messages[curr]):
+        return curr
+
+    # Otherwise walk forwards from desired_split to find the first clean user turn
+    curr = desired_split
+    while curr < n - 1:
+        if not _is_tool_response(messages[curr]) and not _has_tool_calls(messages[curr]):
+            role = messages[curr].get("role") if isinstance(messages[curr], dict) else getattr(messages[curr], "role", "")
+            if str(role).lower() == "user":
+                return curr
+        curr += 1
+
+    return desired_split
+
+
 async def compact_conversation_history(
     account_pool: Any,
     messages: list[Any],
     keep_last_n: int | None = None,
     model: str | None = None,
     timeout: float = 25.0,
+    prompt: str | None = None,
 ) -> tuple[list[Any], int, int]:
     """
     Summarizes older messages in the conversation and returns compacted history.
@@ -418,9 +564,14 @@ async def compact_conversation_history(
 
     tokens_before = estimate_total_tokens(messages)
 
-    # Split messages: older history to summarize vs recent messages to preserve
-    older_messages = messages[:-keep_n]
-    recent_messages = messages[-keep_n:]
+    # Split messages safely to ensure tool_use / tool_result pairs are never severed
+    split_idx = _find_safe_compaction_split(messages, keep_n)
+    if split_idx <= 0 or split_idx >= len(messages):
+        tokens = estimate_total_tokens(messages)
+        return messages, tokens, tokens
+
+    older_messages = messages[:split_idx]
+    recent_messages = messages[split_idx:]
 
     # Format transcript for the summarizer model
     transcript_lines = []
@@ -470,6 +621,7 @@ async def compact_conversation_history(
         transcript=transcript_text,
         model=summary_model,
         timeout=timeout,
+        prompt=prompt,
     )
 
     if not summary_text:
@@ -525,6 +677,7 @@ async def generate_compact_summary(
     messages: list[Any],
     model: str | None = None,
     timeout: float = 35.0,
+    prompt: str | None = None,
 ) -> str | None:
     """Generates an assistant summary string directly for explicit /compact requests."""
     if not messages:
@@ -571,7 +724,7 @@ async def generate_compact_summary(
 
     transcript_text = "\n\n".join(transcript_lines)
     summary_model = model or compactor_settings.model or "gemini-3.8-flash-low"
-    return await _call_summarizer_llm(account_pool, transcript_text, model=summary_model, timeout=timeout)
+    return await _call_summarizer_llm(account_pool, transcript_text, model=summary_model, timeout=timeout, prompt=prompt)
 
 
 async def _call_summarizer_llm(
@@ -579,10 +732,13 @@ async def _call_summarizer_llm(
     transcript: str,
     model: str = "gemini-3.8-flash-low",
     timeout: float = 35.0,
+    prompt: str | None = None,
 ) -> str | None:
     """Invokes summarizer model via active AccountSession for fast compaction."""
     if not account_pool or not getattr(account_pool, "accounts", None):
         return None
+
+    active_prompt = prompt or GOOGLE_CASCADE_CHECKPOINTER_PROMPT
 
     # Prioritize active OAuth accounts for reliable CloudCode generation, then fallback to API keys
     active_accounts = sorted(
@@ -607,7 +763,7 @@ async def _call_summarizer_llm(
                     ],
                     "systemInstruction": {
                         "role": "user",
-                        "parts": [{"text": SUMMARIZER_PROMPT}],
+                        "parts": [{"text": active_prompt}],
                     },
                     "generationConfig": {
                         "maxOutputTokens": 6144,
@@ -640,7 +796,7 @@ async def _call_summarizer_llm(
                         ],
                         "systemInstruction": {
                             "role": "user",
-                            "parts": [{"text": SUMMARIZER_PROMPT}],
+                            "parts": [{"text": active_prompt}],
                         },
                         "generationConfig": {
                             "maxOutputTokens": 6144,

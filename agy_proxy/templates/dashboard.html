@@ -1596,19 +1596,32 @@ https://your-tunnel.trycloudflare.com/v1</pre>
     }
 
     function openActivateSessionModal(accountId) {
+      // Guard: reject clearly invalid account IDs
+      if (!accountId || accountId === 'null' || accountId === 'undefined') {
+        console.warn('openActivateSessionModal called with invalid accountId:', accountId);
+        return;
+      }
       targetActivateAccountId = accountId;
       const acc = rawAccountsData.find(a => a.account_id === accountId);
-      if (!acc) return;
 
       const previewContainer = document.getElementById('activateModalAccountPreview');
       if (previewContainer) {
-        previewContainer.innerHTML = `
-          ${renderAvatar(acc, 'w-9 h-9', 'text-sm')}
-          <div class="min-w-0 flex-1">
-            <div class="font-bold text-white text-xs sm:text-sm truncate">${acc.name || acc.email}</div>
-            <div class="text-[11px] text-slate-400 font-mono truncate">${acc.email}</div>
-          </div>
-        `;
+        if (acc) {
+          previewContainer.innerHTML = `
+            ${renderAvatar(acc, 'w-9 h-9', 'text-sm')}
+            <div class="min-w-0 flex-1">
+              <div class="font-bold text-white text-xs sm:text-sm truncate">${acc.name || acc.email}</div>
+              <div class="text-[11px] text-slate-400 font-mono truncate">${acc.email}</div>
+            </div>
+          `;
+        } else {
+          previewContainer.innerHTML = `
+            <div class="min-w-0 flex-1">
+              <div class="font-bold text-white text-xs sm:text-sm truncate">${accountId}</div>
+              <div class="text-[11px] text-slate-400 font-mono truncate">Loading account info...</div>
+            </div>
+          `;
+        }
       }
 
       // Populate current sessions
@@ -1638,7 +1651,13 @@ https://your-tunnel.trycloudflare.com/v1</pre>
     }
 
     async function submitActivateSessionModal() {
-      if (!targetActivateAccountId) return;
+      // Guard: never send request if accountId is null, undefined, or the literal string 'null'
+      if (!targetActivateAccountId || targetActivateAccountId === 'null' || targetActivateAccountId === 'undefined') {
+        console.warn('submitActivateSessionModal: targetActivateAccountId is invalid:', targetActivateAccountId);
+        closeActivateSessionModal();
+        showToast('No account selected. Please click the session button on an account card.', 'error');
+        return;
+      }
       const radios = document.getElementsByName('agyTargetEnv');
       let target = 'both';
       for (const r of radios) {

@@ -113,6 +113,123 @@ class TestCloudCodeClient(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(call5["name"], "Bash")
         self.assertEqual(call5["arguments"], {"command": "ls -la"})
 
+    def test_antigravity_ide_tool_call_auto_repair(self):
+        declared_antigravity = [
+            {
+                "functionDeclarations": [
+                    {
+                        "name": "write_to_file",
+                        "description": "Write or overwrite file",
+                        "parameters": {
+                            "type": "OBJECT",
+                            "properties": {
+                                "TargetFile": {"type": "STRING"},
+                                "CodeContent": {"type": "STRING"},
+                                "Overwrite": {"type": "BOOLEAN"},
+                                "Description": {"type": "STRING"},
+                                "toolAction": {"type": "STRING"},
+                                "toolSummary": {"type": "STRING"},
+                            },
+                            "required": ["TargetFile", "CodeContent", "Overwrite", "Description", "toolAction", "toolSummary"],
+                        },
+                    },
+                    {
+                        "name": "replace_file_content",
+                        "description": "Replace file content",
+                        "parameters": {
+                            "type": "OBJECT",
+                            "properties": {
+                                "TargetFile": {"type": "STRING"},
+                                "TargetContent": {"type": "STRING"},
+                                "ReplacementContent": {"type": "STRING"},
+                                "StartLine": {"type": "INTEGER"},
+                                "EndLine": {"type": "INTEGER"},
+                                "Instruction": {"type": "STRING"},
+                                "Description": {"type": "STRING"},
+                                "AllowMultiple": {"type": "BOOLEAN"},
+                                "toolAction": {"type": "STRING"},
+                                "toolSummary": {"type": "STRING"},
+                            },
+                            "required": ["TargetFile", "TargetContent", "ReplacementContent", "StartLine", "EndLine", "Instruction", "Description", "AllowMultiple", "toolAction", "toolSummary"],
+                        },
+                    },
+                    {
+                        "name": "run_command",
+                        "description": "Run shell command",
+                        "parameters": {
+                            "type": "OBJECT",
+                            "properties": {
+                                "CommandLine": {"type": "STRING"},
+                                "Cwd": {"type": "STRING"},
+                                "WaitMsBeforeAsync": {"type": "INTEGER"},
+                                "toolAction": {"type": "STRING"},
+                                "toolSummary": {"type": "STRING"},
+                            },
+                            "required": ["CommandLine", "Cwd", "WaitMsBeforeAsync", "toolAction", "toolSummary"],
+                        },
+                    },
+                    {
+                        "name": "view_file",
+                        "description": "View file content",
+                        "parameters": {
+                            "type": "OBJECT",
+                            "properties": {
+                                "AbsolutePath": {"type": "STRING"},
+                                "toolAction": {"type": "STRING"},
+                                "toolSummary": {"type": "STRING"},
+                            },
+                            "required": ["AbsolutePath", "toolAction", "toolSummary"],
+                        },
+                    },
+                ]
+            }
+        ]
+
+        # 1. Write tool test
+        text_write = '```json\n{\n  "name": "write",\n  "arguments": {\n    "path": "src/main.py",\n    "content": "print(\'hello\')"\n  }\n}\n```'
+        _, call_w = CloudCodeClient._extract_gemini_web_tool_call(text_write, declared_antigravity)
+        self.assertIsNotNone(call_w)
+        self.assertEqual(call_w["name"], "write_to_file")
+        self.assertEqual(call_w["arguments"]["TargetFile"], "src/main.py")
+        self.assertEqual(call_w["arguments"]["CodeContent"], "print('hello')")
+        self.assertTrue(call_w["arguments"]["Overwrite"])
+        self.assertIn("toolAction", call_w["arguments"])
+        self.assertIn("toolSummary", call_w["arguments"])
+        self.assertIn("Description", call_w["arguments"])
+
+        # 2. Edit tool test
+        text_edit = '```json\n{\n  "name": "edit",\n  "arguments": {\n    "file_path": "src/main.py",\n    "old_str": "print(1)",\n    "new_str": "print(2)"\n  }\n}\n```'
+        _, call_e = CloudCodeClient._extract_gemini_web_tool_call(text_edit, declared_antigravity)
+        self.assertIsNotNone(call_e)
+        self.assertEqual(call_e["name"], "replace_file_content")
+        self.assertEqual(call_e["arguments"]["TargetFile"], "src/main.py")
+        self.assertEqual(call_e["arguments"]["TargetContent"], "print(1)")
+        self.assertEqual(call_e["arguments"]["ReplacementContent"], "print(2)")
+        self.assertEqual(call_e["arguments"]["StartLine"], 1)
+        self.assertEqual(call_e["arguments"]["EndLine"], 100000)
+        self.assertFalse(call_e["arguments"]["AllowMultiple"])
+        self.assertIn("Instruction", call_e["arguments"])
+        self.assertIn("toolAction", call_e["arguments"])
+        self.assertIn("toolSummary", call_e["arguments"])
+
+        # 3. Run command test
+        text_run = '```json\n{\n  "name": "bash",\n  "arguments": {\n    "cmd": "pytest"\n  }\n}\n```'
+        _, call_r = CloudCodeClient._extract_gemini_web_tool_call(text_run, declared_antigravity)
+        self.assertIsNotNone(call_r)
+        self.assertEqual(call_r["name"], "run_command")
+        self.assertEqual(call_r["arguments"]["CommandLine"], "pytest")
+        self.assertEqual(call_r["arguments"]["Cwd"], ".")
+        self.assertEqual(call_r["arguments"]["WaitMsBeforeAsync"], 10000)
+        self.assertIn("toolAction", call_r["arguments"])
+
+        # 4. View file test
+        text_view = '```json\n{\n  "name": "view",\n  "arguments": {\n    "path": "README.md"\n  }\n}\n```'
+        _, call_v = CloudCodeClient._extract_gemini_web_tool_call(text_view, declared_antigravity)
+        self.assertIsNotNone(call_v)
+        self.assertEqual(call_v["name"], "view_file")
+        self.assertEqual(call_v["arguments"]["AbsolutePath"], "README.md")
+        self.assertIn("toolAction", call_v["arguments"])
+
     def test_format_gemini_web_prompt_multi_turn(self):
         payload = {
             "tools": [{"functionDeclarations": [{"name": "Write", "description": "Write file"}]}],
@@ -126,6 +243,27 @@ class TestCloudCodeClient(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Available tools:", prompt)
         self.assertIn("[Tool Call: Write(", prompt)
         self.assertIn("[Tool Result for Write: File created]", prompt)
+
+    def test_format_gemini_web_prompt_continuation_with_query_and_clean_tags(self):
+        payload = {
+            "tools": [{"functionDeclarations": [{"name": "Bash", "description": "Run bash"}]}],
+            "contents": [
+                {"role": "user", "parts": [{"text": "що є Pictures/ в цьому каиталогі?"}]},
+                {"role": "model", "parts": [{"functionCall": {"name": "Bash", "args": {"command": "ls Pictures"}}}]},
+                {
+                    "role": "user",
+                    "parts": [
+                        {"functionResponse": {"name": "Bash", "response": {"result": "photo.png"}}},
+                        {"text": "<total_tokens>15000000 tokens left</total_tokens>"}
+                    ]
+                },
+            ],
+        }
+        cont_prompt = CloudCodeClient._format_gemini_web_prompt(payload, is_continuation=True)
+        self.assertNotIn("<total_tokens>", cont_prompt)
+        self.assertIn("[Tool Result for Bash: photo.png]", cont_prompt)
+        self.assertIn('The user asked: "що є Pictures/ в цьому каиталогі?".', cont_prompt)
+        self.assertIn("Using the tool execution output above", cont_prompt)
 
 
 if __name__ == "__main__":

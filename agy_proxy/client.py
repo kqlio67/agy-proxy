@@ -204,32 +204,46 @@ class CloudCodeClient:
 
         if tools:
             try:
-                # Clean, compact tool representations
+                # Clean, compact tool representations preserving required properties
                 clean_tools = []
                 for t in tools:
                     if isinstance(t, dict):
                         for fd in t.get("functionDeclarations", []):
-                            clean_tools.append({
+                            entry: dict[str, Any] = {
                                 "name": fd.get("name"),
                                 "description": fd.get("description", ""),
-                                "parameters": fd.get("parameters", {}).get("properties", {}),
-                            })
+                            }
+                            params = fd.get("parameters", {})
+                            if isinstance(params, dict):
+                                clean_params: dict[str, Any] = {}
+                                if "properties" in params:
+                                    clean_params["properties"] = params["properties"]
+                                if "required" in params:
+                                    clean_params["required"] = params["required"]
+                                if "type" in params:
+                                    clean_params["type"] = params["type"]
+                                entry["parameters"] = clean_params
+                            clean_tools.append(entry)
                         if t.get("name"):
                             props = t.get("parameters", {}).get("properties", {}) or t.get("input_schema", {}).get("properties", {})
+                            reqs = t.get("parameters", {}).get("required", []) or t.get("input_schema", {}).get("required", [])
                             clean_tools.append({
                                 "name": t.get("name"),
                                 "description": t.get("description", ""),
-                                "parameters": props,
+                                "parameters": {"properties": props, "required": reqs} if reqs else props,
                             })
                 tools_payload = clean_tools if clean_tools else tools
                 tools_str = json.dumps(tools_payload, indent=2, ensure_ascii=False)
                 prompt_sections.append(
+                    f"CRITICAL WORKSPACE TOOL CALLING DIRECTIVE:\n"
+                    f"You have direct access to tools for creating, editing, inspecting files and running commands in the user's workspace.\n"
+                    f"When the user asks you to create or modify files, view contents, or run commands, you MUST execute the appropriate tool call instead of just writing code in markdown or giving passive suggestions.\n\n"
                     f"Available tools:\n```json\n{tools_str}\n```\n\n"
-                    f"To invoke a tool, output a JSON code block:\n"
+                    f"To invoke a tool, output a single JSON code block:\n"
                     f"```json\n"
                     f'{{\n  "name": "<tool_name>",\n  "arguments": {{\n    "<arg_name>": <arg_value>\n  }}\n}}\n'
                     f"```\n"
-                    f"Output the tool call JSON directly so the IDE can execute it locally."
+                    f"Output the tool call JSON directly so the IDE can execute it in the workspace."
                 )
             except Exception:
                 pass
@@ -237,6 +251,28 @@ class CloudCodeClient:
         # Multi-turn conversation context
         history_turns = []
         current_user_msg = ""
+
+        def clean_claude_tags(text_val: str) -> str:
+            if not text_val:
+                return ""
+            t = re.sub(r"<total_tokens>.*?</total_tokens>", "", text_val, flags=re.DOTALL)
+            t = re.sub(r"<system-reminder>.*?</system-reminder>", "", t, flags=re.DOTALL)
+            t = re.sub(r"<antigravity_metadata>.*?</antigravity_metadata>", "", t, flags=re.DOTALL)
+            return t.strip()
+
+        def find_last_human_query() -> str:
+            for c in reversed(contents):
+                if not isinstance(c, dict) or c.get("role") != "user":
+                    continue
+                user_texts = []
+                for p in c.get("parts", []):
+                    if isinstance(p, dict) and "text" in p:
+                        raw_t = clean_claude_tags(p["text"])
+                        if raw_t and not raw_t.startswith("[Tool Result for ") and not raw_t.startswith("[TOOL ERROR for "):
+                            user_texts.append(raw_t)
+                if user_texts:
+                    return "\n".join(user_texts)
+            return ""
 
         for idx, c in enumerate(contents):
             if not isinstance(c, dict):
@@ -284,7 +320,7 @@ class CloudCodeClient:
                             )
                         else:
                             text_parts.append(f"[Tool Result for {fr.get('name')}: {res_str}]")
-            msg_text = "\n".join(text_parts).strip()
+            msg_text = clean_claude_tags("\n".join(text_parts).strip())
             if not msg_text:
                 continue
 
@@ -298,9 +334,11 @@ class CloudCodeClient:
             for c in reversed(contents):
                 if isinstance(c, dict):
                     for p in c.get("parts", []):
-                        if isinstance(p, dict) and "text" in p and p["text"].strip():
-                            current_user_msg = p["text"].strip()
-                            break
+                        if isinstance(p, dict) and "text" in p:
+                            clean_t = clean_claude_tags(p["text"])
+                            if clean_t:
+                                current_user_msg = clean_t
+                                break
                 if current_user_msg:
                     break
 
@@ -311,10 +349,13 @@ class CloudCodeClient:
             # Continuing an existing Gemini Web chat thread: the backend already contains
             # the system instructions, tools, and previous history. Send just the new user turn.
             if "[Tool Result for " in current_user_msg or "[TOOL ERROR for " in current_user_msg:
+                orig_query = find_last_human_query()
+                query_directive = f'The user asked: "{orig_query}". ' if orig_query else "Regarding the user's latest request: "
                 return (
                     f"{current_user_msg}\n\n"
-                    f"[System Directive: Proceed with answering the user's request using the tool output above. "
-                    f"If additional tools are needed, output the next tool call JSON. Otherwise, answer the user directly.]"
+                    f"[System Directive: {query_directive}"
+                    f"Using the tool execution output above, provide a direct, helpful response to the user's request. "
+                    f"Respond in the user's language. If further tools are required, output JSON for the next tool. Otherwise, answer directly.]"
                 )
             return current_user_msg
 
@@ -338,16 +379,21 @@ class CloudCodeClient:
         if not text:
             return "", None
 
-        # Build declared tool map: {tool_name: {prop_name: prop_meta}}
+        # Build declared tool map: {tool_name: {"properties": {...}, "required": [...]}}
         declared_map: dict[str, dict[str, Any]] = {}
         for t in declared_tools:
             if isinstance(t, dict):
                 for fd in t.get("functionDeclarations", []):
                     if isinstance(fd, dict) and fd.get("name"):
-                        declared_map[fd["name"]] = fd.get("parameters", {}).get("properties", {})
+                        params = fd.get("parameters", {})
+                        props = params.get("properties", {}) if isinstance(params, dict) else {}
+                        reqs = params.get("required", []) if isinstance(params, dict) else []
+                        declared_map[fd["name"]] = {"properties": props, "required": reqs}
                 if t.get("name"):
-                    props = t.get("parameters", {}).get("properties", {}) or t.get("input_schema", {}).get("properties", {})
-                    declared_map[t["name"]] = props
+                    params = t.get("parameters", {}) or t.get("input_schema", {})
+                    props = params.get("properties", {}) if isinstance(params, dict) else {}
+                    reqs = params.get("required", []) if isinstance(params, dict) else []
+                    declared_map[t["name"]] = {"properties": props, "required": reqs}
 
         def match_tool_name(raw_name: str) -> str | None:
             raw_clean = str(raw_name).strip()
@@ -359,64 +405,115 @@ class CloudCodeClient:
                 if d_name.lower() == raw_clean.lower():
                     return d_name
 
-            # 2. Known alias / synonym groups
+            # 2. Normalized match (strip underscores, dashes, spaces)
+            clean_raw = re.sub(r"[_\-\s]+", "", raw_clean.lower())
+            for d_name in declared_map:
+                if re.sub(r"[_\-\s]+", "", d_name.lower()) == clean_raw:
+                    return d_name
+
+            # 3. Known alias / synonym groups
             synonym_groups = [
-                {"view", "read", "read_file", "fileread", "view_file", "cat", "open_file", "show"},
-                {"write", "write_to_file", "create", "create_file", "save", "save_file"},
-                {"edit", "replace", "str_replace_editor", "patch", "modify", "edit_file"},
-                {"bash", "sh", "shell", "terminal", "run_command", "exec", "execute", "execute_command"},
+                {"view", "read", "read_file", "fileread", "view_file", "cat", "open_file", "show", "viewfile"},
+                {"write", "write_to_file", "create", "create_file", "save", "save_file", "writetofile", "new_file"},
+                {"edit", "replace", "str_replace_editor", "patch", "modify", "edit_file", "replace_file_content", "replacefilecontent", "multi_replace_file_content"},
+                {"bash", "sh", "shell", "terminal", "run_command", "exec", "execute", "execute_command", "runcommand"},
                 {"glob", "globtool", "find_files", "file_search", "find_by_name"},
-                {"grep", "greptool", "search", "content_search", "grep_search"},
-                {"ls", "dir", "list_dir", "list_directory"},
+                {"grep", "greptool", "search", "content_search", "grep_search", "grepsearch"},
+                {"ls", "dir", "list_dir", "list_directory", "listdir"},
             ]
-            raw_lower = raw_clean.lower()
             for group in synonym_groups:
-                if raw_lower in group:
+                clean_group = {re.sub(r"[_\-\s]+", "", g.lower()) for g in group}
+                if clean_raw in clean_group:
                     for d_name in declared_map:
-                        if d_name.lower() in group:
+                        if re.sub(r"[_\-\s]+", "", d_name.lower()) in clean_group:
                             return d_name
             return None
+
+        ARG_EQUIVALENCE_SETS = [
+            {"path", "file_path", "filepath", "filename", "file", "targetfile", "target_file", "absolutepath", "absolute_path", "src", "destination", "dest"},
+            {"content", "codecontent", "code_content", "text", "body", "data", "file_content", "filecontent", "code"},
+            {"targetcontent", "target_content", "old_str", "old_string", "old_text", "oldcontent", "old_content", "find", "search", "target"},
+            {"replacementcontent", "replacement_content", "new_str", "new_string", "new_text", "newcontent", "new_content", "replace", "replacement"},
+            {"command", "cmd", "commandline", "command_line", "script", "exec"},
+            {"query", "q", "pattern", "regex", "search_term", "term"},
+            {"searchpath", "search_path", "path", "dir", "directory", "folder"},
+            {"directorypath", "directory_path", "dir", "directory", "folder", "path"},
+            {"description", "desc", "summary", "instruction", "instructions", "comment", "reason"},
+        ]
 
         def normalize_tool_args(tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
             if not isinstance(args, dict):
                 return {}
-            expected_props = declared_map.get(tool_name, {})
+            meta = declared_map.get(tool_name, {})
+            expected_props = meta.get("properties", {}) if isinstance(meta, dict) else {}
             if not expected_props:
                 return args
 
             normalized = dict(args)
-            arg_aliases = {
-                "path": ["file_path", "filepath", "filename", "file", "targetfile", "target_file", "absolutepath"],
-                "file_path": ["path", "filepath", "filename", "file", "targetfile", "target_file", "absolutepath"],
-                "command": ["cmd", "commandline", "command_line", "script", "exec"],
-                "cmd": ["command", "commandline", "command_line", "script", "exec"],
-                "pattern": ["query", "regex", "search_term", "pattern_str"],
-                "content": ["codecontent", "code_content", "text", "body", "data"],
-            }
 
             for exp_key in expected_props:
                 if exp_key in normalized:
                     continue
-                # 1. Case-insensitive key match
+                exp_lower = re.sub(r"[_\-\s]+", "", exp_key.lower())
+
+                # 1. Exact case-insensitive / delimiter-insensitive key match
                 found_match = False
                 for k in list(normalized.keys()):
-                    if k.lower() == exp_key.lower():
+                    if re.sub(r"[_\-\s]+", "", k.lower()) == exp_lower:
                         normalized[exp_key] = normalized.pop(k)
                         found_match = True
                         break
                 if found_match:
                     continue
 
-                # 2. Alias resolution
-                aliases = arg_aliases.get(exp_key.lower(), [])
-                for alias in aliases:
-                    for k in list(normalized.keys()):
-                        if k.lower() == alias:
-                            normalized[exp_key] = normalized.pop(k)
-                            found_match = True
-                            break
+                # 2. Equivalence sets
+                for eq_set in ARG_EQUIVALENCE_SETS:
+                    clean_eq = {re.sub(r"[_\-\s]+", "", item.lower()) for item in eq_set}
+                    if exp_lower in clean_eq:
+                        for k in list(normalized.keys()):
+                            if re.sub(r"[_\-\s]+", "", k.lower()) in clean_eq:
+                                normalized[exp_key] = normalized.pop(k)
+                                found_match = True
+                                break
                     if found_match:
                         break
+
+            # 3. Auto-populate Antigravity / IDE required fields if omitted by the model
+            target_f = normalized.get("TargetFile") or normalized.get("AbsolutePath") or normalized.get("file_path") or normalized.get("path") or "file"
+
+            if "toolAction" in expected_props and "toolAction" not in normalized:
+                normalized["toolAction"] = f"Running {tool_name}"
+            if "toolSummary" in expected_props and "toolSummary" not in normalized:
+                normalized["toolSummary"] = f"{tool_name} execution"
+
+            clean_tname = re.sub(r"[_\-\s]+", "", tool_name.lower())
+            if clean_tname in ("writetofile", "write"):
+                if "Overwrite" in expected_props and "Overwrite" not in normalized:
+                    normalized["Overwrite"] = True
+                if "Description" in expected_props and "Description" not in normalized:
+                    normalized["Description"] = f"Write {target_f}"
+            elif clean_tname in ("replacefilecontent", "edit", "replace"):
+                if "Instruction" in expected_props and "Instruction" not in normalized:
+                    normalized["Instruction"] = f"Edit {target_f}"
+                if "Description" in expected_props and "Description" not in normalized:
+                    normalized["Description"] = f"Update {target_f}"
+                if "AllowMultiple" in expected_props and "AllowMultiple" not in normalized:
+                    normalized["AllowMultiple"] = False
+                if "StartLine" in expected_props and "StartLine" not in normalized:
+                    normalized["StartLine"] = 1
+                if "EndLine" in expected_props and "EndLine" not in normalized:
+                    normalized["EndLine"] = 100000
+            elif clean_tname in ("runcommand", "bash", "execute"):
+                if "Cwd" in expected_props and "Cwd" not in normalized:
+                    normalized["Cwd"] = "."
+                if "WaitMsBeforeAsync" in expected_props and "WaitMsBeforeAsync" not in normalized:
+                    normalized["WaitMsBeforeAsync"] = 10000
+            elif clean_tname in ("listdir", "ls"):
+                if "DirectoryPath" in expected_props and "DirectoryPath" not in normalized:
+                    normalized["DirectoryPath"] = "."
+            elif clean_tname in ("grepsearch", "grep"):
+                if "SearchPath" in expected_props and "SearchPath" not in normalized:
+                    normalized["SearchPath"] = "."
 
             return normalized
 
@@ -449,8 +546,8 @@ class CloudCodeClient:
                                 try:
                                     parsed = json.loads(cand)
                                     if isinstance(parsed, dict):
-                                        t_name = parsed.get("name") or parsed.get("tool")
-                                        t_args = parsed.get("arguments") or parsed.get("parameters") or parsed.get("input") or {}
+                                        t_name = parsed.get("name") or parsed.get("tool") or parsed.get("function") or parsed.get("action") or parsed.get("call")
+                                        t_args = parsed.get("arguments") or parsed.get("parameters") or parsed.get("input") or parsed.get("action_input") or parsed.get("args") or {}
                                         if t_name and isinstance(t_args, dict):
                                             matched_name = match_tool_name(str(t_name))
                                             if matched_name:
@@ -573,7 +670,11 @@ class CloudCodeClient:
                                                     }
                                                 })
                                             if not parts:
-                                                parts.append({"text": accumulated_text})
+                                                clean_acc = accumulated_text.strip()
+                                                if clean_acc:
+                                                    parts.append({"text": clean_acc})
+                                                else:
+                                                    parts.append({"text": "Task completed."})
 
                                             yield {
                                                 "candidates": [{
@@ -1233,6 +1334,12 @@ class CloudCodeClient:
                 current_block_index += 1
 
             if has_started_text_block:
+                yield f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': current_block_index})}\n\n"
+                current_block_index += 1
+            elif not has_tool_calls:
+                fallback_msg = "Done."
+                yield f"event: content_block_start\ndata: {json.dumps({'type': 'content_block_start', 'index': current_block_index, 'content_block': {'type': 'text', 'text': ''}})}\n\n"
+                yield f"event: content_block_delta\ndata: {json.dumps({'type': 'content_block_delta', 'index': current_block_index, 'delta': {'type': 'text_delta', 'text': fallback_msg}})}\n\n"
                 yield f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': current_block_index})}\n\n"
                 current_block_index += 1
 

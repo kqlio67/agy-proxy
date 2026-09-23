@@ -124,7 +124,7 @@ class GeminiWebSession(AccountSession):
         "SAPISID",
     ]
     # Build label — extracted from first StreamGenerate response or hard-coded fallback
-    _DEFAULT_BL = "boq_assistant-bard-web-server_20260907.07_p3"
+    _DEFAULT_BL = "boq_assistant-bard-web-server_20260917.13_p0"
 
     MODEL_CONFIGS: dict[str, dict[str, Any]] = {
         "gemini-3.5-flash-lite-extended": {
@@ -704,6 +704,7 @@ class GeminiWebSession(AccountSession):
         inner[53] = 0
         inner[59] = client_uuid
         inner[61] = []
+        inner[67] = 0
         inner[68] = 2
         inner[79] = model_config["model_id"]
         inner[80] = model_config["mode"]

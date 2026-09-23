@@ -70,6 +70,43 @@ class TestSchemaSanitization(unittest.TestCase):
         self.assertEqual(clean["properties"]["items"]["items"]["type"], "object")
         self.assertEqual(clean["properties"]["items"]["items"]["properties"]["id"]["type"], "integer")
 
+    def test_sanitize_exclusive_minimum_and_unsupported_fields(self):
+        raw_schema = {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "exclusiveMaximum": 100,
+                },
+                "status": {
+                    "const": "active",
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "val": {
+                                "type": "number",
+                                "exclusiveMinimum": 1.5,
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        clean = sanitize_gemini_schema(raw_schema)
+        self.assertEqual(clean["properties"]["limit"]["minimum"], 0)
+        self.assertNotIn("exclusiveMinimum", clean["properties"]["limit"])
+        self.assertEqual(clean["properties"]["limit"]["maximum"], 100)
+        self.assertNotIn("exclusiveMaximum", clean["properties"]["limit"])
+        self.assertEqual(clean["properties"]["status"]["enum"], ["active"])
+        self.assertNotIn("const", clean["properties"]["status"])
+        nested_val = clean["properties"]["items"]["items"]["properties"]["val"]
+        self.assertEqual(nested_val["minimum"], 1.5)
+        self.assertNotIn("exclusiveMinimum", nested_val)
+
 
 class TestOpenAIToCloudCode(unittest.TestCase):
     def test_basic_message_conversion(self):
@@ -121,6 +158,8 @@ class TestOpenAIToCloudCode(unittest.TestCase):
         func = tools[0]["functionDeclarations"][0]
         self.assertEqual(func["name"], "get_weather")
         self.assertEqual(func["description"], "Get current weather for a city")
+        self.assertIn("toolConfig", inner)
+        self.assertEqual(inner["toolConfig"]["functionCallingConfig"]["mode"], "AUTO")
 
     def test_openai_structured_outputs_json_schema(self):
         req = OpenAIChatRequest(
@@ -514,6 +553,8 @@ class TestModularConvertersPackage(unittest.TestCase):
         oai_payload = openai_to_cloudcode_payload(oai_req, project_id="test-p", session_id="sess-123")
         self.assertEqual(oai_payload["requestType"], "agent")
         self.assertTrue(oai_payload["requestId"].startswith("agent/"))
+        self.assertIn("toolConfig", oai_payload["request"])
+        self.assertEqual(oai_payload["request"]["toolConfig"]["functionCallingConfig"]["mode"], "AUTO")
 
         anth_req = AnthropicRequest(
             model="claude-sonnet-4-6",
@@ -523,6 +564,8 @@ class TestModularConvertersPackage(unittest.TestCase):
         anth_payload = anthropic_to_cloudcode_payload(anth_req, project_id="test-p", session_id="sess-123")
         self.assertEqual(anth_payload["requestType"], "agent")
         self.assertTrue(anth_payload["requestId"].startswith("agent/"))
+        self.assertIn("toolConfig", anth_payload["request"])
+        self.assertEqual(anth_payload["request"]["toolConfig"]["functionCallingConfig"]["mode"], "AUTO")
 
     def test_thinking_disabled_config(self):
         from agy_proxy.converters.common import _apply_thinking_config
@@ -573,6 +616,204 @@ class TestModularConvertersPackage(unittest.TestCase):
             mime, b64 = _extract_media_from_url(url)
             self.assertEqual(mime, "image/png")
             self.assertNotEqual(b64, "")
+
+    def test_anthropic_cline_multi_field_tool_schema_preserved(self):
+        from agy_proxy.converters.anthropic import anthropic_to_cloudcode_payload
+        from agy_proxy.models import AnthropicRequest
+
+        # Realistic Cline multi-field schema with nested properties, defaults, pattern, additionalProperties
+        cline_tool = {
+            "name": "execute_command",
+            "description": "Execute a CLI command on the system and return its output.",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "command": {
+                        "type": "string",
+                        "description": "The command to execute",
+                    },
+                    "timeout": {
+                        "type": "integer",
+                        "description": "Timeout in seconds",
+                        "default": 30,
+                    },
+                    "environment": {
+                        "type": "object",
+                        "description": "Environment variables",
+                        "additionalProperties": {"type": "string"},
+                    },
+                    "tags": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                },
+                "required": ["command"],
+            },
+        }
+
+        req = AnthropicRequest(
+            model="claude-3-7-sonnet",
+            messages=[{"role": "user", "content": "Run tests"}],
+            tools=[cline_tool],
+        )
+        payload = anthropic_to_cloudcode_payload(req, project_id="test-p")
+        funcs = payload["request"]["tools"][0]["functionDeclarations"]
+        self.assertEqual(len(funcs), 1)
+        decl = funcs[0]
+        self.assertEqual(decl["name"], "execute_command")
+        params = decl["parameters"]
+        self.assertEqual(params["type"], "object")
+        self.assertIn("command", params["properties"])
+        self.assertIn("timeout", params["properties"])
+        self.assertEqual(params["properties"]["environment"]["type"], "object")
+        self.assertNotIn("additionalProperties", params["properties"]["environment"])
+        self.assertEqual(params["properties"]["timeout"].get("default"), 30)
+        self.assertEqual(params["required"], ["command"])
+
+    def test_anthropic_custom_wrapped_tool_schema(self):
+        from agy_proxy.converters.anthropic import anthropic_to_cloudcode_payload
+        from agy_proxy.models import AnthropicRequest
+
+        # Tool formatted with Anthropic SDK style `custom` wrapper
+        tool_with_custom = {
+            "type": "custom",
+            "custom": {
+                "name": "read_file",
+                "description": "Read file contents",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "path": {"type": "string", "description": "file path"},
+                    },
+                    "required": ["path"],
+                },
+            },
+        }
+
+        req = AnthropicRequest(
+            model="claude-sonnet-4-6",
+            messages=[{"role": "user", "content": "Read main.py"}],
+            tools=[tool_with_custom],
+        )
+        payload = anthropic_to_cloudcode_payload(req, project_id="test-p")
+        funcs = payload["request"]["tools"][0]["functionDeclarations"]
+        self.assertEqual(len(funcs), 1)
+        self.assertEqual(funcs[0]["name"], "read_file")
+        self.assertIn("path", funcs[0]["parameters"]["properties"])
+
+    def test_openai_to_claude_tool_pairing_at_messages_2(self):
+        from agy_proxy.converters.openai import openai_to_cloudcode_payload
+        from agy_proxy.models import OpenAIChatRequest
+
+        # Standard OpenAI 3-turn sequence: user -> assistant(tool_calls) -> tool(result)
+        req = OpenAIChatRequest(
+            model="claude-sonnet-4-6",
+            messages=[
+                {"role": "user", "content": "List directory contents"},
+                {
+                    "role": "assistant",
+                    "content": "I will execute `ls -la` to check the directory.",
+                    "tool_calls": [
+                        {
+                            "id": "call_ls_123",
+                            "type": "function",
+                            "function": {
+                                "name": "execute_command",
+                                "arguments": '{"command": "ls -la"}',
+                            },
+                        }
+                    ],
+                },
+                {
+                    "role": "tool",
+                    "tool_call_id": "call_ls_123",
+                    "content": json.dumps({"output": "file1.txt\nfile2.txt", "exit_code": 0}),
+                },
+            ],
+            tools=[
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "execute_command",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {"command": {"type": "string"}},
+                            "required": ["command"],
+                        },
+                    },
+                }
+            ],
+        )
+        payload = openai_to_cloudcode_payload(req, project_id="test-p")
+        contents = payload["request"]["contents"]
+        self.assertEqual(len(contents), 3)
+
+        # messages.0: user prompt
+        self.assertEqual(contents[0]["role"], "user")
+
+        # messages.1: assistant model turn with functionCall
+        self.assertEqual(contents[1]["role"], "model")
+        fc_part = [p for p in contents[1]["parts"] if "functionCall" in p][0]["functionCall"]
+        self.assertEqual(fc_part["name"], "execute_command")
+        self.assertEqual(fc_part["id"], "call_ls_123")
+
+        # messages.2: tool response turn with matching functionResponse
+        self.assertEqual(contents[2]["role"], "user")
+        fr_part = [p for p in contents[2]["parts"] if "functionResponse" in p][0]["functionResponse"]
+        self.assertEqual(fr_part["name"], "execute_command")
+        self.assertEqual(fr_part["id"], "call_ls_123")
+        self.assertIn("result", fr_part["response"])
+
+    def test_ensure_tool_pairing_integrity_orphaned_response(self):
+        from agy_proxy.converters.common import ensure_tool_pairing_integrity
+
+        # User turn has a functionResponse with no preceding model turn
+        contents = [
+            {
+                "role": "user",
+                "parts": [
+                    {
+                        "functionResponse": {
+                            "name": "orphan_tool",
+                            "id": "call_orphan_999",
+                            "response": {"result": "Orphaned output"},
+                        }
+                    }
+                ],
+            }
+        ]
+        sanitized = ensure_tool_pairing_integrity(contents)
+        self.assertEqual(len(sanitized), 1)
+        # Orphaned response converted to text to prevent upstream 400
+        self.assertIn("text", sanitized[0]["parts"][0])
+        self.assertIn("Orphaned output", sanitized[0]["parts"][0]["text"])
+
+    def test_ensure_tool_pairing_integrity_unanswered_call(self):
+        from agy_proxy.converters.common import ensure_tool_pairing_integrity
+
+        contents = [
+            {
+                "role": "model",
+                "parts": [
+                    {
+                        "functionCall": {
+                            "name": "calc",
+                            "id": "call_calc_1",
+                            "args": {"expr": "1+1"},
+                        }
+                    }
+                ],
+            },
+            {
+                "role": "user",
+                "parts": [{"text": "Actually cancel that, do something else"}],
+            },
+        ]
+        sanitized = ensure_tool_pairing_integrity(contents)
+        user_parts = sanitized[1]["parts"]
+        # Must have synthesized a functionResponse for call_calc_1 so Anthropic upstream is satisfied
+        has_fr = any(p.get("functionResponse", {}).get("id") == "call_calc_1" for p in user_parts if "functionResponse" in p)
+        self.assertTrue(has_fr)
 
 
 if __name__ == "__main__":

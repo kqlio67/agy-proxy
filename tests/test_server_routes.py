@@ -197,6 +197,11 @@ class TestServerRoutes(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(resp_get.status_code, 200)
         self.assertIsInstance(resp_get.json(), dict)
 
+        # 3. GET action with slash path (e.g. cascadeNuxes)
+        resp_nux = await self.client.get("/v1internal/cascadeNuxes")
+        self.assertEqual(resp_nux.status_code, 200)
+        self.assertIsInstance(resp_nux.json(), dict)
+
     async def test_gemini_web_api_routes(self):
         # 1. Add web account with raw cookies
         add_resp = await self.client.post(

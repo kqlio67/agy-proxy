@@ -4,10 +4,12 @@ and thinking config for Gemini/CloudCode protocol converters.
 """
 
 import base64
+import copy
 import json
 import logging
 import mimetypes
 from typing import Any
+import uuid
 
 import httpx
 
@@ -142,66 +144,234 @@ def to_dict(obj: Any) -> Any:
 
 def sanitize_gemini_schema(schema: Any) -> Any:
     """
-    Recursively cleans and translates JSON schema to be strictly compliant
-    with Gemini/CloudCode OpenAPI 3.0 schema definitions, stripping unsupported
-    fields ($schema, exclusiveMinimum, additionalProperties, title, etc.).
+    Cleans and normalizes JSON schema definitions for tools while preserving
+    multi-field, complex, and nested parameters (e.g. Cline/Roo Code tools).
+    Ensures root has type="object" and normalizes types without dropping properties.
     """
     if not isinstance(schema, dict):
         return schema
 
-    allowed_keys = {
-        "type",
-        "format",
-        "description",
-        "nullable",
-        "enum",
-        "properties",
-        "required",
-        "items",
-        "example",
-    }
+    sanitized = copy.deepcopy(schema)
 
-    sanitized: dict[str, Any] = {}
+    def _normalize_node(node: Any) -> Any:
+        if not isinstance(node, dict):
+            return node
 
-    for key, val in schema.items():
-        if key not in allowed_keys:
-            continue
+        # Convert or strip fields unsupported by Google Cloud Code proto schema
+        if "const" in node:
+            c_val = node.pop("const")
+            if "enum" not in node:
+                node["enum"] = [c_val]
 
-        if key == "type":
-            if isinstance(val, list):
-                # e.g. ["string", "null"] -> type: "string", nullable: True
-                types = [t for t in val if t != "null"]
-                sanitized["type"] = types[0] if types else "string"
-                if "null" in val:
-                    sanitized["nullable"] = True
-            elif isinstance(val, str):
-                sanitized["type"] = val.lower()
-        elif key == "properties" and isinstance(val, dict):
-            sanitized["properties"] = {
-                prop_name: sanitize_gemini_schema(prop_def)
-                for prop_name, prop_def in val.items()
+        if "examples" in node:
+            ex_val = node.pop("examples")
+            if isinstance(ex_val, list) and ex_val and "example" not in node:
+                node["example"] = ex_val[0]
+
+        if "exclusiveMinimum" in node:
+            em_val = node.pop("exclusiveMinimum")
+            if isinstance(em_val, (int, float)) and "minimum" not in node:
+                node["minimum"] = em_val
+
+        if "exclusiveMaximum" in node:
+            em_val = node.pop("exclusiveMaximum")
+            if isinstance(em_val, (int, float)) and "maximum" not in node:
+                node["maximum"] = em_val
+
+        # Strip unsupported schema metadata fields that cause Gemini 400 validation errors
+        for forbidden in (
+            "$schema",
+            "$id",
+            "$defs",
+            "definitions",
+            "title",
+            "additionalProperties",
+            "exclusiveMinimum",
+            "exclusiveMaximum",
+            "const",
+            "examples",
+            "deprecated",
+            "readOnly",
+            "writeOnly",
+            "contentMediaType",
+            "contentEncoding",
+            "uniqueItems",
+            "multipleOf",
+            "propertyNames",
+            "prefixItems",
+            "unevaluatedProperties",
+            "unevaluatedItems",
+            "minContains",
+            "maxContains",
+            "patternProperties",
+        ):
+            node.pop(forbidden, None)
+
+        # 1. Normalize type list: ["string", "null"] -> type: "string", nullable: True
+        t = node.get("type")
+        if isinstance(t, list):
+            types = [x for x in t if x != "null"]
+            node["type"] = types[0].lower() if types else "string"
+            if "null" in t:
+                node["nullable"] = True
+        elif isinstance(t, str):
+            node["type"] = t.lower()
+
+        # 2. Recursively normalize properties
+        if "properties" in node and isinstance(node["properties"], dict):
+            node["properties"] = {
+                p_k: _normalize_node(p_v) for p_k, p_v in node["properties"].items()
             }
-        elif key == "items":
-            if isinstance(val, dict):
-                sanitized["items"] = sanitize_gemini_schema(val)
-            elif isinstance(val, list):
-                sanitized["items"] = [sanitize_gemini_schema(item) for item in val]
-            else:
-                sanitized["items"] = val
-        else:
-            sanitized[key] = val
+            if "type" not in node:
+                node["type"] = "object"
 
-    if "properties" in sanitized and "type" not in sanitized:
+        # 3. Recursively normalize items
+        if "items" in node:
+            if isinstance(node["items"], dict):
+                node["items"] = _normalize_node(node["items"])
+            elif isinstance(node["items"], list):
+                node["items"] = [_normalize_node(item) for item in node["items"]]
+            if "type" not in node:
+                node["type"] = "array"
+
+        # 4. Recursively normalize combinators
+        for comb in ("anyOf", "allOf", "oneOf"):
+            if comb in node and isinstance(node[comb], list):
+                node[comb] = [_normalize_node(x) for x in node[comb]]
+
+        # 5. Infer type if missing
+        if not node.get("type"):
+            if "properties" in node:
+                node["type"] = "object"
+            elif "items" in node:
+                node["type"] = "array"
+            elif "enum" in node:
+                node["type"] = "string"
+
+        return node
+
+    sanitized = _normalize_node(sanitized)
+    if not sanitized.get("type"):
         sanitized["type"] = "object"
-    elif "items" in sanitized and "type" not in sanitized:
-        sanitized["type"] = "array"
-    elif not sanitized.get("type"):
-        if "enum" in sanitized:
-            sanitized["type"] = "string"
-        else:
-            sanitized["type"] = "string"
 
     return sanitized
+
+
+def ensure_tool_pairing_integrity(contents: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """
+    Enforces strict 1:1 pairing between model functionCalls and user functionResponses.
+    Prevents orphaned functionCall or functionResponse turns from breaking upstream
+    CloudCode -> Anthropic translation (e.g. at messages.2).
+    """
+    if not isinstance(contents, list) or not contents:
+        return contents
+
+    sanitized_contents: list[dict[str, Any]] = []
+    pending_calls: dict[str, str] = {}  # id -> name
+
+    for turn in contents:
+        if not isinstance(turn, dict):
+            sanitized_contents.append(turn)
+            continue
+
+        role = turn.get("role")
+        parts = turn.get("parts", [])
+        if not isinstance(parts, list):
+            parts = []
+
+        if role == "model":
+            new_parts = []
+            turn_calls: dict[str, str] = {}
+            for p in parts:
+                if isinstance(p, dict) and "functionCall" in p:
+                    fc = p["functionCall"]
+                    if isinstance(fc, dict):
+                        fc_id = fc.get("id") or f"call_{uuid.uuid4().hex[:8]}"
+                        fc["id"] = fc_id
+                        fc_name = fc.get("name", "tool")
+                        turn_calls[fc_id] = fc_name
+                        if not p.get("thoughtSignature") and not p.get("thought_signature"):
+                            p["thoughtSignature"] = (
+                                fc.get("thoughtSignature")
+                                or get_thought_signature(call_id=fc_id, func_name=fc_name, args_obj=fc.get("args"))
+                                or DEFAULT_THOUGHT_SIGNATURE
+                            )
+                new_parts.append(p)
+            pending_calls = turn_calls
+            sanitized_contents.append({"role": "model", "parts": new_parts})
+
+        elif role == "user":
+            new_parts = []
+            answered_call_ids: set[str] = set()
+
+            for p in parts:
+                if isinstance(p, dict) and "functionResponse" in p:
+                    fr = p["functionResponse"]
+                    if isinstance(fr, dict):
+                        fr_id = fr.get("id")
+                        fr_name = fr.get("name", "")
+
+                        matched_id = None
+                        if fr_id and fr_id in pending_calls:
+                            matched_id = fr_id
+                        elif fr_name:
+                            for pid, pname in pending_calls.items():
+                                if pname == fr_name and pid not in answered_call_ids:
+                                    matched_id = pid
+                                    break
+                        elif pending_calls and len(pending_calls) == 1:
+                            matched_id = next(iter(pending_calls.keys()))
+
+                        if matched_id:
+                            answered_call_ids.add(matched_id)
+                            fr["id"] = matched_id
+                            fr["name"] = pending_calls[matched_id]
+                            resp_obj = fr.get("response", {})
+                            if isinstance(resp_obj, dict):
+                                val = resp_obj.get("output")
+                                if val is None:
+                                    val = resp_obj.get("result")
+                                if val is None:
+                                    val = resp_obj.get("content")
+                                if isinstance(val, dict) and "result" in val:
+                                    val = val["result"]
+                                if val is None:
+                                    val = str(resp_obj) if resp_obj else ""
+                                resp_obj["output"] = val
+                                resp_obj["result"] = val
+                                resp_obj["content"] = val
+                            new_parts.append(p)
+                        else:
+                            # Orphaned functionResponse (no matching functionCall in preceding model turn)
+                            resp_val = fr.get("response", {})
+                            content_val = resp_val.get("content", resp_val) if isinstance(resp_val, dict) else resp_val
+                            text_repr = f"[Tool Output ({fr_name or 'tool'}): {content_val}]"
+                            new_parts.append({"text": text_repr})
+                else:
+                    new_parts.append(p)
+
+            # If there were pending function calls not answered in this turn, synthesize responses
+            for pid, pname in pending_calls.items():
+                if pid not in answered_call_ids:
+                    synthetic_resp = {
+                        "functionResponse": {
+                            "name": pname,
+                            "id": pid,
+                            "response": {
+                                "name": pname,
+                                "content": {"result": "[Done / output omitted]"},
+                            },
+                        }
+                    }
+                    new_parts.insert(0, synthetic_resp)
+
+            pending_calls = {}
+            sanitized_contents.append({"role": "user", "parts": new_parts})
+
+        else:
+            sanitized_contents.append(turn)
+
+    return sanitize_gemini_contents_thought_signatures(sanitized_contents)
 
 
 _IMAGE_CACHE: dict[str, tuple[str, str]] = {}
@@ -337,6 +507,7 @@ __all__ = [
     "_extract_media_from_url",
     "_extract_message_text",
     "_is_title_generation",
+    "ensure_tool_pairing_integrity",
     "get_thought_signature",
     "logger",
     "normalize_model_name",
