@@ -417,6 +417,45 @@ class TestPolymorphicAccountHierarchy(unittest.IsolatedAsyncioTestCase):
         candidates_gemini = pool.get_candidate_accounts("gemini-2.5-pro")
         self.assertEqual(len(candidates_gemini), 2)
 
+        # For anthropic-prefixed Gemini model: both accounts are eligible (not treated as 3P)
+        candidates_anthropic_gemini = pool.get_candidate_accounts("anthropic.gemini-3.8-flash-high")
+        self.assertEqual(len(candidates_anthropic_gemini), 2)
+
+    def test_quota_exhausted_gemini_with_anthropic_prefix(self):
+        # Account has 0% 3P quota (e.g. no Claude access) but 100% Gemini quota
+        oa = AntigravityOAuthSession(
+            account_id="oa_free",
+            refresh_token="tok",
+            email="free@example.com",
+            quota_summary={
+                "groups": [
+                    {
+                        "displayName": "Gemini",
+                        "remainingFraction": 1.0,
+                        "buckets": [{"window": "5h", "remainingFraction": 1.0}],
+                    },
+                    {
+                        "displayName": "Claude",
+                        "remainingFraction": 0.0,
+                        "buckets": [{"window": "weekly", "remainingFraction": 0.0}],
+                    },
+                ]
+            },
+        )
+        # Should NOT be exhausted for anthropic.gemini-3.8-flash-high because it's a Gemini model
+        self.assertFalse(oa.is_quota_exhausted("anthropic.gemini-3.8-flash-high"))
+        self.assertFalse(oa.is_quota_exhausted("gemini-3.8-flash-high"))
+        # Should be exhausted for real 3P Claude models
+        self.assertTrue(oa.is_quota_exhausted("claude-sonnet-4-6"))
+        self.assertTrue(oa.is_quota_exhausted("anthropic.claude-3-7-sonnet"))
+
+        # Rate limiting test
+        oa.mark_rate_limited("anthropic.gemini-3.8-flash-high", duration=60.0)
+        self.assertTrue(oa.is_rate_limited("anthropic.gemini-3.8-flash-high"))
+        self.assertTrue(oa.is_rate_limited("gemini-2.5-pro"))
+        self.assertFalse(oa.is_rate_limited("claude-sonnet-4-6"))
+
+
     def test_split_files_storage_and_reload(self):
         # 1. Create pool and add both OAuth and API key accounts
         pool = AccountPool(accounts_file=self.accounts_file)

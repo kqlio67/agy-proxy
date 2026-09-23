@@ -9,6 +9,7 @@ from typing import Any
 
 from agy_proxy.auth.base import AccountSession
 from agy_proxy.auth.constants import GENAI_BASE_URL, USER_AGENT, logger
+from agy_proxy.models import is_3p_model
 
 
 class AIStudioApiKeySession(AccountSession):
@@ -135,10 +136,7 @@ class AIStudioApiKeySession(AccountSession):
 
     def is_model_supported(self, model_name: str) -> bool:
         """Google AI Studio API Key accounts only support Gemini models, never Claude or 3P models."""
-        m = model_name.lower()
-        if any(k in m for k in ("claude", "sonnet", "opus", "haiku", "gpt-oss", "fable", "3p")):
-            return False
-        return True
+        return not is_3p_model(model_name)
 
     def get_quota_details(self) -> dict[str, Any]:
         """Calculates structured quota fractions for Google AI Studio API Key."""
@@ -146,7 +144,7 @@ class AIStudioApiKeySession(AccountSession):
         now = time.time()
         max_limit = 0.0
         for rk, rv in self.rate_limited_models.items():
-            if not any(sub in rk.lower() for sub in ["claude", "gpt", "3p", "anthropic", "sonnet", "opus"]):
+            if not is_3p_model(rk):
                 if rv > max_limit:
                     max_limit = rv
         cooldown = max(0, int(max_limit - now)) if max_limit > now else 0

@@ -39,6 +39,7 @@ from agy_proxy.auth.token_utils import (
     parse_antigravity_token_file,
     parse_token_dict,
 )
+from agy_proxy.models import is_3p_model
 
 
 def _web_sessions_match(a: Any, b: Any) -> bool:
@@ -960,7 +961,7 @@ class AccountPool:
 
         active_pool = [acc for acc in active_pool if acc.is_model_supported(model)]
         if not active_pool:
-            is_3p = any(k in model.lower() for k in ["claude", "gpt-oss", "sonnet", "opus", "fable"])
+            is_3p = is_3p_model(model)
             if is_3p:
                 raise RuntimeError("No active Google OAuth accounts available for Claude / 3P models.")
             else:

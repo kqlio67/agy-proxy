@@ -9,6 +9,7 @@ from typing import Any
 import httpx
 
 from agy_proxy.auth.constants import logger
+from agy_proxy.models import is_3p_model
 
 
 class BaseAccountSession:
@@ -77,7 +78,7 @@ class BaseAccountSession:
                 del self.rate_limited_models[model]
 
         # 2. Group-level keys and aliases
-        is_3p = any(k in model.lower() for k in ["claude", "gpt-oss", "sonnet", "opus", "anthropic"])
+        is_3p = is_3p_model(model)
         key = "3p" if is_3p else "gemini"
         aliases = ["3p", "claude"] if is_3p else ["gemini"]
         for alias in aliases:
@@ -89,7 +90,7 @@ class BaseAccountSession:
 
         # 3. Any active model limit matching the same family
         for k, v in list(self.rate_limited_models.items()):
-            k_is_3p = any(sub in k.lower() for sub in ["claude", "gpt-oss", "sonnet", "opus", "anthropic", "3p"])
+            k_is_3p = is_3p_model(k)
             if (is_3p and k_is_3p) or (not is_3p and not k_is_3p):
                 if now < v:
                     return True
@@ -99,7 +100,7 @@ class BaseAccountSession:
 
     def mark_rate_limited(self, model: str, duration: float = 3600.0):
         """Marks account rate-limited for a duration."""
-        is_3p = any(k in model.lower() for k in ["claude", "gpt-oss", "sonnet", "opus"])
+        is_3p = is_3p_model(model)
         key = "3p" if is_3p else "gemini"
         self.rate_limited_models[key] = time.time() + duration
         logger.warning("[%s] Marked as rate-limited for group %s for %.0fs", self.email, key, duration)
@@ -142,7 +143,7 @@ class BaseAccountSession:
             )
             return gemini_ex and claude_ex
 
-        is_3p = any(sub in model.lower() for sub in ["claude", "gpt", "3p", "anthropic", "sonnet", "opus"])
+        is_3p = is_3p_model(model)
         key = "3p" if is_3p else "gemini"
         group_q = qd.get(key, {})
         if group_q.get("percent", 100.0) <= 0.0 or group_q.get("fraction", 1.0) <= 0.001:

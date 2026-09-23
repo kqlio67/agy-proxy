@@ -20,6 +20,7 @@ from agy_proxy.auth.constants import (
     logger,
 )
 from agy_proxy.auth.token_utils import _decode_jwt_payload
+from agy_proxy.models import is_3p_model
 
 
 class AntigravityOAuthSession(AccountSession):
@@ -411,7 +412,7 @@ class AntigravityOAuthSession(AccountSession):
             is_3p = (k == "3p")
             max_limit = 0.0
             for rk, rv in self.rate_limited_models.items():
-                rk_is_3p = any(sub in rk.lower() for sub in ["claude", "gpt", "3p", "anthropic", "sonnet", "opus"])
+                rk_is_3p = is_3p_model(rk)
                 if (is_3p and rk_is_3p) or (not is_3p and not rk_is_3p):
                     if rv > max_limit:
                         max_limit = rv
@@ -424,7 +425,7 @@ class AntigravityOAuthSession(AccountSession):
 
     def get_model_quota(self, model: str) -> dict[str, Any]:
         """Returns the effective quota fraction and reset time for a specific model."""
-        is_3p = any(k in model.lower() for k in ["claude", "gpt-oss", "sonnet", "opus"])
+        is_3p = is_3p_model(model)
         quotas = self.get_quota_details()
         group_quota = quotas["3p"] if is_3p else quotas["gemini"]
 

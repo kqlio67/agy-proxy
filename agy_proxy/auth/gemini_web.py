@@ -20,6 +20,7 @@ import websockets
 
 from agy_proxy.auth.base import AccountSession
 from agy_proxy.auth.constants import logger
+from agy_proxy.models import is_3p_model
 
 
 def extract_cookies_from_raw(raw: str | dict[str, Any] | list[Any]) -> dict[str, str]:
@@ -591,17 +592,14 @@ class GeminiWebSession(AccountSession):
 
     def is_model_supported(self, model_name: str) -> bool:
         """GeminiWeb only supports Gemini models, not Claude/3P."""
-        m = model_name.lower()
-        if any(k in m for k in ("claude", "sonnet", "opus", "haiku", "gpt-oss", "fable", "3p")):
-            return False
-        return True
+        return not is_3p_model(model_name)
 
     def get_quota_details(self) -> dict[str, Any]:
         is_gemini_limited = self.is_rate_limited("gemini")
         now = time.time()
         max_limit = 0.0
         for rk, rv in self.rate_limited_models.items():
-            if not any(sub in rk.lower() for sub in ["claude", "gpt", "3p", "anthropic", "sonnet", "opus"]):
+            if not is_3p_model(rk):
                 if rv > max_limit:
                     max_limit = rv
         cooldown = max(0, int(max_limit - now)) if max_limit > now else 0

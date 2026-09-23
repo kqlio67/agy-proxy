@@ -764,13 +764,6 @@ class CloudCodeClient:
                     else:
                         logger.info("[%s] %s [requested: %s] (%s)", acc_label, backend_m, model_name, api_source)
 
-                    # Pin session to this successful account
-                    if session_key:
-                        backend_sess_id = payload.get("request", {}).get("sessionId", f"sess-{uuid.uuid4().hex[:8]}")
-                        session_affinity.pin_session(session_key, acc.account_id, backend_sess_id)
-
-
-
                     try:
                         async with client.stream("POST", url, headers=headers, json=req_body, timeout=timeout) as response:
                             if response.status_code == 401:
@@ -789,6 +782,8 @@ class CloudCodeClient:
                             if response.status_code == 429:
                                 error_text = await response.aread()
                                 acc.mark_rate_limited(model_name, duration=60.0)
+                                if session_key:
+                                    session_affinity.unpin_session(session_key)
                                 logger.warning(
                                     "[%s] Hit 429 quota limit (%s). Failing over to next account in pool...",
                                     acc.email,
@@ -811,6 +806,11 @@ class CloudCodeClient:
                                     request=response.request,
                                     response=response,
                                 )
+
+                            # Pin session to this successful account
+                            if session_key:
+                                backend_sess_id = payload.get("request", {}).get("sessionId", f"sess-{uuid.uuid4().hex[:8]}")
+                                session_affinity.pin_session(session_key, acc.account_id, backend_sess_id)
 
                             # Stream response chunks
                             acc.total_requests += 1

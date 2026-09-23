@@ -63,6 +63,7 @@ MODEL_ALIASES: dict[str, str] = {
     "gemini-2.5-flash-thinking": "gemini-2.5-flash-thinking",
 
     # Claude Aliases
+    "claude": "claude-sonnet-4-6",
     "claude-sonnet-4-6": "claude-sonnet-4-6",
     "claude-sonnet-4.6": "claude-sonnet-4-6",
     "claude-opus-4-6-thinking": "claude-opus-4-6-thinking",
@@ -332,6 +333,8 @@ def normalize_model_name(model_name: str | None) -> str:
         return "gemini-3.1-flash-lite"
     if "flash" in cleaned:
         return "gemini-3.8-flash-high"
+    if "claude" in cleaned:
+        return "claude-sonnet-4-6"
 
     # Prefix match
     for k, v in MODEL_ALIASES.items():
@@ -343,6 +346,24 @@ def normalize_model_name(model_name: str | None) -> str:
         return model_name.strip()
 
     return DEFAULT_MODEL
+
+
+def is_3p_model(model: str) -> bool:
+    """
+    Returns True if the requested model belongs to the 3P (third-party) category
+    (Claude, Sonnet, Opus, Haiku, GPT-OSS, Fable), and False if it is a native Gemini model
+    (even if prefixed with 'anthropic.' by clients like Claude Code).
+    """
+    if not model:
+        return False
+    m = model.strip().lower()
+    if "gemini" in m:
+        return False
+    if m == "anthropic":
+        return True
+    return any(k in m for k in ("claude", "sonnet", "opus", "haiku", "gpt-oss", "fable", "3p"))
+
+
 
 
 # ---------------------------------------------------------

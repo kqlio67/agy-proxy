@@ -14,6 +14,7 @@ from agy_proxy.models import (
     ModelListResponse,
     OpenAIChatRequest,
     OpenAIMessage,
+    is_3p_model,
     normalize_model_name,
 )
 
@@ -62,6 +63,29 @@ class TestModelNormalization(unittest.TestCase):
         self.assertEqual(normalize_model_name("claude-haiku-custom"), "gemini-3.1-flash-lite")
         self.assertEqual(normalize_model_name("custom-gemini-3-8-flash"), "gemini-3.8-flash-high")
         self.assertEqual(normalize_model_name("unknown-model-xyz"), DEFAULT_MODEL)
+
+    def test_is_3p_model(self):
+        # Gemini models (including those prefixed with anthropic.)
+        self.assertFalse(is_3p_model("anthropic.gemini-3.8-flash-high"))
+        self.assertFalse(is_3p_model("anthropic/gemini-3.8-flash-high"))
+        self.assertFalse(is_3p_model("gemini-3.8-flash-high"))
+        self.assertFalse(is_3p_model("gemini-2.5-pro"))
+        self.assertFalse(is_3p_model("gemini"))
+        self.assertFalse(is_3p_model("flash"))
+        self.assertFalse(is_3p_model("gpt-4o"))
+        self.assertFalse(is_3p_model("gpt-3.5-turbo"))
+
+        # Real 3P (Claude, Opus, Haiku, GPT-OSS) models
+        self.assertTrue(is_3p_model("claude-3-5-haiku"))
+        self.assertTrue(is_3p_model("anthropic.claude-3-7-sonnet"))
+        self.assertTrue(is_3p_model("claude-sonnet-4-6"))
+        self.assertTrue(is_3p_model("claude-opus-4-6-thinking"))
+        self.assertTrue(is_3p_model("claude"))
+        self.assertTrue(is_3p_model("3p"))
+        self.assertTrue(is_3p_model("anthropic"))
+        self.assertTrue(is_3p_model("gpt-oss-120b"))
+        self.assertTrue(is_3p_model("gpt-oss-120b-medium"))
+
 
 
 class TestSchemas(unittest.TestCase):
