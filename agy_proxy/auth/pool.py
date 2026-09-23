@@ -94,9 +94,14 @@ def _merge_web_session_dicts(existing: dict, incoming: dict) -> dict:
     merged = dict(existing)
 
     # Strict priority: if EITHER session was disabled (enabled == False), the result MUST be disabled!
-    existing_enabled = existing.get("enabled", True)
-    incoming_enabled = incoming.get("enabled", True)
-    merged["enabled"] = bool(existing_enabled) and bool(incoming_enabled)
+    existing_enabled = existing.get("enabled")
+    incoming_enabled = incoming.get("enabled")
+    if existing_enabled is False or incoming_enabled is False:
+        merged["enabled"] = False
+    elif existing_enabled is True or incoming_enabled is True:
+        merged["enabled"] = True
+    else:
+        merged["enabled"] = True
 
     # Retain or set account_id
     if not merged.get("account_id") and incoming.get("account_id"):
@@ -448,20 +453,21 @@ class AccountPool:
                         acc_id = f"gw_{hashlib.md5(seed.encode('utf-8')).hexdigest()[:8]}" if seed else f"gw_{os.urandom(4).hex()}"
 
                     # Strict preservation of disabled state
-                    item_enabled = bool(item.get("enabled", True))
-                    if item.get("enabled") is False:
+                    raw_enabled = item.get("enabled")
+                    if raw_enabled is False or raw_enabled in ("false", "False", 0):
                         item_enabled = False
                     elif existing_stats.get(acc_id, {}).get("enabled") is False:
                         item_enabled = False
                     else:
                         item_psid = str((item.get("cookies") or {}).get("__Secure-1PSID", "")).strip()
                         item_email = (item.get("email") or "").strip().lower()
+                        item_enabled = bool(raw_enabled) if raw_enabled is not None else True
                         for prev_s in existing_stats.values():
                             if prev_s.get("auth_method") == "gemini_web" and prev_s.get("enabled") is False:
                                 if item_psid and prev_s.get("psid") == item_psid:
                                     item_enabled = False
                                     break
-                                if item_email and prev_s.get("email") == item_email and item_email != "gemini-web@browser.local":
+                                if item_email and prev_s.get("email") == item_email:
                                     item_enabled = False
                                     break
 

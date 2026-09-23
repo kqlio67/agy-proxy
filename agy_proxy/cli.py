@@ -31,12 +31,23 @@ def print_banner(host: str, port: int, pool: AccountPool, api_key: str = None, u
     table.add_row("[bold cyan]Universal API Base (OpenAI/Claude):[/bold cyan]", f"[bold yellow]{url}/v1[/bold yellow]")
     table.add_row("[bold cyan]Gemini Native API Base:[/bold cyan]", f"[bold blue]{url}/v1beta[/bold blue]")
     table.add_row("[bold cyan]Prompt Caching & Session Affinity:[/bold cyan]", "[bold green]Enabled (75% token discount)[/bold green]")
-    table.add_row("[bold cyan]Accounts in Pool:[/bold cyan]", f"[bold white]{len(pool.accounts)} active account(s)[/bold white]")
+    active_accs = [a for a in pool.accounts.values() if a.enabled]
+    paused_accs = [a for a in pool.accounts.values() if not a.enabled]
+    if paused_accs:
+        pool_status = f"[bold white]{len(active_accs)} active account(s)[/bold white] [dim yellow]({len(paused_accs)} paused)[/dim yellow]"
+    else:
+        pool_status = f"[bold white]{len(active_accs)} active account(s)[/bold white]"
+    table.add_row("[bold cyan]Accounts in Pool:[/bold cyan]", pool_status)
 
     for acc in pool.accounts.values():
-        tag = "[bold green](Primary)[/bold green]" if acc.is_primary else "[blue](Secondary)[/blue]"
-        email = f"[white]{acc.email}[/white]" if acc.email else "[dim]unknown@gmail.com[/dim]"
-        proj = f"[dim]Project: {acc.project_id or 'default'}[/dim]"
+        if acc.enabled:
+            tag = "[bold green](Primary)[/bold green]" if acc.is_primary else "[blue](Secondary)[/blue]"
+            email = f"[white]{acc.email}[/white]" if acc.email else "[dim]unknown@gmail.com[/dim]"
+            proj = f"[dim]Project: {acc.project_id or 'default'}[/dim]"
+        else:
+            tag = "[dim yellow](Paused - Primary)[/dim yellow]" if acc.is_primary else "[dim yellow](Paused)[/dim yellow]"
+            email = f"[dim strike]{acc.email}[/dim strike]" if acc.email else "[dim](paused)[/dim]"
+            proj = f"[dim]Project: {acc.project_id or 'default'} [PAUSED][/dim]"
         table.add_row(f"  • {tag} {email}", proj)
 
     if api_key:
