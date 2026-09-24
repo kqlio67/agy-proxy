@@ -920,6 +920,33 @@ class TestGeminiWebSession(unittest.TestCase):
             pool.get_candidate_accounts("claude-sonnet-4-6", specific_account_id="api_1")
         self.assertIn("does not support model", str(ctx.exception))
 
+    def test_candidate_selection_prioritizes_oauth_and_api_keys_over_gemini_web(self):
+        """Verify get_candidate_accounts prioritizes OAuth (consumer) then API Keys over Gemini Web sessions."""
+        pool = AccountPool()
+        oauth = AntigravityOAuthSession(account_id="oa_test", email="oa@test.com", refresh_token="rt_test")
+        oauth.last_used_timestamp = 100.0  # used more recently
+        oauth.total_requests = 10
+
+        apikey = AIStudioApiKeySession(account_id="key_test", email="key@test.com", api_key="AQ.test")
+        apikey.last_used_timestamp = 50.0
+        apikey.total_requests = 5
+
+        web = GeminiWebSession(account_id="web_test", email="web@test.com", cookies={"__Secure-1PSID": "web_psid"})
+        web.last_used_timestamp = 0.0  # never used yet
+        web.total_requests = 0
+
+        pool.accounts["web_test"] = web
+        pool.accounts["key_test"] = apikey
+        pool.accounts["oa_test"] = oauth
+
+        # Request a model supported by all three (e.g. gemini-2.5-flash or gemini-3.8-flash)
+        candidates = pool.get_candidate_accounts("gemini-2.5-flash")
+        # Even though web_test has timestamp 0.0, OAuth must come first, API key second, web last!
+        self.assertEqual(len(candidates), 3)
+        self.assertEqual(candidates[0].account_id, "oa_test")
+        self.assertEqual(candidates[1].account_id, "key_test")
+        self.assertEqual(candidates[2].account_id, "web_test")
+
     def test_gemini_web_full_restart_and_initialization_lifecycle(self):
         """Verify enabled: False persistence across full restart/initialization lifecycle."""
         from unittest.mock import patch, AsyncMock

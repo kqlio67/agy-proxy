@@ -673,7 +673,8 @@ class AccountPool:
                     dedup_key = (acc.auth_method, acc.account_id)
 
                 if dedup_key in seen_entries:
-                    if not acc.enabled:
+                    # Strict preservation: if EITHER instance was disabled, remain disabled
+                    if not acc.enabled or not seen_entries[dedup_key].get("enabled", True):
                         seen_entries[dedup_key]["enabled"] = False
                     continue
 
@@ -977,15 +978,26 @@ class AccountPool:
             not_rate_limited = [acc for acc in active_pool if not acc.is_rate_limited(model)]
             available = not_rate_limited if not_rate_limited else list(active_pool)
 
+        # Prioritize full API accounts (consumer OAuth, API key) over reverse-engineered browser sessions (gemini_web)
+        auth_priority = {"consumer": 0, "api_key": 1, "gemini_web": 2}
+
         # If preferred sticky account is valid and healthy in available pool, place it FIRST
         if preferred_account_id and any(a.account_id == preferred_account_id for a in available):
             preferred = [a for a in available if a.account_id == preferred_account_id]
             rest = [a for a in available if a.account_id != preferred_account_id]
-            rest.sort(key=lambda a: (a.last_used_timestamp, a.total_requests))
+            rest.sort(key=lambda a: (
+                auth_priority.get(getattr(a, "auth_method", ""), 99),
+                a.last_used_timestamp,
+                a.total_requests,
+            ))
             return preferred + rest
 
-        # Sort by least recently used and lowest total requests
-        available.sort(key=lambda a: (a.last_used_timestamp, a.total_requests))
+        # Sort by auth priority (OAuth -> API key -> Web), least recently used, and lowest total requests
+        available.sort(key=lambda a: (
+            auth_priority.get(getattr(a, "auth_method", ""), 99),
+            a.last_used_timestamp,
+            a.total_requests,
+        ))
         return available
 
     async def get_pool_models(self, include_disabled: bool = False) -> dict[str, Any]:
