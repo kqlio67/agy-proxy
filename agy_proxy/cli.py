@@ -31,6 +31,28 @@ def print_banner(host: str, port: int, pool: AccountPool, api_key: str = None, u
     table.add_row("[bold cyan]Universal API Base (OpenAI/Claude):[/bold cyan]", f"[bold yellow]{url}/v1[/bold yellow]")
     table.add_row("[bold cyan]Gemini Native API Base:[/bold cyan]", f"[bold blue]{url}/v1beta[/bold blue]")
     table.add_row("[bold cyan]Prompt Caching & Session Affinity:[/bold cyan]", "[bold green]Enabled (75% token discount)[/bold green]")
+    try:
+        from agy_proxy.compactor import compactor_settings
+        if compactor_settings.enabled:
+            comp_status = f"[bold green]Active[/bold green] [dim]({compactor_settings.threshold_tokens:,} tokens threshold)[/dim]"
+        else:
+            comp_status = "[bold green]Safe Mode (Disabled)[/bold green] [dim](managed by Claude Code)[/dim]"
+        table.add_row("[bold cyan]Context Auto-Compactor:[/bold cyan]", comp_status)
+
+        if compactor_settings.pruning_enabled:
+            prune_status = f"[bold green]Active[/bold green] [dim](keep {compactor_settings.prune_keep_tools} tools, max {compactor_settings.prune_max_chars:,} chars)[/dim]"
+        else:
+            prune_status = "[bold green]Safe Mode (Disabled)[/bold green] [dim](full tool history preserved)[/dim]"
+        table.add_row("[bold cyan]Smart Tool Pruning:[/bold cyan]", prune_status)
+    except Exception:
+        pass
+
+    cooldown_val = float(os.environ.get("AGY_RATE_LIMIT_COOLDOWN", "0"))
+    if cooldown_val > 0:
+        cd_status = f"[bold yellow]{cooldown_val:.0f}s[/bold yellow]"
+    else:
+        cd_status = "[bold green]Disabled (0s - instant retry)[/bold green]"
+    table.add_row("[bold cyan]Rate-Limit 429 Cooldown:[/bold cyan]", cd_status)
     active_accs = [a for a in pool.accounts.values() if a.enabled]
     paused_accs = [a for a in pool.accounts.values() if not a.enabled]
     if paused_accs:
@@ -382,6 +404,38 @@ def handle_restore_codex():
         console.print("[dim]No active Antigravity Proxy settings found in ~/.codex/config.toml.[/dim]")
 
 
+def handle_setup_claude(port: int = 8000, model: str = "anthropic.gemini-3.8-flash-high", url: str | None = None):
+    """Configures Claude Code CLI to route through Antigravity Proxy with zero 'Not logged in' errors."""
+    from agy_proxy.claude_helper import setup_claude
+    res = setup_claude(port=port, model=model, proxy_url=url)
+    if res.get("ok"):
+        backup_text = f"\n• [bold cyan]Backup Saved:[/bold cyan] [green]{res['backup_path']}[/green]" if res.get("backup_created") else ""
+        console.print(Panel(
+            f"[bold green]✓ Claude Code CLI Successfully Configured![/bold green]\n\n"
+            f"• [bold cyan]Settings File:[/bold cyan] [white]{res['settings_path']}[/white]\n"
+            f"• [bold cyan]Proxy Endpoint:[/bold cyan] [yellow]{res['proxy_url']}[/yellow]\n"
+            f"• [bold cyan]Default Model:[/bold cyan] [magenta]{res['model']}[/magenta]\n"
+            f"• [bold cyan]Authentication:[/bold cyan] [green]Logged In (oauth_token - background daemons enabled)[/green]"
+            f"{backup_text}\n\n"
+            f"[dim]Foreground sessions and all background agents will now automatically route through Antigravity Proxy.[/dim]\n"
+            f"[dim]To restore original settings anytime, run:[/dim] [bold yellow]agy-proxy restore-claude[/bold yellow]",
+            title="[bold white]Claude Code Integration[/bold white]",
+            border_style="green",
+        ))
+    else:
+        console.print(f"[bold red]✗ Failed to configure Claude Code:[/bold red] {res.get('error')}")
+
+
+def handle_restore_claude():
+    """Restores the original Claude Code CLI settings.json from backup."""
+    from agy_proxy.claude_helper import restore_claude
+    res = restore_claude()
+    if res.get("ok"):
+        console.print(f"[bold green]✓ Successfully restored Claude Code settings from {res.get('restored_from')}![/bold green]")
+    else:
+        console.print(f"[bold red]✗ Failed to restore Claude Code settings:[/bold red] {res.get('error')}")
+
+
 def handle_run_codex(port: int = 8000, model: str = "gemini-3.8-flash-high", extra_args: list = None):
     """Launches Codex CLI in ephemeral test mode with proxy and catalog without modifying ~/.codex/config.toml."""
     import shutil
@@ -494,6 +548,23 @@ def build_parser() -> argparse.ArgumentParser:
         api_sub.add_argument("--key", "-k", type=str, default=None, help="Gemini API Key (AIza...)")
         api_sub.add_argument("--name", "-n", type=str, default=None, help="Friendly display name for this API key")
 
+    # setup-claude subcommand (agy-proxy setup-claude)
+    setup_claude_p = subparsers.add_parser(
+        "setup-claude",
+        aliases=["claude-setup"],
+        help="Configure Claude Code CLI (~/.claude/settings.json) to route through Antigravity Proxy",
+    )
+    setup_claude_p.add_argument("--port", "-p", type=int, default=8000, help="Proxy server port (default: 8000)")
+    setup_claude_p.add_argument("--url", type=str, default=None, help="Custom proxy base URL (e.g. http://127.0.0.1:8000)")
+    setup_claude_p.add_argument("--model", "-m", type=str, default="anthropic.gemini-3.8-flash-high", help="Default model (default: anthropic.gemini-3.8-flash-high)")
+
+    # restore-claude subcommand (agy-proxy restore-claude)
+    subparsers.add_parser(
+        "restore-claude",
+        aliases=["claude-restore"],
+        help="Restore original Claude Code CLI settings.json from backup",
+    )
+
     # setup-codex subcommand (agy-proxy setup-codex)
     setup_codex_p = subparsers.add_parser(
         "setup-codex",
@@ -562,6 +633,44 @@ def build_parser() -> argparse.ArgumentParser:
         type=str,
         default=os.environ.get("CLOUDFLARE_UPSTREAM_URL", None),
         help="Route CloudCode traffic through Cloudflare Worker edge URL for Geo-Bypass",
+    )
+    # Context Auto-Compactor & Smart Tool Pruning controls
+    parser.add_argument(
+        "--compact",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Enable or disable automatic context compaction for long chats (default: enabled)",
+    )
+    parser.add_argument(
+        "--prune",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Enable or disable smart tool pruning for older tool results (default: disabled)",
+    )
+    parser.add_argument(
+        "--compact-threshold",
+        type=int,
+        default=None,
+        help="Token threshold to trigger context auto-compaction (default: 130000)",
+    )
+    parser.add_argument(
+        "--prune-keep-tools",
+        type=int,
+        default=None,
+        help="Number of recent tool results to leave intact during pruning (default: 15)",
+    )
+    parser.add_argument(
+        "--prune-max-chars",
+        type=int,
+        default=None,
+        help="Maximum characters to retain per pruned tool result (default: 15000)",
+    )
+    parser.add_argument(
+        "--cooldown",
+        "--rate-limit-cooldown",
+        type=float,
+        default=None,
+        help="Rate-limit cooldown in seconds upon receiving HTTP 429 from provider (default: 0 / disabled)",
     )
     return parser
 
@@ -657,6 +766,16 @@ def main():
         else:
             auth_parser.print_help()
             return
+    elif args.subcommand in ("setup-claude", "claude-setup"):
+        handle_setup_claude(
+            port=getattr(args, "port", 8000),
+            model=getattr(args, "model", "anthropic.gemini-3.8-flash-high"),
+            url=getattr(args, "url", None),
+        )
+        return
+    elif args.subcommand in ("restore-claude", "claude-restore"):
+        handle_restore_claude()
+        return
     elif args.subcommand in ("setup-codex", "codex-setup"):
         handle_setup_codex(port=getattr(args, "port", 8000), model=getattr(args, "model", "gemini-3.8-flash-high"))
         return
@@ -671,6 +790,25 @@ def main():
         )
         return
 
+
+    # Apply CLI context auto-compaction and tool pruning overrides
+    try:
+        from agy_proxy.compactor import compactor_settings
+        if getattr(args, "compact", None) is not None:
+            compactor_settings.enabled = bool(args.compact)
+        if getattr(args, "prune", None) is not None:
+            compactor_settings.pruning_enabled = bool(args.prune)
+        if getattr(args, "compact_threshold", None) is not None:
+            compactor_settings.threshold_tokens = int(args.compact_threshold)
+        if getattr(args, "prune_keep_tools", None) is not None:
+            compactor_settings.prune_keep_tools = int(args.prune_keep_tools)
+        if getattr(args, "prune_max_chars", None) is not None:
+            compactor_settings.prune_max_chars = int(args.prune_max_chars)
+    except Exception:
+        pass
+
+    if getattr(args, "cooldown", None) is not None:
+        os.environ["AGY_RATE_LIMIT_COOLDOWN"] = str(args.cooldown)
 
     # Configure logging
     effective_log_level = "debug" if args.debug else args.log_level
