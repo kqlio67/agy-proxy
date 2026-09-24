@@ -2945,23 +2945,26 @@ https://your-tunnel.trycloudflare.com/v1</pre>
 
           ${quotaSectionHtml}
 
+          ${!isWeb && !isApiKey ? `
+            <div class="flex items-center gap-1.5 pt-0.5">
+              <button onclick="openQuotaModal('${acc.account_id}')" class="flex-1 py-1 px-1.5 rounded-lg bg-purple-500/15 hover:bg-purple-600 hover:text-white text-purple-300 font-medium text-[10px] sm:text-[11px] transition border border-purple-500/30 flex items-center justify-center gap-1 shadow-sm" title="View official agy Models & Quota format">
+                <i class="fa-solid fa-chart-pie text-[9px] sm:text-[10px]"></i><span>Quota</span>
+              </button>
+              <button onclick="openPlaygroundForAccount('${acc.account_id}')" class="flex-1 py-1 px-1.5 rounded-lg bg-indigo-500/15 hover:bg-indigo-600 hover:text-white text-indigo-300 font-medium text-[10px] sm:text-[11px] transition border border-indigo-500/30 flex items-center justify-center gap-1 shadow-sm" title="Test in Playground">
+                <i class="fa-solid fa-terminal text-[9px] sm:text-[10px]"></i><span>Playground</span>
+              </button>
+              <button onclick="testAccount('${acc.account_id}')" class="flex-1 py-1 px-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-medium text-[10px] sm:text-[11px] transition border border-slate-700 flex items-center justify-center gap-1 shadow-sm" title="Test connection">
+                <i class="fa-solid fa-vial-circle-check text-teal-400 text-[9px] sm:text-[10px]"></i><span>Test</span>
+              </button>
+              <button onclick="openActivateSessionModal('${acc.account_id}')" class="flex-1 py-1 px-1.5 rounded-lg ${isBothActive ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border-emerald-500/40' : (isCliActive ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border-emerald-500/40' : (isIdeActive ? 'bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border-cyan-500/40' : 'bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-400 border-slate-700'))} font-medium text-[10px] sm:text-[11px] transition border flex items-center justify-center gap-1 shadow-sm" title="Switch or configure active Antigravity CLI / IDE session">
+                <i class="fa-solid ${isBothActive ? 'fa-check text-emerald-400' : (isCliActive ? 'fa-terminal text-emerald-400' : (isIdeActive ? 'fa-code text-cyan-400' : 'fa-user-check text-[9px] sm:text-[10px]'))}"></i><span>${isBothActive ? 'CLI + IDE' : (isCliActive ? 'In CLI' : (isIdeActive ? 'In IDE' : 'AGY CLI'))}</span>
+              </button>
+            </div>
+          ` : ''}
+
           <div class="flex items-center justify-between text-[10px] sm:text-[11px] text-slate-500 pt-1 border-t border-slate-800/50">
             <div class="flex items-center space-x-1.5">
-              ${!isWeb && !isApiKey ? `
-                <button onclick="openQuotaModal('${acc.account_id}')" class="px-2 py-0.5 rounded bg-purple-500/15 hover:bg-purple-600 hover:text-white text-purple-300 font-medium text-[10px] transition border border-purple-500/30 flex items-center space-x-1" title="View official agy Models & Quota format">
-                  <i class="fa-solid fa-chart-pie text-[9px]"></i><span>Quota</span>
-                </button>
-                <button onclick="openPlaygroundForAccount('${acc.account_id}')" class="px-2 py-0.5 rounded bg-indigo-500/15 hover:bg-indigo-600 hover:text-white text-indigo-300 font-medium text-[10px] transition border border-indigo-500/30 flex items-center space-x-1" title="Test in Playground">
-                  <i class="fa-solid fa-terminal text-[9px]"></i><span>Playground</span>
-                </button>
-                <button onclick="testAccount('${acc.account_id}')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-medium text-[10px] transition border border-slate-700 flex items-center space-x-1" title="Test connection">
-                  <i class="fa-solid fa-vial-circle-check text-teal-400 text-[9px]"></i><span>Test</span>
-                </button>
-                <button onclick="openActivateSessionModal('${acc.account_id}')" class="px-2 py-0.5 rounded ${isBothActive ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border-emerald-500/40' : (isCliActive ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border-emerald-500/40' : (isIdeActive ? 'bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border-cyan-500/40' : 'bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-400 border-slate-700'))} font-medium text-[10px] transition border flex items-center space-x-1 shadow-sm" title="Switch or configure active Antigravity CLI / IDE session">
-                  <i class="fa-solid ${isBothActive ? 'fa-check text-emerald-400' : (isCliActive ? 'fa-terminal text-emerald-400' : (isIdeActive ? 'fa-code text-cyan-400' : 'fa-user-check text-[9px]'))}"></i><span>${isBothActive ? 'CLI + IDE' : (isCliActive ? 'In CLI' : (isIdeActive ? 'In IDE' : 'AGY CLI'))}</span>
-                </button>
-              ` : ''}
-              <span class="truncate max-w-[120px] sm:max-w-[150px]">Model: <code class="text-indigo-400 font-mono text-[9px] sm:text-[10px]">${acc.last_used_model || 'standby'}</code></span>
+              <span class="truncate max-w-[150px] sm:max-w-[200px]">Model: <code class="text-indigo-400 font-mono text-[9px] sm:text-[10px]">${acc.last_used_model || 'standby'}</code></span>
             </div>
             <div class="flex items-center space-x-1 shrink-0">
               <span>Reqs: <b class="text-slate-300 font-mono">${acc.total_requests || 0}</b></span>
