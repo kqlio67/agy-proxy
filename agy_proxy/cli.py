@@ -443,6 +443,11 @@ def build_parser() -> argparse.ArgumentParser:
     update_parser = subparsers.add_parser("update", help="Check and install latest Antigravity Proxy updates")
     update_parser.add_argument("--check", "-c", action="store_true", help="Only check for updates without installing")
 
+    # bump subcommand (agy-proxy bump [patch|minor|major|<version>] [--dry-run])
+    bump_parser = subparsers.add_parser("bump", help="Bump project version across __init__.py and pyproject.toml")
+    bump_parser.add_argument("target", nargs="?", default="patch", help="Increment component (patch, minor, major) or explicit semver (e.g. 1.4.1)")
+    bump_parser.add_argument("--dry-run", action="store_true", help="Preview version bump without modifying files")
+
     # switch subcommand (agy-proxy switch)
     switch_parser = subparsers.add_parser("switch", help="Switch active Antigravity CLI/IDE session")
     switch_parser.add_argument("target", nargs="?", default=None, help="Target account email, name, ID, or #")
@@ -569,7 +574,11 @@ def main():
         os.environ["CLOUDFLARE_UPSTREAM_URL"] = args.cloudflare_url.rstrip("/")
 
     # Handle subcommands
-    if args.subcommand == "update":
+    if args.subcommand == "bump":
+        from agy_proxy.version import handle_bump_command
+        handle_bump_command(target=getattr(args, "target", "patch"), dry_run=getattr(args, "dry_run", False))
+        return
+    elif args.subcommand == "update":
         check_only = getattr(args, "check", False)
         asyncio.run(handle_update_command(check_only=check_only))
         return

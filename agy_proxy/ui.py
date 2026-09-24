@@ -70,9 +70,15 @@ def get_dashboard_html(force_reload: bool = False) -> str:
     try:
         current_mtime = template_file.stat().st_mtime
         if force_reload or _cached_dashboard_html is None or current_mtime > _last_mtime:
-            _cached_dashboard_html = template_file.read_text(encoding="utf-8")
+            from agy_proxy import __version__ as APP_VERSION
+            raw_html = template_file.read_text(encoding="utf-8")
+            _cached_dashboard_html = (
+                raw_html
+                .replace("{{APP_VERSION}}", APP_VERSION)
+                .replace("{{ APP_VERSION }}", APP_VERSION)
+            )
             _last_mtime = current_mtime
-            logger.debug("Loaded dashboard HTML template from %s (%d bytes)", template_file, len(_cached_dashboard_html))
+            logger.debug("Loaded dashboard HTML template from %s (%d bytes, v%s)", template_file, len(_cached_dashboard_html), APP_VERSION)
     except Exception as e:
         logger.error("Failed to read dashboard template from %s: %s", template_file, e)
         if _cached_dashboard_html is None:
