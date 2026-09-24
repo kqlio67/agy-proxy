@@ -203,23 +203,23 @@ class TestAntigravitySwitcher(unittest.IsolatedAsyncioTestCase):
         pool.accounts["acc_2"] = acc2
         pool.save_accounts = lambda: None  # mock save
 
-        # Switch by 1-based index "2" (default set_primary=False leaves pool primary unchanged)
+        # Switch by 1-based index "2" (default set_primary=True updates pool primary)
         selected, written = await switch_antigravity_session("2", pool=pool, target_paths=[self.dest_path])
-        self.assertEqual(selected.account_id, "acc_2")
-        self.assertTrue(acc1.is_primary)
-        self.assertFalse(acc2.is_primary)
-
-        # Switch with explicit set_primary=True
-        selected, written = await switch_antigravity_session("2", pool=pool, target_paths=[self.dest_path], set_primary=True)
         self.assertEqual(selected.account_id, "acc_2")
         self.assertTrue(acc2.is_primary)
         self.assertFalse(acc1.is_primary)
 
-        # Switch by email without set_primary
-        selected, written = await switch_antigravity_session("first@gmail.com", pool=pool, target_paths=[self.dest_path])
+        # Switch with explicit set_primary=False leaves pool primary unchanged
+        selected, written = await switch_antigravity_session("first@gmail.com", pool=pool, target_paths=[self.dest_path], set_primary=False)
         self.assertEqual(selected.account_id, "acc_1")
         self.assertTrue(acc2.is_primary)
         self.assertFalse(acc1.is_primary)
+
+        # Switch by email with default set_primary=True updates primary to acc_1
+        selected, written = await switch_antigravity_session("first@gmail.com", pool=pool, target_paths=[self.dest_path])
+        self.assertEqual(selected.account_id, "acc_1")
+        self.assertTrue(acc1.is_primary)
+        self.assertFalse(acc2.is_primary)
 
     async def test_switch_session_to_next(self):
         pool = AccountPool()
@@ -249,17 +249,19 @@ class TestAntigravitySwitcher(unittest.IsolatedAsyncioTestCase):
         pool.accounts["acc_2"] = acc2
         pool.save_accounts = lambda: None
 
-        # By default, rotating next account does not set primary in proxy pool
+        # By default, rotating next account sets primary in proxy pool
         selected, written = await switch_antigravity_session(pool=pool, to_next=True, target_paths=[self.dest_path])
-        self.assertEqual(selected.account_id, "acc_2")
-        self.assertFalse(acc2.is_primary)
-        self.assertTrue(acc1.is_primary)
-
-        # With set_primary=True, it updates the primary account
-        selected, written = await switch_antigravity_session(pool=pool, to_next=True, target_paths=[self.dest_path], set_primary=True)
         self.assertEqual(selected.account_id, "acc_2")
         self.assertTrue(acc2.is_primary)
         self.assertFalse(acc1.is_primary)
+
+        # With explicit set_primary=False, leaves pool primary unchanged
+        acc1.is_primary = True
+        acc2.is_primary = False
+        selected, written = await switch_antigravity_session(pool=pool, to_next=True, target_paths=[self.dest_path], set_primary=False)
+        self.assertEqual(selected.account_id, "acc_2")
+        self.assertTrue(acc1.is_primary)
+        self.assertFalse(acc2.is_primary)
 
     async def test_switch_session_empty_pool_raises(self):
         pool = AccountPool()
@@ -557,6 +559,97 @@ class TestServerSwitcherRoutes(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(args.subcommand, "auth")
         self.assertEqual(args.auth_action, "switch")
         self.assertTrue(args.cli)
+
+    def test_get_active_antigravity_accounts_with_jwt_email(self):
+        import base64
+        from agy_proxy.switcher import get_active_antigravity_accounts
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            pool = AccountPool()
+            acc = AccountSession(
+                account_id="acc_jwt_test",
+                auth_method="consumer",
+                email="vitay200@gmail.com",
+                refresh_token="1//different_refresh_token",
+            )
+            pool.accounts["acc_jwt_test"] = acc
+
+            # Construct a mock id_token with email claim vitay200@gmail.com
+            payload_json = json.dumps({"email": "vitay200@gmail.com", "name": "Vitay"}).encode("utf-8")
+            payload_b64 = base64.urlsafe_b64encode(payload_json).decode("ascii").rstrip("=")
+            mock_id_token = f"eyJhbGciOiJSUzI1NiJ9.{payload_b64}.mock_sig"
+
+            cli_tok_data = {
+                "token": {"access_token": "ya29.mock", "refresh_token": "1//brand_new_refresh"},
+                "id_token": mock_id_token,
+            }
+            mock_token_file = Path(tmp_dir) / "mock-cli-token"
+            mock_token_file.write_text(json.dumps(cli_tok_data), encoding="utf-8")
+
+            with patch("agy_proxy.switcher.resolve_antigravity_destinations", return_value=[mock_token_file]):
+                cli_acc, ide_acc = get_active_antigravity_accounts(pool)
+                self.assertIsNotNone(cli_acc)
+                self.assertEqual(cli_acc.account_id, "acc_jwt_test")
+                self.assertEqual(cli_acc.email, "vitay200@gmail.com")
+
+    def test_get_candidate_accounts_prioritizes_primary(self):
+        pool = AccountPool()
+        acc1 = AccountSession(
+            account_id="acc_1",
+            auth_method="consumer",
+            email="first@gmail.com",
+            refresh_token="1//rf1",
+            is_primary=False,
+            total_requests=0,
+            last_used_timestamp=0.0,
+        )
+        acc2 = AccountSession(
+            account_id="acc_2",
+            auth_method="consumer",
+            email="second@gmail.com",
+            refresh_token="1//rf2",
+            is_primary=True,
+            total_requests=10,
+            last_used_timestamp=100.0,
+        )
+        pool.accounts["acc_1"] = acc1
+        pool.accounts["acc_2"] = acc2
+
+        # Primary account acc_2 should be first despite higher total_requests and last_used_timestamp
+        candidates = pool.get_candidate_accounts("gemini-2.5-flash")
+        self.assertEqual(candidates[0].account_id, "acc_2")
+
+    def test_pool_reload_if_modified(self):
+        import time
+        from agy_proxy.cache import session_affinity
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            acc_file = Path(tmp_dir) / "accounts.json"
+            keys_file = Path(tmp_dir) / "api_keys.json"
+            web_file = Path(tmp_dir) / "web_sessions.json"
+
+            # Initialize pool and save initial account
+            acc_file.write_text(json.dumps({"accounts": [{"account_id": "acc_init", "auth_method": "consumer", "refresh_token": "1//init", "is_primary": True}]}), encoding="utf-8")
+            pool = AccountPool(accounts_file=acc_file, api_keys_file=keys_file, web_sessions_file=web_file)
+            pool.load_accounts()
+            self.assertIn("acc_init", pool.accounts)
+
+            # Pin a session in session_affinity
+            session_affinity.pin_session("sess_123", "acc_init", "12345")
+            self.assertIsNotNone(session_affinity.get_pinned_account("sess_123"))
+
+            # Initially reload_if_modified returns False
+            self.assertFalse(pool.reload_if_modified())
+
+            # Simulate another process modifying accounts.json
+            time.sleep(0.02)
+            acc_file.write_text(json.dumps({"accounts": [{"account_id": "acc_switched", "auth_method": "consumer", "refresh_token": "1//switched", "is_primary": True}]}), encoding="utf-8")
+
+            # Now reload_if_modified returns True, loads acc_switched, and unpins sticky sessions
+            self.assertTrue(pool.reload_if_modified())
+            self.assertIn("acc_switched", pool.accounts)
+            self.assertNotIn("acc_init", pool.accounts)
+            self.assertIsNone(session_affinity.get_pinned_account("sess_123"))
 
 
 if __name__ == "__main__":

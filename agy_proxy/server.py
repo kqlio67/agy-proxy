@@ -412,6 +412,8 @@ def create_app(
 
     @app.get("/api/accounts")
     async def list_accounts():
+        if hasattr(pool, "reload_if_modified"):
+            pool.reload_if_modified()
         if time.time() - getattr(pool, "last_quota_refresh_time", 0.0) > 60.0:
             asyncio.create_task(pool.refresh_all_quotas(min_interval=45.0))
         accounts_list = [acc.to_dict() for acc in pool.accounts.values()]
@@ -615,7 +617,7 @@ def create_app(
     async def activate_account_cli(
         account_id: str,
         target: str | None = "both",
-        set_primary: bool = False,
+        set_primary: bool = True,
     ):
         """Activates the specified OAuth account as the current Google Antigravity CLI, IDE, or both session."""
         unquoted_id = urllib.parse.unquote(account_id).strip()
@@ -670,6 +672,11 @@ def create_app(
         )
         if set_primary:
             pool.set_primary(acc.account_id)
+        try:
+            from agy_proxy.cache import session_affinity
+            session_affinity.unpin_all()
+        except Exception:
+            pass
 
         target_paths = resolve_antigravity_destinations(target or "both")
 
@@ -718,54 +725,11 @@ def create_app(
     @app.get("/api/accounts/cli-active")
     async def get_cli_active_account():
         """Reads the AGY CLI and IDE token files and returns which pool accounts are currently active in each."""
-        import json as _json
-        import base64 as _b64
-        from pathlib import Path
+        if hasattr(pool, "reload_if_modified"):
+            pool.reload_if_modified()
 
-        def resolve_account_from_file(token_path: Path):
-            if not token_path or not token_path.is_file() or token_path.stat().st_size == 0:
-                return None
-            try:
-                with open(token_path) as f:
-                    tok_data = _json.load(f)
-                file_refresh = (tok_data.get("token") or {}).get("refresh_token", "").strip()
-                file_access = (tok_data.get("token") or {}).get("access_token", "").strip()
-                file_id_token = (tok_data.get("id_token") or "").strip()
-                file_email = (tok_data.get("email") or "").strip().lower()
-
-                if not file_email and file_id_token and "." in file_id_token:
-                    parts = file_id_token.split(".")
-                    if len(parts) >= 2:
-                        p = parts[1]
-                        p += "=" * (-len(p) % 4)
-                        try:
-                            id_payload = _json.loads(_b64.urlsafe_b64decode(p.encode("ascii")))
-                            file_email = (id_payload.get("email") or "").strip().lower()
-                        except Exception:
-                            pass
-
-                for acc in pool.accounts.values():
-                    if acc.auth_method != "consumer":
-                        continue
-                    rt = (acc.refresh_token or "").strip()
-                    at = (acc.access_token or "").strip()
-                    acc_email = (acc.email or "").strip().lower()
-                    if file_email and acc_email and acc_email == file_email:
-                        return acc
-                    if file_refresh and rt and rt == file_refresh:
-                        return acc
-                    if file_access and at and at == file_access:
-                        return acc
-            except Exception as e:
-                logger.debug("cli-active check failed for %s: %s", token_path, e)
-            return None
-
-        home = Path.home()
-        cli_path = home / ".gemini" / "antigravity-cli" / "antigravity-oauth-token"
-        ide_path = home / ".gemini" / "antigravity-ide" / "antigravity-oauth-token"
-
-        cli_acc = resolve_account_from_file(cli_path)
-        ide_acc = resolve_account_from_file(ide_path)
+        from agy_proxy.switcher import get_active_antigravity_accounts
+        cli_acc, ide_acc = get_active_antigravity_accounts(pool)
 
         return {
             "cli": {
@@ -787,7 +751,12 @@ def create_app(
         """Switches the Antigravity CLI/IDE session to the next available account with highest quota."""
         from agy_proxy.switcher import switch_antigravity_session
         try:
-            acc, written = await switch_antigravity_session(pool=pool, to_next=True, target_env=target or "both")
+            acc, written = await switch_antigravity_session(pool=pool, to_next=True, target_env=target or "both", set_primary=True)
+            try:
+                from agy_proxy.cache import session_affinity
+                session_affinity.unpin_all()
+            except Exception:
+                pass
             return {
                 "status": "switched",
                 "account_id": acc.account_id,

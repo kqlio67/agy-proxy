@@ -64,6 +64,9 @@ def get_antigravity_token_destinations() -> list[Path]:
 
 def get_active_antigravity_accounts(pool: AccountPool) -> tuple[AccountSession | None, AccountSession | None]:
     """Reads the Antigravity token files and resolves which accounts are currently active in CLI and IDE."""
+    if hasattr(pool, "reload_if_modified"):
+        pool.reload_if_modified()
+
     cli_path = resolve_antigravity_destinations("cli")[0]
     ide_path = resolve_antigravity_destinations("ide")[0]
 
@@ -71,15 +74,41 @@ def get_active_antigravity_accounts(pool: AccountPool) -> tuple[AccountSession |
         if not token_path or not token_path.is_file() or token_path.stat().st_size == 0:
             return None
         try:
-            with open(token_path, encoding="utf-8") as f:
-                tok_data = json.load(f)
-            file_refresh = (tok_data.get("token") or {}).get("refresh_token", "").strip()
+            from agy_proxy.auth.token_utils import parse_antigravity_token_file
+            parsed = parse_antigravity_token_file(token_path)
+            if not parsed:
+                return None
+
+            file_refresh = (parsed.get("refresh_token") or "").strip()
+            file_email = (parsed.get("email") or "").strip().lower()
+            file_access = (parsed.get("access_token") or "").strip()
+            file_id_token = (parsed.get("id_token") or "").strip()
+
+            # 1. Match by refresh token
             if file_refresh:
                 for a in pool.accounts.values():
                     if a.auth_method == "consumer" and getattr(a, "refresh_token", "") == file_refresh:
                         return a
-        except Exception:
-            pass
+
+            # 2. Match by email (claims from id_token or payload)
+            if file_email:
+                for a in pool.accounts.values():
+                    if a.auth_method == "consumer" and getattr(a, "email", "") and a.email.strip().lower() == file_email:
+                        return a
+
+            # 3. Match by access token
+            if file_access:
+                for a in pool.accounts.values():
+                    if a.auth_method == "consumer" and getattr(a, "access_token", "") == file_access:
+                        return a
+
+            # 4. Match by id_token
+            if file_id_token:
+                for a in pool.accounts.values():
+                    if a.auth_method == "consumer" and getattr(a, "id_token", "") == file_id_token:
+                        return a
+        except Exception as e:
+            logger.debug("cli-active check failed for %s: %s", token_path, e)
         return None
 
     return _resolve(cli_path), _resolve(ide_path)
@@ -230,7 +259,7 @@ async def switch_antigravity_session(
     target_paths: list[Path] | None = None,
     target_env: str = "both",
     allow_overwrite: bool = True,
-    set_primary: bool = False,
+    set_primary: bool = True,
 ) -> tuple[AccountSession, list[Path]]:
     """
     Switches active Antigravity session to specified account or the next available account.
@@ -241,7 +270,7 @@ async def switch_antigravity_session(
     :param target_paths: Optional custom destination file paths.
     :param target_env: Target destination environment ('cli', 'ide', or 'both'; default: 'both').
     :param allow_overwrite: If True, permits overwriting candidate token destinations.
-    :param set_primary: If True, also marks the selected account as primary in proxy pool (default False).
+    :param set_primary: If True, also marks the selected account as primary in proxy pool (default: True).
     :return: (selected_account, list_of_updated_files)
     """
     if pool is None:
@@ -300,13 +329,18 @@ async def switch_antigravity_session(
         # Default: pick primary account
         selected_account = next((a for a in oauth_accounts if a.is_primary), oauth_accounts[0])
 
-    # Mark as primary in pool only if explicitly requested
+    # Mark as primary in pool if requested (default: True)
     if set_primary:
         for a in pool.accounts.values():
             a.is_primary = False
         selected_account.is_primary = True
         selected_account.enabled = True
         pool.save_accounts()
+        try:
+            from agy_proxy.cache import session_affinity
+            session_affinity.unpin_all()
+        except Exception:
+            pass
 
     # Write to Antigravity token destinations
     effective_targets = target_paths if target_paths is not None else resolve_antigravity_destinations(target_env)
@@ -468,8 +502,8 @@ def main():
     )
     parser.add_argument("target", nargs="*", default=[], help="Target account email, name, account_id, #, or 'usage' [target]")
     parser.add_argument("--usage", "-u", action="store_true", help="View model quota usage")
-    parser.add_argument("--quota", "-q", action="store_true", help="Alias for --usage")
-    parser.add_argument("--set-primary", action="store_true", default=False, help="Also set as primary proxy account (default False)")
+    parser.add_argument("--set-primary", dest="set_primary", action="store_true", default=True, help="Also set as primary proxy account (default: True)")
+    parser.add_argument("--no-set-primary", dest="set_primary", action="store_false", help="Do not set as primary proxy account")
     parser.add_argument("--next", "-n", action="store_true", help="Rotate to next account with highest remaining quota")
     parser.add_argument("--list", "-l", action="store_true", help="List available accounts and status")
     parser.add_argument("--env", "--target-env", dest="target_env", choices=["cli", "ide", "both"], default=None, help="Target destination environment (cli, ide, or both; default: both)")

@@ -1182,7 +1182,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       </div>
 
       <div class="flex items-center space-x-2 pt-0.5">
-        <input type="checkbox" id="modalSetPrimaryToggle" class="rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-0">
+        <input type="checkbox" id="modalSetPrimaryToggle" checked class="rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-0">
         <label for="modalSetPrimaryToggle" class="text-xs text-slate-300 cursor-pointer select-none">Also set as Primary Proxy Account</label>
       </div>
 
@@ -1661,9 +1661,9 @@ https://your-tunnel.trycloudflare.com/v1</pre>
         if (r.value === 'both') r.checked = true;
       }
 
-      // Reset primary checkbox to false (do NOT set primary when switching CLI/IDE only)
+      // Default primary checkbox to true so switching session aligns primary proxy routing
       const setPrimaryCheckbox = document.getElementById('modalSetPrimaryToggle');
-      if (setPrimaryCheckbox) setPrimaryCheckbox.checked = false;
+      if (setPrimaryCheckbox) setPrimaryCheckbox.checked = true;
 
       document.getElementById('activateSessionModal').classList.remove('hidden');
     }

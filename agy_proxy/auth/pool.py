@@ -152,6 +152,53 @@ class AccountPool:
         self._lock = asyncio.Lock()
         self._save_lock = threading.RLock()
         self._is_loaded: bool = False
+        self._file_mtimes: dict[Path, float] = {}
+
+    def _update_file_mtimes(self):
+        """Records current mtimes of account storage files to detect external multi-process updates."""
+        for path in (self.accounts_file, self.api_keys_file, self.web_sessions_file):
+            try:
+                if path.exists():
+                    self._file_mtimes[path] = path.stat().st_mtime
+                else:
+                    self._file_mtimes[path] = 0.0
+            except Exception:
+                pass
+
+    def reload_if_modified(self) -> bool:
+        """
+        Checks if any account storage files have been modified on disk by another process
+        (e.g. `agy-proxy switch` or external edits). If modified, reloads accounts and clears session affinity.
+        Returns True if a reload occurred.
+        """
+        with self._save_lock:
+            if not self._is_loaded:
+                return False
+
+            modified = False
+            for path in (self.accounts_file, self.api_keys_file, self.web_sessions_file):
+                try:
+                    if path.exists():
+                        mtime = path.stat().st_mtime
+                        if mtime > self._file_mtimes.get(path, 0.0):
+                            modified = True
+                            break
+                    elif path in self._file_mtimes and self._file_mtimes[path] > 0.0:
+                        modified = True
+                        break
+                except Exception:
+                    pass
+
+            if modified:
+                logger.info("Detected external modification to account files on disk. Reloading accounts...")
+                self._load_accounts_locked()
+                try:
+                    from agy_proxy.cache import session_affinity
+                    session_affinity.unpin_all()
+                except Exception:
+                    pass
+                return True
+            return False
 
     @property
     def accounts_file(self) -> Path:
@@ -601,6 +648,7 @@ class AccountPool:
                     break
 
         self._is_loaded = True
+        self._update_file_mtimes()
 
     def save_accounts(self):
         """
@@ -768,6 +816,7 @@ class AccountPool:
             _write_file(self.accounts_file,    "OAuth accounts", oauth_list, "accounts")
             _write_file(self.api_keys_file,    "API keys",       key_list,   "api_keys")
             _write_file(self.web_sessions_file,"web sessions",   web_list,   "web_sessions")
+            self._update_file_mtimes()
             logger.debug("Accounts saved to disk (%d OAuth, %d API keys, %d web sessions)", len(oauth_list), len(key_list), len(web_list))
 
     async def initialize_all(self):
@@ -943,6 +992,8 @@ class AccountPool:
         preferred_account_id: str | None = None,
     ) -> list[AccountSession]:
         """Returns ordered list of candidate accounts for a request, prioritizing preferred (sticky) account."""
+        self.reload_if_modified()
+
         if specific_account_id:
             if specific_account_id not in self.accounts:
                 raise RuntimeError(f"Requested account '{specific_account_id}' was not found in pool.")
@@ -986,14 +1037,16 @@ class AccountPool:
             preferred = [a for a in available if a.account_id == preferred_account_id]
             rest = [a for a in available if a.account_id != preferred_account_id]
             rest.sort(key=lambda a: (
+                0 if getattr(a, "is_primary", False) else 1,
                 auth_priority.get(getattr(a, "auth_method", ""), 99),
                 a.last_used_timestamp,
                 a.total_requests,
             ))
             return preferred + rest
 
-        # Sort by auth priority (OAuth -> API key -> Web), least recently used, and lowest total requests
+        # Sort by primary account first, then auth priority (OAuth -> API key -> Web), least recently used, and lowest total requests
         available.sort(key=lambda a: (
+            0 if getattr(a, "is_primary", False) else 1,
             auth_priority.get(getattr(a, "auth_method", ""), 99),
             a.last_used_timestamp,
             a.total_requests,
@@ -1480,6 +1533,11 @@ class AccountPool:
         target.is_primary = True
         target.enabled = True
         self.save_accounts()
+        try:
+            from agy_proxy.cache import session_affinity
+            session_affinity.unpin_all()
+        except Exception:
+            pass
         return True
 
 

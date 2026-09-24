@@ -89,6 +89,16 @@ class SessionAffinityManager:
         """Removes pinning when an account hits rate-limits or fails."""
         self._sessions.pop(session_key, None)
 
+    def unpin_all(self):
+        """Clears all sticky session affinities (e.g. on account switch or external reload)."""
+        self._sessions.clear()
+
+    def unpin_account(self, account_id: str):
+        """Removes pinning for all sessions pinned to a specific account."""
+        to_del = [k for k, v in self._sessions.items() if v.get("account_id") == account_id]
+        for k in to_del:
+            self._sessions.pop(k, None)
+
     def _cleanup_expired(self):
         now = time.time()
         expired = [k for k, v in self._sessions.items() if now - v["last_active"] > self.session_ttl]

@@ -215,7 +215,7 @@ async def handle_switch_command(
     target: str | None = None,
     to_next: bool = False,
     list_only: bool = False,
-    set_primary: bool = False,
+    set_primary: bool = True,
     target_env: str = "both",
     env_explicitly_set: bool = False,
 ):
@@ -505,7 +505,8 @@ def build_parser() -> argparse.ArgumentParser:
     # switch subcommand (agy-proxy switch)
     switch_parser = subparsers.add_parser("switch", help="Switch active Antigravity CLI/IDE session")
     switch_parser.add_argument("target", nargs="?", default=None, help="Target account email, name, ID, or #")
-    switch_parser.add_argument("--set-primary", action="store_true", default=False, help="Also set as primary proxy account (default False)")
+    switch_parser.add_argument("--set-primary", dest="set_primary", action="store_true", default=True, help="Also set as primary proxy account (default: True)")
+    switch_parser.add_argument("--no-set-primary", dest="set_primary", action="store_false", help="Do not set as primary proxy account")
     switch_parser.add_argument("--next", "-n", action="store_true", help="Switch to next account with highest quota")
     switch_parser.add_argument("--list", "-l", action="store_true", help="List available OAuth accounts and quotas")
     switch_parser.add_argument("--env", "--target-env", dest="target_env", choices=["cli", "ide", "both"], default=None, help="Target destination environment (cli, ide, or both; default: both)")
@@ -527,7 +528,8 @@ def build_parser() -> argparse.ArgumentParser:
     # auth switch subcommand (agy-proxy auth switch)
     auth_switch = auth_subparsers.add_parser("switch", help="Switch active Antigravity CLI/IDE session")
     auth_switch.add_argument("target", nargs="?", default=None, help="Target account email, name, ID, or #")
-    auth_switch.add_argument("--set-primary", action="store_true", default=False, help="Also set as primary proxy account (default False)")
+    auth_switch.add_argument("--set-primary", dest="set_primary", action="store_true", default=True, help="Also set as primary proxy account (default: True)")
+    auth_switch.add_argument("--no-set-primary", dest="set_primary", action="store_false", help="Do not set as primary proxy account")
     auth_switch.add_argument("--next", "-n", action="store_true", help="Switch to next account with highest quota")
     auth_switch.add_argument("--list", "-l", action="store_true", help="List available OAuth accounts and quotas")
     auth_switch.add_argument("--env", "--target-env", dest="target_env", choices=["cli", "ide", "both"], default=None, help="Target destination environment (cli, ide, or both; default: both)")
@@ -711,7 +713,7 @@ def main():
             target=getattr(args, "target", None),
             to_next=getattr(args, "next", False),
             list_only=getattr(args, "list", False),
-            set_primary=getattr(args, "set_primary", False),
+            set_primary=getattr(args, "set_primary", True),
             target_env=target_env,
             env_explicitly_set=env_set,
         ))
@@ -753,7 +755,7 @@ def main():
                 target=getattr(args, "target", None),
                 to_next=getattr(args, "next", False),
                 list_only=getattr(args, "list", False),
-                set_primary=getattr(args, "set_primary", False),
+                set_primary=getattr(args, "set_primary", True),
                 target_env=target_env,
                 env_explicitly_set=env_set,
             ))
