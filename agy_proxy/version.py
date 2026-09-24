@@ -48,10 +48,6 @@ def bump_version(
     Bumps the version in agy_proxy/__init__.py and pyproject.toml.
     Returns a dictionary with current_version, next_version, dry_run, and updated_files.
     """
-    from agy_proxy import __version__ as current_version
-
-    next_ver = calculate_next_version(current_version, target)
-
     if project_root is None:
         project_root = Path(__file__).resolve().parent.parent
 
@@ -63,6 +59,20 @@ def bump_version(
             f"Cannot find project configuration files in '{project_root}'. "
             "Make sure you are executing the bump command inside the agy-proxy repository."
         )
+
+    current_version = None
+    try:
+        init_raw = init_file.read_text(encoding="utf-8")
+        m = re.search(r'__version__\s*=\s*["\']([^"\']+)["\']', init_raw)
+        if m:
+            current_version = m.group(1)
+    except Exception:
+        pass
+
+    if not current_version:
+        from agy_proxy import __version__ as current_version
+
+    next_ver = calculate_next_version(current_version, target)
 
     updated_files = []
 
