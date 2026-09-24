@@ -282,8 +282,8 @@ def anthropic_to_cloudcode_payload(
             c_lower = c_text.lower()
             if (
                 "create a detailed summary of the conversation so far" in c_lower
-                or "respond with text only. do not call any tools" in c_lower
-                or "your task is to create a detailed summary" in c_lower
+                or "your task is to create a detailed summary of the conversation" in c_lower
+                or ("/compact" in c_lower and "summary" in c_lower)
             ):
                 is_checkpoint_or_compact = True
                 break

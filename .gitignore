@@ -36,3 +36,7 @@ htmlcov/
 .agents/*
 !.agents/ORIGINAL_REQUEST.md
 
+# Temporary & scratch files
+tmp/
+scratch/
+

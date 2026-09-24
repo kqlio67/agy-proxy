@@ -256,8 +256,12 @@ class CloudCodeClient:
             if not text_val:
                 return ""
             t = re.sub(r"<total_tokens>.*?</total_tokens>", "", text_val, flags=re.DOTALL)
-            t = re.sub(r"<system-reminder>.*?</system-reminder>", "", t, flags=re.DOTALL)
             t = re.sub(r"<antigravity_metadata>.*?</antigravity_metadata>", "", t, flags=re.DOTALL)
+            stripped = re.sub(r"<system-reminder>.*?</system-reminder>", "", t, flags=re.DOTALL).strip()
+            if stripped:
+                return stripped
+            # If message was purely inside <system-reminder>, keep inner text rather than discarding whole turn
+            t = re.sub(r"</?system-reminder>", "", t)
             return t.strip()
 
         def find_last_human_query() -> str:
@@ -360,7 +364,7 @@ class CloudCodeClient:
             return current_user_msg
 
         if history_turns:
-            recent = history_turns[-10:]
+            recent = history_turns[-50:]
             prompt_sections.append("[Conversation History:\n" + "\n---\n".join(recent) + "\n]")
 
         prompt_sections.append(current_user_msg)
@@ -781,7 +785,9 @@ class CloudCodeClient:
 
                             if response.status_code == 429:
                                 error_text = await response.aread()
-                                acc.mark_rate_limited(model_name, duration=60.0)
+                                cooldown_sec = float(os.environ.get("AGY_RATE_LIMIT_COOLDOWN", "0"))
+                                if cooldown_sec > 0:
+                                    acc.mark_rate_limited(model_name, duration=cooldown_sec)
                                 if session_key:
                                     session_affinity.unpin_session(session_key)
                                 logger.warning(
@@ -1185,8 +1191,8 @@ class CloudCodeClient:
             txt = _extract_message_text(req.messages[i]).lower()
             if (
                 "create a detailed summary of the conversation so far" in txt
-                or "respond with text only. do not call any tools" in txt
-                or "your task is to create a detailed summary" in txt
+                or "your task is to create a detailed summary of the conversation" in txt
+                or ("/compact" in txt and "summary" in txt)
             ):
                 is_explicit_compact = True
                 compact_idx = i
@@ -1438,8 +1444,8 @@ class CloudCodeClient:
             txt = _extract_message_text(req.messages[i]).lower()
             if (
                 "create a detailed summary of the conversation so far" in txt
-                or "respond with text only. do not call any tools" in txt
-                or "your task is to create a detailed summary" in txt
+                or "your task is to create a detailed summary of the conversation" in txt
+                or ("/compact" in txt and "summary" in txt)
             ):
                 is_explicit_compact = True
                 compact_idx = i
