@@ -8,7 +8,10 @@ import unittest
 import httpx
 from starlette.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
+from pathlib import Path
+import tempfile
 from agy_proxy.auth import AccountPool
+from agy_proxy.compactor import compactor_settings
 from agy_proxy.server import create_app
 
 
@@ -19,8 +22,21 @@ class TestServerRoutes(unittest.IsolatedAsyncioTestCase):
         self.transport = httpx.ASGITransport(app=self.app)
         self.client = httpx.AsyncClient(transport=self.transport, base_url="http://test")
 
+        # Isolate compactor_settings from touching real user config file
+        self._temp_dir = tempfile.TemporaryDirectory()
+        self._orig_config_file = compactor_settings.config_file
+        self._orig_enabled = compactor_settings.enabled
+        self._orig_pruning = compactor_settings.pruning_enabled
+        self._orig_threshold = compactor_settings.threshold_tokens
+        compactor_settings.config_file = Path(self._temp_dir.name) / "compactor_config.json"
+
     async def asyncTearDown(self):
         await self.client.aclose()
+        compactor_settings.config_file = self._orig_config_file
+        compactor_settings.enabled = self._orig_enabled
+        compactor_settings.pruning_enabled = self._orig_pruning
+        compactor_settings.threshold_tokens = self._orig_threshold
+        self._temp_dir.cleanup()
 
     async def test_dashboard_root(self):
         resp = await self.client.get("/")

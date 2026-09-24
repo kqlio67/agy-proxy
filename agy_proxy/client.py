@@ -6,6 +6,7 @@ and multi-account failover/load-balancing across accounts.
 import asyncio
 import json
 import logging
+import os
 import re
 import time
 import uuid
@@ -785,7 +786,10 @@ class CloudCodeClient:
 
                             if response.status_code == 429:
                                 error_text = await response.aread()
-                                cooldown_sec = float(os.environ.get("AGY_RATE_LIMIT_COOLDOWN", "0"))
+                                try:
+                                    cooldown_sec = float(os.environ.get("AGY_RATE_LIMIT_COOLDOWN", "0"))
+                                except (ValueError, TypeError):
+                                    cooldown_sec = 0.0
                                 if cooldown_sec > 0:
                                     acc.mark_rate_limited(model_name, duration=cooldown_sec)
                                 if session_key:

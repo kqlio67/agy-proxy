@@ -4623,7 +4623,7 @@ ${data.stderr || data.stdout || data.error}`;
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            enabled: toggle ? toggle.checked : true,
+            enabled: toggle ? toggle.checked : false,
             pruning_enabled: pruneToggle ? pruneToggle.checked : false,
             threshold_tokens: slider ? parseInt(slider.value, 10) : 130000,
             keep_last_n: select ? parseInt(select.value, 10) : 24,

@@ -56,6 +56,9 @@ class TestShouldAutoCompact(unittest.TestCase):
         compactor_settings.enabled = True
         compactor_settings.threshold_tokens = 130000
 
+    def tearDown(self):
+        compactor_settings.enabled = False
+
     def test_should_not_compact_when_too_few_messages(self):
         messages = [{"role": "user", "content": "Hi"}]
         self.assertFalse(should_auto_compact(messages, threshold_tokens=10, min_messages=4))
@@ -95,6 +98,40 @@ class TestCompactorSettings(unittest.TestCase):
         self.assertEqual(settings.threshold_tokens, 130000)
         self.assertEqual(settings.prune_keep_tools, 15)
         self.assertEqual(settings.prune_max_chars, 15000)
+        self.assertEqual(settings.to_dict()["schema_version"], 5)
+
+    def test_schema_v5_migration_disables_compactor(self):
+        import json
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cfg_path = Path(tmpdir) / "compactor_config.json"
+            # Simulate legacy v3/v4 config where compaction was enabled with 75k threshold
+            legacy_data = {
+                "schema_version": 4,
+                "enabled": True,
+                "threshold_tokens": 75000,
+                "keep_last_n": 8,
+                "model": "gemini-3.8-flash-low",
+                "pruning_enabled": True,
+                "prune_keep_tools": 6,
+                "prune_max_chars": 500,
+            }
+            with open(cfg_path, "w", encoding="utf-8") as f:
+                json.dump(legacy_data, f)
+
+            migrated = CompactorSettings(config_file=cfg_path, load_from_disk=True)
+            self.assertFalse(migrated.enabled)
+            self.assertFalse(migrated.pruning_enabled)
+            self.assertEqual(migrated.threshold_tokens, 130000)
+
+            # Check that saved config was updated to schema 5 with disabled status
+            with open(cfg_path, encoding="utf-8") as f:
+                saved = json.load(f)
+            self.assertEqual(saved["schema_version"], 5)
+            self.assertFalse(saved["enabled"])
+            self.assertFalse(saved["pruning_enabled"])
 
 
 class TestSmartToolPruning(unittest.TestCase):

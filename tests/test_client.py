@@ -266,5 +266,34 @@ class TestCloudCodeClient(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Using the tool execution output above", cont_prompt)
 
 
+    async def test_post_sse_stream_429_failover(self):
+        # Verify 429 handling does not crash with NameError: name 'os' is not defined
+        mock_response = MagicMock()
+        mock_response.status_code = 429
+        mock_response.request = httpx.Request("POST", "https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent")
+        mock_response.aread = AsyncMock(return_value=b'{"error": "Resource has been exhausted (quota exceeded)"}')
+
+        mock_stream_ctx = MagicMock()
+        mock_stream_ctx.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_stream_ctx.__aexit__ = AsyncMock(return_value=None)
+
+        with patch.object(self.acc, "initialize_project", AsyncMock(return_value="test-proj")), \
+             patch.object(self.acc, "get_auth_headers", AsyncMock(return_value={"Authorization": "Bearer test"})), \
+             patch.object(self.acc, "get_http_client", AsyncMock(return_value=MagicMock(stream=MagicMock(return_value=mock_stream_ctx)))):
+
+            # When calling _post_sse_stream_with_failover with 429 on all accounts,
+            # it should raise HTTPStatusError (429), NEVER NameError or ValueError
+            with self.assertRaises(httpx.HTTPStatusError) as ctx:
+                gen = self.client._post_sse_stream_with_failover(
+                    endpoint="streamGenerateContent",
+                    payload_builder_fn=lambda proj: {"model": "gemini-3.8-flash-high"},
+                    model_name="gemini-3.8-flash-high",
+                )
+                async for _ in gen:
+                    pass
+
+            self.assertEqual(ctx.exception.response.status_code, 429)
+
+
 if __name__ == "__main__":
     unittest.main()

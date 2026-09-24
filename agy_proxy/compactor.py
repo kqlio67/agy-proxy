@@ -92,8 +92,9 @@ class CompactorSettings:
                     data = json.load(f)
                 schema_ver = int(data.get("schema_version", 1))
 
-                if schema_ver < 3:
-                    # Automatic migration of aggressive legacy defaults to safe non-destructive v3 settings
+                if schema_ver < 5:
+                    # Automatic migration to safe non-destructive v5 settings:
+                    # Context Auto-Compactor and Smart Tool Pruning are strictly DISABLED by default
                     self.enabled = False
                     self.pruning_enabled = False
                     self.threshold_tokens = 130000
@@ -120,7 +121,7 @@ class CompactorSettings:
             with open(self.config_file, "w", encoding="utf-8") as f:
                 json.dump(
                     {
-                        "schema_version": 3,
+                        "schema_version": 5,
                         "enabled": self.enabled,
                         "threshold_tokens": self.threshold_tokens,
                         "keep_last_n": self.keep_last_n,
@@ -137,7 +138,7 @@ class CompactorSettings:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "schema_version": 3,
+            "schema_version": 5,
             "enabled": self.enabled,
             "threshold_tokens": self.threshold_tokens,
             "keep_last_n": self.keep_last_n,

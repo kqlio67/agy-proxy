@@ -639,7 +639,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--compact",
         action=argparse.BooleanOptionalAction,
         default=None,
-        help="Enable or disable automatic context compaction for long chats (default: enabled)",
+        help="Enable or disable automatic context compaction for long chats (default: disabled)",
     )
     parser.add_argument(
         "--prune",
