@@ -315,8 +315,7 @@ class TestQuotaAndAnalytics(unittest.TestCase):
         self.assertEqual(q["3p"]["percent"], 100.0)
 
     def test_account_stats_preservation_across_reload(self):
-        pool = AccountPool()
-        pool.accounts_file = self.accounts_file
+        pool = AccountPool(accounts_file=self.accounts_file)
 
         # 1. Create account with active session stats
         acc = AccountSession(account_id="acc_stat", refresh_token="tok1", email="user@example.com")
@@ -346,8 +345,7 @@ class TestQuotaAndAnalytics(unittest.TestCase):
         self.assertIsNone(reloaded_acc.last_used_model)
 
         # 5. Fresh pool instance starts clean with 0 requests and standby
-        pool2 = AccountPool()
-        pool2.accounts_file = self.accounts_file
+        pool2 = AccountPool(accounts_file=self.accounts_file)
         pool2.load_accounts()
         loaded_acc = pool2.accounts.get("acc_stat")
         self.assertIsNotNone(loaded_acc)
@@ -397,7 +395,8 @@ class TestQuotaAndAnalytics(unittest.TestCase):
         self.assertEqual(d["rate_limited_models"], {})
 
     def test_pool_candidate_selection_prioritizes_non_exhausted_account(self):
-        pool = AccountPool()
+        pool = AccountPool(accounts_file=self.accounts_file)
+        pool.save_accounts = lambda *args, **kwargs: None
         acc1 = AccountSession(account_id="acc_empty", refresh_token="dummy1", auth_method="consumer")
         acc1.total_requests = 0  # lower requests
         acc1.quota_summary = {

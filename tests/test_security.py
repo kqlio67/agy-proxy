@@ -2,6 +2,7 @@
 Unit tests for security, credential file permissions, CORS, and API key protection.
 """
 
+import json
 import os
 import stat
 import tempfile
@@ -42,6 +43,34 @@ class TestSecurityAndAuth(unittest.IsolatedAsyncioTestCase):
         dir_stat = os.stat(self.accounts_file.parent)
         dir_mode = stat.S_IMODE(dir_stat.st_mode)
         self.assertEqual(dir_mode & 0o777, 0o700)
+
+    def test_save_accounts_safety_guard_prevents_partial_overwrite(self):
+        # 1. Pre-populate disk file with 3 accounts
+        initial_data = {
+            "accounts": [
+                {"account_id": "acc_1", "email": "a1@test.com", "refresh_token": "rt1", "auth_method": "consumer"},
+                {"account_id": "acc_2", "email": "a2@test.com", "refresh_token": "rt2", "auth_method": "consumer"},
+                {"account_id": "acc_3", "email": "a3@test.com", "refresh_token": "rt3", "auth_method": "consumer"},
+            ]
+        }
+        self.accounts_file.parent.mkdir(parents=True, exist_ok=True)
+        self.accounts_file.write_text(json.dumps(initial_data), encoding="utf-8")
+
+        # 2. Pool only has 1 account (e.g. from an isolated test or partial load)
+        test_pool = AccountPool(accounts_file=self.accounts_file)
+        test_pool.accounts = {
+            "acc_1": AccountSession(account_id="acc_1", email="a1@test.com", refresh_token="rt1", auth_method="consumer")
+        }
+
+        # 3. Calling save_accounts() without force must NOT overwrite disk file
+        test_pool.save_accounts()
+        disk_data = json.loads(self.accounts_file.read_text(encoding="utf-8"))
+        self.assertEqual(len(disk_data["accounts"]), 3)
+
+        # 4. Calling save_accounts(force=True) explicitly allows reducing count
+        test_pool.save_accounts(force=True)
+        disk_data_forced = json.loads(self.accounts_file.read_text(encoding="utf-8"))
+        self.assertEqual(len(disk_data_forced["accounts"]), 1)
 
     async def test_cors_default_protection(self):
         app = create_app(account_pool=self.pool)

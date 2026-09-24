@@ -17,13 +17,17 @@ from agy_proxy.server import create_app
 
 class TestServerRoutes(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        self.pool = AccountPool()
+        self._temp_dir = tempfile.TemporaryDirectory()
+        self.pool = AccountPool(
+            accounts_file=Path(self._temp_dir.name) / "accounts.json",
+            api_keys_file=Path(self._temp_dir.name) / "api_keys.json",
+            web_sessions_file=Path(self._temp_dir.name) / "web_sessions.json",
+        )
         self.app = create_app(account_pool=self.pool)
         self.transport = httpx.ASGITransport(app=self.app)
         self.client = httpx.AsyncClient(transport=self.transport, base_url="http://test")
 
         # Isolate compactor_settings from touching real user config file
-        self._temp_dir = tempfile.TemporaryDirectory()
         self._orig_config_file = compactor_settings.config_file
         self._orig_enabled = compactor_settings.enabled
         self._orig_pruning = compactor_settings.pruning_enabled

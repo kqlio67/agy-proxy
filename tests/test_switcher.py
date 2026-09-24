@@ -264,19 +264,19 @@ class TestAntigravitySwitcher(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(acc2.is_primary)
 
     async def test_switch_session_empty_pool_raises(self):
-        pool = AccountPool()
+        pool = AccountPool(accounts_file=Path(self.tmp_dir.name) / "accounts.json")
         with self.assertRaises(RuntimeError):
             await switch_antigravity_session(pool=pool, to_next=True)
 
     async def test_switch_session_unknown_identifier_raises(self):
-        pool = AccountPool()
+        pool = AccountPool(accounts_file=Path(self.tmp_dir.name) / "accounts.json")
         pool.accounts["acc_1"] = AccountSession(
             account_id="acc_1",
             auth_method="consumer",
             email="first@gmail.com",
             refresh_token="1//rf1",
         )
-        pool.save_accounts = lambda: None
+        pool.save_accounts = lambda *args, **kwargs: None
         with self.assertRaises(ValueError):
             await switch_antigravity_session("nonexistent@domain.com", pool=pool)
 
@@ -295,7 +295,8 @@ class TestAntigravitySwitcher(unittest.IsolatedAsyncioTestCase):
         self.assertIn("antigravity-ide", str(both_paths[1]))
 
     async def test_switch_session_target_env_resolution(self):
-        pool = AccountPool()
+        pool = AccountPool(accounts_file=Path(self.tmp_dir.name) / "accounts.json")
+        pool.save_accounts = lambda *args, **kwargs: None
         acc = AccountSession(
             account_id="acc_env",
             auth_method="consumer",
@@ -565,7 +566,8 @@ class TestServerSwitcherRoutes(unittest.IsolatedAsyncioTestCase):
         from agy_proxy.switcher import get_active_antigravity_accounts
 
         with tempfile.TemporaryDirectory() as tmp_dir:
-            pool = AccountPool()
+            pool = AccountPool(accounts_file=Path(tmp_dir) / "accounts.json")
+            pool.save_accounts = lambda *args, **kwargs: None
             acc = AccountSession(
                 account_id="acc_jwt_test",
                 auth_method="consumer",
@@ -593,31 +595,33 @@ class TestServerSwitcherRoutes(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(cli_acc.email, "vitay200@gmail.com")
 
     def test_get_candidate_accounts_prioritizes_primary(self):
-        pool = AccountPool()
-        acc1 = AccountSession(
-            account_id="acc_1",
-            auth_method="consumer",
-            email="first@gmail.com",
-            refresh_token="1//rf1",
-            is_primary=False,
-            total_requests=0,
-            last_used_timestamp=0.0,
-        )
-        acc2 = AccountSession(
-            account_id="acc_2",
-            auth_method="consumer",
-            email="second@gmail.com",
-            refresh_token="1//rf2",
-            is_primary=True,
-            total_requests=10,
-            last_used_timestamp=100.0,
-        )
-        pool.accounts["acc_1"] = acc1
-        pool.accounts["acc_2"] = acc2
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            pool = AccountPool(accounts_file=Path(tmp_dir) / "accounts.json")
+            pool.save_accounts = lambda *args, **kwargs: None
+            acc1 = AccountSession(
+                account_id="acc_1",
+                auth_method="consumer",
+                email="first@gmail.com",
+                refresh_token="1//rf1",
+                is_primary=False,
+                total_requests=0,
+                last_used_timestamp=0.0,
+            )
+            acc2 = AccountSession(
+                account_id="acc_2",
+                auth_method="consumer",
+                email="second@gmail.com",
+                refresh_token="1//rf2",
+                is_primary=True,
+                total_requests=10,
+                last_used_timestamp=100.0,
+            )
+            pool.accounts["acc_1"] = acc1
+            pool.accounts["acc_2"] = acc2
 
-        # Primary account acc_2 should be first despite higher total_requests and last_used_timestamp
-        candidates = pool.get_candidate_accounts("gemini-2.5-flash")
-        self.assertEqual(candidates[0].account_id, "acc_2")
+            # Primary account acc_2 should be first despite higher total_requests and last_used_timestamp
+            candidates = pool.get_candidate_accounts("gemini-2.5-flash")
+            self.assertEqual(candidates[0].account_id, "acc_2")
 
     def test_pool_reload_if_modified(self):
         import time

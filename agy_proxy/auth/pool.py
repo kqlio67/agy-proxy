@@ -650,7 +650,7 @@ class AccountPool:
         self._is_loaded = True
         self._update_file_mtimes()
 
-    def save_accounts(self):
+    def save_accounts(self, force: bool = False):
         """
         Saves accounts to separate files by auth_method:
           - accounts.json     → OAuth consumer accounts  (mode 0o600)
@@ -658,6 +658,7 @@ class AccountPool:
           - web_sessions.json → Gemini Web sessions (mode 0o600)
         Never overwrites a file that has MORE entries than the current pool
         (safety guard against partial-load test imports wiping real data).
+        Pass force=True to bypass this guard when intentionally removing accounts.
         """
         with self._save_lock:
             # ── 1. Sync primary OAuth token to custom token_path if provided ──
@@ -788,12 +789,19 @@ class AccountPool:
                         os.chmod(path.parent, 0o700)
                     except Exception:
                         pass
-                    if path.exists() and len(entries) == 0:
+                    if path.exists() and not force:
                         try:
                             with open(path, encoding="utf-8") as _f:
                                 _existing = json.load(_f)
-                            if len(_existing.get(disk_key, [])) > 0:
-                                logger.debug("save_accounts: skipping empty write to %s (disk has %d entries)", path.name, len(_existing.get(disk_key, [])))
+                            disk_entries = _existing.get(disk_key, [])
+                            if len(disk_entries) > len(entries):
+                                logger.warning(
+                                    "save_accounts: safety guard prevented overwriting %s: disk has %d entries, pool has %d. Use force=True to overwrite.",
+                                    path.name, len(disk_entries), len(entries)
+                                )
+                                return
+                            if len(entries) == 0 and len(disk_entries) > 0:
+                                logger.debug("save_accounts: skipping empty write to %s (disk has %d entries)", path.name, len(disk_entries))
                                 return
                         except Exception:
                             pass
@@ -885,7 +893,7 @@ class AccountPool:
                 logger.info("Removing duplicate account session %s (%s) from pool", dup_id, self.accounts[dup_id].email)
                 del self.accounts[dup_id]
 
-        self.save_accounts()
+        self.save_accounts(force=bool(duplicates))
         self.last_quota_refresh_time = time.time()
 
     async def refresh_all_quotas(self, min_interval: float = 30.0) -> bool:
@@ -1442,7 +1450,7 @@ class AccountPool:
                     promoted = self.accounts.pop(next_id)
                     promoted.account_id = "primary"
                     self.accounts = {"primary": promoted, **self.accounts}
-                self.save_accounts()
+                self.save_accounts(force=True)
                 return True
             return False
 

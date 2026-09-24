@@ -877,75 +877,79 @@ class TestGeminiWebSession(unittest.TestCase):
             self.assertFalse(pool2.accounts[id2].enabled)
 
     def test_specific_account_routing_and_validation(self):
-        pool = AccountPool()
-        oauth_acc = AntigravityOAuthSession(
-            account_id="oauth_1",
-            token_dict={"access_token": "ya29.test", "refresh_token": "1//test", "expiry": "2026-09-10T22:34:56Z"},
-        )
-        web_acc = GeminiWebSession(
-            account_id="web_1",
-            cookies={"__Secure-1PSID": "test"},
-        )
-        api_acc = AIStudioApiKeySession(
-            account_id="api_1",
-            api_key="AIzaSyTestKey",
-        )
-        pool.accounts["oauth_1"] = oauth_acc
-        pool.accounts["web_1"] = web_acc
-        pool.accounts["api_1"] = api_acc
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            pool = AccountPool(accounts_file=Path(tmp_dir) / "accounts.json")
+            pool.save_accounts = lambda *args, **kwargs: None
+            oauth_acc = AntigravityOAuthSession(
+                account_id="oauth_1",
+                token_dict={"access_token": "ya29.test", "refresh_token": "1//test", "expiry": "2026-09-10T22:34:56Z"},
+            )
+            web_acc = GeminiWebSession(
+                account_id="web_1",
+                cookies={"__Secure-1PSID": "test"},
+            )
+            api_acc = AIStudioApiKeySession(
+                account_id="api_1",
+                api_key="AIzaSyTestKey",
+            )
+            pool.accounts["oauth_1"] = oauth_acc
+            pool.accounts["web_1"] = web_acc
+            pool.accounts["api_1"] = api_acc
 
-        # 1. Target specific valid account
-        cands = pool.get_candidate_accounts("gemini-3.1-pro", specific_account_id="web_1")
-        self.assertEqual(len(cands), 1)
-        self.assertEqual(cands[0].account_id, "web_1")
+            # 1. Target specific valid account
+            cands = pool.get_candidate_accounts("gemini-3.1-pro", specific_account_id="web_1")
+            self.assertEqual(len(cands), 1)
+            self.assertEqual(cands[0].account_id, "web_1")
 
-        # 2. Target non-existent account
-        with self.assertRaises((ValueError, RuntimeError)) as ctx:
-            pool.get_candidate_accounts("gemini-3.1-pro", specific_account_id="non_existent")
-        self.assertIn("not found in pool", str(ctx.exception))
+            # 2. Target non-existent account
+            with self.assertRaises((ValueError, RuntimeError)) as ctx:
+                pool.get_candidate_accounts("gemini-3.1-pro", specific_account_id="non_existent")
+            self.assertIn("not found in pool", str(ctx.exception))
 
-        # 3. Target disabled account
-        web_acc.enabled = False
-        with self.assertRaises((ValueError, RuntimeError)) as ctx:
-            pool.get_candidate_accounts("gemini-3.1-pro", specific_account_id="web_1")
-        self.assertIn("currently disabled/paused", str(ctx.exception))
-        web_acc.enabled = True
+            # 3. Target disabled account
+            web_acc.enabled = False
+            with self.assertRaises((ValueError, RuntimeError)) as ctx:
+                pool.get_candidate_accounts("gemini-3.1-pro", specific_account_id="web_1")
+            self.assertIn("currently disabled/paused", str(ctx.exception))
+            web_acc.enabled = True
 
-        # 4. Target account with unsupported model
-        with self.assertRaises((ValueError, RuntimeError)) as ctx:
-            pool.get_candidate_accounts("claude-sonnet-4-6", specific_account_id="web_1")
-        self.assertIn("does not support model", str(ctx.exception))
+            # 4. Target account with unsupported model
+            with self.assertRaises((ValueError, RuntimeError)) as ctx:
+                pool.get_candidate_accounts("claude-sonnet-4-6", specific_account_id="web_1")
+            self.assertIn("does not support model", str(ctx.exception))
 
-        with self.assertRaises((ValueError, RuntimeError)) as ctx:
-            pool.get_candidate_accounts("claude-sonnet-4-6", specific_account_id="api_1")
-        self.assertIn("does not support model", str(ctx.exception))
+            with self.assertRaises((ValueError, RuntimeError)) as ctx:
+                pool.get_candidate_accounts("claude-sonnet-4-6", specific_account_id="api_1")
+            self.assertIn("does not support model", str(ctx.exception))
 
     def test_candidate_selection_prioritizes_oauth_and_api_keys_over_gemini_web(self):
         """Verify get_candidate_accounts prioritizes OAuth (consumer) then API Keys over Gemini Web sessions."""
-        pool = AccountPool()
-        oauth = AntigravityOAuthSession(account_id="oa_test", email="oa@test.com", refresh_token="rt_test")
-        oauth.last_used_timestamp = 100.0  # used more recently
-        oauth.total_requests = 10
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            pool = AccountPool(accounts_file=Path(tmp_dir) / "accounts.json")
+            pool.save_accounts = lambda *args, **kwargs: None
+            oauth = AntigravityOAuthSession(account_id="oa_test", email="oa@test.com", refresh_token="rt_test")
+            oauth.last_used_timestamp = 100.0  # used more recently
+            oauth.total_requests = 10
 
-        apikey = AIStudioApiKeySession(account_id="key_test", email="key@test.com", api_key="AQ.test")
-        apikey.last_used_timestamp = 50.0
-        apikey.total_requests = 5
+            apikey = AIStudioApiKeySession(account_id="key_test", email="key@test.com", api_key="AQ.test")
+            apikey.last_used_timestamp = 50.0
+            apikey.total_requests = 5
 
-        web = GeminiWebSession(account_id="web_test", email="web@test.com", cookies={"__Secure-1PSID": "web_psid"})
-        web.last_used_timestamp = 0.0  # never used yet
-        web.total_requests = 0
+            web = GeminiWebSession(account_id="web_test", email="web@test.com", cookies={"__Secure-1PSID": "web_psid"})
+            web.last_used_timestamp = 0.0  # never used yet
+            web.total_requests = 0
 
-        pool.accounts["web_test"] = web
-        pool.accounts["key_test"] = apikey
-        pool.accounts["oa_test"] = oauth
+            pool.accounts["web_test"] = web
+            pool.accounts["key_test"] = apikey
+            pool.accounts["oa_test"] = oauth
 
-        # Request a model supported by all three (e.g. gemini-2.5-flash or gemini-3.8-flash)
-        candidates = pool.get_candidate_accounts("gemini-2.5-flash")
-        # Even though web_test has timestamp 0.0, OAuth must come first, API key second, web last!
-        self.assertEqual(len(candidates), 3)
-        self.assertEqual(candidates[0].account_id, "oa_test")
-        self.assertEqual(candidates[1].account_id, "key_test")
-        self.assertEqual(candidates[2].account_id, "web_test")
+            # Request a model supported by all three (e.g. gemini-2.5-flash or gemini-3.8-flash)
+            candidates = pool.get_candidate_accounts("gemini-2.5-flash")
+            # Even though web_test has timestamp 0.0, OAuth must come first, API key second, web last!
+            self.assertEqual(len(candidates), 3)
+            self.assertEqual(candidates[0].account_id, "oa_test")
+            self.assertEqual(candidates[1].account_id, "key_test")
+            self.assertEqual(candidates[2].account_id, "web_test")
 
     def test_gemini_web_full_restart_and_initialization_lifecycle(self):
         """Verify enabled: False persistence across full restart/initialization lifecycle."""

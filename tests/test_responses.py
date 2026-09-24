@@ -3,6 +3,7 @@ Unit tests for the OpenAI Responses API adapter and endpoints (/v1/responses).
 """
 
 import json
+from pathlib import Path
 import unittest
 from unittest.mock import AsyncMock, patch
 
@@ -21,13 +22,21 @@ from agy_proxy.server import create_app
 
 class TestResponsesAPI(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        self.pool = AccountPool()
+        import tempfile
+        self._temp_dir = tempfile.TemporaryDirectory()
+        self.pool = AccountPool(
+            accounts_file=Path(self._temp_dir.name) / "accounts.json",
+            api_keys_file=Path(self._temp_dir.name) / "api_keys.json",
+            web_sessions_file=Path(self._temp_dir.name) / "web_sessions.json",
+        )
+        self.pool.save_accounts = lambda *args, **kwargs: None
         self.app = create_app(account_pool=self.pool)
         self.transport = httpx.ASGITransport(app=self.app)
         self.client = httpx.AsyncClient(transport=self.transport, base_url="http://test")
 
     async def asyncTearDown(self):
         await self.client.aclose()
+        self._temp_dir.cleanup()
 
     def test_responses_payload_to_openai_chat_basic(self):
         payload = {

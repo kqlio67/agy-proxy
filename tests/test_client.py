@@ -14,6 +14,7 @@ from agy_proxy.models import AnthropicMessage, AnthropicRequest, OpenAIChatReque
 class TestCloudCodeClient(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.pool = AccountPool()
+        self.pool.save_accounts = lambda *args, **kwargs: None
         self.acc = AccountSession(
             account_id="test_acc_1",
             refresh_token="test_refresh_token",
