@@ -862,23 +862,23 @@ https://your-tunnel.trycloudflare.com/v1</pre>
           <i class="fa-solid fa-compress-alt mr-2 text-purple-400"></i> Context Auto-Compactor
         </h2>
         <label class="relative inline-flex items-center cursor-pointer">
-          <input type="checkbox" id="compactorEnabledToggle" class="sr-only peer" checked onchange="updateCompactorSettings()">
+          <input type="checkbox" id="compactorEnabledToggle" class="sr-only peer" onchange="updateCompactorSettings()">
           <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
         </label>
       </div>
       <p class="text-xs text-slate-400 leading-relaxed">
-        Auto-compresses long chat histories using <span class="font-mono text-purple-300">gemini-3.8-flash-low</span> when full, saving 80%+ tokens and preventing context window overflow.
+        Auto-compresses long chat histories using <span class="font-mono text-purple-300">gemini-3.8-flash-low</span> when full. <span class="text-amber-400">Disabled by default</span> so Claude Code manages its own native compaction without double compression or context desync.
       </p>
       <div class="space-y-4 pt-2">
         <div>
           <div class="flex justify-between text-xs text-slate-400 mb-1">
             <span>Auto-Summarize Threshold</span>
-            <span id="compactThresholdDisplay" class="font-mono text-purple-300 font-semibold">95,000 tokens</span>
+            <span id="compactThresholdDisplay" class="font-mono text-purple-300 font-semibold">130,000 tokens</span>
           </div>
-          <input type="range" id="compactThresholdSlider" min="30000" max="200000" step="5000" value="95000" class="w-full accent-purple-500" oninput="onCompactSliderInput(this.value)" onchange="updateCompactorSettings()">
+          <input type="range" id="compactThresholdSlider" min="30000" max="200000" step="5000" value="130000" class="w-full accent-purple-500" oninput="onCompactSliderInput(this.value)" onchange="updateCompactorSettings()">
           <div class="flex justify-between text-[10px] text-slate-500 mt-0.5 font-mono">
             <span>30k</span>
-            <span>95k (Recommended)</span>
+            <span>130k (Recommended)</span>
             <span>200k</span>
           </div>
         </div>
@@ -892,19 +892,42 @@ https://your-tunnel.trycloudflare.com/v1</pre>
           </select>
         </div>
 
-        <div class="border-t border-slate-800/80 pt-3">
-          <div class="flex items-center justify-between mb-1">
-            <span class="text-xs text-slate-300 font-medium flex items-center">
+        <div class="border-t border-slate-800/80 pt-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs text-slate-200 font-semibold flex items-center">
               <i class="fa-solid fa-scissors mr-1.5 text-cyan-400"></i> Smart Tool Pruning
             </span>
             <label class="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" id="pruningEnabledToggle" class="sr-only peer" checked onchange="updateCompactorSettings()">
-              <div class="w-8 h-4 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-cyan-600"></div>
+              <input type="checkbox" id="pruningEnabledToggle" class="sr-only peer" onchange="updateCompactorSettings()">
+              <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-cyan-600"></div>
             </label>
           </div>
           <p class="text-[11px] text-slate-400 leading-relaxed">
-            Truncates older bulky command & tool outputs to save 50%+ tokens while preserving the last 6 tools intact.
+            Truncates older bulky command & tool outputs in conversation history. <span class="text-amber-400">Disabled by default</span> to preserve full codebase context during Claude Code editing sessions.
           </p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <div class="flex items-center justify-between text-xs text-slate-400 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
+              <span>Preserve Recent Tools:</span>
+              <select id="pruneKeepToolsSelect" onchange="updateCompactorSettings()" class="bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1 text-slate-200 text-xs focus:outline-none focus:border-cyan-500 font-mono">
+                <option value="6">6 tools</option>
+                <option value="10">10 tools</option>
+                <option value="15" selected>15 tools (Recommended)</option>
+                <option value="20">20 tools</option>
+                <option value="30">30 tools</option>
+              </select>
+            </div>
+            <div class="flex items-center justify-between text-xs text-slate-400 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
+              <span>Max Output Chars:</span>
+              <select id="pruneMaxCharsSelect" onchange="updateCompactorSettings()" class="bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1 text-slate-200 text-xs focus:outline-none focus:border-cyan-500 font-mono">
+                <option value="2000">2,000</option>
+                <option value="5000">5,000</option>
+                <option value="10000">10,000</option>
+                <option value="15000" selected>15,000 (Recommended)</option>
+                <option value="30000">30,000</option>
+                <option value="50000">50,000</option>
+              </select>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -4031,10 +4054,11 @@ https://your-tunnel.trycloudflare.com/v1</pre>
           body: JSON.stringify({ enabled: newState })
         });
         if (!res.ok) throw new Error(await res.text());
+        showToast(`Account ${newState ? 'enabled' : 'paused'}`, 'success');
         await loadAccounts();
         await loadModels();
       } catch (err) {
-        alert('Toggle failed: ' + err.message);
+        showToast('Toggle failed: ' + err.message, 'error');
       }
     }
 
@@ -4046,10 +4070,11 @@ https://your-tunnel.trycloudflare.com/v1</pre>
           body: JSON.stringify({ enabled: newState })
         });
         if (!res.ok) throw new Error(await res.text());
+        showToast(`All accounts ${newState ? 'enabled' : 'paused'}`, 'success');
         await loadAccounts();
         await loadModels();
       } catch (err) {
-        alert('Toggle all failed: ' + err.message);
+        showToast('Toggle all failed: ' + err.message, 'error');
       }
     }
 
@@ -4565,11 +4590,16 @@ ${data.stderr || data.stdout || data.error}`;
         const slider = document.getElementById('compactThresholdSlider');
         const display = document.getElementById('compactThresholdDisplay');
         const select = document.getElementById('compactKeepLastSelect');
+        const pruneKeepSelect = document.getElementById('pruneKeepToolsSelect');
+        const pruneCharsSelect = document.getElementById('pruneMaxCharsSelect');
+
         if (toggle) toggle.checked = !!data.enabled;
-        if (pruneToggle) pruneToggle.checked = data.pruning_enabled !== false;
-        if (slider) slider.value = data.threshold_tokens || 95000;
-        if (display) display.innerText = (data.threshold_tokens || 95000).toLocaleString() + ' tokens';
+        if (pruneToggle) pruneToggle.checked = !!data.pruning_enabled;
+        if (slider) slider.value = data.threshold_tokens || 130000;
+        if (display) display.innerText = (data.threshold_tokens || 130000).toLocaleString() + ' tokens';
         if (select) select.value = data.keep_last_n || 24;
+        if (pruneKeepSelect && data.prune_keep_tools) pruneKeepSelect.value = data.prune_keep_tools;
+        if (pruneCharsSelect && data.prune_max_chars) pruneCharsSelect.value = data.prune_max_chars;
         if (data.model) currentCompactorModel = data.model;
       } catch(e) {
         console.debug('Failed to load compactor settings', e);
@@ -4586,20 +4616,28 @@ ${data.stderr || data.stdout || data.error}`;
       const pruneToggle = document.getElementById('pruningEnabledToggle');
       const slider = document.getElementById('compactThresholdSlider');
       const select = document.getElementById('compactKeepLastSelect');
+      const pruneKeepSelect = document.getElementById('pruneKeepToolsSelect');
+      const pruneCharsSelect = document.getElementById('pruneMaxCharsSelect');
       try {
-        await fetch('/api/context/settings', {
+        const res = await fetch('/api/context/settings', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             enabled: toggle ? toggle.checked : true,
-            pruning_enabled: pruneToggle ? pruneToggle.checked : true,
-            threshold_tokens: slider ? parseInt(slider.value, 10) : 95000,
+            pruning_enabled: pruneToggle ? pruneToggle.checked : false,
+            threshold_tokens: slider ? parseInt(slider.value, 10) : 130000,
             keep_last_n: select ? parseInt(select.value, 10) : 24,
+            prune_keep_tools: pruneKeepSelect ? parseInt(pruneKeepSelect.value, 10) : 15,
+            prune_max_chars: pruneCharsSelect ? parseInt(pruneCharsSelect.value, 10) : 15000,
             model: currentCompactorModel || 'gemini-3.8-flash-low'
           })
         });
+        if (res.ok) {
+          showToast('Context settings updated', 'success');
+        }
       } catch(e) {
         console.error('Failed to save compactor settings', e);
+        showToast('Failed to save context settings: ' + e.message, 'error');
       }
     }
 

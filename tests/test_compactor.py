@@ -5,6 +5,7 @@ Unit tests for the Context Compactor and Auto-Summarizer module.
 import unittest
 from agy_proxy.compactor import (
     CompactorSettings,
+    compactor_settings,
     estimate_message_tokens,
     estimate_tokens,
     estimate_total_tokens,
@@ -51,6 +52,10 @@ class TestTokenEstimator(unittest.TestCase):
 
 
 class TestShouldAutoCompact(unittest.TestCase):
+    def setUp(self):
+        compactor_settings.enabled = True
+        compactor_settings.threshold_tokens = 130000
+
     def test_should_not_compact_when_too_few_messages(self):
         messages = [{"role": "user", "content": "Hi"}]
         self.assertFalse(should_auto_compact(messages, threshold_tokens=10, min_messages=4))
@@ -69,7 +74,7 @@ class TestShouldAutoCompact(unittest.TestCase):
 
 class TestCompactorSettings(unittest.TestCase):
     def test_settings_to_dict(self):
-        settings = CompactorSettings()
+        settings = CompactorSettings(load_from_disk=False)
         settings.enabled = True
         settings.threshold_tokens = 80000
         settings.keep_last_n = 8
@@ -79,9 +84,17 @@ class TestCompactorSettings(unittest.TestCase):
         self.assertEqual(d["threshold_tokens"], 80000)
         self.assertEqual(d["keep_last_n"], 8)
         self.assertEqual(d["model"], "gemini-3.1-flash-lite")
-        self.assertTrue(d["pruning_enabled"])
-        self.assertEqual(d["prune_keep_tools"], 6)
-        self.assertEqual(d["prune_max_chars"], 500)
+        self.assertFalse(d["pruning_enabled"])
+        self.assertEqual(d["prune_keep_tools"], 15)
+        self.assertEqual(d["prune_max_chars"], 15000)
+
+    def test_default_safe_settings(self):
+        settings = CompactorSettings(load_from_disk=False)
+        self.assertFalse(settings.enabled)
+        self.assertFalse(settings.pruning_enabled)
+        self.assertEqual(settings.threshold_tokens, 130000)
+        self.assertEqual(settings.prune_keep_tools, 15)
+        self.assertEqual(settings.prune_max_chars, 15000)
 
 
 class TestSmartToolPruning(unittest.TestCase):

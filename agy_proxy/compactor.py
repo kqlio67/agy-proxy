@@ -4,9 +4,11 @@ Automatically compresses long conversation histories using gemini-3.8-flash-low
 to prevent context overflow, reduce token consumption by 80%+, and optimize response latency.
 """
 
+import copy
 import hashlib
 import json
 import logging
+import os
 import time
 from pathlib import Path
 from typing import Any
@@ -20,18 +22,21 @@ CONFIG_FILE = Path.home() / ".config" / "agy-proxy" / "compactor_config.json"
 
 
 class CompactorSettings:
-    """Manages context auto-compaction and smart tool pruning settings with local persistence."""
+    """Manages context auto-compaction and smart tool pruning settings with local persistence and environment overrides."""
 
     def __init__(
         self,
-        enabled: bool = True,
-        threshold_tokens: int = 95000,
+        enabled: bool = False,
+        threshold_tokens: int = 130000,
         keep_last_n: int = 24,
         model: str = "gemini-3.8-flash-low",
-        pruning_enabled: bool = True,
-        prune_keep_tools: int = 6,
-        prune_max_chars: int = 500,
+        pruning_enabled: bool = False,
+        prune_keep_tools: int = 15,
+        prune_max_chars: int = 15000,
+        config_file: Path | None = None,
+        load_from_disk: bool = True,
     ):
+        self.config_file = Path(config_file) if config_file else CONFIG_FILE
         self.enabled = enabled
         self.threshold_tokens = threshold_tokens
         self.keep_last_n = keep_last_n
@@ -39,29 +44,83 @@ class CompactorSettings:
         self.pruning_enabled = pruning_enabled
         self.prune_keep_tools = prune_keep_tools
         self.prune_max_chars = prune_max_chars
-        self.load()
+        if load_from_disk:
+            self.load()
+
+    def _apply_env_overrides(self):
+        """Allows environment variables to override compaction and pruning settings."""
+        env_compact = os.environ.get("AGY_PROXY_COMPACT_ENABLED") or os.environ.get("AGY_PROXY_AUTO_COMPACT") or os.environ.get("AGY_PROXY_COMPACT")
+        if env_compact is not None:
+            self.enabled = env_compact.lower() not in ("0", "false", "no", "off", "disable", "disabled")
+
+        env_pruning = os.environ.get("AGY_PROXY_PRUNING_ENABLED") or os.environ.get("AGY_PROXY_TOOL_PRUNING") or os.environ.get("AGY_PROXY_PRUNE")
+        if env_pruning is not None:
+            self.pruning_enabled = env_pruning.lower() not in ("0", "false", "no", "off", "disable", "disabled")
+
+        env_threshold = os.environ.get("AGY_PROXY_COMPACT_THRESHOLD")
+        if env_threshold is not None:
+            try:
+                self.threshold_tokens = int(env_threshold)
+            except ValueError:
+                pass
+
+        env_keep_last = os.environ.get("AGY_PROXY_KEEP_LAST_N")
+        if env_keep_last is not None:
+            try:
+                self.keep_last_n = int(env_keep_last)
+            except ValueError:
+                pass
+
+        env_prune_keep = os.environ.get("AGY_PROXY_PRUNE_KEEP_TOOLS")
+        if env_prune_keep is not None:
+            try:
+                self.prune_keep_tools = int(env_prune_keep)
+            except ValueError:
+                pass
+
+        env_prune_chars = os.environ.get("AGY_PROXY_PRUNE_MAX_CHARS")
+        if env_prune_chars is not None:
+            try:
+                self.prune_max_chars = int(env_prune_chars)
+            except ValueError:
+                pass
 
     def load(self):
-        if CONFIG_FILE.exists():
+        if self.config_file.exists():
             try:
-                with open(CONFIG_FILE, encoding="utf-8") as f:
+                with open(self.config_file, encoding="utf-8") as f:
                     data = json.load(f)
-                self.enabled = bool(data.get("enabled", True))
-                self.threshold_tokens = int(data.get("threshold_tokens", 95000))
-                self.keep_last_n = int(data.get("keep_last_n", 24))
-                self.model = str(data.get("model", "gemini-3.8-flash-low"))
-                self.pruning_enabled = bool(data.get("pruning_enabled", True))
-                self.prune_keep_tools = int(data.get("prune_keep_tools", 6))
-                self.prune_max_chars = int(data.get("prune_max_chars", 500))
+                schema_ver = int(data.get("schema_version", 1))
+
+                if schema_ver < 3:
+                    # Automatic migration of aggressive legacy defaults to safe non-destructive v3 settings
+                    self.enabled = False
+                    self.pruning_enabled = False
+                    self.threshold_tokens = 130000
+                    self.keep_last_n = 24
+                    self.model = "gemini-3.8-flash-low"
+                    self.prune_keep_tools = 15
+                    self.prune_max_chars = 15000
+                    self.save()
+                else:
+                    self.enabled = bool(data.get("enabled", False))
+                    self.threshold_tokens = int(data.get("threshold_tokens", 130000))
+                    self.keep_last_n = int(data.get("keep_last_n", 24))
+                    self.model = str(data.get("model", "gemini-3.8-flash-low"))
+                    self.pruning_enabled = bool(data.get("pruning_enabled", False))
+                    self.prune_keep_tools = int(data.get("prune_keep_tools", 15))
+                    self.prune_max_chars = int(data.get("prune_max_chars", 15000))
             except Exception as e:
                 logger.debug("Failed to load compactor config: %s", e)
+        self._apply_env_overrides()
 
     def save(self):
         try:
-            CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
-            with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+            self.config_file.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.config_file, "w", encoding="utf-8") as f:
                 json.dump(
                     {
+                        "schema_version": 3,
                         "enabled": self.enabled,
                         "threshold_tokens": self.threshold_tokens,
                         "keep_last_n": self.keep_last_n,
@@ -78,6 +137,7 @@ class CompactorSettings:
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "schema_version": 3,
             "enabled": self.enabled,
             "threshold_tokens": self.threshold_tokens,
             "keep_last_n": self.keep_last_n,
@@ -679,19 +739,48 @@ async def compact_conversation_history(
     # Construct compacted messages list
     # Determine format (dict or Anthropic/OpenAI object)
     is_dict = isinstance(messages[0], dict)
-    if is_dict:
-        summary_msg = {
-            "role": "user",
-            "content": formatted_summary,
-        }
-    else:
-        from agy_proxy.models import AnthropicMessage
-        summary_msg = AnthropicMessage(
-            role="user",
-            content=formatted_summary,
-        )
+    first_recent = recent_messages[0] if recent_messages else None
+    first_role = (first_recent.get("role") if isinstance(first_recent, dict) else getattr(first_recent, "role", "")) if first_recent else ""
 
-    compacted = [summary_msg] + list(recent_messages)
+    if str(first_role).lower() == "user":
+        # Merge formatted_summary cleanly at the front of the first recent user message to preserve alternating roles
+        if isinstance(first_recent, dict):
+            orig_c = first_recent.get("content", "")
+            merged_msg = dict(first_recent)
+            if isinstance(orig_c, str):
+                merged_msg["content"] = f"{formatted_summary}\n\n{orig_c}"
+            elif isinstance(orig_c, list):
+                merged_msg["content"] = [{"type": "text", "text": formatted_summary}] + list(orig_c)
+            else:
+                merged_msg["content"] = f"{formatted_summary}\n\n{str(orig_c)}"
+            compacted = [merged_msg] + list(recent_messages[1:])
+        else:
+            merged_msg = copy.copy(first_recent)
+            orig_c = getattr(first_recent, "content", "")
+            if isinstance(orig_c, str):
+                try:
+                    merged_msg.content = f"{formatted_summary}\n\n{orig_c}"
+                except Exception:
+                    pass
+            elif isinstance(orig_c, list):
+                try:
+                    merged_msg.content = [{"type": "text", "text": formatted_summary}] + list(orig_c)
+                except Exception:
+                    pass
+            compacted = [merged_msg] + list(recent_messages[1:])
+    else:
+        if is_dict:
+            summary_msg = {
+                "role": "user",
+                "content": formatted_summary,
+            }
+        else:
+            from agy_proxy.models import AnthropicMessage
+            summary_msg = AnthropicMessage(
+                role="user",
+                content=formatted_summary,
+            )
+        compacted = [summary_msg] + list(recent_messages)
     tokens_after = estimate_total_tokens(compacted)
     savings_pct = int((1.0 - (tokens_after / max(1, tokens_before))) * 100)
     logger.info(
