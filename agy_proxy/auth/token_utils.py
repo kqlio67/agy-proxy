@@ -62,11 +62,11 @@ def get_candidate_token_files() -> list[Path]:
             except Exception:
                 pass
 
-    # 2. Standard ~/.gemini paths (Antigravity CLI / IDE)
+    # 2. Standard ~/.gemini paths (Antigravity CLI / IDE / Standalone)
     home = Path.home()
     candidates.extend([
+        home / ".gemini" / "jetski-standalone-oauth-token",
         home / ".gemini" / "antigravity-cli" / "antigravity-oauth-token",
-        home / ".gemini" / "antigravity-ide" / "antigravity-oauth-token",
         home / ".gemini" / "antigravity" / "antigravity-oauth-token",
         home / ".gemini" / "config" / "antigravity-oauth-token",
     ])

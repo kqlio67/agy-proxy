@@ -216,7 +216,7 @@ async def handle_switch_command(
     to_next: bool = False,
     list_only: bool = False,
     set_primary: bool = True,
-    target_env: str = "both",
+    target_env: str = "all",
     env_explicitly_set: bool = False,
 ):
     """Handles CLI session switching."""
@@ -233,9 +233,9 @@ async def handle_switch_command(
 
     if list_only or (not target and not to_next):
         from agy_proxy.switcher import get_active_antigravity_accounts
-        cli_acc, ide_acc = get_active_antigravity_accounts(pool)
+        cli_acc, standalone_acc = get_active_antigravity_accounts(pool)
         cli_id = cli_acc.account_id if cli_acc else None
-        ide_id = ide_acc.account_id if ide_acc else None
+        standalone_id = standalone_acc.account_id if standalone_acc else None
 
         table = Table(title="Google Antigravity Accounts in Pool", show_header=True, header_style="bold cyan")
         table.add_column("#", style="dim", width=4)
@@ -244,12 +244,12 @@ async def handle_switch_command(
         table.add_column("Status", style="yellow")
 
         for idx, acc in enumerate(oauth_accounts, start=1):
-            if acc.account_id == cli_id and acc.account_id == ide_id:
-                status = "[bold green]Active (CLI & IDE) ⭐[/bold green]"
+            if acc.account_id == cli_id and acc.account_id == standalone_id:
+                status = "[bold green]Active (All) ⭐[/bold green]"
             elif acc.account_id == cli_id:
                 status = "[bold green]Active (CLI) ⭐[/bold green]"
-            elif acc.account_id == ide_id:
-                status = "[bold green]Active (IDE) ⭐[/bold green]"
+            elif acc.account_id == standalone_id:
+                status = "[bold green]Active (Standalone) ⭐[/bold green]"
             else:
                 status = "[dim]Ready[/dim]"
             
@@ -270,12 +270,12 @@ async def handle_switch_command(
         if not env_explicitly_set:
             target_env = Prompt.ask(
                 "Target destination environment",
-                choices=["both", "cli", "ide"],
-                default="both",
+                choices=["all", "cli", "standalone"],
+                default="all",
             )
 
     try:
-        env_label = "CLI only" if target_env == "cli" else ("IDE only" if target_env == "ide" else "Both CLI & IDE")
+        env_label = "CLI only" if target_env == "cli" else ("Standalone only" if target_env == "standalone" else "All Environments")
         console.print(f"[dim]Switching Antigravity session [{env_label}]...[/dim]")
         acc, paths = await switch_antigravity_session(
             identifier=target,
@@ -290,8 +290,6 @@ async def handle_switch_command(
         console.print(f"Updated token destination: [cyan]{paths_str}[/cyan]")
         if target_env == "cli":
             console.print("[dim]Your `agy` CLI commands will now execute under this account.[/dim]")
-        elif target_env == "ide":
-            console.print("[dim]Your Antigravity IDE editor will now execute under this account.[/dim]")
         else:
             console.print("[dim]Your `agy` CLI and IDE commands will now execute under this account.[/dim]")
         console.print("[dim]Run [cyan]agy-proxy usage[/cyan] or [cyan]python switcher.py usage[/cyan] to view model quota usage.[/dim]")
@@ -508,11 +506,10 @@ def build_parser() -> argparse.ArgumentParser:
     switch_parser.add_argument("--set-primary", dest="set_primary", action="store_true", default=True, help="Also set as primary proxy account (default: True)")
     switch_parser.add_argument("--no-set-primary", dest="set_primary", action="store_false", help="Do not set as primary proxy account")
     switch_parser.add_argument("--next", "-n", action="store_true", help="Switch to next account with highest quota")
-    switch_parser.add_argument("--list", "-l", action="store_true", help="List available OAuth accounts and quotas")
-    switch_parser.add_argument("--env", "--target-env", dest="target_env", choices=["cli", "ide", "both"], default=None, help="Target destination environment (cli, ide, or both; default: both)")
-    switch_parser.add_argument("--cli", action="store_true", help="Switch session ONLY for Antigravity CLI")
-    switch_parser.add_argument("--ide", action="store_true", help="Switch session ONLY for Antigravity IDE")
-    switch_parser.add_argument("--both", action="store_true", help="Switch session for BOTH Antigravity CLI and IDE (default)")
+    switch_parser.add_argument("--env", "--target-env", dest="target_env", choices=["cli", "standalone", "all"], default=None, help="Target destination environment (cli, standalone, or all; default: all)")
+    switch_parser.add_argument("--cli", action="store_true", help="Switch session ONLY for terminal agy CLI (~/.gemini/antigravity-cli)")
+    switch_parser.add_argument("--standalone", action="store_true", help="Switch session ONLY for Standalone Web UI (~/.gemini/jetski-standalone-oauth-token)")
+    switch_parser.add_argument("--all", action="store_true", help="Switch session for ALL environments (default)")
 
     # usage / quota subcommand (agy-proxy usage / agy-proxy quota)
     for u_name in ("usage", "quota"):
@@ -532,10 +529,10 @@ def build_parser() -> argparse.ArgumentParser:
     auth_switch.add_argument("--no-set-primary", dest="set_primary", action="store_false", help="Do not set as primary proxy account")
     auth_switch.add_argument("--next", "-n", action="store_true", help="Switch to next account with highest quota")
     auth_switch.add_argument("--list", "-l", action="store_true", help="List available OAuth accounts and quotas")
-    auth_switch.add_argument("--env", "--target-env", dest="target_env", choices=["cli", "ide", "both"], default=None, help="Target destination environment (cli, ide, or both; default: both)")
-    auth_switch.add_argument("--cli", action="store_true", help="Switch session ONLY for Antigravity CLI")
-    auth_switch.add_argument("--ide", action="store_true", help="Switch session ONLY for Antigravity IDE")
-    auth_switch.add_argument("--both", action="store_true", help="Switch session for BOTH Antigravity CLI and IDE (default)")
+    auth_switch.add_argument("--env", "--target-env", dest="target_env", choices=["cli", "standalone", "all"], default=None, help="Target destination environment (cli, standalone, or all; default: all)")
+    auth_switch.add_argument("--cli", action="store_true", help="Switch session ONLY for terminal agy CLI (~/.gemini/antigravity-cli)")
+    auth_switch.add_argument("--standalone", action="store_true", help="Switch session ONLY for Standalone Web UI (~/.gemini/jetski-standalone-oauth-token)")
+    auth_switch.add_argument("--all", action="store_true", help="Switch session for ALL environments (default)")
 
     # auth usage / quota subcommand (agy-proxy auth usage / agy-proxy auth quota)
     for au_name in ("usage", "quota"):
@@ -694,16 +691,10 @@ def main():
         asyncio.run(handle_update_command(check_only=check_only))
         return
     elif args.subcommand == "switch":
-        target_env = "both"
+        target_env = "all"
         env_set = False
         if getattr(args, "cli", False):
             target_env = "cli"
-            env_set = True
-        elif getattr(args, "ide", False):
-            target_env = "ide"
-            env_set = True
-        elif getattr(args, "both", False):
-            target_env = "both"
             env_set = True
         elif getattr(args, "target_env", None):
             target_env = args.target_env
@@ -736,16 +727,10 @@ def main():
             asyncio.run(handle_auth_list())
             return
         elif args.auth_action == "switch":
-            target_env = "both"
+            target_env = "all"
             env_set = False
             if getattr(args, "cli", False):
                 target_env = "cli"
-                env_set = True
-            elif getattr(args, "ide", False):
-                target_env = "ide"
-                env_set = True
-            elif getattr(args, "both", False):
-                target_env = "both"
                 env_set = True
             elif getattr(args, "target_env", None):
                 target_env = args.target_env

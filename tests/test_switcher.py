@@ -285,15 +285,6 @@ class TestAntigravitySwitcher(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(cli_paths), 1)
         self.assertIn("antigravity-cli", str(cli_paths[0]))
 
-        ide_paths = resolve_antigravity_destinations("ide")
-        self.assertEqual(len(ide_paths), 1)
-        self.assertIn("antigravity-ide", str(ide_paths[0]))
-
-        both_paths = resolve_antigravity_destinations("both")
-        self.assertEqual(len(both_paths), 2)
-        self.assertIn("antigravity-cli", str(both_paths[0]))
-        self.assertIn("antigravity-ide", str(both_paths[1]))
-
     async def test_switch_session_target_env_resolution(self):
         pool = AccountPool(accounts_file=Path(self.tmp_dir.name) / "accounts.json")
         pool.save_accounts = lambda *args, **kwargs: None
@@ -544,16 +535,12 @@ class TestServerSwitcherRoutes(unittest.IsolatedAsyncioTestCase):
         args = parser.parse_args(["switch", "--cli"])
         self.assertEqual(args.subcommand, "switch")
         self.assertTrue(args.cli)
-        self.assertFalse(args.ide)
 
         # Test agy-proxy switch --ide
-        args = parser.parse_args(["switch", "--ide"])
-        self.assertTrue(args.ide)
-        self.assertFalse(args.cli)
 
         # Test agy-proxy switch --env both
-        args = parser.parse_args(["switch", "--env", "both"])
-        self.assertEqual(args.target_env, "both")
+        args = parser.parse_args(["switch", "--env", "all"])
+        self.assertEqual(args.target_env, "all")
 
         # Test agy-proxy auth switch --cli
         args = parser.parse_args(["auth", "switch", "--cli"])

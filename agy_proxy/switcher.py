@@ -1,6 +1,6 @@
 """
 Antigravity Session Switcher.
-Enables switching active Google Antigravity CLI and IDE sessions between accounts
+Enables switching active Google Antigravity CLI  sessions between accounts
 stored in accounts.json (e.g. when quota limits are reached on one account).
 """
 
@@ -24,24 +24,28 @@ from agy_proxy.auth import (
 logger = logging.getLogger("agy_proxy.switcher")
 
 
-def resolve_antigravity_destinations(target_env: str = "both") -> list[Path]:
+def resolve_antigravity_destinations(target_env: str = "all") -> list[Path]:
     """
     Resolves target destination paths for Google Antigravity tokens based on the target environment:
     - 'cli': ~/.gemini/antigravity-cli/antigravity-oauth-token (or ANTIGRAVITY_TOKEN_FILE)
-    - 'ide': ~/.gemini/antigravity-ide/antigravity-oauth-token
-    - 'both': both CLI and IDE destinations
+        - 'standalone': standalone Antigravity 2.0 agent destination (~/.gemini/jetski-standalone-oauth-token)
+        - 'all': both CLI and standalone destinations
     """
     home = Path.home()
     cli_dest = Path(os.environ.get("ANTIGRAVITY_TOKEN_FILE") or (home / ".gemini" / "antigravity-cli" / "antigravity-oauth-token"))
-    ide_dest = home / ".gemini" / "antigravity-ide" / "antigravity-oauth-token"
+    standalone_dest1 = home / ".gemini" / "jetski-standalone-oauth-token"
 
-    env = (target_env or "both").strip().lower()
+    env = (target_env or "all").strip().lower()
+
     if env in ("cli", "c"):
         return [cli_dest]
-    elif env in ("ide", "i"):
-        return [ide_dest]
+    elif env in ("standalone", "s"):
+        return [standalone_dest1]
+    elif env in ("all", "a"):
+        targets = [cli_dest, standalone_dest1]
+        return targets
     else:
-        return [cli_dest, ide_dest]
+        return [cli_dest, standalone_dest1]
 
 
 def get_antigravity_token_destinations() -> list[Path]:
@@ -63,12 +67,12 @@ def get_antigravity_token_destinations() -> list[Path]:
 
 
 def get_active_antigravity_accounts(pool: AccountPool) -> tuple[AccountSession | None, AccountSession | None]:
-    """Reads the Antigravity token files and resolves which accounts are currently active in CLI and IDE."""
+    """Reads the Antigravity token files and resolves which accounts are currently active in CLI and Standalone."""
     if hasattr(pool, "reload_if_modified"):
         pool.reload_if_modified()
 
     cli_path = resolve_antigravity_destinations("cli")[0]
-    ide_path = resolve_antigravity_destinations("ide")[0]
+    standalone_path = resolve_antigravity_destinations("standalone")[0]
 
     def _resolve(token_path: Path) -> AccountSession | None:
         if not token_path or not token_path.is_file() or token_path.stat().st_size == 0:
@@ -111,11 +115,12 @@ def get_active_antigravity_accounts(pool: AccountPool) -> tuple[AccountSession |
             logger.debug("cli-active check failed for %s: %s", token_path, e)
         return None
 
-    return _resolve(cli_path), _resolve(ide_path)
+    active_standalone = _resolve(standalone_path)
+    return _resolve(cli_path), active_standalone
 
 
 def format_antigravity_token_payload(account: AccountSession) -> dict[str, Any]:
-    """Formats an AccountSession into the exact official token JSON structure expected by Google Antigravity CLI and IDE.
+    """Formats an AccountSession into the exact official token JSON structure expected by Google Antigravity CLI .
     Matches ~/.gemini/antigravity-cli/antigravity-oauth-token schema strictly with zero extra fields.
     """
     if account.expiry_timestamp > 0:
@@ -142,7 +147,7 @@ def format_antigravity_token_payload(account: AccountSession) -> dict[str, Any]:
 async def activate_account_in_antigravity(
     account: AccountSession,
     target_paths: list[Path] | None = None,
-    target_env: str = "both",
+    target_env: str = "all",
     force_refresh: bool = False,
     allow_overwrite: bool = False,
 ) -> list[Path]:
@@ -219,14 +224,18 @@ async def activate_account_in_antigravity(
 
             # Protection: create backup of existing token before overwriting
             if dest.is_file() and dest.stat().st_size > 0:
-                bak_file = dest.with_name(f"{dest.name}.bak")
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                bak_file = dest.with_name(f"{dest.name}.{timestamp}.bak")
+                standard_bak = dest.with_name(f"{dest.name}.bak")
                 try:
                     shutil.copy2(dest, bak_file)
+                    shutil.copy2(dest, standard_bak)
                     try:
                         os.chmod(bak_file, 0o600)
+                        os.chmod(standard_bak, 0o600)
                     except Exception:
                         pass
-                    logger.info("Created backup of existing token at %s", bak_file)
+                    logger.info("Created backup of existing token at %s and %s", standard_bak, bak_file)
                 except Exception as bak_err:
                     logger.warning("Could not create backup for %s: %s", dest, bak_err)
 
@@ -257,7 +266,7 @@ async def switch_antigravity_session(
     pool: AccountPool | None = None,
     to_next: bool = False,
     target_paths: list[Path] | None = None,
-    target_env: str = "both",
+    target_env: str = "all",
     allow_overwrite: bool = True,
     set_primary: bool = True,
 ) -> tuple[AccountSession, list[Path]]:
@@ -268,7 +277,7 @@ async def switch_antigravity_session(
     :param pool: Optional AccountPool instance (loads default if None).
     :param to_next: If True, selects the next OAuth account with the highest quota.
     :param target_paths: Optional custom destination file paths.
-    :param target_env: Target destination environment ('cli', 'ide', or 'both'; default: 'both').
+    :param target_env: Target destination environment ('cli', 'standalone', or 'all'; default: 'all').
     :param allow_overwrite: If True, permits overwriting candidate token destinations.
     :param set_primary: If True, also marks the selected account as primary in proxy pool (default: True).
     :return: (selected_account, list_of_updated_files)
@@ -498,7 +507,7 @@ def main():
     import sys
 
     parser = argparse.ArgumentParser(
-        description="Google Antigravity Session Switcher - switch active Antigravity CLI and IDE sessions between pooled accounts."
+        description="Google Antigravity Session Switcher - switch active Antigravity CLI  sessions between pooled accounts."
     )
     parser.add_argument("target", nargs="*", default=[], help="Target account email, name, account_id, #, or 'usage' [target]")
     parser.add_argument("--usage", "-u", action="store_true", help="View model quota usage")
@@ -506,10 +515,8 @@ def main():
     parser.add_argument("--no-set-primary", dest="set_primary", action="store_false", help="Do not set as primary proxy account")
     parser.add_argument("--next", "-n", action="store_true", help="Rotate to next account with highest remaining quota")
     parser.add_argument("--list", "-l", action="store_true", help="List available accounts and status")
-    parser.add_argument("--env", "--target-env", dest="target_env", choices=["cli", "ide", "both"], default=None, help="Target destination environment (cli, ide, or both; default: both)")
+    parser.add_argument("--env", "--target-env", dest="target_env", choices=["cli", "standalone", "all"], default=None, help="Target destination environment (cli, standalone, or all; default: all)")
     parser.add_argument("--cli", action="store_true", help="Switch session ONLY for Antigravity CLI")
-    parser.add_argument("--ide", action="store_true", help="Switch session ONLY for Antigravity IDE")
-    parser.add_argument("--both", action="store_true", help="Switch session for BOTH Antigravity CLI and IDE (default)")
 
     args = parser.parse_args()
 
@@ -551,17 +558,14 @@ def main():
                     print("─" * 60)
             return
 
-        # Resolve target environment (cli, ide, both)
-        target_env = "both"
+        # Resolve target environment (cli, standalone, all)
+        target_env = "all"
         env_explicitly_set = False
         if args.cli:
             target_env = "cli"
             env_explicitly_set = True
-        elif args.ide:
-            target_env = "ide"
-            env_explicitly_set = True
         elif args.both:
-            target_env = "both"
+            target_env = "all"
             env_explicitly_set = True
         elif args.target_env:
             target_env = args.target_env
@@ -569,9 +573,9 @@ def main():
 
         # Interactive or list mode
         if args.list or (not real_targets and not args.next):
-            cli_acc, ide_acc = get_active_antigravity_accounts(pool)
+            cli_acc, standalone_acc = get_active_antigravity_accounts(pool)
             cli_id = cli_acc.account_id if cli_acc else None
-            ide_id = ide_acc.account_id if ide_acc else None
+            standalone_id = standalone_acc.account_id if standalone_acc else None
 
             print("\nGoogle Antigravity Accounts in Pool")
             print("=" * 70)
@@ -579,12 +583,12 @@ def main():
             print("-" * 70)
             for idx, acc in enumerate(oauth_accounts, start=1):
                 statuses = []
-                if acc.account_id == cli_id and acc.account_id == ide_id:
-                    statuses.append("Active (CLI & IDE) ⭐")
+                if acc.account_id == cli_id and acc.account_id == standalone_id:
+                    statuses.append("Active (CLI & Standalone) ⭐")
                 elif acc.account_id == cli_id:
                     statuses.append("Active (CLI) ⭐")
-                elif acc.account_id == ide_id:
-                    statuses.append("Active (IDE) ⭐")
+                elif acc.account_id == standalone_id:
+                    statuses.append("Active (Standalone) ⭐")
                 
                 status = ", ".join(statuses) if statuses else "Ready"
                 email_str = acc.email or acc.account_id
@@ -610,13 +614,9 @@ def main():
 
             if not env_explicitly_set:
                 try:
-                    env_input = input("Target environment [both/cli/ide] (default: both): ").strip().lower()
+                    env_input = input("Target environment [all/cli/standalone] (default: all): ").strip().lower()
                     if env_input in ("cli", "c"):
                         target_env = "cli"
-                    elif env_input in ("ide", "i"):
-                        target_env = "ide"
-                    elif env_input in ("both", "b"):
-                        target_env = "both"
                 except (KeyboardInterrupt, EOFError):
                     print("\nCancelled by user.")
                     sys.exit(0)
@@ -624,7 +624,7 @@ def main():
             to_next = args.next
             target = real_targets[0] if real_targets else None
 
-        env_label = "CLI only" if target_env == "cli" else ("IDE only" if target_env == "ide" else "Both CLI & IDE")
+        env_label = "CLI only" if target_env == "cli" else ("Standalone only" if target_env == "standalone" else "All environments")
         print(f"\nSwitching Antigravity session [{env_label}]...")
         try:
             acc, written = await switch_antigravity_session(
@@ -640,10 +640,10 @@ def main():
             print(f"Updated token destinations:\n{paths_str}")
             if target_env == "cli":
                 print("Your `agy` CLI commands will now execute under this account.")
-            elif target_env == "ide":
-                print("Your Antigravity IDE editor will now execute under this account.")
+            elif target_env == "standalone":
+                print("Your Standalone Web UI will now execute under this account.")
             else:
-                print("Your `agy` CLI and IDE commands will now execute under this account.")
+                print("Your `agy` CLI  commands will now execute under this account.")
             print("\nRun `python switcher.py usage` or `agy-proxy usage` to view model quota usage.")
         except Exception as e:
             print(f"\n❌ Failed to switch session: {e}", file=sys.stderr)
