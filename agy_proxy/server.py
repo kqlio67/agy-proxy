@@ -616,7 +616,7 @@ def create_app(
     @app.post("/api/accounts/{account_id}/activate-cli")
     async def activate_account_cli(
         account_id: str,
-        target: str | None = "both",
+        target: str | None = "all",
         set_primary: bool = True,
     ):
         """Activates the specified OAuth account as the current Google Antigravity CLI, IDE, or both session."""
@@ -678,10 +678,10 @@ def create_app(
         except Exception:
             pass
 
-        target_paths = resolve_antigravity_destinations(target or "both")
+        target_paths = resolve_antigravity_destinations(target or "all")
 
         try:
-            written = await activate_account_in_antigravity(acc, target_paths=target_paths, target_env=target or "both", allow_overwrite=True)
+            written = await activate_account_in_antigravity(acc, target_paths=target_paths, target_env=target or "all", allow_overwrite=True)
             try:
                 if hasattr(acc, "fetch_quota"):
                     await acc.fetch_quota()
@@ -729,7 +729,7 @@ def create_app(
             pool.reload_if_modified()
 
         from agy_proxy.switcher import get_active_antigravity_accounts
-        cli_acc, ide_acc = get_active_antigravity_accounts(pool)
+        cli_acc, standalone_acc = get_active_antigravity_accounts(pool)
 
         return {
             "cli": {
@@ -737,21 +737,26 @@ def create_app(
                 "email": cli_acc.email if cli_acc else None,
                 "name": (cli_acc.name or cli_acc.email) if cli_acc else None,
             },
-            "ide": {
-                "account_id": ide_acc.account_id if ide_acc else None,
-                "email": ide_acc.email if ide_acc else None,
-                "name": (ide_acc.name or ide_acc.email) if ide_acc else None,
+            "standalone": {
+                "account_id": standalone_acc.account_id if standalone_acc else None,
+                "email": standalone_acc.email if standalone_acc else None,
+                "name": (standalone_acc.name or standalone_acc.email) if standalone_acc else None,
             },
-            "account_id": cli_acc.account_id if cli_acc else (ide_acc.account_id if ide_acc else None),
-            "email": cli_acc.email if cli_acc else (ide_acc.email if ide_acc else None),
+            "ide": {
+                "account_id": standalone_acc.account_id if standalone_acc else None,
+                "email": standalone_acc.email if standalone_acc else None,
+                "name": (standalone_acc.name or standalone_acc.email) if standalone_acc else None,
+            },
+            "account_id": cli_acc.account_id if cli_acc else (standalone_acc.account_id if standalone_acc else None),
+            "email": cli_acc.email if cli_acc else (standalone_acc.email if standalone_acc else None),
         }
 
     @app.post("/api/accounts/switch-next-cli")
-    async def switch_next_account_cli(target: str | None = "both"):
+    async def switch_next_account_cli(target: str | None = "all"):
         """Switches the Antigravity CLI/IDE session to the next available account with highest quota."""
         from agy_proxy.switcher import switch_antigravity_session
         try:
-            acc, written = await switch_antigravity_session(pool=pool, to_next=True, target_env=target or "both", set_primary=True)
+            acc, written = await switch_antigravity_session(pool=pool, to_next=True, target_env=target or "all", set_primary=True)
             try:
                 from agy_proxy.cache import session_affinity
                 session_affinity.unpin_all()
@@ -761,7 +766,7 @@ def create_app(
                 "status": "switched",
                 "account_id": acc.account_id,
                 "email": acc.email,
-                "target": target or "both",
+                "target": target or "all",
                 "destinations": [str(p) for p in written],
             }
         except PermissionError as pe:
@@ -1398,6 +1403,11 @@ def create_app(
         try:
             from agy_proxy.auth import CLOUDCODE_BASE_URL
             headers = await acc.get_auth_headers()
+            
+            # Pass through the original client's User-Agent so we don't break new features
+            if "user-agent" in request.headers:
+                headers["User-Agent"] = request.headers["user-agent"]
+                
             if action:
                 target_url = f"{CLOUDCODE_BASE_URL}/v1internal:{action}"
             else:

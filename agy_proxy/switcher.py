@@ -29,19 +29,32 @@ def resolve_antigravity_destinations(target_env: str = "both") -> list[Path]:
     Resolves target destination paths for Google Antigravity tokens based on the target environment:
     - 'cli': ~/.gemini/antigravity-cli/antigravity-oauth-token (or ANTIGRAVITY_TOKEN_FILE)
     - 'ide': ~/.gemini/antigravity-ide/antigravity-oauth-token
+    - 'standalone': standalone Antigravity 2.0 agent destination (~/.gemini/jetski-standalone-oauth-token)
     - 'both': both CLI and IDE destinations
+    - 'all': both CLI and standalone destinations
     """
     home = Path.home()
     cli_dest = Path(os.environ.get("ANTIGRAVITY_TOKEN_FILE") or (home / ".gemini" / "antigravity-cli" / "antigravity-oauth-token"))
     ide_dest = home / ".gemini" / "antigravity-ide" / "antigravity-oauth-token"
+    standalone_dest1 = home / ".gemini" / "jetski-standalone-oauth-token"
 
-    env = (target_env or "both").strip().lower()
+    env = (target_env or "all").strip().lower()
+
     if env in ("cli", "c"):
         return [cli_dest]
     elif env in ("ide", "i"):
         return [ide_dest]
-    else:
+    elif env in ("standalone", "s"):
+        return [standalone_dest1]
+    elif env in ("both", "b"):
         return [cli_dest, ide_dest]
+    elif env in ("all", "a"):
+        targets = [cli_dest, standalone_dest1]
+        if ide_dest.parent.exists():
+            targets.append(ide_dest)
+        return targets
+    else:
+        return [cli_dest, standalone_dest1]
 
 
 def get_antigravity_token_destinations() -> list[Path]:
@@ -63,11 +76,12 @@ def get_antigravity_token_destinations() -> list[Path]:
 
 
 def get_active_antigravity_accounts(pool: AccountPool) -> tuple[AccountSession | None, AccountSession | None]:
-    """Reads the Antigravity token files and resolves which accounts are currently active in CLI and IDE."""
+    """Reads the Antigravity token files and resolves which accounts are currently active in CLI and Standalone."""
     if hasattr(pool, "reload_if_modified"):
         pool.reload_if_modified()
 
     cli_path = resolve_antigravity_destinations("cli")[0]
+    standalone_path = resolve_antigravity_destinations("standalone")[0]
     ide_path = resolve_antigravity_destinations("ide")[0]
 
     def _resolve(token_path: Path) -> AccountSession | None:
@@ -111,7 +125,8 @@ def get_active_antigravity_accounts(pool: AccountPool) -> tuple[AccountSession |
             logger.debug("cli-active check failed for %s: %s", token_path, e)
         return None
 
-    return _resolve(cli_path), _resolve(ide_path)
+    active_standalone = _resolve(standalone_path) or _resolve(ide_path)
+    return _resolve(cli_path), active_standalone
 
 
 def format_antigravity_token_payload(account: AccountSession) -> dict[str, Any]:
@@ -219,14 +234,18 @@ async def activate_account_in_antigravity(
 
             # Protection: create backup of existing token before overwriting
             if dest.is_file() and dest.stat().st_size > 0:
-                bak_file = dest.with_name(f"{dest.name}.bak")
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                bak_file = dest.with_name(f"{dest.name}.{timestamp}.bak")
+                standard_bak = dest.with_name(f"{dest.name}.bak")
                 try:
                     shutil.copy2(dest, bak_file)
+                    shutil.copy2(dest, standard_bak)
                     try:
                         os.chmod(bak_file, 0o600)
+                        os.chmod(standard_bak, 0o600)
                     except Exception:
                         pass
-                    logger.info("Created backup of existing token at %s", bak_file)
+                    logger.info("Created backup of existing token at %s and %s", standard_bak, bak_file)
                 except Exception as bak_err:
                     logger.warning("Could not create backup for %s: %s", dest, bak_err)
 

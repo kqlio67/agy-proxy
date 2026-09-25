@@ -98,7 +98,7 @@
         <!-- Update Available Badge (dynamic) -->
         <div id="updateBadgeContainer" class="hidden">
           <button onclick="openUpdateModal()" class="flex items-center space-x-1.5 text-xs font-semibold px-2 py-1.5 sm:px-2.5 sm:py-1.5 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 hover:bg-indigo-500/30 transition animate-pulse">
-            <i class="fa-solid fa-sparkles text-amber-400 text-[11px]"></i>
+            <i class="fa-solid fa-brain text-amber-400 text-[11px]"></i>
             <span id="updateBadgeText" class="hidden xl:inline">Update</span>
           </button>
         </div>
@@ -197,21 +197,21 @@
         <!-- 3. Claude & GPT Pool Health -->
         <div class="p-3 sm:p-4 rounded-2xl bg-dark-card border border-dark-border flex items-center space-x-2.5 sm:space-x-3.5 shadow-sm min-w-0">
           <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 text-sm sm:text-lg shrink-0">
-            <i class="fa-solid fa-sparkles"></i>
+            <i class="fa-solid fa-brain"></i>
           </div>
           <div class="min-w-0 flex-1">
-            <div class="text-[10px] sm:text-[11px] font-medium text-slate-400 uppercase tracking-wider font-mono truncate">Claude & GPT (Weekly)</div>
+            <div class="text-[10px] sm:text-[11px] font-medium text-slate-400 uppercase tracking-wider font-mono truncate">Claude (Wk)</div>
             <div class="text-base sm:text-xl font-bold text-emerald-400 font-mono mt-0.5 truncate" id="kpiClaudePoolHealth">100%</div>
           </div>
         </div>
 
-        <!-- 4. Gateway Status & Port -->
+        <!-- 4. Gateway & Port -->
         <div class="p-3 sm:p-4 rounded-2xl bg-dark-card border border-dark-border flex items-center space-x-2.5 sm:space-x-3.5 shadow-sm min-w-0">
           <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 text-sm sm:text-lg shrink-0">
             <i class="fa-solid fa-server"></i>
           </div>
           <div class="min-w-0 flex-1">
-            <div class="text-[10px] sm:text-[11px] font-medium text-slate-400 uppercase tracking-wider font-mono truncate">Gateway Status</div>
+            <div class="text-[10px] sm:text-[11px] font-medium text-slate-400 uppercase tracking-wider font-mono truncate">Gateway</div>
             <div class="text-[11px] sm:text-xs font-bold text-white flex items-center space-x-1.5 mt-0.5 min-w-0">
               <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
               <span class="truncate">Online · :8000</span>
@@ -225,8 +225,8 @@
             <i class="fa-solid fa-scissors"></i>
           </div>
           <div class="min-w-0 flex-1">
-            <div class="text-[10px] sm:text-[11px] font-medium text-slate-400 uppercase tracking-wider font-mono truncate">Context Optimizer</div>
-            <div class="text-[11px] sm:text-xs font-bold text-purple-300 font-mono mt-0.5 truncate" id="kpiPruningStatus">Smart Pruning Active</div>
+            <div class="text-[10px] sm:text-[11px] font-medium text-slate-400 uppercase tracking-wider font-mono truncate">Optimizer</div>
+            <div class="text-[11px] sm:text-xs font-bold text-purple-300 font-mono mt-0.5 truncate" id="kpiPruningStatus">Smart Pruning</div>
           </div>
         </div>
       </div>
@@ -558,7 +558,7 @@
         <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
           <div class="flex items-center justify-between">
             <span class="text-xs font-semibold text-slate-300 flex items-center space-x-1.5">
-              <i class="fa-solid fa-sparkles text-purple-400 text-xs"></i>
+              <i class="fa-solid fa-brain text-purple-400 text-xs"></i>
               <span>Anthropic Messages Base URL</span>
             </span>
             <button onclick="copySnippet('codeAnthropicEndpoint', this)" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] transition flex items-center space-x-1">
@@ -599,7 +599,7 @@
             <div class="font-bold text-slate-200 text-sm flex items-center justify-between">
               <span class="flex items-center space-x-2">
                 <div class="w-6 h-6 rounded-lg bg-indigo-600/20 text-indigo-400 flex items-center justify-center text-xs">
-                  <i class="fa-solid fa-code"></i>
+                  <i class="fa-solid fa-globe"></i>
                 </div>
                 <span>Claude Code CLI</span>
               </span>
@@ -1128,7 +1128,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
     </div>
   </div>
 
-  <!-- Switch Antigravity Session Modal (CLI / IDE / Both) -->
+  <!-- Switch Antigravity Session Modal (CLI / Standalone / Both) -->
   <div id="activateSessionModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-dark-card border border-dark-border rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl">
       <div class="flex items-center justify-between border-b border-dark-border pb-3">
@@ -1155,16 +1155,16 @@ https://your-tunnel.trycloudflare.com/v1</pre>
             <span class="text-[9px] text-slate-400 mt-0.5">Terminal / agy</span>
           </label>
           <label class="flex flex-col items-center justify-center p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-cyan-500/60 cursor-pointer transition text-center relative has-[:checked]:border-cyan-500 has-[:checked]:bg-cyan-500/10 group">
-            <input type="radio" name="agyTargetEnv" value="ide" class="sr-only">
-            <i class="fa-solid fa-code text-base text-cyan-400 mb-1.5"></i>
-            <span class="text-xs font-bold text-white">IDE Only</span>
-            <span class="text-[9px] text-slate-400 mt-0.5">Cursor / VS Code</span>
+            <input type="radio" name="agyTargetEnv" value="standalone" class="sr-only">
+            <i class="fa-solid fa-globe text-base text-cyan-400 mb-1.5"></i>
+            <span class="text-xs font-bold text-white">Standalone Only</span>
+            <span class="text-[9px] text-slate-400 mt-0.5">Web UI Agent</span>
           </label>
           <label class="flex flex-col items-center justify-center p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-indigo-500/60 cursor-pointer transition text-center relative has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-500/10 group">
-            <input type="radio" name="agyTargetEnv" value="both" checked class="sr-only">
+            <input type="radio" name="agyTargetEnv" value="all" checked class="sr-only">
             <i class="fa-solid fa-bolt text-base text-indigo-400 mb-1.5"></i>
-            <span class="text-xs font-bold text-white">Both</span>
-            <span class="text-[9px] text-slate-400 mt-0.5">CLI + IDE</span>
+            <span class="text-xs font-bold text-white">All</span>
+            <span class="text-[9px] text-slate-400 mt-0.5">CLI + Standalone</span>
           </label>
         </div>
       </div>
@@ -1176,7 +1176,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
           <span class="font-mono text-emerald-300 font-medium truncate max-w-[210px]" id="modalCurrentCli">-</span>
         </div>
         <div class="flex justify-between items-center">
-          <span class="flex items-center space-x-1"><i class="fa-solid fa-code text-cyan-400 text-[10px]"></i><span>Active IDE:</span></span>
+          <span class="flex items-center space-x-1"><i class="fa-solid fa-globe text-cyan-400 text-[10px]"></i><span>Active Standalone:</span></span>
           <span class="font-mono text-cyan-300 font-medium truncate max-w-[210px]" id="modalCurrentIde">-</span>
         </div>
       </div>
@@ -1243,11 +1243,12 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       <div class="flex items-center justify-between border-b border-dark-border pb-4">
         <div class="flex items-center space-x-2.5">
           <div class="w-8 h-8 rounded-xl bg-indigo-600/30 border border-indigo-400/30 flex items-center justify-center text-amber-400 text-sm">
-            <i class="fa-solid fa-sparkles"></i>
+            <i class="fa-solid fa-brain"></i>
           </div>
           <div>
             <h3 class="text-base font-bold text-white">Software Update Available</h3>
-            <p class="text-xs text-slate-400" id="updateModalSub">v1.0.2 $ightarrow$ v1.0.3</p>
+            <p class="text-xs text-slate-400" id="updateModalSub">v1.0.2 $
+ightarrow$ v1.0.3</p>
           </div>
         </div>
         <button onclick="closeUpdateModal()" class="text-slate-400 hover:text-white text-lg">
@@ -1308,7 +1309,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
     let currentAccountFilter = 'all';
     let collapsedSections = new Set(); // tracks which section addTypes are collapsed
     let cliActiveAccountId = null;    // account_id currently active in AGY CLI
-    let ideActiveAccountId = null;    // account_id currently active in AGY IDE
+    let standaloneActiveAccountId = null;    // account_id currently active in AGY IDE
     let cliActiveInfo = { cli: null, ide: null };
     let targetActivateAccountId = null;
 
@@ -1613,7 +1614,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       }
     }
 
-    // Activate Account for Google Antigravity CLI / IDE - Opens Selection Modal
+    // Activate Account for Google Antigravity CLI / Standalone - Opens Selection Modal
     function activateCliAccount(accountId) {
       openActivateSessionModal(accountId);
     }
@@ -1682,7 +1683,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
         return;
       }
       const radios = document.getElementsByName('agyTargetEnv');
-      let target = 'both';
+      let target = "all";
       for (const r of radios) {
         if (r.checked) {
           target = r.value;
@@ -1693,7 +1694,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       const acc = rawAccountsData.find(a => a.account_id === targetActivateAccountId);
       const accName = acc ? (acc.name || acc.email) : targetActivateAccountId;
 
-      const targetLabel = target === 'cli' ? 'CLI' : (target === 'ide' ? 'IDE' : 'CLI + IDE');
+      const targetLabel = target === 'cli' ? 'CLI' : (target === 'standalone' ? 'Standalone' : 'CLI + Standalone');
       showToast(`Activating ${accName} in ${targetLabel}...`, 'info');
       closeActivateSessionModal();
 
@@ -1803,7 +1804,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
 
     // Rotate to Next Available CLI Account
     async function switchNextCliAccount() {
-      if (!confirm('Rotate active Google Antigravity CLI / IDE session to the next account with highest remaining quota?')) {
+      if (!confirm('Rotate active Google Antigravity CLI / Standalone session to the next account with highest remaining quota?')) {
         return;
       }
       try {
@@ -1963,7 +1964,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
           const cliData = await cliRes.json();
           cliActiveInfo = cliData || { cli: null, ide: null };
           cliActiveAccountId = cliData?.cli?.account_id || null;
-          ideActiveAccountId = cliData?.ide?.account_id || null;
+          standaloneActiveAccountId = cliData?.standalone?.account_id || cliData?.ide?.account_id || null;
         }
         renderAccounts();
         populatePlaygroundAccounts();
@@ -2062,7 +2063,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
           <div class="p-5 rounded-2xl bg-dark-card border border-dark-border space-y-1">
             <div class="text-[11px] font-mono text-slate-400 uppercase tracking-wider flex items-center justify-between">
               <span>Claude & GPT (3P) Quota</span>
-              <i class="fa-solid fa-sparkles text-purple-400"></i>
+              <i class="fa-solid fa-brain text-purple-400"></i>
             </div>
             <div class="text-2xl font-bold font-mono ${avgClaude > 50 ? 'text-emerald-400' : (avgClaude > 20 ? 'text-amber-400' : 'text-red-400')}">${avgClaude}%</div>
             <div class="text-[11px] text-slate-400">Active pool capacity</div>
@@ -2278,7 +2279,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
             <div class="space-y-1.5 pt-1">
               <div class="flex justify-between text-xs text-slate-400">
                 <span class="flex items-center space-x-1.5">
-                  <i class="fa-solid fa-sparkles text-purple-400 text-[11px]"></i>
+                  <i class="fa-solid fa-brain text-purple-400 text-[11px]"></i>
                   <span class="font-medium text-slate-300">Claude & GPT</span>
                   <span class="text-[9px] px-1 py-0.2 rounded bg-slate-800 text-purple-300 font-mono">${claudeWindow === '5h' ? '5h Window' : 'Weekly Cap'}</span>
                 </span>
@@ -2607,16 +2608,16 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       let agyActivePills = '';
       if (addType === 'oauth') {
         const cliAcc = items.find(a => a.account_id === cliActiveAccountId);
-        const ideAcc = items.find(a => a.account_id === ideActiveAccountId);
+        const standaloneAcc = items.find(a => a.account_id === standaloneActiveAccountId);
 
-        if (cliAcc && ideAcc && cliAcc.account_id === ideAcc.account_id) {
-          agyActivePills += `<span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center space-x-1 shrink-0" title="Active in both Antigravity CLI and IDE"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span><span>CLI+IDE: <b class="text-white">${cliAcc.name || cliAcc.email}</b></span></span>`;
+        if (cliAcc && standaloneAcc && cliAcc.account_id === standaloneAcc.account_id) {
+          agyActivePills += `<span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center space-x-1 shrink-0" title="Active in both Antigravity CLI and Standalone"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span><span>CLI+IDE: <b class="text-white">${cliAcc.name || cliAcc.email}</b></span></span>`;
         } else {
           if (cliAcc) {
             agyActivePills += `<span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center space-x-1 shrink-0" title="Active in Antigravity CLI"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span><span>CLI: <b class="text-white">${cliAcc.name || cliAcc.email}</b></span></span>`;
           }
-          if (ideAcc) {
-            agyActivePills += `<span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 flex items-center space-x-1 shrink-0" title="Active in Antigravity IDE"><span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span><span>IDE: <b class="text-white">${ideAcc.name || ideAcc.email}</b></span></span>`;
+          if (standaloneAcc) {
+            agyActivePills += `<span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 flex items-center space-x-1 shrink-0" title="Active in Standalone Web Agent"><span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span><span>IDE: <b class="text-white">${standaloneAcc.name || standaloneAcc.email}</b></span></span>`;
           }
         }
       }
@@ -2912,16 +2913,16 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       }
 
       const isCliActive = !isWeb && !isApiKey && (acc.account_id === cliActiveAccountId);
-      const isIdeActive = !isWeb && !isApiKey && (acc.account_id === ideActiveAccountId);
-      const isBothActive = isCliActive && isIdeActive;
+      const isStandaloneActive = !isWeb && !isApiKey && (acc.account_id === (typeof standaloneActiveAccountId !== 'undefined' ? standaloneActiveAccountId : ((typeof ideActiveAccountId !== 'undefined') ? ideActiveAccountId : null)));
+      const isBothActive = isCliActive && isStandaloneActive;
 
       let agyActiveCardBadge = '';
       if (isBothActive) {
-        agyActiveCardBadge = '<span class="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30 flex items-center space-x-1 shrink-0 shadow-sm" title="Active session in both Antigravity CLI and IDE"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span><span>CLI + IDE</span></span>';
+        agyActiveCardBadge = '<span class="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30 flex items-center space-x-1 shrink-0 shadow-sm" title="Active session in both Antigravity CLI and Standalone"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span><span>CLI + Standalone</span></span>';
       } else if (isCliActive) {
         agyActiveCardBadge = '<span class="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30 flex items-center space-x-1 shrink-0 shadow-sm" title="Active session in Antigravity CLI"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span><span>CLI Active</span></span>';
-      } else if (isIdeActive) {
-        agyActiveCardBadge = '<span class="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-semibold border border-cyan-500/30 flex items-center space-x-1 shrink-0 shadow-sm" title="Active session in Antigravity IDE"><span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span><span>IDE Active</span></span>';
+      } else if (isStandaloneActive) {
+        agyActiveCardBadge = '<span class="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-semibold border border-cyan-500/30 flex items-center space-x-1 shrink-0 shadow-sm" title="Active session in Standalone Web Agent"><span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span><span>Standalone Active</span></span>';
       }
 
       return `
@@ -2930,7 +2931,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
             ? 'bg-dark-card border-emerald-500/40 ring-1 ring-emerald-500/25 shadow-md shadow-emerald-950/20'
             : (isCliActive
                 ? 'bg-dark-card border-emerald-500/40 ring-1 ring-emerald-500/20 shadow-sm'
-                : (isIdeActive
+                : (isStandaloneActive
                     ? 'bg-dark-card border-cyan-500/40 ring-1 ring-cyan-500/20 shadow-sm'
                     : (isEnabled
                         ? 'bg-dark-card border-dark-border shadow-sm'
@@ -2979,8 +2980,8 @@ https://your-tunnel.trycloudflare.com/v1</pre>
               <button onclick="testAccount('${acc.account_id}')" class="flex-1 py-1 px-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-medium text-[10px] sm:text-[11px] transition border border-slate-700 flex items-center justify-center gap-1 shadow-sm" title="Test connection">
                 <i class="fa-solid fa-vial-circle-check text-teal-400 text-[9px] sm:text-[10px]"></i><span>Test</span>
               </button>
-              <button onclick="openActivateSessionModal('${acc.account_id}')" class="flex-1 py-1 px-1.5 rounded-lg ${isBothActive ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border-emerald-500/40' : (isCliActive ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border-emerald-500/40' : (isIdeActive ? 'bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border-cyan-500/40' : 'bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-400 border-slate-700'))} font-medium text-[10px] sm:text-[11px] transition border flex items-center justify-center gap-1 shadow-sm" title="Switch or configure active Antigravity CLI / IDE session">
-                <i class="fa-solid ${isBothActive ? 'fa-check text-emerald-400' : (isCliActive ? 'fa-terminal text-emerald-400' : (isIdeActive ? 'fa-code text-cyan-400' : 'fa-user-check text-[9px] sm:text-[10px]'))}"></i><span>${isBothActive ? 'CLI + IDE' : (isCliActive ? 'In CLI' : (isIdeActive ? 'In IDE' : 'AGY CLI'))}</span>
+              <button onclick="openActivateSessionModal('${acc.account_id}')" class="flex-1 py-1 px-1.5 rounded-lg ${isBothActive ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border-emerald-500/40' : (isCliActive ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border-emerald-500/40' : (isStandaloneActive ? 'bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border-cyan-500/40' : 'bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-400 border-slate-700'))} font-medium text-[10px] sm:text-[11px] transition border flex items-center justify-center gap-1 shadow-sm" title="Switch or configure active Antigravity CLI / Standalone session">
+                <i class="fa-solid ${isBothActive ? 'fa-check text-emerald-400' : (isCliActive ? 'fa-terminal text-emerald-400' : (isStandaloneActive ? 'fa-globe text-cyan-400' : 'fa-user-check text-[9px] sm:text-[10px]'))}"></i><span>${isBothActive ? 'CLI + Standalone' : (isCliActive ? 'In CLI' : (isStandaloneActive ? 'Standalone' : 'AGY CLI'))}</span>
               </button>
             </div>
           ` : ''}
@@ -3039,20 +3040,20 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       );
 
       const isCliActive = !isWeb && !isApiKey && (acc.account_id === cliActiveAccountId);
-      const isIdeActive = !isWeb && !isApiKey && (acc.account_id === ideActiveAccountId);
-      const isBothActive = isCliActive && isIdeActive;
+      const isStandaloneActive = !isWeb && !isApiKey && (acc.account_id === (typeof standaloneActiveAccountId !== 'undefined' ? standaloneActiveAccountId : ((typeof ideActiveAccountId !== 'undefined') ? ideActiveAccountId : null)));
+      const isBothActive = isCliActive && isStandaloneActive;
 
       let agyActiveTableBadge = '';
       if (isBothActive) {
-        agyActiveTableBadge = '<span class="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30 inline-flex items-center space-x-1" title="Active session in both Antigravity CLI and IDE"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse mr-1"></span>CLI + IDE</span>';
+        agyActiveTableBadge = '<span class="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30 inline-flex items-center space-x-1" title="Active session in both Antigravity CLI and Standalone"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse mr-1"></span>CLI + Standalone</span>';
       } else if (isCliActive) {
         agyActiveTableBadge = '<span class="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30 inline-flex items-center space-x-1" title="Active session in Antigravity CLI"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse mr-1"></span>CLI Active</span>';
-      } else if (isIdeActive) {
-        agyActiveTableBadge = '<span class="text-[9px] px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 font-semibold border border-cyan-500/30 inline-flex items-center space-x-1" title="Active session in Antigravity IDE"><span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse mr-1"></span>IDE Active</span>';
+      } else if (isStandaloneActive) {
+        agyActiveTableBadge = '<span class="text-[9px] px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 font-semibold border border-cyan-500/30 inline-flex items-center space-x-1" title="Active session in Standalone Web Agent"><span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse mr-1"></span>Standalone Active</span>';
       }
 
       return `
-        <tr class="hover:bg-slate-800/40 transition ${!isEnabled ? 'opacity-50' : ''} ${isBothActive || isCliActive ? 'bg-emerald-500/[0.03]' : (isIdeActive ? 'bg-cyan-500/[0.03]' : '')}">
+        <tr class="hover:bg-slate-800/40 transition ${!isEnabled ? 'opacity-50' : ''} ${isBothActive || isCliActive ? 'bg-emerald-500/[0.03]' : (isStandaloneActive ? 'bg-cyan-500/[0.03]' : '')}">
           <td class="px-4 py-3">
             <div class="flex items-center space-x-2.5">
               ${renderAvatar(acc, 'w-7 h-7', 'text-xs')}
@@ -3159,7 +3160,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
               ${!isWeb && !isApiKey ? `<button onclick="openQuotaModal('${acc.account_id}')" class="text-slate-400 hover:text-purple-400 p-1 transition" title="View official agy Models & Quota"><i class="fa-solid fa-chart-pie text-xs"></i></button>` : ''}
               <button onclick="openPlaygroundForAccount('${acc.account_id}')" class="text-slate-400 hover:text-indigo-400 p-1 transition" title="Test in Live Playground"><i class="fa-solid fa-terminal text-xs"></i></button>
               <button onclick="testAccount('${acc.account_id}')" class="text-slate-400 hover:text-teal-400 p-1 transition" title="Test connection"><i class="fa-solid fa-vial-circle-check text-xs"></i></button>
-              ${!isWeb && !isApiKey ? `<button onclick="openActivateSessionModal('${acc.account_id}')" class="${isBothActive || isCliActive ? 'text-emerald-400 hover:text-emerald-300' : (isIdeActive ? 'text-cyan-400 hover:text-cyan-300' : 'text-slate-400 hover:text-emerald-400')} p-1 transition" title="${isBothActive ? 'Active in CLI + IDE (click to switch)' : (isCliActive ? 'Active in CLI (click to switch)' : (isIdeActive ? 'Active in IDE (click to switch)' : 'Configure or switch AGY session'))}"><i class="fa-solid ${isBothActive ? 'fa-check' : (isCliActive ? 'fa-terminal' : (isIdeActive ? 'fa-code' : 'fa-user-check'))} text-xs"></i></button>` : ''}
+              ${!isWeb && !isApiKey ? `<button onclick="openActivateSessionModal('${acc.account_id}')" class="${isBothActive || isCliActive ? 'text-emerald-400 hover:text-emerald-300' : (isStandaloneActive ? 'text-cyan-400 hover:text-cyan-300' : 'text-slate-400 hover:text-emerald-400')} p-1 transition" title="${isBothActive ? 'Active in CLI + Standalone (click to switch)' : (isCliActive ? 'Active in CLI (click to switch)' : (isStandaloneActive ? 'Active in IDE (click to switch)' : 'Configure or switch AGY session'))}"><i class="fa-solid ${isBothActive ? 'fa-check' : (isCliActive ? 'fa-terminal' : (isStandaloneActive ? 'fa-globe' : 'fa-user-check'))} text-xs"></i></button>` : ''}
               ${isWeb ? `<button onclick="refreshWebCookies('${acc.account_id}')" class="text-slate-400 hover:text-teal-400 p-1 transition" title="Sync cookies from CDP port ${acc.cdp_port || 9222}"><i class="fa-solid fa-rotate text-xs"></i></button>` : ''}
               <button onclick="toggleAccount('${acc.account_id}', ${!isEnabled})" class="relative inline-flex h-4 w-7 flex-shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isEnabled ? 'bg-indigo-600' : 'bg-slate-700'}" title="${isEnabled ? 'Pause' : 'Enable'}">
                 <span class="pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${isEnabled ? 'translate-x-3' : 'translate-x-0'}"></span>
