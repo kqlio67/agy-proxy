@@ -39,7 +39,4 @@ htmlcov/
 # Temporary & scratch files
 tmp/
 scratch/
-*.bak
-*.bak.*
-*.mitm
 

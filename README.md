@@ -17,13 +17,6 @@ Equipped with **Multi-Account Pooling**, **Automatic 429 Quota Failover**, and a
 
 ---
 
-## 🔗 Official Antigravity Tools
-This proxy is designed to supercharge the official Google Antigravity ecosystem. You can download the official clients here:
-- **[Antigravity Hub (Antigravity 2.0 Web Agent)](https://antigravity.google/product/antigravity-2)**
-- **[Antigravity CLI](https://antigravity.google/product/antigravity-cli)**
-- **[Official Homepage](https://antigravity.google/)**
-
-
 ## 🌟 Key Features
 
 - 🔄 **OpenAI, Responses API, Anthropic & Gemini Compatible Endpoints**:
@@ -52,9 +45,9 @@ This proxy is designed to supercharge the official Google Antigravity ecosystem.
   - Dynamic Context Compactor card with configurable auto-summarization thresholds.
   - Collapsible account groups (OAuth, Web, API Keys) with per-section Enable/Disable controls and "Collapse All / Expand All" toolbar buttons.
   - Toggle switch to enable/pause specific accounts and one-click account deletion.
-- 🔄 **Antigravity CLI & Standalone Session Switcher**:
-  - Live detection showing which accounts are currently active in **Antigravity CLI** (`~/.gemini/antigravity-cli/`) and **Antigravity 2.0 Web Agent** (`~/.gemini/jetski-standalone-oauth-token`).
-  - Interactive Web UI modal to switch sessions selectively: **CLI Only**, **Standalone Only**, or **All (CLI + Standalone)**.
+- 🔄 **Antigravity CLI & IDE Session Switcher**:
+  - Live detection showing which accounts are currently active in **Antigravity CLI** (`~/.gemini/antigravity-cli/`) and **Antigravity IDE** (`~/.gemini/antigravity-ide/`).
+  - Interactive Web UI modal to switch sessions selectively: **CLI Only**, **IDE Only**, or **Both (CLI + IDE)**.
   - Strict compliance with official `antigravity-oauth-token` JSON schema (atomic writes, zero extra metadata, automated `.bak` backups, strict `0600` permissions).
 - 🚀 **One-Click Launchers**:
   - Pre-configured launch scripts (`./start_proxy.sh`, `run_claude.sh`/`bat` with custom port and model flags).
@@ -386,32 +379,32 @@ uv run python main.py auth login
 uv run python main.py auth list
 ```
 
-### 🔄 Switching Active Antigravity CLI & Standalone Sessions
-Antigravity Proxy can directly synchronize your pooled Google accounts with your native system **Antigravity CLI** (`~/.gemini/antigravity-cli/`) and **Antigravity 2.0 Web Agent** (`~/.gemini/jetski-standalone-oauth-token`) sessions without requiring manual re-authentication.
+### 🔄 Switching Active Antigravity CLI & IDE Sessions
+Antigravity Proxy can directly synchronize your pooled Google accounts with your native system **Antigravity CLI** (`~/.gemini/antigravity-cli/`) and **Antigravity IDE** (`~/.gemini/antigravity-ide/`) sessions without requiring manual re-authentication.
 
 #### 🔹 Via Web Dashboard (Interactive Modal):
-1. In the **Google Antigravity Accounts (OAuth)** section, click the **`AGY CLI`** / **`In CLI`** / **`In Standalone`** button on any account card or table row.
+1. In the **Google Antigravity Accounts (OAuth)** section, click the **`AGY CLI`** / **`In CLI`** / **`In IDE`** button on any account card or table row.
 2. A modal dialog will open displaying the account details and the current active sessions:
    - **CLI Only** (`~/.gemini/antigravity-cli/`): Updates terminal CLI session.
-   - **Standalone Only** (`~/.gemini/jetski-standalone-oauth-token`): Updates the Antigravity 2.0 Web Agent.
-   - **All (CLI + Standalone)**: Switches all environments simultaneously.
+   - **IDE Only** (`~/.gemini/antigravity-ide/`): Updates Cursor / VS Code extension session.
+   - **Both (CLI + IDE)**: Switches both environments simultaneously.
 3. (Optional) Keep **"Also set as Primary Proxy Account"** checked.
 4. Click **"Confirm Switch"** — the proxy writes the official token file, creates a safety `.bak` backup, and updates live status indicators immediately.
 
 #### 🔹 Via CLI Commands:
 ```bash
-# List available OAuth accounts and their current active statuses (CLI/Standalone):
+# List available OAuth accounts and their current active statuses (CLI/IDE):
 agy-proxy switch --list
-# Example output will show clear indicators like "Active (CLI) ⭐" or "Active (Standalone) ⭐"
+# Example output will show clear indicators like "Active (CLI) ⭐" or "Active (IDE) ⭐"
 
-# Switch to a specific account for both CLI and Standalone:
+# Switch to a specific account for both CLI and IDE:
 agy-proxy switch "developer@gmail.com"
 
 # Switch an account ONLY for the CLI terminal:
 agy-proxy switch "developer@gmail.com" --cli
 
-# Switch an account ONLY for the Standalone Web Agent:
-agy-proxy switch "developer@gmail.com" --standalone
+# Switch an account ONLY for the IDE extension:
+agy-proxy switch "developer@gmail.com" --ide
 
 # Automatically rotate to the account with the highest remaining quota:
 agy-proxy switch --next

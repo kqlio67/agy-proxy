@@ -51,11 +51,10 @@ class TestDashboardTemplate(unittest.TestCase):
         // Setup minimal stubs for globals used by renderAccountCard
         const cliActiveAccountId = null;
         const ideActiveAccountId = null;
-        const standaloneActiveAccountId = null;
         const renderAvatar = () => '<div>avatar</div>';
         const formatResetBadge = (iso, pct, win) => (pct <= 0 ? '⚠️ Exhausted' : 'Active');
 
-        const renderCard = new Function('acc', 'cliActiveAccountId', 'ideActiveAccountId', 'renderAvatar', 'formatResetBadge', 'standaloneActiveAccountId',
+        const renderCard = new Function('acc', 'cliActiveAccountId', 'ideActiveAccountId', 'renderAvatar', 'formatResetBadge',
             cardMatch[1]
         );
 
