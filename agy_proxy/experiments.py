@@ -1232,6 +1232,41 @@ CURATED_SAFE_FLAGS: dict[str, dict[str, Any]] = {
         "category": "rag_context",
         "desc": "v2.25.0 Flag: Tracks memory origin and attribution for Cortex memory entries",
     },
+    "enable-remote-terminal-predictive-echo": {
+        "value": True,
+        "category": "ui_editor",
+        "desc": "v2.26.0 Flag: Enables predictive echo in remote terminal for zero-latency keystroke rendering",
+    },
+    "enable-conversation-navigator-chapter-titles": {
+        "value": True,
+        "category": "ui_editor",
+        "desc": "v2.26.0 Flag: Enables automatic chapter titles in conversation navigator",
+    },
+    "enable-keybinding-customization": {
+        "value": True,
+        "category": "ui_editor",
+        "desc": "v2.26.0 Flag: Enables custom keybinding editor and overrides",
+    },
+    "enable-prompt-cache-keep-alive": {
+        "value": True,
+        "category": "sdlc_models",
+        "desc": "v2.26.0 Flag: Maintains keep-alive ping for prompt cache to prevent cold starts",
+    },
+    "enable-browser-subagent-webview-ux": {
+        "value": True,
+        "category": "agents",
+        "desc": "v2.26.0 Flag: Enables dedicated webview UI for fast-browser subagent execution",
+    },
+    "cli-suggest-auto-mode-in-permission-prompt": {
+        "value": True,
+        "category": "agents",
+        "desc": "v2.26.0 Flag: Suggests auto mode in permission prompt for streamlined CLI execution",
+    },
+    "show_memory_operations": {
+        "value": True,
+        "category": "rag_context",
+        "desc": "v2.26.0 Flag: Displays Cortex memory storage and retrieval operations in trajectory",
+    },
 }
 
 # Optimized non-bool flag overrides
@@ -1516,7 +1551,8 @@ CURATED_EXPERIMENT_IDS: list[int] = [
     106596395, 106596396, 106597020, 106617388, 106617390, 106621675, 106640124, 106640126,
     106643242, 106659335, 106659337, 106659338, 106659344, 106659346, 106659347,
     106670811, 106676368, 106701431, 106701435, 106711598, 106712040, 106713377, 106713379,
-    106713380, 106713382, 106724030, 106754391, 106834476, 106838234
+    106713380, 106713382, 106724030, 106754391, 106834476, 106838234,
+    106724031, 106811917, 106822475
 ]
 
 

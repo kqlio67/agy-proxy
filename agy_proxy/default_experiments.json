@@ -130,7 +130,10 @@
     106793467,
     106834476,
     106838234,
-    106863974
+    106863974,
+    106724031,
+    106811917,
+    106822475
   ],
   "flags": [
     {
@@ -2156,6 +2159,62 @@
     },
     {
       "name": "memory_source_attribution",
+      "boolValue": false
+    },
+    {
+      "name": "agy-featured-plugins",
+      "stringValue": ""
+    },
+    {
+      "name": "ambient_prefetch_enabled",
+      "boolValue": false
+    },
+    {
+      "name": "ambient_query_max_thought_chars",
+      "intValue": "0"
+    },
+    {
+      "name": "ambient_query_max_thought_steps",
+      "intValue": "0"
+    },
+    {
+      "name": "cli-suggest-auto-mode-in-permission-prompt",
+      "boolValue": false
+    },
+    {
+      "name": "enable-browser-subagent-webview-ux",
+      "boolValue": false
+    },
+    {
+      "name": "enable-conversation-navigator-chapter-titles",
+      "boolValue": false
+    },
+    {
+      "name": "enable-keybinding-customization",
+      "boolValue": false
+    },
+    {
+      "name": "enable-prompt-cache-keep-alive",
+      "boolValue": false
+    },
+    {
+      "name": "enable-remote-battle-mode",
+      "boolValue": false
+    },
+    {
+      "name": "enable-remote-persistent-agents",
+      "boolValue": false
+    },
+    {
+      "name": "enable-remote-terminal-predictive-echo",
+      "boolValue": true
+    },
+    {
+      "name": "jetski-featured-plugins",
+      "stringValue": ""
+    },
+    {
+      "name": "show_memory_operations",
       "boolValue": false
     }
   ]

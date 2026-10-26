@@ -85,9 +85,9 @@ You can now directly use:
 
 ---
 
-## 💡 Key Features in v2.25.0
+## 💡 Key Features in v2.26.0
 
-- **Upstream User-Agent Alignment**: Uses `antigravity/hub/2.25.0` (cl=1003475615) matching official client telemetry.
+- **Upstream User-Agent Alignment**: Uses `antigravity/hub/2.26.0` (cl=1005016104) matching official client telemetry.
 - **Claude 5.5 Support & Auto-Fallback**: Full support for Claude Sonnet 5.5 & Opus 5.5 with 1M token context, adaptive reasoning, and automatic account fallback to Claude 4.6 on 404/429.
 - **DeepAgent & Experiments Activation**: Automatically activates `enable-deepagent: true` on `/v1internal:listExperiments` pass-through for autonomous subagent workflows (`/deepagent`).
 - **Claude Code Billing Header Stripping**: Strips internal `x-anthropic-billing-header:` prompts to eliminate Google CloudCode 429 RESOURCE_EXHAUSTED rejections.

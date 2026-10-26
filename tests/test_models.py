@@ -232,6 +232,9 @@ class TestModelNormalization(unittest.TestCase):
         from agy_proxy.models import REVERSE_PLACEHOLDER_MAP, CLOUDCODE_PLACEHOLDER_MAP
 
         # Placeholder string mapping
+        self.assertEqual(normalize_model_name("MODEL_PLACEHOLDER_M400"), "claude-opus-5-5-low")
+        self.assertEqual(normalize_model_name("MODEL_PLACEHOLDER_M405"), "claude-sonnet-5-5-high")
+        self.assertEqual(normalize_model_name("MODEL_PLACEHOLDER_M410"), "gpt-oss-120b-medium")
         self.assertEqual(normalize_model_name("MODEL_PLACEHOLDER_M501"), "gemini-4-argon-web-high")
         self.assertEqual(normalize_model_name("MODEL_PLACEHOLDER_M505"), "gemini-3.8-flash-web-high")
         self.assertEqual(normalize_model_name("MODEL_PLACEHOLDER_M515"), "claude-sonnet-5-5-high")
@@ -239,6 +242,12 @@ class TestModelNormalization(unittest.TestCase):
         self.assertEqual(normalize_model_name("MODEL_PLACEHOLDER_M522"), "gemini-3.8-flash-deepagent")
 
         # Numeric enum mapping (1000 + N)
+        self.assertEqual(normalize_model_name(1400), "claude-opus-5-5-low")
+        self.assertEqual(normalize_model_name("1400"), "claude-opus-5-5-low")
+        self.assertEqual(normalize_model_name(1405), "claude-sonnet-5-5-high")
+        self.assertEqual(normalize_model_name("1405"), "claude-sonnet-5-5-high")
+        self.assertEqual(normalize_model_name(1410), "gpt-oss-120b-medium")
+        self.assertEqual(normalize_model_name("1410"), "gpt-oss-120b-medium")
         self.assertEqual(normalize_model_name(1501), "gemini-4-argon-web-high")
         self.assertEqual(normalize_model_name("1501"), "gemini-4-argon-web-high")
         self.assertEqual(normalize_model_name(1505), "gemini-3.8-flash-web-high")

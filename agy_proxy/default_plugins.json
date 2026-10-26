@@ -1435,6 +1435,20 @@
       }
     },
     {
+      "name": "Google Cloud App Optimize",
+      "uid": "google-cloud-app-optimize",
+      "link": "https://docs.cloud.google.com/app-optimize/overview",
+      "description": "The App Optimize (AppOptimize) remote MCP server allows you to create, manage, and analyze cloud cost, usage, and optimization reports for your Google Cloud resources.",
+      "trustLevel": "TRUSTED",
+      "readme": "https://www.gstatic.com/onemcp/appoptimize.md",
+      "remote": {
+        "remoteTemplate": {
+          "serverUrl": "https://appoptimize.googleapis.com/mcp",
+          "authProviderType": "google_credentials"
+        }
+      }
+    },
+    {
       "name": "Vertex AI Search",
       "uid": "vertex-ai-search",
       "link": "https://cloud.google.com/generative-ai-app-builder/docs/reference/mcp",

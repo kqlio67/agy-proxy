@@ -45,14 +45,14 @@ console = Console()
 DEFAULT_WEB_PORT = 44741
 DEFAULT_PROXY_PORT = 8000
 DEFAULT_PROXY_URL = f"http://127.0.0.1:{DEFAULT_PROXY_PORT}"
-DEFAULT_IDE_VERSION = "2.25.0"
+DEFAULT_IDE_VERSION = "2.26.0"
 DEFAULT_BUNDLE_DIR = Path.home() / ".config" / "agy-proxy" / "web_ui"
 DEFAULT_BIN_DIR = Path.home() / ".config" / "agy-proxy" / "bin"
 
 # ─── Auto-download URLs for the Antigravity Hub standalone binary ────────────
 #   Platform key → (download_url, archive_type)
 #   archive_type: "tar.gz" → extract language_server from tar; "exe" → copy directly
-_BUILD_TAG = "2.25.0-6535192714805248"
+_BUILD_TAG = "2.26.0-6546645232517120"
 _BASE_URL = f"https://storage.googleapis.com/antigravity-public/antigravity-hub/{_BUILD_TAG}"
 DOWNLOAD_URLS: Dict[str, tuple] = {
     "linux-x64":    (f"{_BASE_URL}/linux-x64/Antigravity.tar.gz", "tar.gz"),

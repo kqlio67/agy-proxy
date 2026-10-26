@@ -13,7 +13,7 @@
  */
 
 const DEFAULT_USER_AGENT =
-  "antigravity/hub/2.25.0 (aidev_client; os_type=linux; arch=amd64; cl=1003475615)";
+  "antigravity/hub/2.26.0 (aidev_client; os_type=linux; arch=amd64; cl=1005016104)";
 
 const DEFAULT_MODEL = "gemini-3.8-flash-high";
 
@@ -1103,7 +1103,7 @@ export default {
             status: "ok",
             message: "hello",
             proxy: "agy-proxy-edge",
-            version: "2.25.0",
+            version: "2.26.0",
           }),
           { status: 200, headers: { "Content-Type": "application/json", ...CORS_HEADERS } }
         );
@@ -1129,7 +1129,7 @@ export default {
             gateway_cloudcode: `${url.origin}/cloudcode/v1internal:streamGenerateContent`,
             gateway_genai: `${url.origin}/genai/v1beta/models`,
           },
-          version: "2.25.0",
+          version: "2.26.0",
         };
         return new Response(JSON.stringify(info, null, 2), {
           headers: { "Content-Type": "application/json", ...CORS_HEADERS },

@@ -310,14 +310,17 @@ def test_enhance_list_experiments_input_immutability():
     assert enhanced["flags"] != original_input["flags"]
 
 
-def test_v2_25_0_updates():
-    """Verify v2.25.0 User-Agent, new experiment IDs, and experimental flags."""
+def test_v2_26_0_updates():
+    """Verify v2.26.0 User-Agent, new experiment IDs, and experimental flags."""
     from agy_proxy.auth.constants import USER_AGENT
-    assert "2.25.0" in USER_AGENT
-    assert "cl=1003475615" in USER_AGENT
+    assert "2.26.0" in USER_AGENT
+    assert "cl=1005016104" in USER_AGENT
 
     payload = get_default_experiments_payload()
     exp_ids = payload["experimentIds"]
+    assert 106724031 in exp_ids
+    assert 106811917 in exp_ids
+    assert 106822475 in exp_ids
     assert 106712040 in exp_ids
     assert 106712041 in exp_ids
     assert 106761937 in exp_ids
@@ -325,6 +328,13 @@ def test_v2_25_0_updates():
     assert 106863974 in exp_ids
 
     flags_dict = {f["name"]: f.get("boolValue") for f in payload["flags"] if "name" in f}
+    assert flags_dict.get("enable-remote-terminal-predictive-echo") is True
+    assert flags_dict.get("enable-browser-subagent-webview-ux") is True
+    assert flags_dict.get("enable-conversation-navigator-chapter-titles") is True
+    assert flags_dict.get("enable-keybinding-customization") is True
+    assert flags_dict.get("enable-prompt-cache-keep-alive") is True
+    assert flags_dict.get("show_memory_operations") is True
+    assert flags_dict.get("ambient_prefetch_enabled") is False
     assert flags_dict.get("ambient_memory_si_enabled") is True
     assert flags_dict.get("enable-browser-subagent-webview") is False
     assert flags_dict.get("enable-citc-workspace-hygiene-rule") is True
@@ -528,9 +538,12 @@ def test_new_curated_safe_flags_activation():
 
 
 def test_default_experiments_catalog_completeness():
-    """Verify default_experiments.json contains exactly 495 flags and updated experimentIds."""
+    """Verify default_experiments.json contains exactly 509 flags and updated experimentIds."""
     payload = get_default_experiments_payload()
     assert 106712040 in payload["experimentIds"]
+    assert 106724031 in payload["experimentIds"]
+    assert 106811917 in payload["experimentIds"]
+    assert 106822475 in payload["experimentIds"]
 
     flags = payload["flags"]
     flag_names = {f["name"] for f in flags}
@@ -548,6 +561,13 @@ def test_default_experiments_catalog_completeness():
     assert "enable-plugin-card-auto-resume" in flag_names
     assert "enable-rpc-sandbox-proxy" in flag_names
     assert "memory_source_attribution" in flag_names
+    assert "enable-remote-terminal-predictive-echo" in flag_names
+    assert "enable-browser-subagent-webview-ux" in flag_names
+    assert "enable-conversation-navigator-chapter-titles" in flag_names
+    assert "enable-keybinding-customization" in flag_names
+    assert "enable-prompt-cache-keep-alive" in flag_names
+    assert "show_memory_operations" in flag_names
+    assert "ambient_prefetch_enabled" in flag_names
 
     # Check raw default file
     import json
@@ -555,15 +575,25 @@ def test_default_experiments_catalog_completeness():
     with open(DEFAULT_EXPERIMENTS_FILE, "r", encoding="utf-8") as f:
         raw_data = json.load(f)
 
-    assert len(raw_data["flags"]) == 495
+    assert len(raw_data["flags"]) == 509
     raw_flag_names = {f["name"] for f in raw_data["flags"]}
     assert "ReturnAdminControls__enable_for_cli" not in raw_flag_names
     assert "enable-swarm" not in raw_flag_names
     assert 106712040 in raw_data["experimentIds"]
+    assert 106724031 in raw_data["experimentIds"]
+    assert 106811917 in raw_data["experimentIds"]
+    assert 106822475 in raw_data["experimentIds"]
     assert "enable-browser-subagent-auto-invoke" in raw_flag_names
     assert "enable-plugin-card-auto-resume" in raw_flag_names
     assert "enable-rpc-sandbox-proxy" in raw_flag_names
     assert "memory_source_attribution" in raw_flag_names
+    assert "enable-remote-terminal-predictive-echo" in raw_flag_names
+    assert "enable-browser-subagent-webview-ux" in raw_flag_names
+    assert "enable-conversation-navigator-chapter-titles" in raw_flag_names
+    assert "enable-keybinding-customization" in raw_flag_names
+    assert "enable-prompt-cache-keep-alive" in raw_flag_names
+    assert "show_memory_operations" in raw_flag_names
+    assert "ambient_prefetch_enabled" in raw_flag_names
 
 
 def test_v2_25_0_model_enhancements():
