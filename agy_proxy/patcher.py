@@ -222,9 +222,13 @@ WATCHDOG_LOG="${{TMPDIR:-/tmp}}/agy_ls_watchdog.log"
 
 if [ "$proxy_online" -eq 1 ]; then
     CURRENT_MODE="proxy"
+    export CLOUD_CODE_URL="${{PROXY_URL}}"
+    export USER_INFO_OVERRIDE_URL="${{PROXY_URL}}/oauth2/v2/userinfo"
+    export ANTIGRAVITY_VSCODE_HOST=1
     echo "[wrapper] ⚡ agy-proxy active at ${{PROXY_URL}} -> routing traffic through proxy" >&2
 else
     CURRENT_MODE="direct"
+    unset CLOUD_CODE_URL USER_INFO_OVERRIDE_URL ANTIGRAVITY_VSCODE_HOST 2>/dev/null || true
     echo "[wrapper] ⚠️  agy-proxy offline / not responding at ${{PROXY_URL}} (timeout ${{WAIT_TIMEOUT}}s)" >&2
     echo "[wrapper] 🔄 Auto-Fallback: launching language_server in DIRECT mode (Google backend)" >&2
 fi
@@ -324,6 +328,18 @@ if [ "$CURRENT_MODE" = "proxy" ] && [ -d "$AGY_WEB_BUNDLE" ] && [ -f "$AGY_WEB_B
         FINAL_ARGS+=("--web_bundle_path" "$AGY_WEB_BUNDLE")
         echo "[wrapper] 🧩 Injecting patched web bundle: $AGY_WEB_BUNDLE" >&2
     fi
+fi
+
+# Ensure telemetry is disabled for performance and privacy
+has_disable_telem=0
+for arg in "${{FINAL_ARGS[@]}}"; do
+    if [[ "$arg" == "--disable_telemetry" || "$arg" == --disable_telemetry=* ]]; then
+        has_disable_telem=1
+        break
+    fi
+done
+if [ "$has_disable_telem" -eq 0 ]; then
+    FINAL_ARGS+=("--disable_telemetry=true")
 fi
 
 # Live Auto-Switching: Watchdog monitors proxy connectivity and signals language_server when state changes

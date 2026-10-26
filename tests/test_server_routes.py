@@ -1955,6 +1955,60 @@ class TestServerRoutes(unittest.IsolatedAsyncioTestCase):
         self.assertIn("fetch_web_page", tool_names)
         self.assertIn("compact_conversation", tool_names)
 
+    async def test_plugin_scheme_proxy_endpoint(self):
+        # 1. Test OPTIONS preflight for plugin:// compatibility
+        opt_resp = await self.client.options("/plugin/test-authority/assets/icon.png")
+        self.assertEqual(opt_resp.status_code, 200)
+        self.assertEqual(opt_resp.headers.get("access-control-allow-origin"), "*")
+        self.assertIn("GET", opt_resp.headers.get("access-control-allow-methods", ""))
+
+        # 2. Test GET plugin asset (falls back gracefully to 200 OK when target web hub is offline)
+        get_resp = await self.client.get("/plugin/test-authority/assets/style.css")
+        self.assertEqual(get_resp.status_code, 200)
+        self.assertEqual(get_resp.headers.get("access-control-allow-origin"), "*")
+
+    async def test_cloudcode_passthrough_live_sse_streaming(self):
+        # Verify that when an httpx.AsyncClient is present and alt=sse is requested,
+        # cloudcode_internal_passthrough streams chunks in real time without buffering
+        chunk_lines = [
+            b'data: {"response": {"candidates": [{"content": {"parts": [{"text": "Hello"}]}}]}}\n\n',
+            b'data: {"response": {"candidates": [{"content": {"parts": [{"text": " world"}]}}]}}\n\n',
+        ]
+
+        class MockSSETransport(httpx.AsyncBaseTransport):
+            async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+                async def stream_chunks():
+                    for ch in chunk_lines:
+                        yield ch
+
+                return httpx.Response(
+                    status_code=200,
+                    headers={"Content-Type": "text/event-stream"},
+                    content=stream_chunks(),
+                    request=request,
+                )
+
+        mock_acc = AccountSession(
+            account_id="sse_stream_acc",
+            email="sse_user@example.com",
+            refresh_token="rf_tok",
+            is_primary=True,
+        )
+        real_client = httpx.AsyncClient(transport=MockSSETransport())
+        mock_acc.get_http_client = AsyncMock(return_value=real_client)
+        mock_acc.get_auth_headers = AsyncMock(return_value={"Authorization": "Bearer test"})
+        self.pool.accounts["sse_stream_acc"] = mock_acc
+
+        resp = await self.client.post(
+            "/v1internal:streamGenerateContent?alt=sse",
+            json={"model": "gemini-3.8-flash-deepagent", "request": {"contents": [{"role": "user", "parts": [{"text": "hi"}]}]}},
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("text/event-stream", resp.headers["content-type"])
+        self.assertIn("Hello", resp.text)
+        self.assertIn("world", resp.text)
+        await real_client.aclose()
+
 
 
 if __name__ == "__main__":

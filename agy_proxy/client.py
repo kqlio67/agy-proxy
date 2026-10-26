@@ -745,7 +745,7 @@ class CloudCodeClient:
                                                 if clean_acc:
                                                     parts.append({"text": clean_acc})
                                                 else:
-                                                    parts.append({"text": "Task completed."})
+                                                    parts.append({"text": ""})
 
                                             has_yielded = True
                                             yield {

@@ -54,14 +54,56 @@ DEFAULT_BIN_DIR = Path.home() / ".config" / "agy-proxy" / "bin"
 #   archive_type: "tar.gz" → extract language_server from tar; "exe" → copy directly
 _BUILD_TAG = "2.26.0-6546645232517120"
 _BASE_URL = f"https://storage.googleapis.com/antigravity-public/antigravity-hub/{_BUILD_TAG}"
-DOWNLOAD_URLS: Dict[str, tuple] = {
-    "linux-x64":    (f"{_BASE_URL}/linux-x64/Antigravity.tar.gz", "tar.gz"),
-    "linux-arm":    (f"{_BASE_URL}/linux-arm/Antigravity.tar.gz", "tar.gz"),
-    "darwin-arm":   (f"{_BASE_URL}/darwin-arm/Antigravity.dmg",   "dmg"),
-    "darwin-x64":   (f"{_BASE_URL}/darwin-x64/Antigravity.dmg",   "dmg"),
-    "windows-x64":  (f"{_BASE_URL}/windows-x64/Antigravity-x64.exe", "exe"),
-    "windows-arm":  (f"{_BASE_URL}/windows-arm/Antigravity-arm64.exe", "exe"),
-}
+RELEASES_API_URL = "https://antigravity-hub-auto-updater-974169037036.us-central1.run.app/releases"
+
+
+def fetch_latest_hub_release(timeout: float = 3.0) -> Optional[dict]:
+    """
+    Fetches the latest official Antigravity Hub release metadata from Google's Cloud Run auto-updater.
+    Returns dict with 'version' and 'execution_id', e.g. {'version': '2.26.0', 'execution_id': '6546645232517120'}.
+    """
+    try:
+        import json
+        req = urllib.request.Request(
+            RELEASES_API_URL,
+            headers={"User-Agent": "Antigravity-AutoUpdater/2.0"},
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            if resp.status == 200:
+                data = json.loads(resp.read().decode("utf-8"))
+                if isinstance(data, list) and data:
+                    latest = data[0]
+                    if "version" in latest and "execution_id" in latest:
+                        return latest
+    except Exception as e:
+        logger.debug(f"Failed to fetch dynamic hub release: {e}")
+    return None
+
+
+def get_hub_build_tag(fetch_dynamic: bool = True) -> str:
+    """Gets the latest build tag dynamically, falling back to static _BUILD_TAG."""
+    if fetch_dynamic:
+        rel = fetch_latest_hub_release()
+        if rel:
+            return f"{rel['version']}-{rel['execution_id']}"
+    return _BUILD_TAG
+
+
+def get_download_urls(build_tag: Optional[str] = None) -> Dict[str, tuple]:
+    """Builds platform download URLs for a given build tag."""
+    tag = build_tag or _BUILD_TAG
+    base = f"https://storage.googleapis.com/antigravity-public/antigravity-hub/{tag}"
+    return {
+        "linux-x64":    (f"{base}/linux-x64/Antigravity.tar.gz", "tar.gz"),
+        "linux-arm":    (f"{base}/linux-arm/Antigravity.tar.gz", "tar.gz"),
+        "darwin-arm":   (f"{base}/darwin-arm/Antigravity.dmg",   "dmg"),
+        "darwin-x64":   (f"{base}/darwin-x64/Antigravity.dmg",   "dmg"),
+        "windows-x64":  (f"{base}/windows-x64/Antigravity-x64.exe", "exe"),
+        "windows-arm":  (f"{base}/windows-arm/Antigravity-arm64.exe", "exe"),
+    }
+
+
+DOWNLOAD_URLS: Dict[str, tuple] = get_download_urls()
 
 KNOWN_CANDIDATE_DIRS = [
     # Auto-downloaded binary (highest priority after explicit paths)
@@ -419,7 +461,28 @@ def download_language_server(
     ls_name = "language_server.exe" if archive_type == "exe" else "language_server"
     final_path = dest_dir / ls_name
 
-    console.print(f"[bold green]⬇️  Downloading Antigravity Hub ({pkey})...[/bold green]")
+    # 1. Fast path for Linux: direct download of pre-built unsigned ELF without archive overhead
+    if pkey in ("linux-x64", "linux-arm"):
+        tag = get_hub_build_tag()
+        arch_suffix = "x64" if pkey == "linux-x64" else "arm"
+        direct_url = f"https://storage.googleapis.com/antigravity-public/antigravity-hub/{tag}/unsigned/language_server-linux-{arch_suffix}"
+        try:
+            console.print(f"[bold green]⬇️  Downloading standalone language_server binary directly ({pkey})...[/bold green]")
+            with tempfile.NamedTemporaryFile(suffix=".tmp", delete=False) as tmp_file:
+                direct_tmp = Path(tmp_file.name)
+            _download_with_progress(direct_url, direct_tmp)
+            if direct_tmp.exists() and direct_tmp.stat().st_size > 50 * 1024 * 1024:
+                shutil.move(str(direct_tmp), str(final_path))
+                os.chmod(final_path, 0o755)
+                console.print(f"[bold green]✅ Antigravity language_server installed directly:[/bold green] [cyan]{final_path}[/cyan]")
+                return final_path
+            else:
+                if direct_tmp.exists():
+                    direct_tmp.unlink()
+        except Exception as direct_err:
+            logger.debug(f"Direct unsigned download failed, falling back to full archive: {direct_err}")
+
+    console.print(f"[bold green]⬇️  Downloading Antigravity Hub archive ({pkey})...[/bold green]")
 
     try:
         with tempfile.NamedTemporaryFile(
@@ -1251,6 +1314,30 @@ var __enhanceUserStatus=function(b){if(!b||!b.cascadeModelConfigData||b._agyEnha
         if (changed) {
           localStorage.setItem("jetski.developer.customFlagOverrides", JSON.stringify(curFlags));
         }
+
+        // Plugin scheme compatibility for Web Hub
+        try {
+          var origFetch = window.fetch;
+          if (origFetch) {
+            window.fetch = function(input, init) {
+              if (typeof input === "string" && input.startsWith("plugin://")) {
+                input = "/plugin/" + input.slice(9);
+              } else if (input && typeof input === "object" && input.url && input.url.startsWith("plugin://")) {
+                input = new Request("/plugin/" + input.url.slice(9), input);
+              }
+              return origFetch.call(this, input, init);
+            };
+          }
+          if (typeof XMLHttpRequest !== "undefined") {
+            var origOpen = XMLHttpRequest.prototype.open;
+            XMLHttpRequest.prototype.open = function(method, url) {
+              if (typeof url === "string" && url.startsWith("plugin://")) {
+                url = "/plugin/" + url.slice(9);
+              }
+              return origOpen.apply(this, arguments);
+            };
+          }
+        } catch (e) {}
       } catch (e) {
         console.warn("Auto-provision flags failed:", e);
       }
@@ -1386,6 +1473,8 @@ def build_web_args(
         "--csrf_token", token,
         "--app_data_dir", "antigravity",
         "--enable_sidecars",
+        "--disable_telemetry=true",
+        "--persistent_mode=true",
     ]
 
     # Connect to agy-proxy if active and direct mode is not forced, otherwise fallback to official Google backend
@@ -1701,6 +1790,30 @@ def launch_antigravity_web(
 
     # Launch server process
     log_out = None
+    proc_env = os.environ.copy()
+    if effective_proxy_url and proxy_alive and not direct:
+        clean_proxy = effective_proxy_url.rstrip("/")
+        proc_env["CLOUD_CODE_URL"] = clean_proxy
+        proc_env["USER_INFO_OVERRIDE_URL"] = f"{clean_proxy}/oauth2/v2/userinfo"
+    proc_env["ANTIGRAVITY_VSCODE_HOST"] = "1"
+
+    def _monitor_auth_urls():
+        seen_urls = set()
+        for _ in range(120):
+            if effective_log_path.is_file():
+                try:
+                    for line in effective_log_path.read_text(encoding="utf-8", errors="ignore").splitlines():
+                        if "ANTIGRAVITY_OPEN_URL:" in line:
+                            auth_link = line.split("ANTIGRAVITY_OPEN_URL:", 1)[1].strip()
+                            if auth_link and auth_link not in seen_urls:
+                                seen_urls.add(auth_link)
+                                console.print(f"\n[bold yellow]🔑 Antigravity Authentication URL:[/bold yellow]\n[bold underline cyan]{auth_link}[/bold underline cyan]\n")
+                except Exception:
+                    pass
+            time.sleep(0.5)
+
+    threading.Thread(target=_monitor_auth_urls, daemon=True).start()
+
     try:
         if detach:
             console.print("[bold green]🚀 Running Antigravity Web in background daemon mode...[/bold green]")
@@ -1717,6 +1830,7 @@ def launch_antigravity_web(
                 stdout=target_out,
                 stderr=target_err,
                 start_new_session=True,
+                env=proc_env,
             )
             console.print(f"Server started with PID: [bold cyan]{proc.pid}[/bold cyan]")
             return 0
@@ -1724,9 +1838,9 @@ def launch_antigravity_web(
         # Foreground mode: forward signals gracefully
         if not verbose:
             log_out = open(effective_log_path, "a", encoding="utf-8")
-            proc = subprocess.Popen(cmd, stdout=log_out, stderr=subprocess.STDOUT)
+            proc = subprocess.Popen(cmd, stdout=log_out, stderr=subprocess.STDOUT, env=proc_env)
         else:
-            proc = subprocess.Popen(cmd)
+            proc = subprocess.Popen(cmd, env=proc_env)
 
         def _signal_handler(signum, frame):
             try:

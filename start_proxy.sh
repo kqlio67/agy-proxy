@@ -96,6 +96,11 @@ if [ "$CHECK_HOST" = "0.0.0.0" ] || [ -z "$CHECK_HOST" ]; then
 fi
 CHECK_URL="http://${CHECK_HOST}:${PROXY_PORT}"
 
+# Export environment variables for zero-patching direct routing & headless auth
+export CLOUD_CODE_URL="http://${CHECK_HOST}:${PROXY_PORT}"
+export USER_INFO_OVERRIDE_URL="http://${CHECK_HOST}:${PROXY_PORT}/oauth2/v2/userinfo"
+export ANTIGRAVITY_VSCODE_HOST=1
+
 # Helper to find running language_server PIDs
 get_ls_pids() {
     pgrep -f "language_server" 2>/dev/null | while read -r pid; do

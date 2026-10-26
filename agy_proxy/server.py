@@ -3054,6 +3054,58 @@ def create_app(
         return JSONResponse({"totalTokens": final_tokens})
 
     # -------------------------------------------------------------------------
+    # Antigravity Plugin & Sidecar Scheme Proxy (/plugin/{authority}/{path})
+    # -------------------------------------------------------------------------
+
+    @app.api_route("/plugin/{authority}/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"], include_in_schema=False)
+    async def plugin_scheme_proxy(
+        authority: str,
+        path: str,
+        request: Request,
+    ):
+        """
+        Proxies plugin://<authority>/<path> assets to local Web Hub or returns CORS headers.
+        Enables Antigravity Web Mode to load sidecars and UI plugins without Electron desktop runtime.
+        """
+        if request.method == "OPTIONS":
+            return Response(
+                status_code=200,
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                    "Access-Control-Allow-Headers": "*",
+                },
+            )
+        web_port = 44741
+        target_url = f"https://127.0.0.1:{web_port}/{path}"
+        try:
+            async with httpx.AsyncClient(timeout=3.0, verify=False) as http_client:
+                forward_headers = {k: v for k, v in request.headers.items() if k.lower() not in ("host", "content-length")}
+                body_bytes = await request.body()
+                resp = await http_client.request(
+                    method=request.method,
+                    url=target_url,
+                    headers=forward_headers,
+                    content=body_bytes if body_bytes else None,
+                )
+                if resp.status_code < 400:
+                    return Response(
+                        content=resp.content,
+                        status_code=resp.status_code,
+                        media_type=resp.headers.get("content-type", "application/octet-stream"),
+                        headers={"Access-Control-Allow-Origin": "*"},
+                    )
+        except Exception:
+            pass
+
+        return Response(
+            content=b"",
+            status_code=200,
+            media_type="application/octet-stream",
+            headers={"Access-Control-Allow-Origin": "*"},
+        )
+
+    # -------------------------------------------------------------------------
     # Internal CloudCode Compatibility Endpoints
     # -------------------------------------------------------------------------
 
@@ -3285,8 +3337,14 @@ def create_app(
                 return JSONResponse(status_code=200, content=cached_data)
             return JSONResponse(status_code=200, content={})
 
-        timeout_sec = 180.0 if is_generation else 8.0
         query_params = dict(request.query_params)
+        is_sse = query_params.get("alt") == "sse" or "alt=sse" in str(request.url)
+        from agy_proxy.models import is_deepagent_model
+        if is_generation:
+            is_deep = is_deepagent_model(req_model) or any("deepagent" in str(x).lower() for x in (req_model, body))
+            timeout_sec = 600.0 if is_deep else 300.0
+        else:
+            timeout_sec = 8.0
         from agy_proxy.auth import CLOUDCODE_BASE_URL
         COLON_ACTIONS = {
             "loadCodeAssist",
@@ -3535,7 +3593,7 @@ def create_app(
                                         }
                                         yield f"data: {json.dumps(event_tool)}\n\n"
                                     else:
-                                        clean_acc = clean_preamble or accumulated_text.strip() or "Task completed."
+                                        clean_acc = clean_preamble or accumulated_text.strip()
                                         event_text = {
                                             "response": {
                                                 "candidates": [{
@@ -3745,7 +3803,19 @@ def create_app(
 
                 c = await acc.get_http_client()
 
-                if request.method == "POST":
+                is_streaming_call = is_generation and is_sse and isinstance(c, httpx.AsyncClient)
+                if is_streaming_call:
+                    timeout_obj = httpx.Timeout(timeout_sec, connect=15.0, read=timeout_sec, write=30.0, pool=30.0)
+                    if isinstance(candidate_body, dict):
+                        req_send = c.build_request("POST", target_url, headers=headers, json=candidate_body, params=query_params, timeout=timeout_obj)
+                    elif candidate_body is not None:
+                        req_send = c.build_request("POST", target_url, headers=headers, content=str(candidate_body).encode("utf-8"), params=query_params, timeout=timeout_obj)
+                    else:
+                        req_send = c.build_request("POST", target_url, headers=headers, params=query_params, timeout=timeout_obj)
+                    resp = await c.send(req_send, stream=True)
+                    if resp.status_code != 200:
+                        await resp.aread()
+                elif request.method == "POST":
                     if isinstance(candidate_body, dict):
                         resp = await c.post(target_url, headers=headers, json=candidate_body, params=query_params, timeout=timeout_sec)
                     elif candidate_body is not None:
@@ -3789,8 +3859,12 @@ def create_app(
                             pass
                     continue
 
-                err_hint = _extract_error_message(resp)
-                err_lower = err_hint.lower()
+                if resp.status_code >= 400:
+                    err_hint = _extract_error_message(resp)
+                    err_lower = err_hint.lower()
+                else:
+                    err_hint = ""
+                    err_lower = ""
 
                 # Upstream error: Claude 4.6 is no longer available on this account (migrated to Claude 5.5)
                 is_claude_deprecated = (
@@ -4049,6 +4123,44 @@ def create_app(
                     acc.total_requests = getattr(acc, "total_requests", 0) + 1
                     acc.last_used_timestamp = time.time()
                     acc.last_used_model = req_model
+
+                if resp.status_code == 200 and is_streaming_call and hasattr(resp, "aiter_bytes"):
+                    _record_cloudcode_traffic(acc, 200, raw_text="[streamGenerateContent SSE Stream]")
+
+                    async def sse_passthrough_stream():
+                        try:
+                            async for chunk in resp.aiter_bytes():
+                                yield chunk
+                        except asyncio.CancelledError:
+                            logger.info("[%s] CloudCode streaming client cancelled / disconnected (%s)", acc_label, route_desc)
+                            raise
+                        except Exception as stream_err:
+                            logger.warning("[%s] CloudCode streaming error mid-stream (%s): %s", acc_label, route_desc, stream_err)
+                            err_event = {
+                                "error": {
+                                    "code": 500,
+                                    "message": f"CloudCode stream error: {stream_err}",
+                                    "status": "INTERNAL",
+                                }
+                            }
+                            yield f"event: error\ndata: {json.dumps(err_event)}\n\n".encode("utf-8")
+                        finally:
+                            if hasattr(resp, "aclose") and asyncio.iscoroutinefunction(resp.aclose):
+                                await resp.aclose()
+                            elif hasattr(resp, "close") and callable(resp.close):
+                                resp.close()
+
+                    return StreamingResponse(
+                        sse_passthrough_stream(),
+                        status_code=200,
+                        media_type="text/event-stream",
+                        headers={
+                            "Content-Type": "text/event-stream",
+                            "Cache-Control": "no-cache",
+                            "Connection": "keep-alive",
+                            "X-Accel-Buffering": "no",
+                        },
+                    )
 
                 try:
                     data = resp.json()

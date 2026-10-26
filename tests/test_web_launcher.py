@@ -95,6 +95,8 @@ def test_build_web_args_with_proxy(tmp_path):
     assert "--csrf_token" in args
     assert "my-token" in args
     assert "--enable_sidecars" in args
+    assert "--disable_telemetry=true" in args
+    assert "--persistent_mode=true" in args
     assert "--api_server_url" in args
     assert "http://127.0.0.1:8000" in args
     assert "--cloud_code_endpoint" in args
@@ -644,4 +646,60 @@ def test_cli_download_server_flag(tmp_path):
     parser = build_parser()
     args = parser.parse_args(["web", "--download-server"])
     assert args.download_server is True
+
+
+def test_fetch_latest_hub_release_and_build_tag():
+    import json
+    from agy_proxy.web_launcher import (
+        fetch_latest_hub_release,
+        get_hub_build_tag,
+        get_download_urls,
+        _BUILD_TAG,
+    )
+
+    # 1. Test fallback when updater is unreachable or mock returns error
+    with patch("urllib.request.urlopen", side_effect=Exception("network unreachable")):
+        rel = fetch_latest_hub_release()
+        assert rel is None
+        tag = get_hub_build_tag(fetch_dynamic=True)
+        assert tag == _BUILD_TAG
+
+    # 2. Test successful dynamic release query
+    mock_resp = MagicMock()
+    mock_resp.status = 200
+    mock_resp.read.return_value = json.dumps([
+        {"version": "2.26.0", "execution_id": "6546645232517120"}
+    ]).encode("utf-8")
+    mock_resp.__enter__.return_value = mock_resp
+
+    with patch("urllib.request.urlopen", return_value=mock_resp):
+        rel = fetch_latest_hub_release()
+        assert rel is not None
+        assert rel["version"] == "2.26.0"
+        assert rel["execution_id"] == "6546645232517120"
+        tag = get_hub_build_tag(fetch_dynamic=True)
+        assert tag == "2.26.0-6546645232517120"
+
+    # 3. Test get_download_urls
+    urls = get_download_urls("2.26.0-12345")
+    assert "linux-x64" in urls
+    assert "2.26.0-12345" in urls["linux-x64"][0]
+
+
+def test_patch_web_bundle_plugin_scheme(tmp_path):
+    from agy_proxy.web_launcher import patch_web_bundle
+
+    bundle = tmp_path / "web_bundle"
+    bundle.mkdir()
+    (bundle / "main.js").write_text("console.log('test');", encoding="utf-8")
+    (bundle / "index.html").write_text("<html><head><title>Web Hub</title></head><body></body></html>", encoding="utf-8")
+
+    success = patch_web_bundle(bundle)
+    assert success is True
+
+    patched_html = (bundle / "index.html").read_text(encoding="utf-8")
+    assert "Plugin scheme compatibility for Web Hub" in patched_html
+    assert "plugin://" in patched_html
+    assert "/plugin/" in patched_html
+
 
