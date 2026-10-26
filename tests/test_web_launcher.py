@@ -352,6 +352,36 @@ def test_patch_web_bundle_dynamic_structural(tmp_path):
     assert "MODEL_ENUM_MAP" in patched_js
 
 
+def test_patch_web_bundle_redux_toolkit(tmp_path):
+    from agy_proxy.web_launcher import patch_web_bundle, is_bundle_patched
+
+    bundle_dir = tmp_path / "redux_bundle"
+    bundle_dir.mkdir()
+
+    dummy_js = (
+        "'use strict'; "
+        "restrictToCorpDomain:!0; "
+        'var myConv=p=>p.modelOrAlias?{label:p.label,value:p.modelOrAlias.choice.case==="model"?p.modelOrAlias.choice.value:EnumNs.Model.UNSPECIFIED,modelAlias:p.modelOrAlias.choice.case==="alias"?p.modelOrAlias.choice.value:void 0; '
+        'return ReactLib.createElement(ArbitraryItemComp,{"data-testid":"model-selector-item",value:123}); '
+        'const SCa=vk({name:"userStatus",initialState:()=>q(I.UserStatusSchema),reducers:{setUserStatus:(a,b)=>b.payload}}); '
+        'const ICa=a=>a.userStatus?.cascadeModelConfigData; '
+        'function Ls({visibleModelConfigs:a,customModels:b,modelSorts:c},e){if(a.length!==0||b.length!==0){var f=e?.model;if(f===I.Model.GOOGLE_GEMINI_INTERNAL_BYOM){if(a=(e?.customLabel?b.find(g=>g.label===e.customLabel):void 0)??b.at(0))return a}else if(f!==void 0&&(a=Sk(f,a)))return a;return c.at(0)?.groups.at(0)?.options.at(0)??b.at(0)}} '
+        'var T=R.isCustom?R:xac(p,k,R.label);if(T){ '
+    )
+    (bundle_dir / "main.js").write_text(dummy_js, encoding="utf-8")
+    (bundle_dir / "index.html").write_text("<html><head></head><body></body></html>", encoding="utf-8")
+
+    assert patch_web_bundle(bundle_dir) is True
+
+    patched_js = (bundle_dir / "main.js").read_text(encoding="utf-8")
+    assert "MODEL_ENUM_MAP" in patched_js
+    assert "__enhanceUserStatus(b.payload)" in patched_js
+    assert "__enhanceUserStatus(a.userStatus)?.cascadeModelConfigData" in patched_js
+    assert 'localStorage.getItem("agy.selectedModelLabel")' in patched_js
+    assert 'localStorage.setItem("agy.selectedModelLabel",R.label)' in patched_js
+    assert is_bundle_patched(bundle_dir) is True
+
+
 def test_patch_web_bundle_graceful_degradation(tmp_path):
     from agy_proxy.web_launcher import patch_web_bundle
 
