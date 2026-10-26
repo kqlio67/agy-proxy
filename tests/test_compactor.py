@@ -287,7 +287,6 @@ class TestSmartToolPruning(unittest.TestCase):
         self.assertEqual(d["checkpointer_model"], "gemini-3.1-flash-lite")
 
     def test_should_checkpoint_defaults_and_threshold(self):
-        import os
         from agy_proxy.compactor import should_checkpoint, compactor_settings
         orig_enabled = compactor_settings.checkpointer_enabled
         try:

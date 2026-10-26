@@ -54,7 +54,7 @@ def _load_sensitive_data(acc_id: str, item: dict):
         if data_str:
             sensitive = json.loads(data_str)
             item.update(sensitive)
-    except Exception as e:
+    except Exception:
         pass  # Silently fallback to JSON per user preference
 
 def _save_sensitive_data(acc_id: str, sensitive: dict, fallback_item: dict):
@@ -62,7 +62,7 @@ def _save_sensitive_data(acc_id: str, sensitive: dict, fallback_item: dict):
         try:
             keyring.set_password("agy_proxy.credentials", acc_id, json.dumps(sensitive))
             return
-        except Exception as e:
+        except Exception:
             pass  # Silently fallback to JSON per user preference
     # Fallback to plain text if keyring is unavailable or fails
     fallback_item.update(sensitive)

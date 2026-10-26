@@ -2,9 +2,7 @@ import unittest
 from fastapi.testclient import TestClient
 
 from agy_proxy.models import (
-    VALID_CLOUDCODE_MODELS,
     CLOUDCODE_PLACEHOLDER_MAP,
-    REVERSE_PLACEHOLDER_MAP,
     PROXY_CATALOG_MODELS,
     normalize_model_name,
     is_image_model,

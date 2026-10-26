@@ -1,13 +1,9 @@
 import copy
-import json
-import pytest
 from starlette.testclient import TestClient
 
 from agy_proxy.experiments import (
     BLOCKLIST_FLAGS,
-    CURATED_EXPERIMENT_IDS,
     CURATED_SAFE_FLAGS,
-    NON_BOOL_OPTIMIZATIONS,
     enhance_list_experiments,
     enhance_available_models,
     enhance_quota_summary,
@@ -16,9 +12,7 @@ from agy_proxy.experiments import (
     set_experiment_override,
     remove_experiment_override,
     reset_experiment_overrides,
-    set_experiment_mode,
     load_experiment_config,
-    save_experiment_config,
 )
 from agy_proxy.server import create_app
 from agy_proxy.auth.pool import AccountPool

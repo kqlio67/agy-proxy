@@ -8,7 +8,7 @@ import httpx
 
 from agy_proxy.auth import AccountPool, AccountSession, AntigravityOAuthSession
 from agy_proxy.client import CloudCodeClient, extract_web_search_query
-from agy_proxy.models import AnthropicMessage, AnthropicRequest, OpenAIChatRequest
+from agy_proxy.models import AnthropicMessage, AnthropicRequest
 
 
 class TestCloudCodeClient(unittest.IsolatedAsyncioTestCase):

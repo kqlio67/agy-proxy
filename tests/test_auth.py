@@ -5,7 +5,6 @@ Unit tests for Antigravity OAuth token parsing, expiry handling, and AccountPool
 import asyncio
 import base64
 import json
-import os
 import tempfile
 import time
 import unittest
@@ -931,7 +930,7 @@ class TestPolymorphicAccountHierarchy(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(ak_data["api_keys"][0]["account_id"], "legacy_key")
 
     def test_account_tier_attributes_and_badges(self):
-        pool = AccountPool(accounts_file=self.accounts_file)
+        AccountPool(accounts_file=self.accounts_file)
         # 1. Free tier
         oa_free = AntigravityOAuthSession(
             account_id="oa_free",
@@ -2506,7 +2505,7 @@ class TestOAuthFlowRedirectUri(unittest.TestCase):
                         with patch.object(AntigravityOAuthSession, "fetch_cloudcode_user_info", new_callable=AsyncMock):
                             with patch.object(AntigravityOAuthSession, "fetch_quota", new_callable=AsyncMock):
                                 with patch.object(AntigravityOAuthSession, "fetch_models", new_callable=AsyncMock):
-                                    acc = await self.pool.complete_oauth_flow(code_or_url=cli_url)
+                                    await self.pool.complete_oauth_flow(code_or_url=cli_url)
                                     self.assertEqual(captured_post_data["code"], "4/0AXclicode456")
                                     self.assertEqual(captured_post_data["code_verifier"], "mock_verifier_cli")
                                     self.assertEqual(captured_post_data["redirect_uri"], "https://antigravity.google/oauth-callback")
@@ -2546,7 +2545,7 @@ class TestOAuthFlowRedirectUri(unittest.TestCase):
                         with patch.object(AntigravityOAuthSession, "fetch_cloudcode_user_info", new_callable=AsyncMock):
                             with patch.object(AntigravityOAuthSession, "fetch_quota", new_callable=AsyncMock):
                                 with patch.object(AntigravityOAuthSession, "fetch_models", new_callable=AsyncMock):
-                                    acc = await self.pool.complete_oauth_flow(
+                                    await self.pool.complete_oauth_flow(
                                         code_or_url="4/0AXrawcode789",
                                         state="state_tracked",
                                     )
@@ -2587,7 +2586,7 @@ class TestOAuthFlowRedirectUri(unittest.TestCase):
                         with patch.object(AntigravityOAuthSession, "fetch_cloudcode_user_info", new_callable=AsyncMock):
                             with patch.object(AntigravityOAuthSession, "fetch_quota", new_callable=AsyncMock):
                                 with patch.object(AntigravityOAuthSession, "fetch_models", new_callable=AsyncMock):
-                                    acc = await self.pool.complete_oauth_flow(
+                                    await self.pool.complete_oauth_flow(
                                         code_or_url="4/0AXexplicit",
                                         verifier="verifier_explicit",
                                         redirect_uri="http://custom.local:9000/callback",
@@ -2650,7 +2649,7 @@ class TestOAuthFlowRedirectUri(unittest.TestCase):
                         with patch.object(AntigravityOAuthSession, "fetch_cloudcode_user_info", new_callable=AsyncMock):
                             with patch.object(AntigravityOAuthSession, "fetch_quota", new_callable=AsyncMock):
                                 with patch.object(AntigravityOAuthSession, "fetch_models", new_callable=AsyncMock):
-                                    acc = await self.pool.complete_oauth_flow(
+                                    await self.pool.complete_oauth_flow(
                                         code_or_url=callback_url,
                                         verifier="stale_mismatched_verifier_from_frontend",
                                         state="stale_state_from_frontend",
@@ -2700,7 +2699,7 @@ class TestOAuthFlowRedirectUri(unittest.TestCase):
                             with patch.object(AntigravityOAuthSession, "fetch_quota", new_callable=AsyncMock):
                                 with patch.object(AntigravityOAuthSession, "fetch_models", new_callable=AsyncMock):
                                     # Quoted and URL-encoded raw code: "4%2F0AXraw123"
-                                    acc = await self.pool.complete_oauth_flow(
+                                    await self.pool.complete_oauth_flow(
                                         code_or_url='  "4%2F0AXraw123"  ',
                                         state="enc_state",
                                     )
@@ -2747,7 +2746,7 @@ class TestOAuthFlowRedirectUri(unittest.TestCase):
                             with patch.object(AntigravityOAuthSession, "fetch_quota", new_callable=AsyncMock):
                                 with patch.object(AntigravityOAuthSession, "fetch_models", new_callable=AsyncMock):
                                     fragment_url = "https://antigravity.google/oauth-callback#code=4/0AXfragCode&state=frag_state"
-                                    acc = await self.pool.complete_oauth_flow(code_or_url=fragment_url)
+                                    await self.pool.complete_oauth_flow(code_or_url=fragment_url)
                                     self.assertEqual(captured_post_data["code"], "4/0AXfragCode")
                                     self.assertEqual(captured_post_data["code_verifier"], "frag_verifier")
 

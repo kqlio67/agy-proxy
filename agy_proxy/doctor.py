@@ -243,12 +243,17 @@ async def run_doctor(host: str = "127.0.0.1", port: int = 8000, cloudflare_url: 
             # Check token expiration from cached metadata
             if acc.auth_method == "api_key":
                 expiry_text = "[dim]N/A (API Key)[/dim]"
+                auth_type_str = "Google AI Studio"
+            elif acc.auth_method == "gemini_web":
+                expiry_text = "[dim]Web Session (Cookies)[/dim]"
+                auth_type_str = "Gemini Web"
             else:
                 remaining_sec = int(acc.expiry_timestamp - time.time())
                 if remaining_sec > 0:
                     expiry_text = f"Valid ({remaining_sec}s left)"
                 else:
                     expiry_text = "[dim]Expired → refreshed just now[/dim]" if live.get("token_ok") else "[dim]Expired[/dim]"
+                auth_type_str = "Google OAuth"
 
             gemini_q, claude_q = quota_percentages(live.get("quota_summary") or {})
             if gemini_q == "?" and claude_q == "?":
@@ -258,7 +263,7 @@ async def run_doctor(host: str = "127.0.0.1", port: int = 8000, cloudflare_url: 
             region_str = f"🌍 {acc.region_code}" if acc.region_code else "[dim]—[/dim]"
             pool_table.add_row(
                 f"{acc.name or acc.email} {'⭐' if acc.is_primary else ''}",
-                "Google AI Studio" if acc.auth_method == "api_key" else "Google OAuth",
+                auth_type_str,
                 status_text,
                 region_str,
                 expiry_text,

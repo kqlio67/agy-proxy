@@ -5,7 +5,7 @@ Unit tests for the OpenAI Responses API adapter and endpoints (/v1/responses).
 import json
 from pathlib import Path
 import unittest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import httpx
 

@@ -3,13 +3,12 @@ Unit tests for background service management (systemd / launchd) in service.py a
 """
 
 from pathlib import Path
-import platform
 import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 
 from agy_proxy import service
-from agy_proxy.cli import build_parser, handle_service_command
+from agy_proxy.cli import build_parser
 
 
 class TestServiceManagement(unittest.TestCase):

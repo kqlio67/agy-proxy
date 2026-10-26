@@ -4,7 +4,6 @@ Unit tests for Diagnostic Doctor and connectivity checks.
 
 import unittest
 from unittest.mock import AsyncMock, patch
-import httpx
 
 from agy_proxy.auth import AccountSession
 from agy_proxy.doctor import validate_account_live, check_network_endpoints

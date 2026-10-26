@@ -455,7 +455,6 @@ REVERSE_PLACEHOLDER_MAP.update({
     "1518": "claude-opus-5-5-high",
     "1519": "claude-opus-5-5-medium",
     "1520": "claude-opus-5-5-low",
-    "model_openai_gpt_oss_120b_medium": "gpt-oss-120b-medium",
     "model_placeholder_m521": "gemini-3.8-flash-tiered",
     "model_placeholder_m527": "gemini-3-flash-agent",
     "model_placeholder_m528": "gemini-3.5-flash-low",

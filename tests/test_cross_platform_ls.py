@@ -8,20 +8,15 @@ Validates:
 5. Persistent config retrieval and storage
 """
 
-import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
-import pytest
 
 from agy_proxy.web_launcher import (
     KNOWN_BIN_NAMES,
-    KNOWN_SUBPATHS,
     find_language_server,
     search_dir_for_language_server,
 )
-from agy_proxy.config import set_configured_ls_path, set_configured_editor_path
 
 
 def test_known_bin_names_contains_all_platforms():

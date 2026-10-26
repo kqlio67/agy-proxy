@@ -1,11 +1,6 @@
-import os
-import tempfile
-from pathlib import Path
-import pytest
 
 from agy_proxy.config import (
     load_config,
-    save_config,
     get_config_value,
     set_config_value,
     delete_config_value,

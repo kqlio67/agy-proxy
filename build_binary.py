@@ -51,6 +51,12 @@ def build():
     data_static = f"{STATIC_DIR}{sep}agy_proxy/static"
     data_templates = f"{TEMPLATES_DIR}{sep}agy_proxy/templates"
 
+    json_data_args = []
+    for jf in (ROOT_DIR / "agy_proxy").glob("*.json"):
+        json_data_args.extend(["--add-data", f"{jf}{sep}agy_proxy"])
+    for jf in (ROOT_DIR / "agy_proxy" / "auth").glob("*.json"):
+        json_data_args.extend(["--add-data", f"{jf}{sep}agy_proxy/auth"])
+
     cmd = [
         sys.executable,
         "-m",
@@ -63,6 +69,7 @@ def build():
         data_static,
         "--add-data",
         data_templates,
+    ] + json_data_args + [
         "--collect-all",
         "uvicorn",
         "--collect-all",

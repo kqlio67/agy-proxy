@@ -15,12 +15,12 @@ import socket
 import time
 import uuid
 from contextlib import asynccontextmanager
-from typing import Any, Optional
+from typing import Any
 import hashlib
 import math
 import urllib.parse
 import httpx
-from fastapi import FastAPI, HTTPException, Header, Request, status, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Request, status, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.types import ASGIApp, Scope, Receive, Send
 from pathlib import Path
@@ -47,15 +47,7 @@ from agy_proxy.models import (
     CLOUDCODE_PLACEHOLDER_MAP,
     OpenAIChatRequest,
     OpenAIEmbeddingRequest,
-    ImageGenerationRequest,
-    ImageGenerationResponse,
-    ImageGenerationData,
-    AudioTranscriptionResponse,
-    is_image_model,
-    is_audio_model,
     normalize_model_name,
-    is_claude_5_5_model,
-    get_claude_fallback_model,
 )
 from agy_proxy.converter import anthropic_to_cloudcode_payload
 from agy_proxy.responses import (
@@ -3184,7 +3176,6 @@ def create_app(
             normalize_model_name,
             is_argon_model,
             is_gemini_web_model,
-            get_argon_fallback_model,
         )
         req_model = DEFAULT_MODEL
         if isinstance(body, dict):
@@ -3607,10 +3598,15 @@ def create_app(
                         },
                     )
                 else:
+                    collected_text = first_chunk.get("text", "") if first_chunk.get("type") == "text" else ""
+                    if gen is not None:
+                        async for ch in gen:
+                            if ch.get("type") == "text":
+                                collected_text += ch.get("text", "")
                     return JSONResponse(status_code=200, content={
                         "response": {
                             "candidates": [{
-                                "content": {"role": "model", "parts": [{"text": accumulated_text or first_chunk.get("text", "")}]},
+                                "content": {"role": "model", "parts": [{"text": collected_text}]},
                                 "finishReason": "STOP",
                                 "index": 0,
                             }],
@@ -3632,7 +3628,6 @@ def create_app(
 
                 from agy_proxy.models import (
                     is_argon_model,
-                    get_argon_fallback_model,
                     is_claude_5_5_model,
                     get_claude_fallback_model,
                     is_deepagent_model,

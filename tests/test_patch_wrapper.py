@@ -10,7 +10,6 @@ Verifies:
 
 import http.server
 import os
-import signal
 import subprocess
 import sys
 import tempfile

@@ -230,7 +230,6 @@ def get_codex_status(codex_dir: str | None = None, port: int = 8000) -> dict[str
             
             url_match = re.search(r'openai_base_url\s*=\s*["\']([^"\']+)["\']', content)
             model_match = re.search(r'model\s*=\s*["\']([^"\']+)["\']', content)
-            catalog_match = re.search(r'model_catalog_json\s*=\s*["\']([^"\']+)["\']', content)
 
             if url_match:
                 configured_url = url_match.group(1)

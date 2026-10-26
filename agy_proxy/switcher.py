@@ -474,7 +474,6 @@ def format_agy_quota_display(account: AccountSession) -> str:
         buckets = group.get("buckets", [])
         is_first_bucket = True
         for b in buckets:
-            b_id = b.get("bucketId", "")
             f = float(b.get("remainingFraction", 1.0))
             d = b.get("description", "")
             # In official agy, 3p-5h is an internal smoothing window and is omitted when full and without notice

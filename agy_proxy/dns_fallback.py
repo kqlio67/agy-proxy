@@ -5,13 +5,11 @@ when the local system resolver (e.g. Android hotspot or broken router DNS) fails
 with socket.gaierror / [Errno -3] Temporary failure in name resolution.
 """
 
-import asyncio
 import logging
 import socket
 import struct
 import threading
 import time
-from typing import Any
 
 logger = logging.getLogger("agy_proxy.dns_fallback")
 
@@ -287,8 +285,6 @@ def install_dns_fallback():
 
     try:
         from asyncio.base_events import BaseEventLoop
-        orig_asyncio_gai = BaseEventLoop.getaddrinfo
-
         import functools
         async def _patched_loop_gai(self, host, port, *args, **kwargs):
             call_fn = functools.partial(patched_getaddrinfo, host, port, *args, **kwargs)

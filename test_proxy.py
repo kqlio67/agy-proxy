@@ -13,7 +13,7 @@ from agy_proxy.server import create_app
 
 async def run_tests():
     print("========================================")
-    print("   Antigravity Proxy Test Suite (v1.0)   ")
+    print("   Antigravity Proxy Test Suite (v2.0)   ")
     print("========================================")
 
     auth = AuthManager()
@@ -51,7 +51,7 @@ async def run_tests():
         # 4. Test OpenAI Chat Completion (Non-Streaming)
         print("\n[4/10] Testing POST /v1/chat/completions (Non-Streaming)...")
         openai_req = {
-            "model": "gemini-3.7-flash-high",
+            "model": "gemini-3.8-flash-high",
             "messages": [
                 {"role": "user", "content": "Respond with exactly 'TEST_PASS_123' and nothing else."}
             ],
@@ -84,7 +84,7 @@ async def run_tests():
         # 6. Test Anthropic Messages (Non-Streaming)
         print("\n[6/10] Testing POST /v1/messages (Anthropic Claude API format)...")
         anthropic_req = {
-            "model": "gemini-3.7-flash-high",
+            "model": "gemini-3.8-flash-high",
             "max_tokens": 100,
             "messages": [
                 {"role": "user", "content": "Say hello to Claude Code!"}
@@ -110,7 +110,7 @@ async def run_tests():
         # 8. Test Tool & Function Calling with Thought Signatures (OpenAI & Anthropic Multi-Turn)
         print("\n[8/11] Testing Tool / Function Calling (OpenAI format)...")
         tool_req = {
-            "model": "gemini-3.7-flash-high",
+            "model": "gemini-3.8-flash-high",
             "messages": [
                 {"role": "user", "content": "What is the current weather in London?"}
             ],
@@ -145,7 +145,7 @@ async def run_tests():
         # 9. Test Multi-Turn Anthropic Tool Calling with History (reproducing Bash tool invocation)
         print("\n[9/11] Testing Multi-Turn Anthropic Tool Calling with History & Thought Signatures...")
         multi_turn_anthropic_req = {
-            "model": "gemini-3.7-flash-high",
+            "model": "gemini-3.8-flash-high",
             "messages": [
                 {"role": "user", "content": "List files in directory"},
                 {
@@ -198,7 +198,7 @@ async def run_tests():
         # 10. Test Token Counting API
         print("\n[10/11] Testing POST /v1/messages/count_tokens...")
         count_req = {
-            "model": "gemini-3.7-flash-high",
+            "model": "gemini-3.8-flash-high",
             "messages": [
                 {"role": "user", "content": "Calculate the approximate token count for this sentence."}
             ]
@@ -227,7 +227,7 @@ async def run_tests():
         # 12. Test Built-in WebSearch for Claude Code
         print("\n[12/12] Testing WebSearch Interception & Live Search Engine...")
         search_req = {
-            "model": "anthropic.gemini-3.7-flash-high",
+            "model": "anthropic.gemini-3.8-flash-high",
             "messages": [
                 {"role": "user", "content": "Perform a web search for the query: python asyncio fast tutorial"}
             ],

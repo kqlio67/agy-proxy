@@ -127,7 +127,6 @@ class BaseAccountSession:
 
         # 3. Group-level keys and aliases
         is_3p = is_3p_model(model)
-        key = "3p" if is_3p else "gemini"
         aliases = ["3p", "claude"] if is_3p else ["gemini"]
         for alias in aliases:
             if alias in self.rate_limited_models:

@@ -4,7 +4,7 @@ Unit tests for updater and self-update checks.
 
 import unittest
 from unittest.mock import patch, MagicMock
-from agy_proxy.updater import check_for_updates, trigger_git_pull, perform_self_update
+from agy_proxy.updater import trigger_git_pull, perform_self_update
 
 
 class TestUpdater(unittest.IsolatedAsyncioTestCase):

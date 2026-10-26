@@ -5,10 +5,7 @@ Unit tests for data models, schema definitions, and model normalization logic.
 import unittest
 from agy_proxy.models import (
     DEFAULT_MODEL,
-    MODEL_ALIASES,
     VALID_CLOUDCODE_MODELS,
-    AnthropicContentBlock,
-    AnthropicMessage,
     AnthropicRequest,
     ModelCard,
     ModelListResponse,
@@ -229,7 +226,6 @@ class TestModelNormalization(unittest.TestCase):
         self.assertEqual(get_claude_5_5_upgrade_model("claude-3-opus"), "claude-opus-5-5-high")
 
     def test_cloudcode_placeholders_and_reverse_map(self):
-        from agy_proxy.models import REVERSE_PLACEHOLDER_MAP, CLOUDCODE_PLACEHOLDER_MAP
 
         # Placeholder string mapping
         self.assertEqual(normalize_model_name("MODEL_PLACEHOLDER_M400"), "claude-opus-5-5-low")

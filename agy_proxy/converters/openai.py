@@ -21,6 +21,7 @@ from agy_proxy.converters.common import (
     get_thought_signature,
     normalize_model_name,
     sanitize_gemini_schema,
+    to_dict,
 )
 from agy_proxy.models import OpenAIChatRequest, is_image_model
 

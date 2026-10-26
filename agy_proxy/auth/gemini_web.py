@@ -1319,8 +1319,6 @@ class GeminiWebSession(AccountSession):
         """
         # Fall back to instance attributes if not explicitly passed
         active_conv_id = conv_id if conv_id is not None else self._conv_id
-        active_resp_id = resp_id if resp_id is not None else self._resp_id
-        active_rc_id = rc_id if rc_id is not None else self._rc_id
         active_continuation = continuation_token if continuation_token is not None else self._continuation_token
         active_turn_index = turn_index if (turn_index != 0 or not active_conv_id) else (self._turn_index or (1 if active_conv_id else 0))
 

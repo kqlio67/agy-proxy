@@ -4,7 +4,6 @@ Unit tests for the Web UI dashboard template loader.
 
 import subprocess
 import unittest
-from pathlib import Path
 from agy_proxy.ui import DASHBOARD_HTML, get_dashboard_html
 
 
@@ -39,7 +38,6 @@ class TestDashboardTemplate(unittest.TestCase):
         self.assertIn("Math.max(0, Math.min(100, gemini5hPct))", html)
 
     def test_dashboard_card_and_table_exhausted_vs_cooldown_evaluation(self):
-        import json
         import subprocess
 
         # Node test script verifying renderAccountCard & renderAccountTableRow logic
@@ -114,7 +112,7 @@ class TestDashboardTemplate(unittest.TestCase):
         self.assertIn("g1-pro-tier", html)
 
     def test_dashboard_renders_hub_for_standalone_active_account(self):
-        html = get_dashboard_html()
+        get_dashboard_html()
         # Verify renderSection creates Hub pill
         node_script = """
         const html = require('fs').readFileSync('agy_proxy/templates/dashboard.html', 'utf8');

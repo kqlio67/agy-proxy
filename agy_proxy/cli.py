@@ -5,6 +5,7 @@ Supports starting the proxy server and interactive Multi-Account authentication 
 
 import argparse
 import asyncio
+import json
 import logging
 import os
 import re
@@ -62,12 +63,32 @@ def print_banner(host: str, port: int, pool: AccountPool, api_key: str = None, u
     else:
         cd_status = "[bold green]Disabled (0s - instant retry)[/bold green]"
     table.add_row("[bold cyan]Rate-Limit 429 Cooldown:[/bold cyan]", cd_status)
-    active_accs = [a for a in pool.accounts.values() if a.enabled]
-    paused_accs = [a for a in pool.accounts.values() if not a.enabled]
-    if paused_accs:
-        pool_status = f"[bold white]{len(active_accs)} active account(s)[/bold white] [dim yellow]({len(paused_accs)} paused)[/dim yellow]"
-    else:
-        pool_status = f"[bold white]{len(active_accs)} active account(s)[/bold white]"
+    oauth_accs = [a for a in pool.accounts.values() if getattr(a, "auth_method", "consumer") == "consumer"]
+    key_accs = [a for a in pool.accounts.values() if getattr(a, "auth_method", "") == "api_key"]
+    web_accs = [a for a in pool.accounts.values() if getattr(a, "auth_method", "") == "gemini_web"]
+
+    active_oauth = [a for a in oauth_accs if a.enabled]
+    active_keys = [a for a in key_accs if a.enabled]
+    active_web = [a for a in web_accs if a.enabled]
+
+    pool_parts = []
+    if oauth_accs:
+        p = f"[bold white]{len(active_oauth)} OAuth[/bold white]"
+        if len(oauth_accs) > len(active_oauth):
+            p += f" [dim yellow]({len(oauth_accs) - len(active_oauth)} paused)[/dim yellow]"
+        pool_parts.append(p)
+    if key_accs:
+        p = f"[bold white]{len(active_keys)} API Key(s)[/bold white]"
+        if len(key_accs) > len(active_keys):
+            p += f" [dim yellow]({len(key_accs) - len(active_keys)} paused)[/dim yellow]"
+        pool_parts.append(p)
+    if web_accs:
+        p = f"[bold white]{len(active_web)} Gemini Web[/bold white]"
+        if len(web_accs) > len(active_web):
+            p += f" [dim yellow]({len(web_accs) - len(active_web)} paused)[/dim yellow]"
+        pool_parts.append(p)
+
+    pool_status = " | ".join(pool_parts) if pool_parts else "[dim]No accounts in pool[/dim]"
     table.add_row("[bold cyan]Accounts in Pool:[/bold cyan]", pool_status)
 
     strat = pool.routing_strategy
@@ -79,7 +100,8 @@ def print_banner(host: str, port: int, pool: AccountPool, api_key: str = None, u
         strat_display = "[bold green]Primary (Sticky Priority 1 + Failover)[/bold green]"
     table.add_row("[bold cyan]Pool Routing Strategy:[/bold cyan]", strat_display)
 
-    for acc in pool.accounts.values():
+    # 1. OAuth accounts (Google Cloud Code / Anthropic & Gemini)
+    for acc in oauth_accs:
         if acc.enabled:
             tag = "[bold green](Primary)[/bold green]" if acc.is_primary else "[blue](Secondary)[/blue]"
             email = f"[white]{acc.email}[/white]" if acc.email else "[dim]unknown@gmail.com[/dim]"
@@ -88,7 +110,35 @@ def print_banner(host: str, port: int, pool: AccountPool, api_key: str = None, u
             tag = "[dim yellow](Paused - Primary)[/dim yellow]" if acc.is_primary else "[dim yellow](Paused)[/dim yellow]"
             email = f"[dim strike]{acc.email}[/dim strike]" if acc.email else "[dim](paused)[/dim]"
             proj = f"[dim]Project: {acc.project_id or 'default'} [PAUSED][/dim]"
-        table.add_row(f"  • {tag} {email}", proj)
+        table.add_row(f"  • [cyan][OAuth][/cyan] {tag} {email}", proj)
+
+    # 2. Google AI Studio (API Keys)
+    for acc in key_accs:
+        raw_key = getattr(acc, "api_key", "") or ""
+        masked_hint = (raw_key[:7] + "..." + raw_key[-4:]) if len(raw_key) > 12 else "API Key"
+        label = acc.name or f"AI Studio ({masked_hint})"
+        if acc.enabled:
+            tag = "[bold green](Active)[/bold green]"
+            name_display = f"[white]{label}[/white] [dim]({masked_hint})[/dim]"
+            proj = "[dim]Provider: Google AI Studio[/dim]"
+        else:
+            tag = "[dim yellow](Paused)[/dim yellow]"
+            name_display = f"[dim strike]{label}[/dim strike] [dim]({masked_hint})[/dim]"
+            proj = "[dim]Provider: Google AI Studio [PAUSED][/dim]"
+        table.add_row(f"  • [yellow][API Key][/yellow] {tag} {name_display}", proj)
+
+    # 3. Gemini Web Sessions (Browser / CDP)
+    for acc in web_accs:
+        display_label = acc.email or acc.name or acc.account_id
+        if acc.enabled:
+            tag = "[bold green](Active)[/bold green]"
+            name_display = f"[white]{display_label}[/white]"
+            proj = "[dim]Session: Gemini Web (Browser)[/dim]"
+        else:
+            tag = "[dim yellow](Paused)[/dim yellow]"
+            name_display = f"[dim strike]{display_label}[/dim strike]"
+            proj = "[dim]Session: Gemini Web [PAUSED][/dim]"
+        table.add_row(f"  • [magenta][Gemini Web][/magenta] {tag} {name_display}", proj)
 
     if api_key:
         table.add_row("[bold cyan]Proxy API Key:[/bold cyan]", f"[bold red]{api_key}[/bold red]")
@@ -276,6 +326,69 @@ def handle_accounts_import(file_path: str, merge: bool = True) -> None:
         console.print(f"[bold green]✓ Successfully {mode_str} {count} account(s) into pool from [white]{file_path}[/white][/bold green]")
     except Exception as e:
         console.print(f"[bold red]✗ Failed to import accounts from {file_path}:[/bold red] {e}")
+
+
+def handle_auth_toggle(target: str, enabled: bool) -> bool:
+    """Enables or disables (pauses) one or more accounts in the pool."""
+    pool = AccountPool()
+    pool.load_accounts()
+
+    action_verb = "enabled" if enabled else "paused"
+    action_color = "green" if enabled else "yellow"
+    target_clean = (target or "").strip()
+
+    if not target_clean or target_clean.lower() == "all":
+        pool.set_all_accounts_enabled(enabled)
+        console.print(f"[bold {action_color}]✓ Successfully {action_verb} all {len(pool.accounts)} account(s) in pool.[/bold {action_color}]")
+        return True
+
+    lower_t = target_clean.lower()
+    if lower_t in ("oauth", "consumer", "apikey", "api_key", "api", "keys", "web", "gemini_web"):
+        sec = "api_key" if "api" in lower_t or "key" in lower_t else ("gemini_web" if "web" in lower_t else "consumer")
+        count = pool.set_section_accounts_enabled(sec, enabled)
+        sec_name = "API Key" if sec == "api_key" else ("Gemini Web" if sec == "gemini_web" else "OAuth")
+        console.print(f"[bold {action_color}]✓ Successfully {action_verb} {count} {sec_name} account(s).[/bold {action_color}]")
+        return True
+
+    acc = pool.get_account(target_clean)
+    if not acc:
+        console.print(f"[bold red]✗ Account '{target_clean}' not found in pool.[/bold red]")
+        return False
+
+    ok = pool.set_account_enabled(acc.account_id, enabled)
+    if ok:
+        display = acc.email or acc.name or acc.account_id
+        console.print(f"[bold {action_color}]✓ Successfully {action_verb} account [white]{display}[/white] ({acc.account_id}).[/bold {action_color}]")
+        return True
+    else:
+        console.print(f"[bold red]✗ Failed to update account '{target_clean}'.[/bold red]")
+        return False
+
+
+def handle_auth_remove(target: str) -> bool:
+    """Removes an account from the pool."""
+    pool = AccountPool()
+    pool.load_accounts()
+
+    target_clean = (target or "").strip()
+    if not target_clean:
+        console.print("[bold red]✗ Error: Specify an account ID, email, or name to remove.[/bold red]")
+        return False
+
+    acc = pool.get_account(target_clean)
+    if not acc:
+        console.print(f"[bold red]✗ Account '{target_clean}' not found in pool.[/bold red]")
+        return False
+
+    display = acc.email or acc.name or acc.account_id
+    acc_id = acc.account_id
+    ok = pool.remove_account(acc_id)
+    if ok:
+        console.print(f"[bold green]✓ Successfully removed account [white]{display}[/white] ({acc_id}) from pool.[/bold green]")
+        return True
+    else:
+        console.print(f"[bold red]✗ Failed to remove account '{target_clean}'.[/bold red]")
+        return False
 
 
 async def handle_switch_command(
@@ -935,6 +1048,21 @@ def build_parser() -> argparse.ArgumentParser:
         api_sub.add_argument("--key", "-k", type=str, default=None, help="Gemini API Key (AIza...)")
         api_sub.add_argument("--name", "-n", type=str, default=None, help="Friendly display name for this API key")
 
+    # auth enable / resume / unpause
+    for en_cmd in ("enable", "resume", "unpause"):
+        auth_en = auth_subparsers.add_parser(en_cmd, help="Enable or unpause account(s) in pool (use 'all' or section 'oauth'/'apikey'/'web')")
+        auth_en.add_argument("target", nargs="?", default="all", help="Target account ID, email, name, 'all', or type ('oauth'/'apikey'/'web')")
+
+    # auth disable / pause
+    for dis_cmd in ("disable", "pause"):
+        auth_dis = auth_subparsers.add_parser(dis_cmd, help="Pause or disable account(s) in pool (use 'all' or section 'oauth'/'apikey'/'web')")
+        auth_dis.add_argument("target", nargs="?", default="all", help="Target account ID, email, name, 'all', or type ('oauth'/'apikey'/'web')")
+
+    # auth remove / delete / rm
+    for rm_cmd in ("remove", "delete", "rm"):
+        auth_rm = auth_subparsers.add_parser(rm_cmd, help="Remove an account from the pool")
+        auth_rm.add_argument("target", help="Account ID, email, or name to remove")
+
     # setup-claude subcommand (agy-proxy setup-claude)
     setup_claude_p = subparsers.add_parser(
         "setup-claude",
@@ -990,6 +1118,7 @@ def build_parser() -> argparse.ArgumentParser:
     exp_disable_p = exp_subparsers.add_parser("disable", help="Disable an experimental flag")
     exp_disable_p.add_argument("flag", help="Flag name to disable")
     exp_mode_p = exp_subparsers.add_parser("mode", help="Set experiment operating mode")
+    exp_mode_p.add_argument("mode", choices=["curated", "all", "none"], help="Operating mode (curated, all, or none)")
     exp_subparsers.add_parser("reset", help="Reset all overrides back to curated defaults")
 
     # web subcommand (agy-proxy web / agy-proxy antigravity-web)
@@ -1076,7 +1205,7 @@ def build_parser() -> argparse.ArgumentParser:
     cfg_get = config_sub.add_parser("get", help="Get a configuration value")
     cfg_get.add_argument("key", help="Configuration key to retrieve (e.g. ls-path, editor)")
 
-    cfg_list = config_sub.add_parser("list", aliases=["show"], help="List all current configuration values")
+    config_sub.add_parser("list", aliases=["show"], help="List all current configuration values")
 
     cfg_unset = config_sub.add_parser("unset", aliases=["reset", "delete"], help="Unset a configuration key")
     cfg_unset.add_argument("key", nargs="?", default=None, help="Configuration key to remove (or omit to reset all)")
@@ -1273,6 +1402,15 @@ def main():
             name_val = getattr(args, "name", None) or getattr(args, "positional_name", None)
             asyncio.run(handle_auth_apikey(api_key=key_val, name=name_val))
             return
+        elif args.auth_action in ("enable", "resume", "unpause"):
+            handle_auth_toggle(target=getattr(args, "target", "all"), enabled=True)
+            return
+        elif args.auth_action in ("disable", "pause"):
+            handle_auth_toggle(target=getattr(args, "target", "all"), enabled=False)
+            return
+        elif args.auth_action in ("remove", "delete", "rm"):
+            handle_auth_remove(target=getattr(args, "target", None))
+            return
         elif args.auth_action == "list":
             asyncio.run(handle_auth_list())
             return
@@ -1350,7 +1488,7 @@ def main():
                 from agy_proxy.config import set_configured_ls_path
                 set_configured_ls_path(str(result))
                 console.print(f"[bold green]✅ language_server downloaded and configured:[/bold green] [cyan]{result}[/cyan]")
-                console.print(f"[dim]You can now run: agy-proxy web -P[/dim]")
+                console.print("[dim]You can now run: agy-proxy web -P[/dim]")
                 sys.exit(0)
             else:
                 sys.exit(1)

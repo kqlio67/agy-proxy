@@ -5,8 +5,7 @@ Tests for Cloudflare Worker script (cloudflare/worker.js) and parity with agy-pr
 import json
 import subprocess
 from pathlib import Path
-import pytest
-from agy_proxy.models import MODEL_ALIASES, VALID_CLOUDCODE_MODELS
+from agy_proxy.models import MODEL_ALIASES
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 WORKER_JS = REPO_ROOT / "cloudflare" / "worker.js"

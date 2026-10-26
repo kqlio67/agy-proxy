@@ -1,10 +1,7 @@
-import copy
 import logging
 import os
 import re
 import shutil
-import stat
-import struct
 import subprocess
 import tempfile
 from pathlib import Path
@@ -151,7 +148,7 @@ def run_privileged_cmd(cmd: List[str]) -> subprocess.CompletedProcess:
     """Executes a command, prompting for sudo if normal execution lacks permissions."""
     try:
         return subprocess.run(cmd, capture_output=True, text=True, check=True)
-    except (PermissionError, subprocess.CalledProcessError) as e:
+    except (PermissionError, subprocess.CalledProcessError):
         logger.info(f"Elevated permissions needed, attempting sudo: {' '.join(cmd)}")
         return subprocess.run(["sudo"] + cmd, capture_output=True, text=True, check=True)
 

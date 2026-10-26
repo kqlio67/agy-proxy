@@ -22,7 +22,7 @@ def calculate_next_version(current: str, increment: str) -> str:
     match = re.match(r"^(\d+)\.(\d+)\.(\d+)(.*)$", cleaned_current)
     if not match:
         raise ValueError(f"Invalid current version format: '{current}'")
-    major, minor, patch, suffix = int(match.group(1)), int(match.group(2)), int(match.group(3)), match.group(4)
+    major, minor, patch, _suffix = int(match.group(1)), int(match.group(2)), int(match.group(3)), match.group(4)
 
     inc = increment.strip().lower().lstrip("v")
     if inc == "patch":

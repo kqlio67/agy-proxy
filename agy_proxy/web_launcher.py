@@ -25,7 +25,7 @@ import uuid
 import webbrowser
 import zipfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import psutil
 from rich.console import Console
@@ -402,7 +402,7 @@ def download_language_server(
 
     # Ask user confirmation when interactive
     if interactive and sys.stdin and sys.stdin.isatty():
-        console.print(f"\n[bold yellow]📦 Antigravity language_server not found on this system.[/bold yellow]")
+        console.print("\n[bold yellow]📦 Antigravity language_server not found on this system.[/bold yellow]")
         console.print(f"   Platform detected: [bold cyan]{pkey}[/bold cyan]")
         console.print(f"   Download URL: [dim]{url}[/dim]")
         ls_target_name = "language_server.exe" if archive_type == "exe" else "language_server"

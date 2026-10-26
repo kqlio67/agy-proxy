@@ -5,8 +5,6 @@ Unit tests for protocol converters between OpenAI / Anthropic and Google CloudCo
 import json
 import unittest
 from agy_proxy.converter import (
-    DEFAULT_THOUGHT_SIGNATURE,
-    _extract_message_text,
     anthropic_to_cloudcode_payload,
     create_openai_chunk,
     get_thought_signature,

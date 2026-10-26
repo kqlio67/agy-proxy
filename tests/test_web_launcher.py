@@ -3,7 +3,6 @@ import socket
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
 from starlette.testclient import TestClient
 
 from agy_proxy.cli import build_parser
@@ -11,13 +10,9 @@ from agy_proxy.server import create_app
 from agy_proxy.web_launcher import (
     DEFAULT_GOOGLE_API_URL,
     DEFAULT_GOOGLE_CC_ENDPOINT,
-    DEFAULT_IDE_VERSION,
-    DEFAULT_WEB_PORT,
     build_web_args,
-    check_proxy_alive,
     find_language_server,
     get_csrf_token,
-    get_running_instances,
     get_web_status,
     is_port_in_use,
     kill_electron_instances,
@@ -260,8 +255,6 @@ def test_extract_and_patch_web_bundle(tmp_path):
     import io
     import zipfile
     from agy_proxy.web_launcher import (
-        extract_web_bundle,
-        patch_web_bundle,
         is_bundle_patched,
         prepare_patched_web_bundle,
     )
@@ -383,7 +376,6 @@ def test_sync_bundle_proxy_mode_direct_vs_proxy(tmp_path):
     from agy_proxy.web_launcher import (
         prepare_patched_web_bundle,
         sync_bundle_proxy_mode,
-        is_bundle_patched,
     )
     import io
     import zipfile
@@ -519,7 +511,7 @@ def test_enhance_user_status_direct_and_proxy_models(tmp_path):
         # Verify all models have disabled: false
         for cfg in out["direct"]["configs"]:
             if not cfg["label"].startswith("──"):
-                assert cfg["disabled"] is False, f"Model {{cfg['label']}} should be enabled"
+                assert cfg["disabled"] is False, f"Model {cfg['label']} should be enabled"
                 
         # In proxy mode:
         proxy_labels = out["proxy"]["labels"]
@@ -534,11 +526,12 @@ def test_enhance_user_status_direct_and_proxy_models(tmp_path):
 def test_can_open_browser_cooldown(tmp_path, monkeypatch):
     from agy_proxy.web_launcher import can_open_browser
 
-    lock_file = tmp_path / ".browser_open_ts"
+    lock_file = tmp_path / ".config" / "agy-proxy" / ".browser_open_ts"
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
 
     # First call should succeed and record timestamp
     assert can_open_browser(cooldown=5.0) is True
+    assert lock_file.exists()
 
     # Immediate second call should be throttled
     assert can_open_browser(cooldown=5.0) is False
@@ -632,7 +625,6 @@ def test_download_language_server_dmg_and_exe(tmp_path):
     from agy_proxy.web_launcher import (
         _extract_language_server_from_dmg,
         _extract_language_server_from_exe,
-        _find_7z,
     )
 
     dummy_file = tmp_path / "dummy.dmg"

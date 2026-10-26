@@ -5,7 +5,7 @@ Unit tests for FastAPI endpoints, routing, and security middleware.
 import asyncio
 import json
 import unittest
-from unittest.mock import Mock, AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, patch, MagicMock
 import httpx
 from starlette.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect

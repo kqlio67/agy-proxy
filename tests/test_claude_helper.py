@@ -3,15 +3,12 @@ Unit tests for the Claude Code helper module and CLI setup/restore commands.
 """
 
 import json
-import os
 import shutil
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 
 from agy_proxy.claude_helper import (
-    get_claude_dir,
     get_claude_models,
     get_claude_status,
     restore_claude,

@@ -2,7 +2,6 @@
 Unit tests for live traffic inspection, ring buffer, SSE broadcasting, and Web Mode endpoints.
 """
 
-import asyncio
 import json
 from pathlib import Path
 import tempfile
@@ -12,7 +11,7 @@ import httpx
 
 from agy_proxy.auth import AccountPool
 from agy_proxy.server import create_app
-from agy_proxy.traffic import TrafficInspector, TrafficRecord, traffic_inspector
+from agy_proxy.traffic import TrafficInspector, traffic_inspector
 
 
 class TestTrafficModule(unittest.IsolatedAsyncioTestCase):
