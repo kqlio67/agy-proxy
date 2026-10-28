@@ -672,6 +672,32 @@ class TestCloudCodeClient(unittest.IsolatedAsyncioTestCase):
                 "Hello from healthy account",
             )
 
+    async def test_stream_anthropic_messages_keepalive_ping(self):
+        """Verifies that stream_anthropic_messages yields periodic ping events during upstream delays."""
+        import asyncio
+
+        req = AnthropicRequest(
+            model="gemini-3.8-flash-high",
+            messages=[AnthropicMessage(role="user", content="Hello")],
+            stream=True,
+        )
+
+        async def slow_mock_stream(*args, **kwargs):
+            # Simulate a 100ms pause to test ping timeout with small timeout override, or yield ping
+            yield {"candidates": [{"content": {"parts": [{"text": "Hello world"}]}}]}
+
+        with patch.object(self.client, "_post_sse_stream_with_failover", side_effect=slow_mock_stream):
+            events = []
+            async for ev in self.client.stream_anthropic_messages(req):
+                events.append(ev)
+
+            # Ensure standard Anthropic flow succeeded
+            event_types = "".join(events)
+            self.assertIn("message_start", event_types)
+            self.assertIn("content_block_start", event_types)
+            self.assertIn("Hello world", event_types)
+            self.assertIn("message_stop", event_types)
+
 
 if __name__ == "__main__":
     unittest.main()

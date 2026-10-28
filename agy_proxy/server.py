@@ -3967,7 +3967,7 @@ def create_app(
 
                 is_streaming_call = is_generation and is_sse and isinstance(c, httpx.AsyncClient)
                 if is_streaming_call:
-                    timeout_obj = httpx.Timeout(timeout_sec, connect=15.0, read=timeout_sec, write=30.0, pool=30.0)
+                    timeout_obj = httpx.Timeout(timeout_sec, connect=20.0, read=timeout_sec, write=120.0, pool=60.0)
                     if isinstance(candidate_body, dict):
                         req_send = c.build_request("POST", target_url, headers=headers, json=candidate_body, params=query_params, timeout=timeout_obj)
                     elif candidate_body is not None:
@@ -4181,7 +4181,7 @@ def create_app(
                                 _apply_client_user_agent(fb_headers)
                                 fb_c = await fb_acc.get_http_client()
                                 if is_streaming_call and isinstance(fb_c, httpx.AsyncClient):
-                                    timeout_obj = httpx.Timeout(timeout_sec, connect=15.0, read=timeout_sec, write=30.0, pool=30.0)
+                                    timeout_obj = httpx.Timeout(timeout_sec, connect=20.0, read=timeout_sec, write=120.0, pool=60.0)
                                     req_send = fb_c.build_request("POST", target_url, headers=fb_headers, json=fb_body, params=query_params, timeout=timeout_obj)
                                     fb_resp = await fb_c.send(req_send, stream=True)
                                     if fb_resp.status_code != 200:
@@ -4269,7 +4269,7 @@ def create_app(
                                 _apply_client_user_agent(fb_headers)
                                 fb_c = await fb_acc.get_http_client()
                                 if is_streaming_call and isinstance(fb_c, httpx.AsyncClient):
-                                    timeout_obj = httpx.Timeout(timeout_sec, connect=15.0, read=timeout_sec, write=30.0, pool=30.0)
+                                    timeout_obj = httpx.Timeout(timeout_sec, connect=20.0, read=timeout_sec, write=120.0, pool=60.0)
                                     req_send = fb_c.build_request("POST", target_url, headers=fb_headers, json=fb_body, params=query_params, timeout=timeout_obj)
                                     fb_resp = await fb_c.send(req_send, stream=True)
                                     if fb_resp.status_code != 200:
@@ -4357,7 +4357,7 @@ def create_app(
                                 _apply_client_user_agent(fb_headers)
                                 fb_c = await fb_acc.get_http_client()
                                 if is_streaming_call and isinstance(fb_c, httpx.AsyncClient):
-                                    timeout_obj = httpx.Timeout(timeout_sec, connect=15.0, read=timeout_sec, write=30.0, pool=30.0)
+                                    timeout_obj = httpx.Timeout(timeout_sec, connect=20.0, read=timeout_sec, write=120.0, pool=60.0)
                                     req_send = fb_c.build_request("POST", target_url, headers=fb_headers, json=fallback_body, params=query_params, timeout=timeout_obj)
                                     fb_resp = await fb_c.send(req_send, stream=True)
                                     if fb_resp.status_code != 200:
@@ -4530,6 +4530,7 @@ def create_app(
                         TimeoutError,
                     ),
                 )
+
 
                 # Reset broken pooled HTTP connections for this account on transport failure
                 if is_net_error:

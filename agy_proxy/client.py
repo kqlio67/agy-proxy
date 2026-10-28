@@ -103,7 +103,7 @@ DEFAULT_STREAM_TIMEOUT = httpx.Timeout(
     connect=20.0,
     read=300.0,
     write=120.0,
-    pool=30.0,
+    pool=60.0,
 )
 
 
@@ -1039,7 +1039,6 @@ class CloudCodeClient:
                             raise
                         err_name = type(e).__name__
                         err_msg = f"{err_name}: {e}" if str(e) else err_name
-                        await acc.close()
                         if attempt == 0 and len(candidates) == 1:
                             logger.warning("[%s] Network/Timeout error (%s). Retrying once...", acc.email, err_msg)
                             await asyncio.sleep(0.5)
@@ -1727,7 +1726,7 @@ class CloudCodeClient:
         current_thought_sig: str | None = None
 
         try:
-            async for data in self._post_sse_stream_with_failover(
+            stream_gen = self._post_sse_stream_with_failover(
                 "v1internal:streamGenerateContent?alt=sse",
                 build_payload,
                 model_name=model,
@@ -1735,7 +1734,17 @@ class CloudCodeClient:
                 specific_account_id=specific_account_id,
                 client_path="/v1/messages",
                 is_streaming=True,
-            ):
+            )
+            stream_it = stream_gen.__aiter__()
+            while True:
+                try:
+                    data = await asyncio.wait_for(stream_it.__anext__(), timeout=10.0)
+                except asyncio.TimeoutError:
+                    yield 'event: ping\ndata: {"type": "ping"}\n\n'
+                    continue
+                except StopAsyncIteration:
+                    break
+
                 resp = data.get("response", data)
                 candidates = resp.get("candidates", [])
                 usage_meta = resp.get("usageMetadata", {})

@@ -1545,7 +1545,7 @@ class GeminiWebSession(AccountSession):
                     url,
                     headers=headers,
                     data=body,
-                    timeout=httpx.Timeout(timeout=timeout, connect=15.0, read=timeout, write=30.0),
+                    timeout=httpx.Timeout(timeout=timeout, connect=15.0, read=timeout, write=120.0, pool=60.0),
                 ) as response:
                     # Capture rotating session cookies (__Secure-1PSIDTS, etc.)
                     if self._update_cookies_from_response(response):

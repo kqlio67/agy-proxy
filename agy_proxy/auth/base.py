@@ -90,21 +90,41 @@ class BaseAccountSession:
         if recreate:
             effective_proxy = self.proxy_url or os.environ.get("AGY_UPSTREAM_PROXY") or os.environ.get("ALL_PROXY") or None
             self._http_client = httpx.AsyncClient(
-                timeout=httpx.Timeout(timeout=300.0, connect=20.0, read=300.0, write=120.0, pool=30.0),
+                timeout=httpx.Timeout(timeout=300.0, connect=20.0, read=300.0, write=120.0, pool=60.0),
                 limits=httpx.Limits(max_keepalive_connections=20, max_connections=50, keepalive_expiry=120.0),
                 proxy=effective_proxy,
             )
             self._http_client_loop = current_loop
         return self._http_client
 
-    async def close(self):
-        if self._http_client and not self._http_client.is_closed:
-            try:
-                await self._http_client.aclose()
-            except Exception:
-                pass
+    async def close(self, force: bool = False):
+        client = self._http_client
         self._http_client = None
         self._http_client_loop = None
+        if client and not getattr(client, "is_closed", False):
+            if force:
+                try:
+                    await client.aclose()
+                except Exception:
+                    pass
+            else:
+                # Graceful detachment: let active in-flight streams finish cleanly
+                # and close old transport in background after a grace period.
+                async def _graceful_close(c: httpx.AsyncClient):
+                    try:
+                        await asyncio.sleep(5.0)
+                        if not getattr(c, "is_closed", False):
+                            await c.aclose()
+                    except Exception:
+                        pass
+
+                try:
+                    asyncio.create_task(_graceful_close(client))
+                except Exception:
+                    try:
+                        await client.aclose()
+                    except Exception:
+                        pass
 
     def is_rate_limited(self, model: str) -> bool:
         """Checks if account is currently marked rate-limited for the requested model."""
