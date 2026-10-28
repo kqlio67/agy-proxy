@@ -4,7 +4,36 @@ Integrate Anthropic's official **Claude Code CLI** with `agy-proxy` to use power
 
 ---
 
-## 🚀 1-Click Launch Scripts
+## ⚡ 1-Click Ephemeral CLI (`agy-proxy claude`)
+
+The fastest and cleanest way to run Claude Code with zero permanent configuration changes (just like `agy-proxy codex`):
+
+```bash
+# Launch interactive session (defaults to gemini-3.8-flash-high):
+agy-proxy claude
+
+# Launch with a specific model:
+agy-proxy claude -m claude-sonnet-4-6
+agy-proxy claude -m claude-opus-4-6-thinking
+agy-proxy claude -m gemini-3.8-flash-high
+
+# Continue the most recent conversation in the current directory:
+agy-proxy claude -c
+
+# Run in autonomous mode without permission prompts:
+agy-proxy claude --danger
+
+# Non-interactive print mode:
+agy-proxy claude -p "Explain main.py"
+
+# Connect to a custom proxy port or Cloudflare tunnel:
+agy-proxy claude --port 8080
+agy-proxy claude --url https://your-tunnel.trycloudflare.com
+```
+
+---
+
+## 🚀 Standalone Launch Scripts
 
 The repository includes pre-built wrapper scripts that configure the environment and launch Claude Code instantly.
 

@@ -691,6 +691,114 @@ def handle_restore_claude():
         console.print(f"[bold red]✗ Failed to restore Claude Code settings:[/bold red] {res.get('error')}")
 
 
+def handle_run_claude(
+    port: int = 8000,
+    model: str = "anthropic.gemini-3.8-flash-high",
+    url: str | None = None,
+    danger: bool = False,
+    extra_args: list = None,
+):
+    """Launches Claude Code CLI in ephemeral mode connected to Antigravity Proxy without permanent config changes."""
+    import json
+    import shutil
+    import subprocess
+    import urllib.request
+    from agy_proxy.claude_helper import CLAUDE_RECOMMENDED_MODELS
+
+    claude_bin = shutil.which("claude")
+    if not claude_bin:
+        default_local = os.path.expanduser("~/.local/bin/claude")
+        if os.path.isfile(default_local) and os.access(default_local, os.X_OK):
+            claude_bin = default_local
+
+    if not claude_bin:
+        console.print("[bold red]Error:[/bold red] Claude Code CLI ('claude') is not found in PATH or ~/.local/bin/claude.")
+        console.print("[dim]Install Claude Code CLI first: npm install -g @anthropic-ai/claude-code[/dim]")
+        return
+
+    proxy_url = (url or os.environ.get("ANTHROPIC_BASE_URL") or f"http://127.0.0.1:{port}").rstrip("/")
+
+    # Normalize model prefix if simple name provided
+    target_model = model
+    if not target_model.startswith("anthropic.") and not target_model.startswith("claude-"):
+        target_model = f"anthropic.{target_model}"
+
+    # Build available models for Claude Code model picker
+    available_models = [
+        "anthropic.gemini-3.8-flash-high",
+        "anthropic.gemini-3.8-flash",
+        "anthropic.gemini-3.8-pro",
+        "anthropic.gemini-2.5-flash",
+        "anthropic.gemini-2.5-pro",
+        "claude-sonnet-4-6",
+        "claude-opus-4-6-thinking",
+    ]
+    try:
+        req = urllib.request.Request(f"{proxy_url}/api/claude_code/settings", headers={"User-Agent": "agy-proxy-cli"})
+        with urllib.request.urlopen(req, timeout=1.0) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            if isinstance(data, dict) and "availableModels" in data and data["availableModels"]:
+                available_models = data["availableModels"]
+    except Exception:
+        for m in CLAUDE_RECOMMENDED_MODELS:
+            pref = f"anthropic.{m}" if not m.startswith("anthropic.") and not m.startswith("claude-") else m
+            if pref not in available_models:
+                available_models.append(pref)
+
+    settings_dict = {
+        "availableModels": available_models,
+        "autoUpdaterStatus": "disabled",
+    }
+    settings_json = json.dumps(settings_dict)
+
+    cmd = [
+        claude_bin,
+        "--settings", settings_json,
+    ]
+
+    has_model_arg = False
+    has_danger_arg = False
+    if extra_args:
+        has_model_arg = any(arg == "--model" or arg.startswith("--model=") for arg in extra_args)
+        has_danger_arg = any(arg == "--dangerously-skip-permissions" for arg in extra_args)
+
+    if not has_model_arg and target_model:
+        cmd.extend(["--model", target_model])
+
+    if danger and not has_danger_arg:
+        cmd.append("--dangerously-skip-permissions")
+
+    if extra_args:
+        cmd.extend(extra_args)
+
+    env = dict(os.environ)
+    env.pop("ANTHROPIC_API_KEY", None)
+    env["ANTHROPIC_AUTH_TOKEN"] = "agy-proxy-token"
+    env["ANTHROPIC_BASE_URL"] = proxy_url
+    env["ANTHROPIC_MODEL"] = target_model
+    env["ANTHROPIC_SMALL_FAST_MODEL"] = target_model
+    env["DISABLE_TELEMETRY"] = "1"
+    env["DISABLE_ERROR_REPORTING"] = "1"
+    env["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] = "1"
+    env["CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY"] = "1"
+    env["CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT"] = "1"
+    env["CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS"] = "1"
+    if "CLAUDE_CODE_MAX_CONTEXT_TOKENS" not in env:
+        env["CLAUDE_CODE_MAX_CONTEXT_TOKENS"] = "200000"
+
+    target_cwd = os.environ.get("AGY_CALLER_CWD") or os.getcwd()
+
+    console.print("[bold cyan]Launching Claude Code CLI (Ephemeral Mode - Zero Config Changes):[/bold cyan]")
+    console.print(f"  • Proxy URL: [bold green]{proxy_url}[/bold green]")
+    console.print(f"  • Model:     [bold green]{target_model}[/bold green]")
+    console.print(f"  • Directory: [dim]{target_cwd}[/dim]\n")
+
+    try:
+        subprocess.run(cmd, env=env, cwd=target_cwd)
+    except KeyboardInterrupt:
+        pass
+
+
 def handle_run_codex(port: int = 8000, model: str = "gemini-3.8-flash-high", extra_args: list = None):
     """Launches Codex CLI in ephemeral test mode with proxy and catalog without modifying ~/.codex/config.toml."""
     import shutil
@@ -1149,6 +1257,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Restore original Claude Code CLI settings.json from backup",
     )
 
+    # claude ephemeral runner (agy-proxy claude)
+    claude_run_p = subparsers.add_parser(
+        "claude",
+        aliases=["run-claude"],
+        help="Launch Anthropic Claude Code CLI with proxy in ephemeral mode without modifying ~/.claude/settings.json",
+    )
+    claude_run_p.add_argument("--port", type=int, default=8000, help="Proxy server port (default: 8000)")
+    claude_run_p.add_argument("--url", type=str, default=None, help="Custom proxy base URL (e.g. http://127.0.0.1:8000)")
+    claude_run_p.add_argument("--model", "-m", type=str, default="anthropic.gemini-3.8-flash-high", help="Model to use (default: anthropic.gemini-3.8-flash-high)")
+    claude_run_p.add_argument("--danger", "--dangerously-skip-permissions", dest="danger", action="store_true", help="Auto-approve actions without permission prompts")
+
     # setup-codex subcommand (agy-proxy setup-codex)
     setup_codex_p = subparsers.add_parser(
         "setup-codex",
@@ -1168,11 +1287,11 @@ def build_parser() -> argparse.ArgumentParser:
     # codex ephemeral runner (agy-proxy codex)
     codex_run_p = subparsers.add_parser(
         "codex",
+        aliases=["run-codex"],
         help="Launch OpenAI Codex CLI with proxy in ephemeral mode without modifying ~/.codex/config.toml",
     )
     codex_run_p.add_argument("--port", "-p", type=int, default=8000, help="Proxy server port (default: 8000)")
     codex_run_p.add_argument("--model", "-m", type=str, default="gemini-3.8-flash-high", help="Model to use (default: gemini-3.8-flash-high)")
-    codex_run_p.add_argument("codex_args", nargs=argparse.REMAINDER, help="Additional arguments passed directly to codex")
 
     # experiments subcommand (agy-proxy experiments)
     exp_parser = subparsers.add_parser(
@@ -1409,12 +1528,9 @@ def main():
     parser = build_parser()
     args, unknown = parser.parse_known_args()
 
-    if getattr(args, "subcommand", None) == "codex":
-        if unknown:
-            if hasattr(args, "codex_args"):
-                args.codex_args = (args.codex_args or []) + unknown
-            else:
-                args.codex_args = unknown
+    if getattr(args, "subcommand", None) in ("codex", "run-codex", "claude", "run-claude"):
+        arg_attr = "codex_args" if args.subcommand in ("codex", "run-codex") else "claude_args"
+        setattr(args, arg_attr, unknown)
     elif unknown:
         parser.error(f"unrecognized arguments: {' '.join(unknown)}")
 
@@ -1532,13 +1648,22 @@ def main():
     elif args.subcommand in ("restore-claude", "claude-restore"):
         handle_restore_claude()
         return
+    elif args.subcommand in ("claude", "run-claude"):
+        handle_run_claude(
+            port=getattr(args, "port", 8000),
+            model=getattr(args, "model", "anthropic.gemini-3.8-flash-high"),
+            url=getattr(args, "url", None),
+            danger=getattr(args, "danger", False),
+            extra_args=getattr(args, "claude_args", []),
+        )
+        return
     elif args.subcommand in ("setup-codex", "codex-setup"):
         handle_setup_codex(port=getattr(args, "port", 8000), model=getattr(args, "model", "gemini-3.8-flash-high"))
         return
     elif args.subcommand in ("restore-codex", "codex-restore"):
         handle_restore_codex()
         return
-    elif args.subcommand == "codex":
+    elif args.subcommand in ("codex", "run-codex"):
         handle_run_codex(
             port=getattr(args, "port", 8000),
             model=getattr(args, "model", "gemini-3.8-flash-high"),

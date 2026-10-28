@@ -427,5 +427,68 @@ class TestCodexCliCommand(unittest.TestCase):
             self.assertEqual(kwargs.get("extra_args"), ["--version", "--dangerously-bypass-permissions"])
 
 
+class TestClaudeCliCommand(unittest.TestCase):
+    @patch("shutil.which", return_value="/usr/local/bin/claude")
+    @patch("subprocess.run")
+    def test_handle_run_claude_preserves_caller_cwd(self, mock_run, mock_which):
+        with patch.dict(os.environ, {"AGY_CALLER_CWD": "/home/user/some-project"}):
+            cli.handle_run_claude(port=8000, model="anthropic.gemini-3.8-flash-high")
+            self.assertTrue(mock_run.called)
+            _, kwargs = mock_run.call_args
+            self.assertEqual(kwargs.get("cwd"), "/home/user/some-project")
+
+    @patch("shutil.which", return_value="/usr/local/bin/claude")
+    @patch("subprocess.run")
+    def test_handle_run_claude_falls_back_to_getcwd(self, mock_run, mock_which):
+        env_copy = dict(os.environ)
+        env_copy.pop("AGY_CALLER_CWD", None)
+        with patch.dict(os.environ, env_copy, clear=True):
+            cli.handle_run_claude(port=8000, model="anthropic.gemini-3.8-flash-high")
+            self.assertTrue(mock_run.called)
+            _, kwargs = mock_run.call_args
+            self.assertEqual(kwargs.get("cwd"), os.getcwd())
+
+    @patch("shutil.which", return_value="/usr/local/bin/claude")
+    @patch("subprocess.run")
+    def test_handle_run_claude_flags_and_env(self, mock_run, mock_which):
+        with patch.dict(os.environ, {"AGY_CALLER_CWD": "/tmp"}):
+            cli.handle_run_claude(
+                port=9000,
+                model="gemini-3.8-pro",
+                danger=True,
+                extra_args=["-p", "hello"],
+            )
+            self.assertTrue(mock_run.called)
+            cmd, kwargs = mock_run.call_args
+            args = cmd[0]
+            self.assertIn("/usr/local/bin/claude", args)
+            self.assertIn("--settings", args)
+            self.assertIn("--model", args)
+            self.assertIn("anthropic.gemini-3.8-pro", args)
+            self.assertIn("--dangerously-skip-permissions", args)
+            self.assertIn("-p", args)
+            self.assertIn("hello", args)
+            env = kwargs.get("env", {})
+            self.assertEqual(env.get("ANTHROPIC_BASE_URL"), "http://127.0.0.1:9000")
+            self.assertEqual(env.get("ANTHROPIC_AUTH_TOKEN"), "agy-proxy-token")
+            self.assertNotIn("ANTHROPIC_API_KEY", env)
+
+    @patch("shutil.which", return_value=None)
+    def test_handle_run_claude_missing_binary(self, mock_which):
+        with patch("os.path.isfile", return_value=False):
+            with patch("subprocess.run") as mock_run:
+                cli.handle_run_claude()
+                self.assertFalse(mock_run.called)
+
+    @patch("agy_proxy.cli.handle_run_claude")
+    def test_cli_main_claude_forwards_unknown_flags(self, mock_handle_claude):
+        test_args = ["agy-proxy", "claude", "-c", "--print", "hello"]
+        with patch.object(sys, "argv", test_args):
+            cli.main()
+            self.assertTrue(mock_handle_claude.called)
+            _, kwargs = mock_handle_claude.call_args
+            self.assertEqual(kwargs.get("extra_args"), ["-c", "--print", "hello"])
+
+
 if __name__ == "__main__":
     unittest.main()
