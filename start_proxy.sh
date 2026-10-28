@@ -6,6 +6,7 @@
 set -e
 
 # Resolve current script directory dynamically (following symlinks)
+export AGY_CALLER_CWD="${AGY_CALLER_CWD:-$PWD}"
 SOURCE="${BASH_SOURCE[0]}"
 while [ -L "$SOURCE" ]; do
     TARGET="$(readlink "$SOURCE")"

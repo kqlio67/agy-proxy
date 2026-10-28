@@ -729,9 +729,11 @@ def handle_run_codex(port: int = 8000, model: str = "gemini-3.8-flash-high", ext
     env["OTEL_EXPORTER_OTLP_ENDPOINT"] = f"http://127.0.0.1:{port}"
     env["OTEL_EXPORTER_OTLP_PROTOCOL"] = "http/json"
 
+    target_cwd = os.environ.get("AGY_CALLER_CWD") or os.getcwd()
+
     console.print("[bold cyan]Launching Codex CLI (Ephemeral Mode - Zero Config Changes):[/bold cyan]\n")
     try:
-        subprocess.run(cmd, env=env)
+        subprocess.run(cmd, env=env, cwd=target_cwd)
     except KeyboardInterrupt:
         pass
 
@@ -1405,7 +1407,16 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main():
     parser = build_parser()
-    args = parser.parse_args()
+    args, unknown = parser.parse_known_args()
+
+    if getattr(args, "subcommand", None) == "codex":
+        if unknown:
+            if hasattr(args, "codex_args"):
+                args.codex_args = (args.codex_args or []) + unknown
+            else:
+                args.codex_args = unknown
+    elif unknown:
+        parser.error(f"unrecognized arguments: {' '.join(unknown)}")
 
     if args.cloudflare_url:
         os.environ["CLOUDFLARE_UPSTREAM_URL"] = args.cloudflare_url.rstrip("/")

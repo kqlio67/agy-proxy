@@ -3,6 +3,7 @@ Unit tests for CLI argument parsing, flags, startup configuration, and auth comm
 """
 
 import io
+import os
 import sys
 import tempfile
 import unittest
@@ -264,6 +265,166 @@ class TestCliAuthCommands(unittest.TestCase):
             ok = cli.handle_auth_remove("key_ai1")
             self.assertTrue(ok)
             self.assertNotIn("key_ai1", self.pool.accounts)
+
+
+class TestCliLoggingFilters(unittest.TestCase):
+    """Tests for CLI logging filters and debug-mode noise suppression."""
+
+    @patch("uvicorn.Server.run")
+    @patch("agy_proxy.cli.print_banner")
+    def test_debug_logging_configuration(self, mock_banner, mock_server_run):
+        import logging
+        test_args = ["agy-proxy", "--debug"]
+        with patch.object(sys, "argv", test_args):
+            with patch("uvicorn.Config") as mock_uvicorn_config:
+                cli.main()
+                self.assertTrue(mock_server_run.called)
+                self.assertTrue(mock_uvicorn_config.called)
+                kwargs = mock_uvicorn_config.call_args[1]
+                # Uvicorn should be kept at 'info' to avoid websockets protocol frame tracing,
+                # while access_log should be True for raw HTTP visibility
+                self.assertEqual(kwargs.get("log_level"), "info")
+                self.assertTrue(kwargs.get("access_log"))
+
+        # Verify filters were added to appropriate loggers
+        u_access = logging.getLogger("uvicorn.access")
+        u_error = logging.getLogger("uvicorn.error")
+        httpx_log = logging.getLogger("httpx")
+        server_log = logging.getLogger("agy_proxy.server")
+
+        self.assertTrue(any(f.__class__.__name__ == "EndpointFilter" for f in u_access.filters))
+        self.assertTrue(any(f.__class__.__name__ == "EndpointFilter" for f in httpx_log.filters))
+        self.assertTrue(any(f.__class__.__name__ == "EndpointFilter" for f in server_log.filters))
+        self.assertTrue(any(f.__class__.__name__ == "WebSocketNoiseFilter" for f in u_error.filters))
+
+    def test_endpoint_filter_behavior(self):
+        import logging
+
+        # Create dummy log records
+        def make_record(msg, args=None):
+            return logging.LogRecord(
+                name="test",
+                level=logging.INFO,
+                pathname="test.py",
+                lineno=1,
+                msg=msg,
+                args=args or (),
+                exc_info=None,
+            )
+
+        # Retrieve an EndpointFilter instance from uvicorn.access or instantiate
+        u_access = logging.getLogger("uvicorn.access")
+        endpoint_filters = [f for f in u_access.filters if f.__class__.__name__ == "EndpointFilter"]
+        self.assertTrue(len(endpoint_filters) > 0)
+        f = endpoint_filters[0]
+
+        # 1. Plain colon polling paths must be filtered
+        self.assertFalse(f.filter(make_record("CloudCode passthrough: /v1internal:listExperiments")))
+        self.assertFalse(f.filter(make_record("HTTP Request: POST https://example.com/v1internal:retrieveUserQuotaSummary 200 OK")))
+        self.assertFalse(f.filter(make_record("GET /api/info HTTP/1.1 200 OK")))
+        self.assertFalse(f.filter(make_record("GET /health HTTP/1.1 200 OK")))
+
+        # 2. URL-encoded colon polling paths (%3A) must also be filtered
+        self.assertFalse(f.filter(make_record('127.0.0.1:50476 - "POST /v1internal%3AlistExperiments HTTP/1.1" 200 OK')))
+        self.assertFalse(f.filter(make_record('127.0.0.1:50476 - "POST /v1internal%3AretrieveUserQuotaSummary HTTP/1.1" 200 OK')))
+
+        # 3. Uvicorn access log tuple args must be inspected and filtered
+        rec_args = make_record('%s - "%s %s HTTP/%s" %s', ('127.0.0.1:50476', 'POST', '/v1internal%3AfetchAvailableModels', '1.1', 200))
+        self.assertFalse(f.filter(rec_args))
+
+        rec_info_args = make_record('%s - "%s %s HTTP/%s" %s', ('127.0.0.1:38682', 'GET', '/api/info', '1.1', 200))
+        self.assertFalse(f.filter(rec_info_args))
+
+        # 4. Legitimate API traffic must NOT be filtered
+        self.assertTrue(f.filter(make_record('127.0.0.1:51234 - "POST /v1/chat/completions HTTP/1.1" 200 OK')))
+        self.assertTrue(f.filter(make_record('127.0.0.1:38696 - "WebSocket /v1/responses" [accepted]')))
+        self.assertTrue(f.filter(make_record('POST https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse 200 OK')))
+        self.assertTrue(f.filter(make_record('[Mi TV] gemini-3.8-flash-high (Antigravity OAuth)')))
+
+    def test_websocket_noise_filter_behavior(self):
+        import logging
+
+        def make_record(msg):
+            return logging.LogRecord(
+                name="test.ws",
+                level=logging.DEBUG,
+                pathname="test.py",
+                lineno=1,
+                msg=msg,
+                args=(),
+                exc_info=None,
+            )
+
+        u_error = logging.getLogger("uvicorn.error")
+        ws_filters = [f for f in u_error.filters if f.__class__.__name__ == "WebSocketNoiseFilter"]
+        self.assertTrue(len(ws_filters) > 0)
+        f = ws_filters[0]
+
+        # Protocol noise must be filtered
+        self.assertFalse(f.filter(make_record("= connection is CONNECTING")))
+        self.assertFalse(f.filter(make_record("= connection is OPEN")))
+        self.assertFalse(f.filter(make_record("< GET /v1/responses HTTP/1.1")))
+        self.assertFalse(f.filter(make_record("< host: 127.0.0.1:8000")))
+        self.assertFalse(f.filter(make_record("> HTTP/1.1 101 Switching Protocols")))
+        self.assertFalse(f.filter(make_record('> TEXT \'{"type": "response.output_text.delta"}\'')))
+        self.assertFalse(f.filter(make_record("> PING ba ca 17 f9")))
+        self.assertFalse(f.filter(make_record("< PONG ba ca 17 f9")))
+        self.assertFalse(f.filter(make_record("connection open")))
+        self.assertFalse(f.filter(make_record("connection closed")))
+
+        # Meaningful logs must pass through
+        self.assertTrue(f.filter(make_record('127.0.0.1:38696 - "WebSocket /v1/responses" [accepted]')))
+        self.assertTrue(f.filter(make_record("Server startup complete")))
+        self.assertTrue(f.filter(make_record("Internal server error in websocket handler")))
+
+
+class TestCodexCliCommand(unittest.TestCase):
+    @patch("shutil.which", return_value="/usr/local/bin/codex")
+    @patch("subprocess.run")
+    def test_handle_run_codex_preserves_caller_cwd(self, mock_run, mock_which):
+        with patch.dict(os.environ, {"AGY_CALLER_CWD": "/home/user/some-project"}):
+            cli.handle_run_codex(port=8000, model="gemini-3.8-flash-high")
+            self.assertTrue(mock_run.called)
+            _, kwargs = mock_run.call_args
+            self.assertEqual(kwargs.get("cwd"), "/home/user/some-project")
+
+    @patch("shutil.which", return_value="/usr/local/bin/codex")
+    @patch("subprocess.run")
+    def test_handle_run_codex_falls_back_to_getcwd(self, mock_run, mock_which):
+        env_copy = dict(os.environ)
+        env_copy.pop("AGY_CALLER_CWD", None)
+        with patch.dict(os.environ, env_copy, clear=True):
+            cli.handle_run_codex(port=8000, model="gemini-3.8-flash-high")
+            self.assertTrue(mock_run.called)
+            _, kwargs = mock_run.call_args
+            self.assertEqual(kwargs.get("cwd"), os.getcwd())
+
+    @patch("shutil.which", return_value="/usr/local/bin/codex")
+    @patch("subprocess.run")
+    def test_handle_run_codex_flags_and_env(self, mock_run, mock_which):
+        with patch.dict(os.environ, {"AGY_CALLER_CWD": "/tmp"}):
+            cli.handle_run_codex(port=9000, model="gemini-3.8-pro", extra_args=["--foo", "bar"])
+            self.assertTrue(mock_run.called)
+            cmd, kwargs = mock_run.call_args
+            args = cmd[0]
+            self.assertIn("/usr/local/bin/codex", args)
+            self.assertIn("--no-daemon", args)
+            self.assertIn('openai_base_url="http://127.0.0.1:9000/v1"', args)
+            self.assertIn("-m", args)
+            self.assertIn("gemini-3.8-pro", args)
+            self.assertIn("--foo", args)
+            self.assertIn("bar", args)
+            env = kwargs.get("env", {})
+            self.assertEqual(env.get("OTEL_EXPORTER_OTLP_ENDPOINT"), "http://127.0.0.1:9000")
+
+    @patch("agy_proxy.cli.handle_run_codex")
+    def test_cli_main_codex_forwards_unknown_flags(self, mock_handle_codex):
+        test_args = ["agy-proxy", "codex", "--version", "--dangerously-bypass-permissions"]
+        with patch.object(sys, "argv", test_args):
+            cli.main()
+            self.assertTrue(mock_handle_codex.called)
+            _, kwargs = mock_handle_codex.call_args
+            self.assertEqual(kwargs.get("extra_args"), ["--version", "--dangerously-bypass-permissions"])
 
 
 if __name__ == "__main__":

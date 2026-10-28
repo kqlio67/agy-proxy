@@ -2,6 +2,7 @@
 setlocal
 title Antigravity Proxy Server
 
+if "%AGY_CALLER_CWD%"=="" set "AGY_CALLER_CWD=%CD%"
 cd /d "%~dp0"
 
 where uv >nul 2>nul
