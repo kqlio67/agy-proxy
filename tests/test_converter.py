@@ -105,6 +105,89 @@ class TestSchemaSanitization(unittest.TestCase):
         self.assertEqual(nested_val["minimum"], 1.5)
         self.assertNotIn("exclusiveMinimum", nested_val)
 
+    def test_sanitize_conditional_schema_if_then_else(self):
+        raw_schema = {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "detail": {
+                    "anyOf": [
+                        {"type": "string", "const": "complete"},
+                        {"type": "string", "const": "summary"},
+                    ]
+                },
+                "view": {
+                    "type": "object",
+                    "properties": {
+                        "kind": {"type": "string", "const": "python-pyc"},
+                    },
+                },
+            },
+            "required": ["path"],
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "minProperties": 1,
+            "additionalProperties": False,
+            "if": {
+                "properties": {"detail": {"const": "summary"}},
+                "required": ["detail"],
+            },
+            "then": {"required": ["detail"]},
+            "else": {
+                "properties": {
+                    "view": {
+                        "not": {
+                            "type": ["null", "boolean", "object", "array", "number", "string"],
+                            "items": {},
+                        }
+                    }
+                }
+            },
+        }
+        clean = sanitize_gemini_schema(raw_schema)
+        self.assertEqual(clean["type"], "object")
+        self.assertNotIn("if", clean)
+        self.assertNotIn("then", clean)
+        self.assertNotIn("else", clean)
+        self.assertNotIn("not", clean)
+        self.assertNotIn("$schema", clean)
+        self.assertNotIn("additionalProperties", clean)
+        self.assertIn("path", clean["properties"])
+        self.assertIn("detail", clean["properties"])
+        self.assertIn("view", clean["properties"])
+        self.assertEqual(clean["required"], ["path"])
+        self.assertEqual(clean["minProperties"], 1)
+
+    def test_sanitize_items_on_non_array_and_union_types(self):
+        # TypeBox / JSON Schema wildcard union with stray items
+        raw_schema = {
+            "type": "object",
+            "properties": {
+                "source_paths": {
+                    "type": "array",
+                    "items": {
+                        "type": ["null", "boolean", "object", "array", "number", "string"],
+                        "items": {},
+                    },
+                },
+                "wildcard_scalar": {
+                    "type": ["null", "boolean", "object", "array", "number", "string"],
+                    "items": {},
+                },
+            },
+        }
+        clean = sanitize_gemini_schema(raw_schema)
+        self.assertEqual(clean["type"], "object")
+        # Array's items should be normalized to string, and not have nested items because its type is not array
+        sp = clean["properties"]["source_paths"]
+        self.assertEqual(sp["type"], "array")
+        self.assertEqual(sp["items"]["type"], "string")
+        self.assertNotIn("items", sp["items"])
+
+        # wildcard_scalar should be string and have NO items field
+        scalar = clean["properties"]["wildcard_scalar"]
+        self.assertEqual(scalar["type"], "string")
+        self.assertNotIn("items", scalar)
+
 
 class TestOpenAIToCloudCode(unittest.TestCase):
     def test_basic_message_conversion(self):

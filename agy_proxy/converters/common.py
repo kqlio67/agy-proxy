@@ -126,20 +126,29 @@ def sanitize_gemini_contents_thought_signatures(contents: Any) -> Any:
         if isinstance(c, dict) and "parts" in c and isinstance(c["parts"], list):
             for p in c["parts"]:
                 if isinstance(p, dict) and "functionCall" in p:
-                    if not p.get("thoughtSignature") and not p.get("thought_signature"):
-                        fc = p["functionCall"]
-                        if isinstance(fc, dict):
-                            sig = (
-                                fc.get("thoughtSignature")
-                                or fc.get("thought_signature")
-                                or get_thought_signature(
-                                    call_id=fc.get("id"),
-                                    func_name=fc.get("name"),
-                                    args_obj=fc.get("args"),
-                                )
-                                or DEFAULT_THOUGHT_SIGNATURE
-                            )
-                            p["thoughtSignature"] = sig
+                    fc = p["functionCall"]
+                    candidate_sig = None
+                    for candidate in (
+                        p.get("thoughtSignature"),
+                        p.get("thought_signature"),
+                        fc.get("thoughtSignature") if isinstance(fc, dict) else None,
+                        fc.get("thought_signature") if isinstance(fc, dict) else None,
+                    ):
+                        if candidate and isinstance(candidate, str) and candidate.strip():
+                            candidate_sig = candidate.strip()
+                            break
+
+                    if not candidate_sig and isinstance(fc, dict):
+                        cached_sig = get_thought_signature(
+                            call_id=fc.get("id"),
+                            func_name=fc.get("name"),
+                            args_obj=fc.get("args"),
+                        )
+                        if cached_sig and isinstance(cached_sig, str) and cached_sig.strip():
+                            candidate_sig = cached_sig.strip()
+
+                    sig = candidate_sig or DEFAULT_THOUGHT_SIGNATURE
+                    p["thoughtSignature"] = sig
     return contents
 
 
@@ -194,7 +203,7 @@ def sanitize_gemini_schema(schema: Any) -> Any:
             if isinstance(em_val, (int, float)) and "maximum" not in node:
                 node["maximum"] = em_val
 
-        # Strip unsupported schema metadata fields that cause Gemini 400 validation errors
+        # Strip unsupported schema metadata and conditional fields that cause Gemini 400 validation errors
         for forbidden in (
             "$schema",
             "$id",
@@ -212,6 +221,7 @@ def sanitize_gemini_schema(schema: Any) -> Any:
             "writeOnly",
             "contentMediaType",
             "contentEncoding",
+            "contentSchema",
             "uniqueItems",
             "multipleOf",
             "propertyNames",
@@ -220,15 +230,40 @@ def sanitize_gemini_schema(schema: Any) -> Any:
             "unevaluatedItems",
             "minContains",
             "maxContains",
+            "contains",
             "patternProperties",
+            "if",
+            "then",
+            "else",
+            "not",
+            "dependentRequired",
+            "dependentSchemas",
+            "dependencies",
+            "$comment",
         ):
             node.pop(forbidden, None)
 
+        for k in list(node.keys()):
+            if k.startswith("$") or k.startswith("x-"):
+                node.pop(k, None)
+
         # 1. Normalize type list: ["string", "null"] -> type: "string", nullable: True
+        # For general unions (e.g. TypeBox Any/Unknown: ["null", "boolean", "object", "array", "number", "string"]),
+        # prefer string or object over boolean to represent generic data cleanly.
         t = node.get("type")
         if isinstance(t, list):
-            types = [x for x in t if x != "null"]
-            node["type"] = types[0].lower() if types else "string"
+            types = [x.lower() for x in t if x != "null"]
+            if "string" in types:
+                chosen_type = "string"
+            elif "object" in types:
+                chosen_type = "object"
+            elif "array" in types:
+                chosen_type = "array"
+            elif types:
+                chosen_type = types[0]
+            else:
+                chosen_type = "string"
+            node["type"] = chosen_type
             if "null" in t:
                 node["nullable"] = True
         elif isinstance(t, str):
@@ -296,6 +331,51 @@ def sanitize_gemini_schema(schema: Any) -> Any:
                 node["type"] = "array"
             elif "enum" in node:
                 node["type"] = "string"
+
+        # CRITICAL PROTO CONSTRAINT: Google Gemini Schema strictly requires $type == Type.ARRAY
+        # if the 'items' field is present. Never allow 'items' on non-array nodes!
+        if node.get("type") != "array":
+            node.pop("items", None)
+        else:
+            if "items" not in node or not isinstance(node["items"], dict):
+                node["items"] = {"type": "string"}
+            elif not node["items"].get("type"):
+                node["items"]["type"] = "string"
+
+        # 6. Filter schema node keys against Google Gemini Schema proto allowed fields
+        for k in list(node.keys()):
+            if k not in (
+                "type",
+                "format",
+                "description",
+                "nullable",
+                "enum",
+                "items",
+                "properties",
+                "required",
+                "default",
+                "example",
+                "minimum",
+                "maximum",
+                "minLength",
+                "min_length",
+                "maxLength",
+                "max_length",
+                "minItems",
+                "min_items",
+                "maxItems",
+                "max_items",
+                "minProperties",
+                "min_properties",
+                "maxProperties",
+                "max_properties",
+                "pattern",
+                "anyOf",
+                "any_of",
+                "propertyOrdering",
+                "property_ordering",
+            ):
+                node.pop(k, None)
 
         return node
 
@@ -375,6 +455,15 @@ def ensure_tool_pairing_integrity(
                         fc["id"] = fc_id
                         fc_name = fc.get("name", "tool")
                         turn_calls[fc_id] = fc_name
+                        existing_sig = (
+                            p.get("thoughtSignature")
+                            or p.get("thought_signature")
+                            or fc.get("thoughtSignature")
+                            or fc.get("thought_signature")
+                        )
+                        if existing_sig and isinstance(existing_sig, str) and existing_sig.strip():
+                            save_thought_signature(fc_id, fc_name, fc.get("args"), existing_sig.strip())
+
                         if is_claude:
                             # Claude rejects dummy Gemini thoughtSignatures
                             p.pop("thoughtSignature", None)
