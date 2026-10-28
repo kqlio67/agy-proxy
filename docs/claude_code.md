@@ -33,41 +33,6 @@ agy-proxy claude --url https://your-tunnel.trycloudflare.com
 
 ---
 
-## 🚀 Standalone Launch Scripts
-
-The repository includes pre-built wrapper scripts that configure the environment and launch Claude Code instantly.
-
-### Linux / macOS / Termux (`run_claude.sh`)
-
-```bash
-# 1-Click Launch:
-./run_claude.sh
-
-# Launch on custom proxy port:
-./run_claude.sh -p 8080
-
-# Launch with a specific model (e.g. Claude Sonnet 4.6, DeepAgent, or Gemini 3.8):
-./run_claude.sh -m claude-sonnet-4-6
-./run_claude.sh -m claude-sonnet-4-6-deepagent
-./run_claude.sh -m claude-opus-4-6-deepagent
-./run_claude.sh -m gemini-3.8-flash-high
-
-# Pass direct arguments to Claude Code CLI:
-./run_claude.sh -p 8000 -- --dangerously-skip-permissions "Explain this codebase"
-```
-
-### Windows (`run_claude.bat`)
-
-```cmd
-:: Command Prompt:
-run_claude.bat
-run_claude.bat -m claude-sonnet-4-6
-run_claude.bat -m claude-sonnet-4-6-deepagent
-run_claude.bat -p 8080 -m gemini-3.8-flash-high
-```
-
----
-
 ## ⚙️ Persistent Configuration via CLI (`setup-claude`)
 
 Automatically configure your local `~/.claude/settings.json` so that running standard `claude` commands always routes through `agy-proxy`:

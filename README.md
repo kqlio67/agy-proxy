@@ -88,26 +88,22 @@ agy-proxy web --download-server
 ### 2. 🤖 Claude Code CLI
 Run Anthropic's official Claude Code CLI routed through `agy-proxy`:
 ```bash
-# Ephemeral launch (recommended, zero config changes):
+# Launch interactive session:
 agy-proxy claude
-agy-proxy claude -m claude-sonnet-4-6
 
-# Or via launch scripts:
-./run_claude.sh -m claude-sonnet-4-6   # Linux / macOS
-run_claude.bat -m claude-sonnet-4-6    # Windows
+# Launch with specific model:
+agy-proxy claude -m claude-sonnet-4-6
 ```
 👉 *Detailed guide: [Claude Code CLI Integration](docs/claude_code.md)*
 
 ### 3. ⌨️ OpenAI Codex CLI
 Run OpenAI Codex CLI with full Antigravity model catalog:
 ```bash
-# Ephemeral launch (recommended, zero config changes):
+# Launch interactive session:
 agy-proxy codex
-agy-proxy codex -m claude-sonnet-4-6
 
-# Or via launch scripts:
-./run_codex.sh -m claude-sonnet-4-6    # Linux / macOS
-run_codex.bat -m claude-sonnet-4-6     # Windows
+# Launch with specific model:
+agy-proxy codex -m claude-sonnet-4-6
 ```
 👉 *Detailed guide: [OpenAI Codex CLI Integration](docs/codex_cli.md)*
 

@@ -76,20 +76,17 @@ agy-proxy patch install -f "/opt/Antigravity/resources/bin/language_server"
 agy-proxy patch restore -y
 ```
 
-### Windows (PowerShell & CMD)
+### Windows (PowerShell & Command Prompt)
 
 ```powershell
-# PowerShell:
-.\patch_language_server.ps1 -Check
-.\patch_language_server.ps1 -Port 8000
-.\patch_language_server.ps1 -Unpatch
-```
+# Check patch status:
+agy-proxy patch status
 
-```cmd
-:: Command Prompt:
-patch_language_server.cmd --check
-patch_language_server.cmd --port 8000
-patch_language_server.cmd --unpatch
+# Install patch with automated backup and watchdog:
+agy-proxy patch install -y
+
+# Restore original unmodified binary:
+agy-proxy patch restore -y
 ```
 
 ---

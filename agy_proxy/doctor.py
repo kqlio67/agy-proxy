@@ -289,12 +289,11 @@ async def run_doctor(host: str = "127.0.0.1", port: int = 8000, cloudflare_url: 
     else:
         agent_table.add_row("Claude Code CLI Binary", "[bold yellow]⚠️ Not Found[/bold yellow]", cli_info["detail"])
 
-    launcher_path = os.path.expanduser("~/.local/bin/claude-agy")
-    has_launcher = os.path.isfile(launcher_path)
+    has_claude = cli_info["installed"]
     agent_table.add_row(
-        "Launcher Command (`claude-agy`)",
-        "[bold green]✅ Ready[/bold green]" if has_launcher else "[dim]Optional (in project dir: ./run_claude.sh)[/dim]",
-        launcher_path if has_launcher else "Run `./run_claude.sh` from project folder"
+        "Claude Code Command (`agy-proxy claude`)",
+        "[bold green]✅ Ready[/bold green]" if has_claude else "[dim]Optional (Install via npm)[/dim]",
+        "Run `agy-proxy claude` from any directory" if has_claude else "Install: npm install -g @anthropic-ai/claude-code"
     )
 
     console.print(agent_table)
@@ -338,7 +337,8 @@ async def run_doctor(host: str = "127.0.0.1", port: int = 8000, cloudflare_url: 
             "[bold green]🎉 ALL SYSTEMS OPERATIONAL AND HEALTHY![/bold green]\n"
             f"[white]• Web Dashboard:[/white] [cyan]http://{host}:{port}[/cyan]\n"
             f"[white]• OpenAI API Base:[/white] [yellow]http://{host}:{port}/v1[/yellow]\n"
-            f"[white]• Claude Code Launcher:[/white] [magenta]claude-agy[/magenta] or [magenta]./run_claude.sh[/magenta]",
+            f"[white]• Claude Code CLI:[/white] [magenta]agy-proxy claude[/magenta]\n"
+            f"[white]• OpenAI Codex CLI:[/white] [magenta]agy-proxy codex[/magenta]",
             title="[bold green]Doctor Verdict[/bold green]",
             border_style="green",
             padding=(1, 2),
