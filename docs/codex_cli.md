@@ -47,7 +47,7 @@ agy-proxy codex --port 8000 --model gemini-3.8-flash-high
 Automatically update your global Codex settings:
 
 ```bash
-# Configure ~/.codex/config.toml and inject the Antigravity model catalog:
+# Configure ~/.codex/config.toml with native Antigravity model provider and catalog:
 agy-proxy setup-codex --port 8000 --model gemini-3.8-flash-high
 
 # Or restore original config at any time:
@@ -55,14 +55,22 @@ agy-proxy restore-codex
 ```
 
 ### Manual Configuration Example
-If editing `~/.codex/config.toml` manually:
+If editing `~/.codex/config.toml` manually (recommended for Codex v0.150+):
 
 ```toml
-[client]
-api_base = "http://127.0.0.1:8000/v1"
-api_key = "dummy"
+model_provider = "antigravity"
 model = "gemini-3.8-flash-high"
+model_catalog_json = "~/.codex/antigravity_models.json"
+
+[model_providers.antigravity]
+name = "Antigravity Proxy"
+base_url = "http://127.0.0.1:8000/v1"
+wire_api = "responses"
+model_catalog_url = "http://127.0.0.1:8000/api/codex/models.json"
 ```
+
+> **Note on Compatibility:**
+> `agy-proxy setup-codex` automatically configures both the modern `[model_providers.antigravity]` section (for Codex v0.150+) and the fallback `openai_base_url` key, ensuring seamless compatibility across all Codex CLI versions.
 
 ---
 

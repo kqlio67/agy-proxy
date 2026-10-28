@@ -82,6 +82,14 @@ class TestCodexHelper(unittest.TestCase):
         self.assertEqual(stat.S_IMODE(os.stat(config_file).st_mode), 0o600)
         self.assertEqual(stat.S_IMODE(os.stat(catalog_file).st_mode), 0o600)
 
+        # Verify modern model_providers block and keys
+        with open(config_file, "r") as f:
+            cfg_text = f.read()
+            self.assertIn('model_provider = "antigravity"', cfg_text)
+            self.assertIn('[model_providers.antigravity]', cfg_text)
+            self.assertIn('wire_api = "responses"', cfg_text)
+            self.assertIn('base_url = "http://127.0.0.1:8000/v1"', cfg_text)
+
         status = get_codex_status(codex_dir=self.codex_dir, port=8000)
         self.assertTrue(status["is_configured"])
         self.assertEqual(status["active_model"], "gemini-3.8-flash-high")
@@ -100,7 +108,7 @@ class TestCodexHelper(unittest.TestCase):
         with open(backup_file, "r") as f:
             self.assertIn('user_custom_setting = "preserved"', f.read())
 
-        # 4. Restore configuration
+        # 4. Restore configuration from backup
         res_restore = restore_codex(codex_dir=self.codex_dir)
         self.assertEqual(res_restore["status"], "ok")
         self.assertTrue(res_restore["restored_from_backup"])
@@ -111,3 +119,20 @@ class TestCodexHelper(unittest.TestCase):
         with open(config_file, "r") as f:
             restored_text = f.read()
             self.assertIn('user_custom_setting = "preserved"', restored_text)
+            self.assertNotIn('[model_providers.antigravity]', restored_text)
+            self.assertNotIn('model_provider = "antigravity"', restored_text)
+
+        # 5. Test clean in-place restore without backup file
+        res3 = setup_codex(codex_dir=self.codex_dir, port=8000)
+        self.assertEqual(res3["status"], "ok")
+        # Remove backup to simulate manual in-place clean
+        if os.path.isfile(backup_file):
+            os.remove(backup_file)
+        res_clean = restore_codex(codex_dir=self.codex_dir)
+        self.assertEqual(res_clean["status"], "ok")
+        self.assertTrue(res_clean["cleaned_config"])
+        if os.path.isfile(config_file):
+            with open(config_file, "r") as f:
+                c_text = f.read()
+                self.assertNotIn('[model_providers.antigravity]', c_text)
+                self.assertNotIn('model_provider = "antigravity"', c_text)

@@ -993,11 +993,16 @@ Model:    gemini-3.7-flash-high</pre>
             <pre id="codeCodexCli" class="text-slate-300 font-mono text-[10.5px] overflow-x-auto custom-scrollbar pr-12"># 1-Line Launch:
 OPENAI_API_KEY="dummy" codex -c 'openai_base_url="http://localhost:8000/v1"' -m "gemini-3.8-flash-high"
 
-# Persistent config (~/.codex/config.toml) with all models:
+# Persistent config (~/.codex/config.toml) with native provider:
 # (Or run: agy-proxy setup-codex)
-openai_base_url = "http://localhost:8000/v1"
+model_provider = "antigravity"
 model = "gemini-3.8-flash-high"
-model_catalog_json = "~/.codex/antigravity_models.json"</pre>
+
+[model_providers.antigravity]
+name = "Antigravity Proxy"
+base_url = "http://localhost:8000/v1"
+wire_api = "responses"
+model_catalog_url = "http://localhost:8000/api/codex/models.json"</pre>
           </div>
         </div>
 

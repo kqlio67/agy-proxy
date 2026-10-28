@@ -9,11 +9,13 @@ import json
 import logging
 import os
 import re
+import shutil
 import sys
 import uvicorn
-from rich.console import Console
+from rich.console import Console, Group
 from rich.panel import Panel
 from rich.prompt import Prompt
+from rich.rule import Rule
 from rich.table import Table
 
 from agy_proxy import __version__ as APP_VERSION
@@ -24,36 +26,60 @@ console = Console()
 
 
 def print_banner(host: str, port: int, pool: AccountPool, api_key: str = None, update_info: dict = None):
+    try:
+        term_cols, term_lines = shutil.get_terminal_size(fallback=(80, 24))
+    except Exception:
+        term_cols, term_lines = 80, 24
+
+    console_w = getattr(console, "width", None)
+    term_width = console_w if (console_w is not None and console_w > 0) else term_cols
+    is_compact = term_width < 90
+    is_narrow = term_width < 75
+
+    if term_lines >= 40:
+        max_active_accounts = 6
+    elif term_lines >= 30:
+        max_active_accounts = 4
+    else:
+        max_active_accounts = 3
+
     url = f"http://{host}:{port}"
-    table = Table(show_header=False, box=None, padding=(0, 1))
-    table.add_column("Key", no_wrap=True)
-    table.add_column("Value")
-    table.add_row("[bold cyan]Web Dashboard & Pool UI:[/bold cyan]", f"[bold green]{url}[/bold green]")
+    table = Table(show_header=False, box=None, padding=(0, 1), expand=True)
+    table.add_column("Key", style="bold cyan", no_wrap=True)
+    table.add_column("Value", ratio=1)
+    table.add_row("Web Dashboard:", f"[bold green]{url}[/bold green]")
     try:
         from agy_proxy.web_launcher import get_web_status
         web_st = get_web_status()
-        if web_st["status"] == "running":
-            table.add_row("[bold cyan]Antigravity Web UI:[/bold cyan]", f"[bold green]{web_st['url']}[/bold green] [dim](No-Electron Mode - Active)[/dim]")
+        if web_st.get("status") == "running":
+            mode_suffix = " [dim](Active · No-Electron)[/dim]" if not is_compact else " [dim](Active)[/dim]"
+            table.add_row("Antigravity Web:", f"[bold green]{web_st['url']}[/bold green]{mode_suffix}")
         else:
-            table.add_row("[bold cyan]Antigravity Web Mode:[/bold cyan]", f"[dim]{web_st['url']} (Launch: agy-proxy web)[/dim]")
+            hint = " [dim](run: agy-proxy web)[/dim]" if not is_compact else ""
+            table.add_row("Antigravity Web:", f"[dim]{web_st['url']}{hint}[/dim]")
     except Exception:
         pass
-    table.add_row("[bold cyan]Universal API Base (OpenAI/Claude):[/bold cyan]", f"[bold yellow]{url}/v1[/bold yellow]")
-    table.add_row("[bold cyan]Gemini Native API Base:[/bold cyan]", f"[bold blue]{url}/v1beta[/bold blue]")
-    table.add_row("[bold cyan]Prompt Caching & Session Affinity:[/bold cyan]", "[bold green]Enabled (75% token discount)[/bold green]")
+
+    if is_compact:
+        table.add_row("Universal API:", f"[bold yellow]{url}/v1[/bold yellow]")
+    else:
+        table.add_row("Universal API:", f"[bold yellow]{url}/v1[/bold yellow] [dim](OpenAI / Claude Code)[/dim]")
+
+    table.add_row("Gemini Native:", f"[bold blue]{url}/v1beta[/bold blue]")
+    table.add_row("Prompt Caching:", "[bold green]Enabled[/bold green] [dim](75% token discount)[/dim]")
     try:
         from agy_proxy.compactor import compactor_settings
         if compactor_settings.enabled:
-            comp_status = f"[bold green]Active[/bold green] [dim]({compactor_settings.threshold_tokens:,} tokens threshold)[/dim]"
+            comp_status = f"[bold green]Active[/bold green] [dim]({compactor_settings.threshold_tokens:,} tokens)[/dim]"
         else:
-            comp_status = "[bold green]Safe Mode (Disabled)[/bold green] [dim](managed by Claude Code)[/dim]"
-        table.add_row("[bold cyan]Context Auto-Compactor:[/bold cyan]", comp_status)
+            comp_status = "[dim]Safe Mode (Claude-managed)[/dim]"
+        table.add_row("Context Compactor:", comp_status)
 
         if compactor_settings.pruning_enabled:
-            prune_status = f"[bold green]Active[/bold green] [dim](keep {compactor_settings.prune_keep_tools} tools, max {compactor_settings.prune_max_chars:,} chars)[/dim]"
+            prune_status = f"[bold green]Active[/bold green] [dim](keep {compactor_settings.prune_keep_tools} tools)[/dim]"
         else:
-            prune_status = "[bold green]Safe Mode (Disabled)[/bold green] [dim](full tool history preserved)[/dim]"
-        table.add_row("[bold cyan]Smart Tool Pruning:[/bold cyan]", prune_status)
+            prune_status = "[dim]Safe Mode (preserved)[/dim]"
+        table.add_row("Smart Tool Pruning:", prune_status)
     except Exception:
         pass
 
@@ -61,15 +87,19 @@ def print_banner(host: str, port: int, pool: AccountPool, api_key: str = None, u
     if cooldown_val > 0:
         cd_status = f"[bold yellow]{cooldown_val:.0f}s[/bold yellow]"
     else:
-        cd_status = "[bold green]Disabled (0s - instant retry)[/bold green]"
-    table.add_row("[bold cyan]Rate-Limit 429 Cooldown:[/bold cyan]", cd_status)
-    oauth_accs = [a for a in pool.accounts.values() if getattr(a, "auth_method", "consumer") == "consumer"]
-    key_accs = [a for a in pool.accounts.values() if getattr(a, "auth_method", "") == "api_key"]
-    web_accs = [a for a in pool.accounts.values() if getattr(a, "auth_method", "") == "gemini_web"]
+        cd_status = "[bold green]0s (instant retry)[/bold green]"
+    table.add_row("429 Cooldown:", cd_status)
+
+    all_accs = list(pool.accounts.values())
+    oauth_accs = [a for a in all_accs if getattr(a, "auth_method", "consumer") == "consumer"]
+    key_accs = [a for a in all_accs if getattr(a, "auth_method", "") == "api_key"]
+    web_accs = [a for a in all_accs if getattr(a, "auth_method", "") == "gemini_web"]
 
     active_oauth = [a for a in oauth_accs if a.enabled]
     active_keys = [a for a in key_accs if a.enabled]
     active_web = [a for a in web_accs if a.enabled]
+    active_all = [a for a in all_accs if a.enabled]
+    paused_all = [a for a in all_accs if not a.enabled]
 
     pool_parts = []
     if oauth_accs:
@@ -78,18 +108,25 @@ def print_banner(host: str, port: int, pool: AccountPool, api_key: str = None, u
             p += f" [dim yellow]({len(oauth_accs) - len(active_oauth)} paused)[/dim yellow]"
         pool_parts.append(p)
     if key_accs:
-        p = f"[bold white]{len(active_keys)} API Key(s)[/bold white]"
-        if len(key_accs) > len(active_keys):
-            p += f" [dim yellow]({len(key_accs) - len(active_keys)} paused)[/dim yellow]"
+        if active_keys:
+            p = f"[bold white]{len(active_keys)} API Key(s)[/bold white]"
+            if len(key_accs) > len(active_keys):
+                p += f" [dim yellow]({len(key_accs) - len(active_keys)} paused)[/dim yellow]"
+        else:
+            p = f"[dim yellow]{len(key_accs)} API Keys (paused)[/dim yellow]"
         pool_parts.append(p)
     if web_accs:
-        p = f"[bold white]{len(active_web)} Gemini Web[/bold white]"
-        if len(web_accs) > len(active_web):
-            p += f" [dim yellow]({len(web_accs) - len(active_web)} paused)[/dim yellow]"
+        if active_web:
+            p = f"[bold white]{len(active_web)} Gemini Web[/bold white]"
+            if len(web_accs) > len(active_web):
+                p += f" [dim yellow]({len(web_accs) - len(active_web)} paused)[/dim yellow]"
+        else:
+            p = f"[dim yellow]{len(web_accs)} Web (paused)[/dim yellow]"
         pool_parts.append(p)
 
-    pool_status = " | ".join(pool_parts) if pool_parts else "[dim]No accounts in pool[/dim]"
-    table.add_row("[bold cyan]Accounts in Pool:[/bold cyan]", pool_status)
+    sep = " · " if not is_compact else " | "
+    pool_status = sep.join(pool_parts) if pool_parts else "[dim]No accounts in pool[/dim]"
+    table.add_row("Accounts in Pool:", pool_status)
 
     strat = pool.routing_strategy
     if strat in ("round_robin", "rotate"):
@@ -97,66 +134,92 @@ def print_banner(host: str, port: int, pool: AccountPool, api_key: str = None, u
     elif strat in ("balanced", "lru"):
         strat_display = "[bold magenta]Balanced (Least Recently Used)[/bold magenta]"
     else:
-        strat_display = "[bold green]Primary (Sticky Priority 1 + Failover)[/bold green]"
-    table.add_row("[bold cyan]Pool Routing Strategy:[/bold cyan]", strat_display)
-
-    # 1. OAuth accounts (Google Cloud Code / Anthropic & Gemini)
-    for acc in oauth_accs:
-        if acc.enabled:
-            tag = "[bold green](Primary)[/bold green]" if acc.is_primary else "[blue](Secondary)[/blue]"
-            email = f"[white]{acc.email}[/white]" if acc.email else "[dim]unknown@gmail.com[/dim]"
-            proj = f"[dim]Project: {acc.project_id or 'default'}[/dim]"
-        else:
-            tag = "[dim yellow](Paused - Primary)[/dim yellow]" if acc.is_primary else "[dim yellow](Paused)[/dim yellow]"
-            email = f"[dim strike]{acc.email}[/dim strike]" if acc.email else "[dim](paused)[/dim]"
-            proj = f"[dim]Project: {acc.project_id or 'default'} [PAUSED][/dim]"
-        table.add_row(f"  • [cyan][OAuth][/cyan] {tag} {email}", proj)
-
-    # 2. Google AI Studio (API Keys)
-    for acc in key_accs:
-        raw_key = getattr(acc, "api_key", "") or ""
-        masked_hint = (raw_key[:7] + "..." + raw_key[-4:]) if len(raw_key) > 12 else "API Key"
-        label = acc.name or f"AI Studio ({masked_hint})"
-        if acc.enabled:
-            tag = "[bold green](Active)[/bold green]"
-            name_display = f"[white]{label}[/white] [dim]({masked_hint})[/dim]"
-            proj = "[dim]Provider: Google AI Studio[/dim]"
-        else:
-            tag = "[dim yellow](Paused)[/dim yellow]"
-            name_display = f"[dim strike]{label}[/dim strike] [dim]({masked_hint})[/dim]"
-            proj = "[dim]Provider: Google AI Studio [PAUSED][/dim]"
-        table.add_row(f"  • [yellow][API Key][/yellow] {tag} {name_display}", proj)
-
-    # 3. Gemini Web Sessions (Browser / CDP)
-    for acc in web_accs:
-        display_label = acc.email or acc.name or acc.account_id
-        if acc.enabled:
-            tag = "[bold green](Active)[/bold green]"
-            name_display = f"[white]{display_label}[/white]"
-            proj = "[dim]Session: Gemini Web (Browser)[/dim]"
-        else:
-            tag = "[dim yellow](Paused)[/dim yellow]"
-            name_display = f"[dim strike]{display_label}[/dim strike]"
-            proj = "[dim]Session: Gemini Web [PAUSED][/dim]"
-        table.add_row(f"  • [magenta][Gemini Web][/magenta] {tag} {name_display}", proj)
+        strat_display = "[bold green]Primary + Failover[/bold green]"
+    table.add_row("Routing Strategy:", strat_display)
 
     if api_key:
-        table.add_row("[bold cyan]Proxy API Key:[/bold cyan]", f"[bold red]{api_key}[/bold red]")
+        masked = f"{api_key[:4]}...{api_key[-4:]}" if len(api_key) > 12 and is_compact else api_key
+        table.add_row("Proxy API Key:", f"[bold red]{masked}[/bold red]")
     else:
-        table.add_row("[bold cyan]Proxy API Key:[/bold cyan]", "[dim](None - Open access)[/dim]")
+        table.add_row("Proxy API Key:", "[dim](None - Open access)[/dim]")
 
     if update_info and update_info.get("has_update"):
-        table.add_row(
-            "[bold yellow]Update Available:[/bold yellow]",
-            f"[bold green]v{update_info.get('latest_version')}[/bold green] (current: v{update_info.get('current_version')}) - [underline blue]{update_info.get('release_url')}[/underline blue]",
-        )
+        latest = update_info.get("latest_version")
+        curr = update_info.get("current_version")
+        rel_url = update_info.get("release_url", "")
+        if is_compact or not rel_url:
+            up_val = f"[bold green]v{latest}[/bold green] [dim](current: v{curr}) · run 'agy-proxy update'[/dim]"
+        else:
+            up_val = f"[bold green]v{latest}[/bold green] [dim](current: v{curr})[/dim] - [underline blue]{rel_url}[/underline blue]"
+        table.add_row("Update Available:", up_val)
+
+    acc_table = Table(show_header=False, box=None, padding=(0, 1), expand=True)
+    acc_table.add_column(ratio=1)
+
+    def sort_key(acc):
+        is_pri = 0 if getattr(acc, "is_primary", False) else 1
+        m_ord = {"consumer": 0, "api_key": 1, "gemini_web": 2}.get(getattr(acc, "auth_method", "consumer"), 3)
+        return (is_pri, m_ord)
+
+    active_sorted = sorted(active_all, key=sort_key)
+
+    if active_sorted:
+        for acc in active_sorted[:max_active_accounts]:
+            m = getattr(acc, "auth_method", "consumer")
+            if m == "consumer":
+                pri_badge = "[bold green]★ Primary[/bold green]" if acc.is_primary else "[blue]Secondary[/blue]"
+                proj = acc.project_id or "default"
+                if len(proj) > 22 and is_narrow:
+                    proj = proj[:19] + "..."
+                email_str = acc.email or "unknown@gmail.com"
+                if len(email_str) > 28 and is_narrow:
+                    email_str = email_str[:13] + "..." + email_str[-12:]
+                acc_table.add_row(f"  [cyan][OAuth][/cyan] [white]{email_str}[/white] ({pri_badge}) [dim]· {proj}[/dim]")
+            elif m == "api_key":
+                raw = getattr(acc, "api_key", "") or ""
+                hint = (raw[:5] + "..." + raw[-4:]) if len(raw) > 10 else "API Key"
+                name = acc.name or f"AI Studio ({hint})"
+                if name.endswith(" - Gemini API Key"):
+                    name = name[:-17].strip()
+                if len(name) > 28 and is_compact:
+                    name = name[:25] + "..."
+                acc_table.add_row(f"  [yellow][API Key][/yellow] [white]{name}[/white] [dim]({hint} · Google AI Studio)[/dim]")
+            elif m == "gemini_web":
+                label = acc.email or acc.name or acc.account_id
+                if len(label) > 28 and is_compact:
+                    label = label[:25] + "..."
+                acc_table.add_row(f"  [magenta][Gemini Web][/magenta] [white]{label}[/white] [dim](Browser Session)[/dim]")
+
+        if len(active_sorted) > max_active_accounts:
+            rem = len(active_sorted) - max_active_accounts
+            acc_table.add_row(f"  [dim]• ... and {rem} more active account(s) (view in Dashboard or 'agy-proxy auth')[/dim]")
+
+    if paused_all:
+        p_oauth = len([a for a in paused_all if getattr(a, "auth_method", "consumer") == "consumer"])
+        p_keys = len([a for a in paused_all if getattr(a, "auth_method", "") == "api_key"])
+        p_web = len([a for a in paused_all if getattr(a, "auth_method", "") == "gemini_web"])
+        parts = []
+        if p_oauth: parts.append(f"{p_oauth} OAuth")
+        if p_keys: parts.append(f"{p_keys} API Key{'s' if p_keys > 1 else ''}")
+        if p_web: parts.append(f"{p_web} Web")
+        detail_str = f" ({', '.join(parts)})" if parts else ""
+        if is_compact:
+            acc_table.add_row(f"  [dim yellow]⏸ {len(paused_all)} paused accounts{detail_str}[/dim yellow]")
+        else:
+            acc_table.add_row(f"  [dim yellow]⏸ {len(paused_all)} paused accounts{detail_str} · run 'agy-proxy auth' to manage[/dim yellow]")
+
+    if not all_accs:
+        acc_table.add_row("  [dim yellow]ℹ️  No accounts configured yet · open Dashboard to connect Google Account[/dim yellow]")
+
+    rule_title = "[dim]Active Accounts[/dim]" if active_sorted else "[dim]Account Pool[/dim]"
+    panel_content = Group(table, Rule(rule_title, style="dim blue"), acc_table)
 
     panel = Panel(
-        table,
+        panel_content,
         title=f"[bold white]Google Antigravity AI Proxy [dim](v{APP_VERSION})[/dim][/bold white]",
         border_style="blue",
         subtitle="[dim]Press Ctrl+C to stop[/dim]",
-        padding=(1, 2),
+        padding=(0, 1),
     )
     console.print(panel)
 
@@ -573,7 +636,8 @@ def handle_setup_codex(port: int = 8000, model: str = "gemini-3.8-flash-high"):
         f"• [bold cyan]Model Catalog:[/bold cyan] [white]{res['catalog_path']}[/white] ({res['models_count']} models)\n"
         f"• [bold cyan]Configuration:[/bold cyan] [white]{res['config_path']}[/white]\n"
         f"• [bold cyan]Proxy Endpoint:[/bold cyan] [yellow]{res['proxy_url']}[/yellow]\n"
-        f"• [bold cyan]Default Model:[/bold cyan] [magenta]{res['model']}[/magenta]"
+        f"• [bold cyan]Default Model:[/bold cyan] [magenta]{res['model']}[/magenta]\n"
+        f"• [bold cyan]Model Provider:[/bold cyan] [green]model_providers.antigravity (Responses wire_api)[/green]"
         f"{backup_text}\n\n"
         f"[dim]All 25+ models are now available in Codex CLI's [/dim][bold cyan]/model[/bold cyan][dim] menu.[/dim]\n"
         f"[dim]To restore your original config anytime, run:[/dim] [bold yellow]agy-proxy restore-codex[/bold yellow]",
