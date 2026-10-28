@@ -2009,6 +2009,147 @@ class TestServerRoutes(unittest.IsolatedAsyncioTestCase):
         self.assertIn("world", resp.text)
         await real_client.aclose()
 
+    async def test_cloudcode_passthrough_claude_429_fallback_to_gemini_sanitizes_thought_signatures(self):
+        """Tests that when Claude 4.6 hits 429 quota, fallback to gemini-3.8-flash-high sanitizes thought signatures on tool calls."""
+        acc1 = AccountSession(
+            account_id="acc_amy_test",
+            email="amystery894@gmail.com",
+            refresh_token="rf_amy",
+            is_primary=True,
+        )
+        self.pool.accounts["acc_amy_test"] = acc1
+
+        posted_requests = []
+
+        class ClaudeToGeminiClient:
+            async def post(self, url, json=None, **kwargs):
+                body = dict(json or {})
+                posted_requests.append(body)
+                req_m = body.get("model", "")
+                if "claude" in req_m:
+                    return unittest.mock.Mock(
+                        status_code=429,
+                        text='{"error": {"code": 429, "message": "Resource has been exhausted (quota exceeded)."}}',
+                        content=b'{"error": {"code": 429, "message": "Resource has been exhausted (quota exceeded)."}}',
+                        headers={"content-type": "application/json"},
+                        json=lambda: {"error": {"code": 429, "message": "Resource has been exhausted (quota exceeded)."}},
+                    )
+                # Fallback to gemini-3.8-flash-high succeeds
+                return unittest.mock.Mock(
+                    status_code=200,
+                    text='{"response": {"text": "Recovered seamlessly via Gemini 3.8 Flash"}}',
+                    content=b'{"response": {"text": "Recovered seamlessly via Gemini 3.8 Flash"}}',
+                    headers={"content-type": "application/json"},
+                    json=lambda: {"response": {"text": "Recovered seamlessly via Gemini 3.8 Flash"}},
+                )
+
+        acc1.get_http_client = unittest.mock.AsyncMock(return_value=ClaudeToGeminiClient())
+        acc1.get_auth_headers = unittest.mock.AsyncMock(return_value={"Authorization": "Bearer tok_amy"})
+
+        # Request Claude 4.6 with a conversation history containing a tool call missing thought signature
+        payload = {
+            "model": "claude-sonnet-4-6",
+            "request": {
+                "model": "claude-sonnet-4-6",
+                "contents": [
+                    {"role": "user", "parts": [{"text": "call tool"}]},
+                    {
+                        "role": "model",
+                        "parts": [
+                            {"text": "Calling MCP tool"},
+                            {"functionCall": {"name": "default_api:call_mcp_tool", "args": {}}},
+                        ],
+                    },
+                    {
+                        "role": "user",
+                        "parts": [
+                            {"functionResponse": {"name": "default_api:call_mcp_tool", "response": {"result": "ok"}}},
+                        ],
+                    },
+                ],
+            },
+        }
+
+        resp = await self.client.post("/v1internal:streamGenerateContent", json=payload)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json(), {"response": {"text": "Recovered seamlessly via Gemini 3.8 Flash"}})
+        self.assertEqual(len(posted_requests), 2)
+
+        # 1. First request attempted Claude 4.6
+        self.assertEqual(posted_requests[0]["model"], "claude-sonnet-4-6")
+        # In Claude request, thought signatures are stripped
+        claude_fc = posted_requests[0]["request"]["contents"][1]["parts"][1]
+        self.assertNotIn("thoughtSignature", claude_fc)
+
+        # 2. Second request was fallback to gemini-3.8-flash-high
+        self.assertEqual(posted_requests[1]["model"], "gemini-3.8-flash-high")
+        # In Gemini fallback request, thought signature MUST be populated to avoid 400 error!
+        gemini_fc = posted_requests[1]["request"]["contents"][1]["parts"][1]
+        self.assertIn("thoughtSignature", gemini_fc)
+        self.assertTrue(len(gemini_fc["thoughtSignature"]) > 0)
+        # Claude labels must be stripped
+        labels = posted_requests[1]["request"].get("labels", {})
+        self.assertNotIn("used_claude", labels)
+        self.assertNotIn("model_enum", labels)
+
+    async def test_claude_otlp_metrics_sink(self):
+        """Tests that OTLP metrics endpoint absorbs telemetry silently without 404."""
+        resp = await self.client.post("/v1/metrics", json={"resourceMetrics": []})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json(), {"success": True})
+
+    async def test_claude_messages_cache_touch(self):
+        """Tests prompt cache keepalive endpoint for Claude Code 2.1.312+."""
+        resp = await self.client.post("/v1/messages/cache_touch", json={"request_id": "req_touch_987"})
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data["status"], "ok")
+        self.assertTrue(data["refreshed"])
+        self.assertEqual(data["request_id"], "req_touch_987")
+
+    async def test_claude_v1_me_auth_warm(self):
+        """Tests /v1/me endpoint for Claude Code auth warm-up."""
+        resp = await self.client.get("/v1/me")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data["id"], "user_agy_proxy")
+        self.assertIn("email", data)
+        self.assertEqual(data["account"]["apiProvider"], "firstParty")
+        self.assertEqual(data["organization"]["name"], "Antigravity Proxy")
+
+    async def test_claude_managed_settings_and_etag(self):
+        """Tests /managed/settings and If-None-Match ETag 304 response."""
+        resp = await self.client.get("/managed/settings")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data["uuid"], "agy-proxy-managed-settings")
+        self.assertIn("checksum", data)
+        self.assertIn("settings", data)
+        self.assertIn("availableModels", data["settings"])
+        self.assertEqual(data["settings"]["autoUpdaterStatus"], "disabled")
+
+        etag = resp.headers.get("etag")
+        self.assertIsNotNone(etag)
+
+        # Send If-None-Match with matching ETag -> should return 304
+        resp304 = await self.client.get("/managed/settings", headers={"If-None-Match": etag})
+        self.assertEqual(resp304.status_code, 304)
+
+    async def test_claude_safeguards_rejection_for_local_fallback(self):
+        """Tests that requests with safeguards return 400 invalid_request_error for client local fallback."""
+        payload = {
+            "model": "claude-sonnet-4-6",
+            "messages": [{"role": "user", "content": "run task"}],
+            "safeguards": [{"type": "dangerous_content"}],
+        }
+        resp = await self.client.post("/v1/messages", json=payload)
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.headers.get("x-should-retry"), "false")
+        data = resp.json()
+        self.assertEqual(data["type"], "error")
+        self.assertEqual(data["error"]["type"], "invalid_request_error")
+        self.assertIn("safeguards", data["error"]["message"])
+
 
 
 if __name__ == "__main__":

@@ -1203,11 +1203,14 @@ class CloudCodeClient:
 
             status_code = getattr(getattr(last_error, "response", None), "status_code", None)
             err_str = str(last_error).lower()
-            if status_code in (503, 429) and ("capacity" in err_str or "pro" in str(model_name).lower()):
+            if (status_code in (503, 429) and ("capacity" in err_str or "pro" in str(model_name).lower())) or (
+                status_code in (404, 429) and is_claude_4_6_model(model_name)
+            ):
                 fallback_m = "gemini-3.8-flash-high"
                 logger.warning(
-                    "[Model Fallback] ⚠️ All accounts reported 503 capacity exhausted for %s. 🔄 Auto-falling back to %s to prevent failure!",
+                    "[Model Fallback] ⚠️ %s encountered error (%s) across accounts. 🔄 Auto-falling back to %s to prevent failure!",
                     model_name,
+                    status_code,
                     fallback_m,
                 )
 
@@ -1218,6 +1221,21 @@ class CloudCodeClient:
                         p_copy["model"] = fallback_m
                         if "request" in p_copy and isinstance(p_copy["request"], dict):
                             p_copy["request"]["model"] = fallback_m
+                            if "labels" in p_copy["request"] and isinstance(p_copy["request"]["labels"], dict):
+                                for k in ("model_enum", "used_claude", "used_non_gemini_model"):
+                                    p_copy["request"]["labels"].pop(k, None)
+                            if "contents" in p_copy["request"] and isinstance(p_copy["request"]["contents"], list):
+                                from agy_proxy.converters.common import (
+                                    ensure_tool_pairing_integrity,
+                                    sanitize_gemini_contents_thought_signatures,
+                                )
+                                p_copy["request"]["contents"] = ensure_tool_pairing_integrity(
+                                    p_copy["request"]["contents"],
+                                    model=fallback_m,
+                                )
+                                p_copy["request"]["contents"] = sanitize_gemini_contents_thought_signatures(
+                                    p_copy["request"]["contents"]
+                                )
                         return p_copy
                     return base
 
@@ -1235,7 +1253,7 @@ class CloudCodeClient:
                     yield chunk
                 if not is_subcall:
                     recorded = True
-                logger.info("[Model Fallback] ✅ Capacity fallback to %s succeeded! Generation completed seamlessly.", fallback_m)
+                logger.info("[Model Fallback] ✅ Fallback to %s succeeded! Generation completed seamlessly.", fallback_m)
                 return
 
 

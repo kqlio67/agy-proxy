@@ -149,6 +149,87 @@ class TestCliAuthCommands(unittest.TestCase):
             cli.print_banner(host="127.0.0.1", port=8000, pool=self.pool)
             self.assertTrue(mock_print.called)
 
+    def test_print_banner_various_widths(self):
+        # Verify print_banner renders properly at 70, 80, 100, 120 columns without error
+        from rich.console import Console
+        for width in [70, 80, 100, 120]:
+            buf = io.StringIO()
+            test_console = Console(file=buf, width=width, force_terminal=False)
+            with patch("agy_proxy.cli.console", test_console):
+                cli.print_banner(host="127.0.0.1", port=8000, pool=self.pool)
+            out = buf.getvalue()
+            self.assertIn("Google Antigravity AI Proxy", out)
+            self.assertIn("Web Dashboard:", out)
+            self.assertIn("Universal API:", out)
+            self.assertIn("testuser@gmail.com", out)
+
+    def test_print_banner_capping_many_accounts(self):
+        # Create 10 active accounts to test overflow capping
+        for i in range(10):
+            acc_id = f"extra_acc_{i}"
+            self.pool.accounts[acc_id] = AccountSession(
+                account_id=acc_id,
+                email=f"user{i}@example.com",
+                is_primary=(i == 0),
+                enabled=True,
+                project_id="test-proj",
+            )
+        buf = io.StringIO()
+        from rich.console import Console
+        test_console = Console(file=buf, width=80, force_terminal=False)
+        with patch("agy_proxy.cli.console", test_console):
+            cli.print_banner(host="127.0.0.1", port=8000, pool=self.pool)
+        out = buf.getvalue()
+        self.assertIn("more active account", out)
+
+    def test_print_banner_paused_and_empty(self):
+        from rich.console import Console
+        # 1. Test with only paused accounts
+        for acc in self.pool.accounts.values():
+            acc.enabled = False
+        buf = io.StringIO()
+        test_console = Console(file=buf, width=80, force_terminal=False)
+        with patch("agy_proxy.cli.console", test_console):
+            cli.print_banner(host="127.0.0.1", port=8000, pool=self.pool)
+        out = buf.getvalue()
+        self.assertIn("paused", out)
+
+        # 2. Test with empty pool
+        empty_pool = AccountPool(
+            accounts_file=self.tmp_path / "empty_acc.json",
+            api_keys_file=self.tmp_path / "empty_key.json",
+            web_sessions_file=self.tmp_path / "empty_web.json",
+        )
+        buf_empty = io.StringIO()
+        test_console2 = Console(file=buf_empty, width=80, force_terminal=False)
+        with patch("agy_proxy.cli.console", test_console2):
+            cli.print_banner(host="127.0.0.1", port=8000, pool=empty_pool)
+        out_empty = buf_empty.getvalue()
+        self.assertIn("No accounts configured yet", out_empty)
+
+    def test_print_banner_update_and_api_key(self):
+        from rich.console import Console
+        buf = io.StringIO()
+        test_console = Console(file=buf, width=100, force_terminal=False)
+        update_info = {
+            "has_update": True,
+            "latest_version": "2.1.0",
+            "current_version": "2.0.0",
+            "release_url": "https://github.com/example/agy-proxy/releases/tag/v2.1.0",
+        }
+        with patch("agy_proxy.cli.console", test_console):
+            cli.print_banner(
+                host="127.0.0.1",
+                port=8000,
+                pool=self.pool,
+                api_key="secret-proxy-key-12345",
+                update_info=update_info,
+            )
+        out = buf.getvalue()
+        self.assertIn("Update Available:", out)
+        self.assertIn("v2.1.0", out)
+        self.assertIn("Proxy API Key:", out)
+
     def test_handle_accounts_export_stdout(self):
         with patch("agy_proxy.cli.AccountPool", return_value=self.pool):
             captured = io.StringIO()

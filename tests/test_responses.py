@@ -185,7 +185,7 @@ class TestResponsesAPI(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_get_codex_models_catalog(self):
-        for path in ["/api/codex/models.json", "/v1/models/codex.json"]:
+        for path in ["/api/codex/models.json", "/v1/models/codex.json", "/models"]:
             resp = await self.client.get(path)
             self.assertEqual(resp.status_code, 200, f"Failed on {path}")
             data = resp.json()
@@ -196,6 +196,56 @@ class TestResponsesAPI(unittest.IsolatedAsyncioTestCase):
             self.assertIn("gemini-3.7-flash-high", slugs)
             self.assertIn("gemini-3.1-pro-high", slugs)
             self.assertIn("claude-sonnet-4-6", slugs)
+
+    async def test_stream_responses_reasoning_and_apply_patch_custom_tool_call(self):
+        mock_client = AsyncMock()
+
+        async def fake_stream(*args, **kwargs):
+            # 1. Reasoning delta
+            yield f'data: {json.dumps({"choices": [{"delta": {"reasoning_content": "Thinking about the patch..."}}]})}\n\n'
+            # 2. Tool call for apply_patch
+            patch_data = {"choices": [{"delta": {"tool_calls": [{"id": "call_patch1", "function": {"name": "apply_patch", "arguments": "*** Begin Patch\n+hello\n*** End Patch"}}]}}]}
+            yield f"data: {json.dumps(patch_data)}\n\n"
+            yield f'data: {json.dumps({"choices": [{"delta": {}}], "usage": {"total_tokens": 150, "prompt_tokens": 100, "completion_tokens": 50}})}\n\n'
+            yield "data: [DONE]\n\n"
+
+        mock_client.stream_openai_chat = fake_stream
+
+        chat_req = OpenAIChatRequest(
+            model="gemini-3.8-flash-high",
+            messages=[{"role": "user", "content": "Fix code"}],
+        )
+
+        events = []
+        async for ev in stream_responses_events(mock_client, chat_req):
+            events.append(ev)
+
+        # Check reasoning event has content_index: 0
+        reasoning_events = [ev for ev in events if ev["type"] == "response.reasoning_text.delta"]
+        self.assertEqual(len(reasoning_events), 1)
+        self.assertEqual(reasoning_events[0]["content_index"], 0)
+        self.assertEqual(reasoning_events[0]["delta"], "Thinking about the patch...")
+
+        # Check custom_tool_call events for apply_patch
+        event_types = [ev["type"] for ev in events]
+        self.assertIn("response.custom_tool_call_input.delta", event_types)
+        self.assertIn("response.custom_tool_call_input.done", event_types)
+        self.assertIn("response.output_item.done", event_types)
+
+        custom_done_items = [
+            ev["item"] for ev in events if ev["type"] == "response.output_item.done" and ev["item"].get("type") == "custom_tool_call"
+        ]
+        self.assertEqual(len(custom_done_items), 1)
+        self.assertEqual(custom_done_items[0]["name"], "apply_patch")
+        self.assertIn("+hello", custom_done_items[0]["input"])
+
+        # Check usage breakdown
+        comp_event = [ev for ev in events if ev["type"] == "response.completed"][0]
+        usage = comp_event["response"]["usage"]
+        self.assertIn("input_tokens_details", usage)
+        self.assertIn("output_tokens_details", usage)
+        self.assertEqual(usage["input_tokens"], 100)
+        self.assertEqual(usage["output_tokens"], 50)
 
     def test_responses_payload_additional_tools_and_text_format(self):
         payload = {

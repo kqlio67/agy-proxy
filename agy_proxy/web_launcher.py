@@ -1656,47 +1656,69 @@ def print_web_banner(
     web_bundle_path: Optional[Path | str] = None,
 ):
     """Renders a beautiful Rich banner for Antigravity Web Mode."""
-    table = Table(show_header=False, box=None, padding=(0, 1))
-    table.add_column("Key", no_wrap=True)
-    table.add_column("Value")
+    try:
+        term_cols, _ = shutil.get_terminal_size(fallback=(80, 24))
+    except Exception:
+        term_cols = 80
 
-    table.add_row("[bold cyan]🌐 Antigravity Web UI:[/bold cyan]", f"[bold green]{url}[/bold green]")
-    table.add_row("[bold cyan]⚡ Performance Mode:[/bold cyan]", "[bold yellow]Standalone Web (No Electron)[/bold yellow]")
-    table.add_row("[bold cyan]💾 Memory Optimization:[/bold cyan]", "[bold green]~1.6 GB RAM Saved[/bold green] [dim](Electron GUI skipped)[/dim]")
+    c_w = getattr(console, "width", None)
+    term_width = c_w if (c_w is not None and c_w > 0) else term_cols
+    is_compact = term_width < 90
+
+    table = Table(show_header=False, box=None, padding=(0, 1), expand=True)
+    table.add_column("Key", style="bold cyan", no_wrap=True)
+    table.add_column("Value", ratio=1)
+
+    table.add_row("🌐 Antigravity Web UI:", f"[bold green]{url}[/bold green]")
+    table.add_row("⚡ Performance Mode:", "[bold yellow]Standalone Web (No Electron)[/bold yellow]")
+    table.add_row("💾 Memory Saved:", "[bold green]~1.6 GB RAM Saved[/bold green] [dim](Electron GUI skipped)[/dim]")
 
     if web_bundle_path:
-        table.add_row("[bold cyan]🧩 Web UI Bundle:[/bold cyan]", f"[bold magenta]Patched Web Hub[/bold magenta] [dim]({web_bundle_path})[/dim]")
+        bundle_str = str(web_bundle_path)
+        if len(bundle_str) > 35 and is_compact:
+            bundle_str = Path(bundle_str).name
+        table.add_row("🧩 Web UI Bundle:", f"[bold magenta]Patched Web Hub[/bold magenta] [dim]({bundle_str})[/dim]")
 
     if direct:
-        proxy_display = "[bold green]Standalone Direct Mode[/bold green] [dim](Official Google Backend · Proxy Bypassed)[/dim]"
+        proxy_display = "[bold green]Standalone Direct Mode[/bold green] [dim](Official Google Backend)[/dim]"
     elif proxy_active and proxy_url:
-        proxy_display = f"[bold green]Proxy Mode (Connected)[/bold green] [dim]({proxy_url} · Multi-Account Pool Active)[/dim]"
+        mode_note = f"({proxy_url} · Multi-Account Active)" if not is_compact else f"({proxy_url})"
+        proxy_display = f"[bold green]Proxy Mode (Connected)[/bold green] [dim]{mode_note}[/dim]"
     elif proxy_url:
-        proxy_display = "[bold green]Standalone Direct Mode[/bold green] [dim](Official Google Backend · Proxy-Free)[/dim]"
+        proxy_display = "[bold green]Standalone Direct Mode[/bold green] [dim](Official Google Backend)[/dim]"
     else:
         proxy_display = "[bold green]Standalone Direct Mode[/bold green] [dim](Official Google Backend)[/dim]"
-    table.add_row("[bold cyan]🔄 Antigravity Mode:[/bold cyan]", proxy_display)
+    table.add_row("🔄 Antigravity Mode:", proxy_display)
 
-    table.add_row("[bold cyan]🔑 CSRF Token:[/bold cyan]", f"[dim]{csrf_token}[/dim]")
-    table.add_row("[bold cyan]📦 Server Binary:[/bold cyan]", f"[dim]{ls_path}[/dim]")
+    table.add_row("🔑 CSRF Token:", f"[dim]{csrf_token}[/dim]")
+
+    ls_str = str(ls_path)
+    if len(ls_str) > 35 and is_compact:
+        ls_str = f".../{Path(ls_str).name}"
+    table.add_row("📦 Server Binary:", f"[dim]{ls_str}[/dim]")
 
     if log_path:
-        table.add_row("[bold cyan]📄 Server Logs:[/bold cyan]", f"[dim]{log_path}[/dim]")
+        log_str = str(log_path)
+        if len(log_str) > 35 and is_compact:
+            log_str = f".../{Path(log_str).name}"
+        table.add_row("📄 Server Logs:", f"[dim]{log_str}[/dim]")
 
     if killed_electron:
-        table.add_row("[bold cyan]🧹 Electron Cleanup:[/bold cyan]", "[bold green]Closed old Electron window to free memory[/bold green]")
+        table.add_row("🧹 Electron Cleanup:", "[bold green]Closed old Electron window to free memory[/bold green]")
 
-    table.add_row(
-        "[bold cyan]ℹ️  SSL Notice:[/bold cyan]",
-        "[dim]Browser will ask to accept self-signed SSL certificate for local HTTPS. Click Advanced -> Proceed.[/dim]",
+    ssl_hint = (
+        "[dim]Browser will ask to accept self-signed SSL certificate for local HTTPS. Click Advanced -> Proceed.[/dim]"
+        if not is_compact
+        else "[dim]Local HTTPS SSL: Click Advanced -> Proceed in browser.[/dim]"
     )
+    table.add_row("ℹ️  SSL Notice:", ssl_hint)
 
     panel = Panel(
         table,
         title="[bold white]🚀 Google Antigravity Web Mode [dim](Zero Electron Overhead)[/dim][/bold white]",
         border_style="cyan",
         subtitle="[dim]Press Ctrl+C to stop server[/dim]",
-        padding=(1, 2),
+        padding=(0, 1),
     )
     console.print(panel)
 

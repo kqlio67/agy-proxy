@@ -56,6 +56,11 @@ CLAUDE_RECOMMENDED_MODELS: dict[str, dict[str, str]] = {
         "description": "Anthropic Claude Opus 5.5 high-capability reasoning model",
         "effortLevel": "high",
     },
+    "claude-mythos-preview": {
+        "displayName": "Claude Mythos Preview",
+        "description": "Anthropic Claude Mythos next-generation preview model",
+        "effortLevel": "high",
+    },
     "claude-sonnet-4-6": {
         "displayName": "Claude Sonnet 4.6 (Thinking)",
         "description": "Anthropic flagship hybrid model with extended thinking (Default 3P)",

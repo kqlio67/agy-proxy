@@ -96,6 +96,7 @@ class TestClaudeHelper(unittest.TestCase):
 
     def test_get_claude_models(self):
         models = get_claude_models()
+        self.assertIn("claude-mythos-preview", models)
         self.assertIn("claude-sonnet-4-6", models)
         self.assertIn("claude-opus-4-6-thinking", models)
         self.assertIn("claude-3-7-sonnet", models)

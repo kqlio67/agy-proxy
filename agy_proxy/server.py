@@ -742,6 +742,7 @@ def create_app(
     @app.api_route("/otlp/v1/metrics", methods=["POST", "OPTIONS"], include_in_schema=False)
     @app.api_route("/otlp/v1/traces", methods=["POST", "OPTIONS"], include_in_schema=False)
     @app.api_route("/otlp/v1/logs", methods=["POST", "OPTIONS"], include_in_schema=False)
+    @app.api_route("/v1/metrics", methods=["POST", "OPTIONS"], include_in_schema=False)
     @app.api_route("/v1/traces", methods=["POST", "OPTIONS"], include_in_schema=False)
     @app.api_route("/v1/logs", methods=["POST", "OPTIONS"], include_in_schema=False)
     async def otlp_sink(request: Request):
@@ -2089,6 +2090,7 @@ def create_app(
         )
         return await _get_models_list()
 
+    @app.get("/models")
     @app.get("/api/codex/models.json")
     @app.get("/v1/models/codex.json")
     async def get_codex_models():
@@ -2175,6 +2177,9 @@ def create_app(
                         "Cache-Control": "no-cache",
                         "Connection": "keep-alive",
                         "X-Accel-Buffering": "no",
+                        "openai-model": req.model or DEFAULT_MODEL,
+                        "x-reasoning-included": "true",
+                        "x-request-id": f"resp_{uuid.uuid4().hex[:16]}",
                     },
                 )
             else:
@@ -2683,6 +2688,9 @@ def create_app(
                         "Cache-Control": "no-cache",
                         "Connection": "keep-alive",
                         "X-Accel-Buffering": "no",
+                        "openai-model": chat_req.model or DEFAULT_MODEL,
+                        "x-reasoning-included": "true",
+                        "x-request-id": f"resp_{uuid.uuid4().hex[:16]}",
                     },
                 )
             else:
@@ -2794,6 +2802,29 @@ def create_app(
             x_api_key=request.headers.get("x-api-key"),
         )
 
+        # Check for Claude Code auto-mode safeguards parameter
+        safeguards = getattr(req, "safeguards", None)
+        if not safeguards:
+            try:
+                raw_extra = getattr(req, "__pydantic_extra__", None) or {}
+                safeguards = raw_extra.get("safeguards")
+            except Exception:
+                pass
+        if safeguards:
+            # Per Claude Code Gateway Specification, return 400 invalid_request_error
+            # mentioning 'safeguards' so Claude Code immediately falls back to local safety checks.
+            return JSONResponse(
+                status_code=400,
+                headers={"x-should-retry": "false"},
+                content={
+                    "type": "error",
+                    "error": {
+                        "type": "invalid_request_error",
+                        "message": "The safeguards parameter is not supported by this upstream gateway.",
+                    },
+                },
+            )
+
         session_id = (
             request.headers.get("session-id")
             or request.headers.get("anthropic-session-id")
@@ -2816,20 +2847,44 @@ def create_app(
                         "Cache-Control": "no-cache",
                         "Connection": "keep-alive",
                         "X-Accel-Buffering": "no",
+                        "anthropic-cache-keepalive": "active",
                     },
                 )
             else:
                 response_data = await client.generate_anthropic_messages(req, session_key=session_id, specific_account_id=target_account_id)
-                return JSONResponse(content=response_data)
+                return JSONResponse(
+                    content=response_data,
+                    headers={"anthropic-cache-keepalive": "active"},
+                )
         except httpx.HTTPStatusError as e:
-            err_type = "rate_limit_error" if e.response.status_code == 429 else "api_error"
+            if e.response.status_code == 429:
+                reset_ts = str(int(time.time() + 15))
+                return JSONResponse(
+                    status_code=429,
+                    headers={
+                        "Retry-After": "15",
+                        "x-should-retry": "false",
+                        "anthropic-ratelimit-unified-status": "rejected",
+                        "anthropic-ratelimit-unified-reset": reset_ts,
+                        "anthropic-ratelimit-unified-overage-reset": reset_ts,
+                        "anthropic-ratelimit-unified-overage-utilization": "1.0",
+                        "anthropic-ratelimit-unified-overage-period": "daily",
+                    },
+                    content={
+                        "type": "error",
+                        "error": {
+                            "type": "rate_limit_error",
+                            "message": "All accounts in pool have hit rate limit / quota (429). Please wait a few moments or add more accounts.",
+                        },
+                    },
+                )
             return JSONResponse(
                 status_code=e.response.status_code,
                 headers={"Retry-After": "2"},
                 content={
                     "type": "error",
                     "error": {
-                        "type": err_type,
+                        "type": "api_error",
                         "message": str(e) or f"HTTP {e.response.status_code} Error",
                     },
                 },
@@ -2883,6 +2938,113 @@ def create_app(
                     },
                 },
             )
+
+    @app.post("/v1/messages/cache_touch")
+    @app.post("/messages/cache_touch")
+    async def cache_touch(request: Request):
+        """Prompt cache keepalive endpoint for Claude Code 2.1.312+."""
+        verify_api_key(
+            authorization=request.headers.get("Authorization"),
+            x_api_key=request.headers.get("x-api-key"),
+        )
+        req_id = ""
+        try:
+            body = await request.json()
+            if isinstance(body, dict):
+                req_id = str(body.get("request_id") or "")
+        except Exception:
+            pass
+        return JSONResponse(
+            status_code=200,
+            headers={"Cache-Control": "no-cache"},
+            content={"status": "ok", "refreshed": True, "request_id": req_id},
+        )
+
+    @app.get("/v1/me")
+    async def get_current_user_profile(request: Request):
+        """Auth warm-up and identity verification endpoint for Claude Code."""
+        verify_api_key(
+            authorization=request.headers.get("Authorization"),
+            x_api_key=request.headers.get("x-api-key"),
+        )
+        email = "qumhab@antigravity"
+        if pool and getattr(pool, "accounts", None):
+            for acc in pool.accounts.values():
+                if getattr(acc, "email", None):
+                    email = acc.email
+                    break
+        return JSONResponse(
+            status_code=200,
+            content={
+                "id": "user_agy_proxy",
+                "email": email,
+                "account": {"apiProvider": "firstParty"},
+                "organization": {
+                    "id": "org_agy_proxy",
+                    "name": "Antigravity Proxy",
+                },
+            },
+        )
+
+    @app.get("/managed/settings")
+    @app.get("/api/claude_code/settings")
+    async def get_managed_settings(request: Request):
+        """Serves enterprise managed settings for Claude Code 2.1+."""
+        verify_api_key(
+            authorization=request.headers.get("Authorization"),
+            x_api_key=request.headers.get("x-api-key"),
+        )
+        # Gather available proxy models for Claude Code
+        available_models = [
+            "anthropic.gemini-3.8-flash-high",
+            "anthropic.gemini-3.8-flash",
+            "anthropic.gemini-4-argon-web-high",
+            "claude-sonnet-4-6",
+            "claude-opus-4-6-thinking",
+        ]
+        if pool and getattr(pool, "accounts", None):
+            all_m = set()
+            for acc in pool.accounts.values():
+                if getattr(acc, "enabled", True):
+                    all_m.update(getattr(acc, "available_models", {}).keys())
+            if all_m:
+                for m in sorted(all_m):
+                    for pref in (f"anthropic.{m}", m):
+                        if pref not in available_models:
+                            available_models.append(pref)
+
+        settings_payload = {
+            "model": "anthropic.gemini-3.8-flash-high",
+            "availableModels": available_models,
+            "autoUpdaterStatus": "disabled",
+            "env": {
+                "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY": "1",
+                "DISABLE_TELEMETRY": "1",
+                "DISABLE_ERROR_REPORTING": "1",
+                "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+            },
+        }
+        canonical_str = json.dumps(settings_payload, sort_keys=True, separators=(",", ":"))
+        sha256_hash = hashlib.sha256(canonical_str.encode("utf-8")).hexdigest()
+        checksum = f"sha256:{sha256_hash}"
+
+        if_none_match = request.headers.get("if-none-match", "").strip(' "')
+        if if_none_match and if_none_match in (checksum, sha256_hash):
+            return Response(status_code=304, headers={"ETag": f'"{checksum}"'})
+
+        return JSONResponse(
+            status_code=200,
+            headers={
+                "ETag": f'"{checksum}"',
+                "Cache-Control": "no-cache",
+                "x-cc-gateway-version": "2.1.312",
+            },
+            content={
+                "uuid": "agy-proxy-managed-settings",
+                "checksum": checksum,
+                "settings": settings_payload,
+            },
+        )
 
     # -------------------------------------------------------------------------
     # Gemini Native API
@@ -3993,17 +4155,45 @@ def create_app(
                                     fb_body["model"] = fallback_model
                                     if "request" in fb_body and isinstance(fb_body["request"], dict):
                                         fb_body["request"]["model"] = fallback_model
+                                        if "labels" in fb_body["request"] and isinstance(fb_body["request"]["labels"], dict):
+                                            for k in ("model_enum", "used_claude", "used_non_gemini_model"):
+                                                fb_body["request"]["labels"].pop(k, None)
+                                        if "contents" in fb_body["request"] and isinstance(fb_body["request"]["contents"], list):
+                                            from agy_proxy.converters.common import (
+                                                ensure_tool_pairing_integrity,
+                                                sanitize_gemini_contents_thought_signatures,
+                                            )
+                                            fb_body["request"]["contents"] = ensure_tool_pairing_integrity(
+                                                fb_body["request"]["contents"],
+                                                model=fallback_model,
+                                            )
+                                            fb_body["request"]["contents"] = sanitize_gemini_contents_thought_signatures(
+                                                fb_body["request"]["contents"]
+                                            )
                                     fb_proj = getattr(fb_acc, "project_id", None) or "aicode-consumers"
                                     fb_body["project"] = fb_proj
+                                    if "request" in fb_body and isinstance(fb_body["request"], dict):
+                                        if is_generation:
+                                            fb_body["request"].pop("project", None)
+                                        elif "project" in fb_body["request"]:
+                                            fb_body["request"]["project"] = fb_proj
                                 fb_headers = await fb_acc.get_auth_headers()
                                 _apply_client_user_agent(fb_headers)
                                 fb_c = await fb_acc.get_http_client()
-                                fb_resp = await fb_c.post(target_url, headers=fb_headers, json=fb_body, params=query_params, timeout=timeout_sec)
+                                if is_streaming_call and isinstance(fb_c, httpx.AsyncClient):
+                                    timeout_obj = httpx.Timeout(timeout_sec, connect=15.0, read=timeout_sec, write=30.0, pool=30.0)
+                                    req_send = fb_c.build_request("POST", target_url, headers=fb_headers, json=fb_body, params=query_params, timeout=timeout_obj)
+                                    fb_resp = await fb_c.send(req_send, stream=True)
+                                    if fb_resp.status_code != 200:
+                                        await fb_resp.aread()
+                                else:
+                                    fb_resp = await fb_c.post(target_url, headers=fb_headers, json=fb_body, params=query_params, timeout=timeout_sec)
                                 if fb_resp.status_code == 200:
                                     logger.info("[%s] ✅ Capacity fallback to %s succeeded seamlessly!", fb_label, fallback_model)
                                     resp = fb_resp
                                     acc = fb_acc
                                     acc_label = fb_label
+                                    req_model = fallback_model
                                     break
                         except Exception as fb_err:
                             logger.debug("Capacity fallback error: %s", fb_err)
@@ -4078,7 +4268,14 @@ def create_app(
                                 fb_headers = await fb_acc.get_auth_headers()
                                 _apply_client_user_agent(fb_headers)
                                 fb_c = await fb_acc.get_http_client()
-                                fb_resp = await fb_c.post(target_url, headers=fb_headers, json=fb_body, params=query_params, timeout=timeout_sec)
+                                if is_streaming_call and isinstance(fb_c, httpx.AsyncClient):
+                                    timeout_obj = httpx.Timeout(timeout_sec, connect=15.0, read=timeout_sec, write=30.0, pool=30.0)
+                                    req_send = fb_c.build_request("POST", target_url, headers=fb_headers, json=fb_body, params=query_params, timeout=timeout_obj)
+                                    fb_resp = await fb_c.send(req_send, stream=True)
+                                    if fb_resp.status_code != 200:
+                                        await fb_resp.aread()
+                                else:
+                                    fb_resp = await fb_c.post(target_url, headers=fb_headers, json=fb_body, params=query_params, timeout=timeout_sec)
                                 if fb_resp.status_code == 200:
                                     logger.info("[%s] ✅ Fallback to %s succeeded! Generation continuing seamlessly.", fb_label, fallback_model)
                                     resp = fb_resp
@@ -4086,27 +4283,100 @@ def create_app(
                                     acc_label = fb_label
                                     req_model = fallback_model
                                     break
+                                else:
+                                    resp = fb_resp
                             except Exception as fb_err:
                                 logger.debug("[%s] Fallback attempt to %s error: %s", fb_label, fallback_model, fb_err)
                                 continue
 
-                    elif req_model != DEFAULT_MODEL:
+                    if resp.status_code != 200 and req_model != DEFAULT_MODEL:
                         reason_msg = "reached quota limit (429)" if resp.status_code == 429 else "returned 404"
                         logger.warning("[%s] Model %s %s. Attempting automatic fallback to %s...", acc_label, req_model, reason_msg, DEFAULT_MODEL)
-                        fallback_body = copy.deepcopy(candidate_body)
-                        if isinstance(fallback_body, dict):
-                            fallback_body["model"] = DEFAULT_MODEL
-                            if "request" in fallback_body and isinstance(fallback_body["request"], dict):
-                                fallback_body["request"]["model"] = DEFAULT_MODEL
-                        try:
-                            fb_resp = await c.post(target_url, headers=headers, json=fallback_body, params=query_params, timeout=timeout_sec)
-                            if fb_resp.status_code == 200:
-                                resp = fb_resp
-                                req_model = DEFAULT_MODEL
-                            else:
-                                resp = fb_resp
-                        except Exception:
-                            pass
+                        if pool:
+                            try:
+                                fallback_candidates = [
+                                    a for a in pool.get_candidate_accounts(DEFAULT_MODEL, allow_auto_routing=False)
+                                    if a.is_model_supported(DEFAULT_MODEL) and not a.is_rate_limited(DEFAULT_MODEL)
+                                ]
+                                if not fallback_candidates:
+                                    fallback_candidates = [
+                                        a for a in pool.get_candidate_accounts(DEFAULT_MODEL, allow_auto_routing=False)
+                                        if a.is_model_supported(DEFAULT_MODEL)
+                                    ]
+                            except Exception:
+                                fallback_candidates = []
+                            if not fallback_candidates:
+                                fallback_candidates = [acc]
+                        else:
+                            fallback_candidates = [a for a in candidates if a.is_model_supported(DEFAULT_MODEL)]
+                            if not fallback_candidates:
+                                fallback_candidates = list(candidates) or [acc]
+
+                        for fb_acc in fallback_candidates:
+                            fb_label = getattr(fb_acc, "email", fb_acc.account_id)
+                            fallback_body = copy.deepcopy(candidate_body) if isinstance(candidate_body, dict) else candidate_body
+                            if isinstance(fallback_body, dict):
+                                fallback_body["model"] = DEFAULT_MODEL
+                                if "request" in fallback_body and isinstance(fallback_body["request"], dict):
+                                    fallback_body["request"]["model"] = DEFAULT_MODEL
+                                    # Strip Claude-specific labels
+                                    if "labels" in fallback_body["request"] and isinstance(fallback_body["request"]["labels"], dict):
+                                        for k in ("model_enum", "used_claude", "used_non_gemini_model"):
+                                            fallback_body["request"]["labels"].pop(k, None)
+                                    # Ensure thought signatures and tool pairing integrity for Gemini
+                                    if "contents" in fallback_body["request"] and isinstance(fallback_body["request"]["contents"], list):
+                                        from agy_proxy.converters.common import (
+                                            ensure_tool_pairing_integrity,
+                                            sanitize_gemini_contents_thought_signatures,
+                                        )
+                                        fallback_body["request"]["contents"] = ensure_tool_pairing_integrity(
+                                            fallback_body["request"]["contents"],
+                                            model=DEFAULT_MODEL,
+                                        )
+                                        fallback_body["request"]["contents"] = sanitize_gemini_contents_thought_signatures(
+                                            fallback_body["request"]["contents"]
+                                        )
+                                    # Set thinking config for Gemini
+                                    gen_cfg = fallback_body["request"].setdefault("generationConfig", {})
+                                    if isinstance(gen_cfg, dict):
+                                        tc = gen_cfg.setdefault("thinkingConfig", {})
+                                        if isinstance(tc, dict):
+                                            tc["includeThoughts"] = True
+                                            if "thinkingBudget" not in tc and "thinkingLevel" not in tc:
+                                                tc["thinkingLevel"] = "HIGH"
+
+                                fb_proj = getattr(fb_acc, "project_id", None) or "aicode-consumers"
+                                fallback_body["project"] = fb_proj
+                                if "request" in fallback_body and isinstance(fallback_body["request"], dict):
+                                    if is_generation:
+                                        fallback_body["request"].pop("project", None)
+                                    elif "project" in fallback_body["request"]:
+                                        fallback_body["request"]["project"] = fb_proj
+                            try:
+                                fb_headers = await fb_acc.get_auth_headers()
+                                _apply_client_user_agent(fb_headers)
+                                fb_c = await fb_acc.get_http_client()
+                                if is_streaming_call and isinstance(fb_c, httpx.AsyncClient):
+                                    timeout_obj = httpx.Timeout(timeout_sec, connect=15.0, read=timeout_sec, write=30.0, pool=30.0)
+                                    req_send = fb_c.build_request("POST", target_url, headers=fb_headers, json=fallback_body, params=query_params, timeout=timeout_obj)
+                                    fb_resp = await fb_c.send(req_send, stream=True)
+                                    if fb_resp.status_code != 200:
+                                        await fb_resp.aread()
+                                else:
+                                    fb_resp = await fb_c.post(target_url, headers=fb_headers, json=fallback_body, params=query_params, timeout=timeout_sec)
+
+                                if fb_resp.status_code == 200:
+                                    logger.info("[%s] ✅ Fallback to %s succeeded! Generation continuing seamlessly.", fb_label, DEFAULT_MODEL)
+                                    resp = fb_resp
+                                    acc = fb_acc
+                                    acc_label = fb_label
+                                    req_model = DEFAULT_MODEL
+                                    break
+                                else:
+                                    resp = fb_resp
+                            except Exception as fb_err:
+                                logger.debug("[%s] Fallback attempt to %s error: %s", fb_label, DEFAULT_MODEL, fb_err)
+                                continue
 
                 if resp.status_code >= 400:
                     err_summary = _extract_error_message(resp)
@@ -4130,6 +4400,34 @@ def create_app(
                     async def sse_passthrough_stream():
                         try:
                             async for chunk in resp.aiter_bytes():
+                                if b"thoughtSignature" in chunk or b"thought_signature" in chunk:
+                                    try:
+                                        from agy_proxy.converters.common import save_thought_signature
+                                        text_chunk = chunk.decode("utf-8", errors="ignore")
+                                        for line in text_chunk.splitlines():
+                                            line = line.strip()
+                                            if line.startswith("data:"):
+                                                line_data = line[5:].strip()
+                                                if line_data.startswith("{") and ("thoughtSignature" in line_data or "thought_signature" in line_data):
+                                                    data_obj = json.loads(line_data)
+                                                    cands = data_obj.get("response", {}).get("candidates") or []
+                                                    for cand in cands:
+                                                        parts = cand.get("content", {}).get("parts") or []
+                                                        cand_sig = cand.get("thoughtSignature") or cand.get("thought_signature")
+                                                        for p in parts:
+                                                            p_sig = p.get("thoughtSignature") or p.get("thought_signature") or cand_sig
+                                                            if "functionCall" in p:
+                                                                fc = p["functionCall"]
+                                                                cid = fc.get("id")
+                                                                fname = fc.get("name")
+                                                                fargs = fc.get("args")
+                                                                fc_sig = p_sig or fc.get("thoughtSignature") or fc.get("thought_signature")
+                                                                if fc_sig:
+                                                                    save_thought_signature(cid, fname, fargs, fc_sig)
+                                                            elif p_sig:
+                                                                save_thought_signature(None, None, None, p_sig)
+                                    except Exception:
+                                        pass
                                 yield chunk
                         except asyncio.CancelledError:
                             logger.info("[%s] CloudCode streaming client cancelled / disconnected (%s)", acc_label, route_desc)
@@ -4164,6 +4462,27 @@ def create_app(
 
                 try:
                     data = resp.json()
+                    if resp.status_code == 200 and isinstance(data, dict):
+                        try:
+                            from agy_proxy.converters.common import save_thought_signature
+                            for cand in data.get("response", {}).get("candidates", []):
+                                parts = cand.get("content", {}).get("parts", [])
+                                cand_sig = cand.get("thoughtSignature") or cand.get("thought_signature")
+                                for p in parts:
+                                    p_sig = p.get("thoughtSignature") or p.get("thought_signature") or cand_sig
+                                    if "functionCall" in p:
+                                        fc = p["functionCall"]
+                                        cid = fc.get("id")
+                                        fname = fc.get("name")
+                                        fargs = fc.get("args")
+                                        fc_sig = p_sig or fc.get("thoughtSignature") or fc.get("thought_signature")
+                                        if fc_sig:
+                                            save_thought_signature(cid, fname, fargs, fc_sig)
+                                    elif p_sig:
+                                        save_thought_signature(None, None, None, p_sig)
+                        except Exception:
+                            pass
+
                     # Cache successful metadata responses
                     if resp.status_code == 200 and is_metadata and isinstance(data, dict) and data:
                         _PASSTHROUGH_METADATA_CACHE[action_key] = copy.deepcopy(data)

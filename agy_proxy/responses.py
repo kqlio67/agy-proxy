@@ -323,12 +323,13 @@ async def stream_responses_events(
             reasoning_delta = delta.get("reasoning_content")
             tool_calls = delta.get("tool_calls")
 
-            # Stream reasoning delta
+            # Stream reasoning delta with content_index (required by Codex CLI SSE parser)
             if reasoning_delta:
                 yield {
                     "type": "response.reasoning_text.delta",
                     "response_id": resp_id,
                     "delta": reasoning_delta,
+                    "content_index": 0,
                 }
 
             # Stream text content delta
@@ -462,56 +463,115 @@ async def stream_responses_events(
         completed_output_items.append(msg_item)
         current_output_index += 1
 
-    # Finalize tool calls
+    # Finalize tool calls (handling custom freeform tools like apply_patch vs standard function calls)
     for tc in accumulated_tool_calls.values():
         tc_id = tc["id"]
         name = tc["name"]
         args = tc["arguments"]
-        yield {
-            "type": "response.output_item.added",
-            "response_id": resp_id,
-            "output_index": current_output_index,
-            "item": {
+        is_custom = name == "apply_patch" or name.endswith(".apply_patch") or "apply_patch" in name
+        if is_custom:
+            raw_input = args
+            try:
+                parsed_args = json.loads(args)
+                if isinstance(parsed_args, dict):
+                    if "input" in parsed_args:
+                        raw_input = str(parsed_args["input"])
+                    elif "patch" in parsed_args:
+                        raw_input = str(parsed_args["patch"])
+            except Exception:
+                pass
+
+            yield {
+                "type": "response.output_item.added",
+                "response_id": resp_id,
+                "output_index": current_output_index,
+                "item": {
+                    "id": tc_id,
+                    "type": "custom_tool_call",
+                    "status": "in_progress",
+                    "call_id": tc_id,
+                    "name": name,
+                    "input": "",
+                },
+            }
+            yield {
+                "type": "response.custom_tool_call_input.delta",
+                "response_id": resp_id,
+                "item_id": tc_id,
+                "call_id": tc_id,
+                "output_index": current_output_index,
+                "delta": raw_input,
+            }
+            yield {
+                "type": "response.custom_tool_call_input.done",
+                "response_id": resp_id,
+                "item_id": tc_id,
+                "call_id": tc_id,
+                "output_index": current_output_index,
+                "input": raw_input,
+            }
+            tc_item = {
                 "id": tc_id,
-                "type": "function_call",
-                "status": "in_progress",
+                "type": "custom_tool_call",
+                "status": "completed",
                 "call_id": tc_id,
                 "name": name,
-                "arguments": "",
-            },
-        }
-        yield {
-            "type": "response.function_call_arguments.delta",
-            "response_id": resp_id,
-            "item_id": tc_id,
-            "output_index": current_output_index,
-            "call_id": tc_id,
-            "delta": args,
-        }
-        yield {
-            "type": "response.function_call_arguments.done",
-            "response_id": resp_id,
-            "item_id": tc_id,
-            "output_index": current_output_index,
-            "call_id": tc_id,
-            "arguments": args,
-        }
-        tc_item = {
-            "id": tc_id,
-            "type": "function_call",
-            "status": "completed",
-            "call_id": tc_id,
-            "name": name,
-            "arguments": args,
-        }
-        yield {
-            "type": "response.output_item.done",
-            "response_id": resp_id,
-            "output_index": current_output_index,
-            "item": tc_item,
-        }
-        completed_output_items.append(tc_item)
-        current_output_index += 1
+                "input": raw_input,
+            }
+            yield {
+                "type": "response.output_item.done",
+                "response_id": resp_id,
+                "output_index": current_output_index,
+                "item": tc_item,
+            }
+            completed_output_items.append(tc_item)
+            current_output_index += 1
+        else:
+            yield {
+                "type": "response.output_item.added",
+                "response_id": resp_id,
+                "output_index": current_output_index,
+                "item": {
+                    "id": tc_id,
+                    "type": "function_call",
+                    "status": "in_progress",
+                    "call_id": tc_id,
+                    "name": name,
+                    "arguments": "",
+                },
+            }
+            yield {
+                "type": "response.function_call_arguments.delta",
+                "response_id": resp_id,
+                "item_id": tc_id,
+                "output_index": current_output_index,
+                "call_id": tc_id,
+                "delta": args,
+            }
+            yield {
+                "type": "response.function_call_arguments.done",
+                "response_id": resp_id,
+                "item_id": tc_id,
+                "output_index": current_output_index,
+                "call_id": tc_id,
+                "arguments": args,
+            }
+            tc_item = {
+                "id": tc_id,
+                "type": "function_call",
+                "status": "completed",
+                "call_id": tc_id,
+                "name": name,
+                "arguments": args,
+            }
+            yield {
+                "type": "response.output_item.done",
+                "response_id": resp_id,
+                "output_index": current_output_index,
+                "item": tc_item,
+            }
+            completed_output_items.append(tc_item)
+            current_output_index += 1
 
     # If neither text nor tool calls were produced, produce an empty assistant message
     if not completed_output_items:
@@ -528,6 +588,25 @@ async def stream_responses_events(
     if total_usage["total_tokens"] == 0:
         total_usage = {"total_tokens": 100, "input_tokens": 70, "output_tokens": 30}
 
+    input_tokens = total_usage.get("input_tokens", 0)
+    output_tokens = total_usage.get("output_tokens", 0)
+    total_tokens = total_usage.get("total_tokens", input_tokens + output_tokens)
+    cached_tokens = total_usage.get("cached_tokens", 0)
+    reasoning_tokens = total_usage.get("reasoning_tokens", 0)
+
+    formatted_usage = {
+        "total_tokens": total_tokens,
+        "input_tokens": input_tokens,
+        "input_tokens_details": {
+            "cached_tokens": cached_tokens,
+            "cache_write_tokens": 0,
+        },
+        "output_tokens": output_tokens,
+        "output_tokens_details": {
+            "reasoning_tokens": reasoning_tokens,
+        },
+    }
+
     # Final response.completed event
     yield {
         "type": "response.completed",
@@ -537,7 +616,7 @@ async def stream_responses_events(
             "status": "completed",
             "model": model_name,
             "output": completed_output_items,
-            "usage": total_usage,
+            "usage": formatted_usage,
         },
     }
 
@@ -604,14 +683,37 @@ async def generate_responses_dict(
             for tc in tool_calls:
                 fn = tc.get("function", {})
                 call_id = tc.get("id", f"call_{uuid.uuid4().hex[:8]}")
-                output_items.append({
-                    "id": call_id,
-                    "type": "function_call",
-                    "status": "completed",
-                    "call_id": call_id,
-                    "name": fn.get("name", ""),
-                    "arguments": fn.get("arguments", "{}"),
-                })
+                fn_name = fn.get("name", "")
+                args_val = fn.get("arguments", "{}")
+                is_custom = fn_name == "apply_patch" or fn_name.endswith(".apply_patch") or "apply_patch" in fn_name
+                if is_custom:
+                    raw_input = args_val
+                    try:
+                        parsed_args = json.loads(args_val) if isinstance(args_val, str) else args_val
+                        if isinstance(parsed_args, dict):
+                            if "input" in parsed_args:
+                                raw_input = str(parsed_args["input"])
+                            elif "patch" in parsed_args:
+                                raw_input = str(parsed_args["patch"])
+                    except Exception:
+                        pass
+                    output_items.append({
+                        "id": call_id,
+                        "type": "custom_tool_call",
+                        "status": "completed",
+                        "call_id": call_id,
+                        "name": fn_name,
+                        "input": str(raw_input),
+                    })
+                else:
+                    output_items.append({
+                        "id": call_id,
+                        "type": "function_call",
+                        "status": "completed",
+                        "call_id": call_id,
+                        "name": fn_name,
+                        "arguments": args_val if isinstance(args_val, str) else json.dumps(args_val),
+                    })
 
     if not output_items:
         output_items.append({
@@ -623,6 +725,19 @@ async def generate_responses_dict(
         })
 
     usage_info = chat_res.get("usage", {})
+    input_tokens = usage_info.get("prompt_tokens", 0)
+    output_tokens = usage_info.get("completion_tokens", 0)
+    total_tokens = usage_info.get("total_tokens", input_tokens + output_tokens)
+    cached_tokens = (
+        usage_info.get("prompt_tokens_details", {}).get("cached_tokens", 0)
+        if isinstance(usage_info.get("prompt_tokens_details"), dict)
+        else 0
+    )
+    reasoning_tokens = (
+        usage_info.get("completion_tokens_details", {}).get("reasoning_tokens", 0)
+        if isinstance(usage_info.get("completion_tokens_details"), dict)
+        else 0
+    )
 
     return {
         "id": resp_id,
@@ -631,8 +746,15 @@ async def generate_responses_dict(
         "model": chat_req.model or DEFAULT_MODEL,
         "output": output_items,
         "usage": {
-            "total_tokens": usage_info.get("total_tokens", 0),
-            "input_tokens": usage_info.get("prompt_tokens", 0),
-            "output_tokens": usage_info.get("completion_tokens", 0),
+            "total_tokens": total_tokens,
+            "input_tokens": input_tokens,
+            "input_tokens_details": {
+                "cached_tokens": cached_tokens,
+                "cache_write_tokens": 0,
+            },
+            "output_tokens": output_tokens,
+            "output_tokens_details": {
+                "reasoning_tokens": reasoning_tokens,
+            },
         },
     }
