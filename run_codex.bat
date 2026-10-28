@@ -111,4 +111,4 @@ echo   * Catalog:  %CATALOG_PATH%
 echo   * Model:    %DEFAULT_MODEL%
 echo ===================================================
 
-codex -c openai_base_url="%API_URL%" -c model_catalog_json="%CATALOG_PATH%" -c telemetry.enabled=false %CODEX_ARGS%
+codex --no-daemon -c openai_base_url="%API_URL%" -c model_catalog_json="%CATALOG_PATH%" -c analytics.enabled=false %CODEX_ARGS%

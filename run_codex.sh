@@ -173,10 +173,11 @@ export CODEX_TELEMETRY="0"
 export OTEL_EXPORTER_OTLP_ENDPOINT="${PROXY_URL}"
 export OTEL_EXPORTER_OTLP_PROTOCOL="http/json"
 
-# Execute codex with proxy URL, model catalog, telemetry disabled, and user arguments
+# Execute codex with proxy URL, model catalog, analytics disabled, and user arguments
 exec "$CODEX_BIN" \
+    --no-daemon \
     -c "openai_base_url=\"${API_URL}\"" \
     -c "model_catalog_json=\"${CATALOG_PATH}\"" \
-    -c "telemetry.enabled=false" \
+    -c "analytics.enabled=false" \
     "${CODEX_ARGS[@]}"
 

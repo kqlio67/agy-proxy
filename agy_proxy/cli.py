@@ -11,6 +11,7 @@ import os
 import re
 import shutil
 import sys
+import urllib.parse
 import uvicorn
 from rich.console import Console, Group
 from rich.panel import Panel
@@ -712,8 +713,10 @@ def handle_run_codex(port: int = 8000, model: str = "gemini-3.8-flash-high", ext
 
     cmd = [
         codex_bin,
+        "--no-daemon",
         "-c", f'openai_base_url="http://127.0.0.1:{port}/v1"',
         "-c", f'model_catalog_json="{catalog_path}"',
+        "-c", "analytics.enabled=false",
         "-m", model,
     ]
     if extra_args:
@@ -1641,6 +1644,7 @@ def main():
     logging.getLogger("websockets").setLevel(logging.WARNING)
     logging.getLogger("websockets.client").setLevel(logging.WARNING)
     logging.getLogger("websockets.server").setLevel(logging.WARNING)
+    logging.getLogger("websockets.protocol").setLevel(logging.WARNING)
 
     class SanitizingFilter(logging.Filter):
         """Redacts sensitive API keys and tokens from log messages."""
@@ -1659,9 +1663,8 @@ def main():
                 record.args = tuple(new_args)
             return True
 
-    logging.getLogger("httpx").addFilter(SanitizingFilter())
-
     class EndpointFilter(logging.Filter):
+        """Silences noisy periodic polling, metadata synchronization, and health check endpoints."""
         POLLING_PATHS = (
             "/api/cache/stats",
             "/api/context/settings",
@@ -1671,6 +1674,9 @@ def main():
             "/api/processes",
             "/api/quota",
             "/api/usage",
+            "/api/info",
+            "/api/version",
+            "/api/codex/status",
             "/health",
             "/v1internal:recordCodeAssistMetrics",
             "/v1internal:listExperiments",
@@ -1682,12 +1688,55 @@ def main():
         )
 
         def filter(self, record: logging.LogRecord) -> bool:
-            msg = record.getMessage()
-            return not any(p in msg for p in self.POLLING_PATHS)
+            try:
+                msg = record.getMessage()
+            except Exception:
+                msg = str(record.msg)
+            msg_decoded = urllib.parse.unquote(msg)
+            if any(p in msg_decoded for p in self.POLLING_PATHS):
+                return False
+            if getattr(record, "args", None) and isinstance(record.args, (tuple, list)):
+                for a in record.args:
+                    if isinstance(a, str) and any(p in urllib.parse.unquote(a) for p in self.POLLING_PATHS):
+                        return False
+            return True
 
-    if not (args.debug or effective_log_level.lower() == "debug"):
-        logging.getLogger("uvicorn.access").addFilter(EndpointFilter())
-        logging.getLogger("uvicorn").addFilter(EndpointFilter())
+    class WebSocketNoiseFilter(logging.Filter):
+        """Silences low-level websocket protocol frames, state transitions, handshake headers, and keepalive pings."""
+        NOISY_PREFIXES = (
+            "= connection is",
+            "< ",
+            "> ",
+            "connection open",
+            "connection closed",
+        )
+
+        def filter(self, record: logging.LogRecord) -> bool:
+            try:
+                msg = record.getMessage()
+            except Exception:
+                msg = str(record.msg)
+            return not any(msg.startswith(p) for p in self.NOISY_PREFIXES)
+
+    endpoint_filter = EndpointFilter()
+    sanitizing_filter = SanitizingFilter()
+    ws_filter = WebSocketNoiseFilter()
+
+    # Redact sensitive keys from HTTP logs
+    logging.getLogger("httpx").addFilter(sanitizing_filter)
+
+    # Filter polling spam across web access, server, and background HTTP calls
+    logging.getLogger("uvicorn.access").addFilter(endpoint_filter)
+    logging.getLogger("uvicorn").addFilter(endpoint_filter)
+    logging.getLogger("httpx").addFilter(endpoint_filter)
+    logging.getLogger("agy_proxy.server").addFilter(endpoint_filter)
+
+    # Filter websocket protocol frame-level dumping
+    logging.getLogger("uvicorn.error").addFilter(ws_filter)
+    logging.getLogger("websockets").addFilter(ws_filter)
+    logging.getLogger("websockets.client").addFilter(ws_filter)
+    logging.getLogger("websockets.server").addFilter(ws_filter)
+    logging.getLogger("websockets.protocol").addFilter(ws_filter)
 
     if args.debug or effective_log_level.lower() == "debug":
         logging.getLogger("httpx").setLevel(logging.INFO)
@@ -1732,7 +1781,9 @@ def main():
     )
 
     # Run Uvicorn with graceful shutdown handling
-    uvicorn_log_level = "debug" if (args.debug or effective_log_level.lower() == "debug") else effective_log_level.lower()
+    # Keep Uvicorn at "info" level so WebSocketProtocol does not activate raw frame tracing (DEBUG),
+    # while application-level debug logging (agy_proxy.*) is fully controlled by the root logger.
+    uvicorn_log_level = "info" if (args.debug or effective_log_level.lower() == "debug") else effective_log_level.lower()
     shutdown_timeout = float(os.environ.get("AGY_PROXY_SHUTDOWN_TIMEOUT", "2.0"))
     config = uvicorn.Config(
         app,
