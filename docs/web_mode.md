@@ -1,20 +1,20 @@
 # 🚀 Antigravity Web Mode & Patched Web Hub
 
-Run Google Antigravity 2.0 directly in your browser with zero Electron overhead, saving **~1.6 GB+ of RAM** and unlocking hidden developer features.
+Run Google Antigravity 2.0 directly in your browser with zero Electron overhead, saving RAM and unlocking hidden developer features.
 
 ---
 
 ## 📊 Overview & Resource Optimization
 
-Google Antigravity 2.0 features an ultra-fast, native Go backend (`language_server`) hosting its full IDE and Agent web interface locally on port `44741`. The desktop application normally runs this inside an Electron wrapper (`/opt/Antigravity/antigravity`), which consumes **~1.6 GB to 2.0 GB+ of RAM** and spawns 10–15 background Chromium helper processes.
+Google Antigravity 2.0 features an ultra-fast, native Go backend (`language_server`) hosting its full IDE and Agent web interface locally on port `44741`. The desktop application normally runs this inside an Electron wrapper (`/opt/Antigravity/antigravity`), which consumes significant RAM and spawns 10–15 background Chromium helper processes.
 
-**Antigravity Web Mode** runs `language_server` directly in standalone mode, allowing you to use the full Antigravity 2.0 Web UI directly in your favorite browser (Helium, Chrome, Chromium, Firefox, Brave, Edge).
+Antigravity Web Mode runs `language_server` directly in standalone mode, allowing you to use the full Antigravity 2.0 Web UI directly in your favorite browser (Helium, Chrome, Chromium, Firefox, Brave, Edge).
 
 ### 📈 Resource Benchmark
 
 | Metric | Desktop App (Electron) | Web Mode (No-Electron) | Improvement |
 | :--- | :--- | :--- | :--- |
-| **RAM Footprint** | ~3.7 GB | **~2.1 GB** | **-1.6 GB RAM freed!** |
+| **RAM Footprint** | High | **Low** | **Significant RAM freed!** |
 | **CPU Queue Load** | 8.0+ (Thermal throttling on 2-core CPUs) | **~2.0 (Smooth & Cool)** | **~75% CPU load drop** |
 | **Process Count** | 10–15 Chromium processes | **1 lightweight Go binary** | Zero Electron bloat |
 | **Feature Parity** | 100% | **100% (Identical)** | Subagents, chat, files, git, terminal |
@@ -135,7 +135,7 @@ agy-proxy web --patched -v
 | Option | Description |
 | :--- | :--- |
 | `-P, --patched` | Launch with feature-patched Web UI bundle (unlocks Web Terminal, File Explorer, Battle Mode). |
-| `-k, --kill-electron` | Automatically terminate running Electron instances to free ~1.6 GB RAM. |
+| `-k, --kill-electron` | Automatically terminate running Electron instances to free RAM. |
 | `-o, --open` | Open web browser on startup (default: `False` to prevent tab spam). |
 | `--no-open` | Explicitly prevent opening web browser on startup. |
 | `-D, --direct, --no-proxy` | Bypass proxy and connect directly to official Google backend. |

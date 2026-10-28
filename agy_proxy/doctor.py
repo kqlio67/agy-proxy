@@ -323,9 +323,9 @@ async def run_doctor(host: str = "127.0.0.1", port: int = 8000, cloudflare_url: 
             web_table.add_row("Antigravity Web UI", "[dim]Stopped[/dim]", f"Ready to launch on {web_st['url']} (`agy-proxy web`)")
 
         if web_st["electron_running"]:
-            web_table.add_row("Electron GUI Footprint", "[bold yellow]⚠️ High RAM (~1.6GB)[/bold yellow]", "Running Electron window detected. Close it or run `agy-proxy web -k`")
+            web_table.add_row("Electron GUI Footprint", "[bold yellow]⚠️ High RAM Overhead[/bold yellow]", "Running Electron window detected. Close it or run `agy-proxy web -k`")
         else:
-            web_table.add_row("Electron GUI Footprint", "[bold green]✅ Optimized (0 MB)[/bold green]", "Electron is not running. Memory saved: ~1.6 GB RAM!")
+            web_table.add_row("Electron GUI Footprint", "[bold green]✅ Optimized (0 MB)[/bold green]", "Electron is not running. Memory saved (RAM freed)!")
     except Exception as e:
         web_table.add_row("Web Mode Diagnostics", "[dim]Error[/dim]", str(e))
 

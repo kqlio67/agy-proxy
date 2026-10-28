@@ -1313,7 +1313,7 @@ def build_parser() -> argparse.ArgumentParser:
     web_parser = subparsers.add_parser(
         "web",
         aliases=["antigravity-web", "web-mode"],
-        help="Launch Google Antigravity in lightweight browser Web Mode (No Electron, saves ~1.6 GB RAM)",
+        help="Launch Google Antigravity in lightweight browser Web Mode (No Electron, saves RAM)",
     )
     web_parser.add_argument("--port", "-p", type=int, default=44741, help="HTTPS port for Antigravity Web UI (default: 44741)")
     web_parser.add_argument("--host", type=str, default="127.0.0.1", help="Host address to bind Web UI (default: 127.0.0.1)")

@@ -3,7 +3,7 @@ setlocal enabledelayedexpansion
 
 REM ===========================================================================
 REM Antigravity Web Launcher for Windows (Zero-Electron Overhead)
-REM Starts Antigravity in browser-based Web mode, saving ~1.6 GB+ RAM.
+REM Starts Antigravity in browser-based Web mode, saving RAM.
 REM ===========================================================================
 
 set "SCRIPT_DIR=%~dp0"

@@ -17,7 +17,7 @@ It unlocks high-tier models (**Gemini 3.8 Flash**, **Gemini 3.1 Pro**, **Claude 
 - 🆓 **Zero-Cost High-Tier AI**: Access Gemini 3.8 and Claude models through Antigravity without paid API subscriptions.
 - 🔄 **Universal API Compatibility**: Drop-in compatible with standard OpenAI (`/v1/chat/completions`), Anthropic (`/v1/messages`), and Gemini endpoints.
 - 👥 **Multi-Account Pool & Auto-Failover**: Pool multiple Google accounts and API keys; if one hits rate limits, traffic rotates seamlessly without crashing your IDE.
-- 🚀 **Antigravity Web Hub (Save ~1.6 GB RAM)**: Run the full Antigravity 2.0 interface directly in your browser without the heavy Electron wrapper.
+- 🚀 **Antigravity Web Hub (Saves RAM)**: Run the full Antigravity 2.0 interface directly in your browser without the heavy Electron wrapper.
 - 🗜 **Context Compactor (Token Saver)**: Auto-compresses long chat histories using fast flash-lite models, preventing Google's 1M token limit and saving 80%–95% tokens.
 - 🖥️ **1-Click IDE & CLI Integrations**: Native launch scripts and configurations for Antigravity IDE, Claude Code CLI, Cursor, Windsurf, VS Code (Continue, Roo Code, Cline), Codex CLI, and Aider.
 
@@ -69,9 +69,9 @@ Open **`http://127.0.0.1:8000`** in your browser to:
 `agy-proxy` comes with dedicated, ready-to-run helpers for the most popular workflows:
 
 ### 1. 🚀 Antigravity Web Hub (Zero Electron)
-Run Google Antigravity 2.0 in your browser, saving **~1.6 GB RAM** (works even on headless VPS servers):
+Run Google Antigravity 2.0 in your browser, saving RAM (works even on headless VPS servers):
 ```bash
-# Standard Web Hub (-1.6 GB RAM freed):
+# Standard Web Hub (RAM freed, no Electron):
 agy-proxy web
 
 # Patched Web Hub (Unlocks Web Terminal, File Explorer, Battle Mode):

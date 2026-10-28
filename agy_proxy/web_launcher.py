@@ -1,7 +1,7 @@
 """
 Antigravity Web Mode Launcher.
 Launches the official Antigravity language_server in standalone HTTPS Web mode,
-bypassing the heavy Electron GUI process and freeing ~1.6 GB+ of RAM.
+bypassing the heavy Electron GUI process and saving RAM.
 Automatically connects to agy-proxy for multi-account pooling and quota failover.
 """
 
@@ -1671,7 +1671,7 @@ def print_web_banner(
 
     table.add_row("🌐 Antigravity Web UI:", f"[bold green]{url}[/bold green]")
     table.add_row("⚡ Performance Mode:", "[bold yellow]Standalone Web (No Electron)[/bold yellow]")
-    table.add_row("💾 Memory Saved:", "[bold green]~1.6 GB RAM Saved[/bold green] [dim](Electron GUI skipped)[/dim]")
+    table.add_row("💾 Memory Saved:", "[bold green]RAM Saved[/bold green] [dim](Electron GUI skipped)[/dim]")
 
     if web_bundle_path:
         bundle_str = str(web_bundle_path)
@@ -1777,7 +1777,7 @@ def launch_antigravity_web(
             console.print(f"[bold green]✓ Stopped {len(killed)} Electron process(es).[/bold green]")
         else:
             console.print("[bold yellow]⚠️  Notice: Running Electron Antigravity instance detected.[/bold yellow]")
-            console.print("Closing the Electron window will free ~1.6 GB of RAM. You can use [bold cyan]--kill-electron[/bold cyan] to do this automatically.")
+            console.print("Closing the Electron window will free RAM. You can use [bold cyan]--kill-electron[/bold cyan] to do this automatically.")
 
     # Determine whether to auto-open browser (default: strictly False to prevent tab spam)
     should_open = bool(open_browser)
