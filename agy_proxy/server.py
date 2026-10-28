@@ -2683,6 +2683,7 @@ def create_app(
                         chat_req=chat_req,
                         session_key=session_id,
                         specific_account_id=target_account_id,
+                        raw_payload=payload,
                     ):
                         yield format_sse_event(event)
 
@@ -2704,6 +2705,7 @@ def create_app(
                     chat_req=chat_req,
                     session_key=session_id,
                     specific_account_id=target_account_id,
+                    raw_payload=payload,
                 )
                 return JSONResponse(content=resp_data)
         except httpx.HTTPStatusError as e:
@@ -2771,6 +2773,7 @@ def create_app(
                             client=client,
                             chat_req=chat_req,
                             session_key=detected_session_key,
+                            raw_payload=payload,
                         ):
                             await websocket.send_text(json.dumps(event, ensure_ascii=False))
                     except (WebSocketDisconnect, ClientDisconnected, ConnectionResetError, BrokenPipeError):

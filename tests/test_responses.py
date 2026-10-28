@@ -308,3 +308,168 @@ class TestResponsesAPI(unittest.IsolatedAsyncioTestCase):
         # Ensure no empty dummy message was added for additional_tools
         self.assertEqual(len(chat_req.messages), 1)
         self.assertEqual(chat_req.messages[0].role, "user")
+
+    async def test_incremental_previous_response_id_multi_turn_history(self):
+        """Tests that incremental WebSocket turns referencing previous_response_id retain full context."""
+        mock_client = AsyncMock()
+
+        # Turn 1: User prompt -> assistant tool call
+        t1_payload = {
+            "model": "gemini-3.8-flash-high",
+            "instructions": "You are Codex agent.",
+            "input": [
+                {"type": "message", "role": "user", "content": "What PC are you on?"}
+            ],
+            "tools": [
+                {
+                    "type": "function",
+                    "name": "exec_command",
+                    "description": "Execute shell command",
+                    "parameters": {"type": "object", "properties": {"cmd": {"type": "string"}}},
+                }
+            ],
+        }
+
+        async def fake_stream_t1(*args, **kwargs):
+            tc_data = {
+                "choices": [
+                    {
+                        "delta": {
+                            "tool_calls": [
+                                {
+                                    "id": "call_5881650",
+                                    "function": {
+                                        "name": "exec_command",
+                                        "arguments": json.dumps({"cmd": "uname -a"}),
+                                    },
+                                }
+                            ]
+                        }
+                    }
+                ],
+                "usage": {"total_tokens": 50, "prompt_tokens": 40, "completion_tokens": 10},
+            }
+            yield f"data: {json.dumps(tc_data)}\n\n"
+            yield "data: [DONE]\n\n"
+
+        mock_client.stream_openai_chat = fake_stream_t1
+
+        t1_req, _ = responses_payload_to_openai_chat(t1_payload)
+        t1_events = []
+        async for ev in stream_responses_events(
+            mock_client,
+            t1_req,
+            client_resp_id="resp_turn_1",
+            raw_payload=t1_payload,
+        ):
+            t1_events.append(ev)
+
+        comp_t1 = [ev for ev in t1_events if ev["type"] == "response.completed"][0]
+        self.assertEqual(comp_t1["response"]["id"], "resp_turn_1")
+        self.assertEqual(comp_t1["response"]["output"][0]["type"], "function_call")
+
+        # Turn 2: Incremental input sending ONLY the tool result + previous_response_id
+        t2_payload = {
+            "previous_response_id": "resp_turn_1",
+            "input": [
+                {
+                    "type": "function_call_output",
+                    "call_id": "call_5881650",
+                    "output": "Linux 5.10.224-antix.1-amd64-smp x86_64",
+                }
+            ],
+        }
+
+        t2_req, _ = responses_payload_to_openai_chat(t2_payload)
+
+        # Verify all 4 messages are present in t2_req!
+        # 1. System
+        # 2. User
+        # 3. Assistant with tool_calls
+        # 4. Tool output
+        self.assertEqual(len(t2_req.messages), 4)
+        self.assertEqual(t2_req.messages[0].role, "system")
+        self.assertEqual(t2_req.messages[0].content, "You are Codex agent.")
+        self.assertEqual(t2_req.messages[1].role, "user")
+        self.assertEqual(t2_req.messages[1].content, "What PC are you on?")
+        self.assertEqual(t2_req.messages[2].role, "assistant")
+        self.assertEqual(t2_req.messages[2].tool_calls[0]["id"], "call_5881650")
+        self.assertEqual(t2_req.messages[3].role, "tool")
+        self.assertEqual(t2_req.messages[3].tool_call_id, "call_5881650")
+        self.assertIn("Linux 5.10", t2_req.messages[3].content)
+
+        # Verify tools inherited from Turn 1 even though Turn 2 payload omitted tools
+        self.assertIsNotNone(t2_req.tools)
+        self.assertEqual(len(t2_req.tools), 1)
+        self.assertEqual(t2_req.tools[0]["function"]["name"], "exec_command")
+
+    async def test_reasoning_lifecycle_events(self):
+        """Tests that reasoning produces response.output_item.added and response.output_item.done around deltas."""
+        mock_client = AsyncMock()
+
+        async def fake_stream_reasoning(*args, **kwargs):
+            yield f'data: {json.dumps({"choices": [{"delta": {"reasoning_content": "Pondering system architecture..."}}]})}\n\n'
+            yield f'data: {json.dumps({"choices": [{"delta": {"content": "Here is the answer."}}]})}\n\n'
+            yield f'data: {json.dumps({"choices": [{"delta": {}}], "usage": {"total_tokens": 30, "prompt_tokens": 10, "completion_tokens": 20}})}\n\n'
+            yield "data: [DONE]\n\n"
+
+        mock_client.stream_openai_chat = fake_stream_reasoning
+
+        chat_req = OpenAIChatRequest(
+            model="gemini-3.8-flash-high",
+            messages=[{"role": "user", "content": "Explain architecture"}],
+        )
+
+        events = []
+        async for ev in stream_responses_events(mock_client, chat_req):
+            events.append(ev)
+
+        # Inspect the sequence of item events
+        added_items = [ev for ev in events if ev["type"] == "response.output_item.added"]
+        done_items = [ev for ev in events if ev["type"] == "response.output_item.done"]
+
+        # First added item must be reasoning
+        self.assertEqual(added_items[0]["item"]["type"], "reasoning")
+        self.assertEqual(added_items[0]["output_index"], 0)
+
+        # First done item must be reasoning
+        self.assertEqual(done_items[0]["item"]["type"], "reasoning")
+        self.assertEqual(done_items[0]["output_index"], 0)
+
+        # Second added item must be message
+        self.assertEqual(added_items[1]["item"]["type"], "message")
+        self.assertEqual(added_items[1]["output_index"], 1)
+
+        # Second done item must be message
+        self.assertEqual(done_items[1]["item"]["type"], "message")
+        self.assertEqual(done_items[1]["output_index"], 1)
+
+    async def test_prewarm_generate_false(self):
+        """Tests that generate: false completes immediately with output: [] without calling upstream."""
+        mock_client = AsyncMock()
+        mock_client.stream_openai_chat = AsyncMock()
+
+        prewarm_payload = {
+            "model": "gemini-3.8-flash-high",
+            "instructions": "Warmup instructions",
+            "input": [{"type": "message", "role": "user", "content": "hello"}],
+            "generate": False,
+        }
+
+        req, _ = responses_payload_to_openai_chat(prewarm_payload)
+        events = []
+        async for ev in stream_responses_events(
+            mock_client,
+            req,
+            client_resp_id="resp_warmup",
+            raw_payload=prewarm_payload,
+        ):
+            events.append(ev)
+
+        # Upstream must NOT have been called
+        mock_client.stream_openai_chat.assert_not_called()
+
+        event_types = [ev["type"] for ev in events]
+        self.assertEqual(event_types, ["response.created", "response.completed"])
+        comp = [ev for ev in events if ev["type"] == "response.completed"][0]
+        self.assertEqual(comp["response"]["output"], [])

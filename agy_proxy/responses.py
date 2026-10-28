@@ -4,9 +4,11 @@ Provides bidirectional compatibility with OpenAI's newer Responses API (/v1/resp
 used by OpenAI Codex CLI (v0.150+) and modern agent frameworks.
 """
 
+import copy
 import json
 import logging
 import re
+import time
 import uuid
 from typing import Any
 from collections.abc import AsyncGenerator
@@ -16,23 +18,141 @@ from .models import DEFAULT_MODEL, OpenAIChatRequest, normalize_model_name
 logger = logging.getLogger(__name__)
 
 
+class ResponsesSessionState:
+    """Retains accumulated conversation history and options across incremental responses turns."""
+
+    def __init__(
+        self,
+        response_id: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        instructions: str | None = None,
+        model: str | None = None,
+        tool_choice: Any = "auto",
+        response_format: Any = None,
+        temperature: float | None = None,
+        top_p: float | None = None,
+        max_tokens: int | None = None,
+        client_metadata: dict[str, Any] | None = None,
+    ):
+        self.response_id = response_id
+        self.messages = messages
+        self.tools = tools
+        self.instructions = instructions
+        self.model = model
+        self.tool_choice = tool_choice
+        self.response_format = response_format
+        self.temperature = temperature
+        self.top_p = top_p
+        self.max_tokens = max_tokens
+        self.client_metadata = client_metadata or {}
+        self.created_at = time.time()
+
+
+_RESPONSES_CACHE: dict[str, ResponsesSessionState] = {}
+_MAX_RESPONSES_CACHE_SIZE = 1000
+
+
+def get_cached_responses_state(response_id: str | None) -> ResponsesSessionState | None:
+    """Retrieves cached session state for a given response_id."""
+    if not response_id:
+        return None
+    return _RESPONSES_CACHE.get(response_id)
+
+
+def _msg_to_dict(m: Any) -> dict[str, Any]:
+    if isinstance(m, dict):
+        return dict(m)
+    if hasattr(m, "model_dump"):
+        return m.model_dump(exclude_none=False)
+    if hasattr(m, "dict"):
+        return m.dict()
+    return dict(m)
+
+
+def _msg_role(m: Any) -> str:
+    if isinstance(m, dict):
+        return str(m.get("role", ""))
+    return str(getattr(m, "role", ""))
+
+
+def save_responses_state(
+    response_id: str,
+    messages: list[dict[str, Any]],
+    tools: list[dict[str, Any]] | None = None,
+    instructions: str | None = None,
+    model: str | None = None,
+    tool_choice: Any = "auto",
+    response_format: Any = None,
+    temperature: float | None = None,
+    top_p: float | None = None,
+    max_tokens: int | None = None,
+    client_metadata: dict[str, Any] | None = None,
+) -> None:
+    """Saves conversation state for follow-up incremental turns referencing previous_response_id."""
+    if not response_id:
+        return
+
+    if len(_RESPONSES_CACHE) >= _MAX_RESPONSES_CACHE_SIZE:
+        sorted_keys = sorted(_RESPONSES_CACHE.keys(), key=lambda k: _RESPONSES_CACHE[k].created_at)
+        for k in sorted_keys[: len(sorted_keys) // 5 + 1]:
+            _RESPONSES_CACHE.pop(k, None)
+
+    clean_messages = [_msg_to_dict(m) for m in messages]
+    clean_tools = [_msg_to_dict(t) for t in tools] if tools else None
+
+    _RESPONSES_CACHE[response_id] = ResponsesSessionState(
+        response_id=response_id,
+        messages=copy.deepcopy(clean_messages),
+        tools=copy.deepcopy(clean_tools),
+        instructions=instructions,
+        model=model,
+        tool_choice=tool_choice,
+        response_format=response_format,
+        temperature=temperature,
+        top_p=top_p,
+        max_tokens=max_tokens,
+        client_metadata=copy.deepcopy(client_metadata) if client_metadata else None,
+    )
+
+
 def responses_payload_to_openai_chat(payload: dict[str, Any]) -> tuple[OpenAIChatRequest, str]:
     """
     Translates an OpenAI Responses API (/v1/responses) request dictionary
     into an OpenAIChatRequest that the AntigravityClient pipeline understands.
     Returns (chat_request, session_key).
     """
-    raw_model = payload.get("model") or DEFAULT_MODEL
+    prev_id = payload.get("previous_response_id")
+    prev_state = get_cached_responses_state(prev_id) if prev_id else None
+
+    raw_model = payload.get("model") or (prev_state.model if prev_state else None) or DEFAULT_MODEL
     backend_model = normalize_model_name(raw_model)
 
-    instructions = payload.get("instructions")
+    instructions = payload.get("instructions") or (prev_state.instructions if prev_state else None)
     raw_input = payload.get("input", [])
 
     messages: list[dict[str, Any]] = []
 
-    # System instructions from Responses API
-    if instructions and isinstance(instructions, str) and instructions.strip():
-        messages.append({"role": "system", "content": instructions.strip()})
+    if prev_state:
+        # Reconstruct conversation history from previous response turns
+        logger.info(
+            "[Responses API] Continuing session from previous_response_id '%s' (%d cached messages)",
+            prev_id,
+            len(prev_state.messages),
+        )
+        messages = [copy.deepcopy(m) for m in prev_state.messages]
+        if instructions and isinstance(instructions, str) and instructions.strip():
+            if messages and _msg_role(messages[0]) == "system":
+                if isinstance(messages[0], dict):
+                    messages[0]["content"] = instructions.strip()
+                else:
+                    messages[0].content = instructions.strip()
+            else:
+                messages.insert(0, {"role": "system", "content": instructions.strip()})
+    else:
+        # System instructions from Responses API for fresh root turn
+        if instructions and isinstance(instructions, str) and instructions.strip():
+            messages.append({"role": "system", "content": instructions.strip()})
 
     converted_tools: list[dict[str, Any]] | None = None
 
@@ -204,21 +324,39 @@ def responses_payload_to_openai_chat(payload: dict[str, Any]) -> tuple[OpenAICha
         for t in raw_tools:
             _add_tool_definition(t)
 
-    tool_choice = payload.get("tool_choice", "auto")
+    # Inherit tools from previous turn if omitted in incremental request
+    if converted_tools is None and prev_state and prev_state.tools:
+        converted_tools = [copy.deepcopy(t) for t in prev_state.tools]
+
+    tool_choice = payload.get("tool_choice")
+    if tool_choice is None:
+        tool_choice = prev_state.tool_choice if prev_state else "auto"
+
     temperature = payload.get("temperature")
+    if temperature is None and prev_state:
+        temperature = prev_state.temperature
+
     top_p = payload.get("top_p")
+    if top_p is None and prev_state:
+        top_p = prev_state.top_p
+
     max_tokens = payload.get("max_output_tokens") or payload.get("max_tokens")
+    if max_tokens is None and prev_state:
+        max_tokens = prev_state.max_tokens
 
     # Format / Structured Outputs
     text_info = payload.get("text")
     text_format = text_info.get("format") if isinstance(text_info, dict) else None
     response_format = payload.get("response_format") or text_format
+    if response_format is None and prev_state:
+        response_format = prev_state.response_format
 
     # Session key derivation
     prompt_cache_key = payload.get("prompt_cache_key")
-    client_meta = payload.get("client_metadata", {})
+    client_meta = payload.get("client_metadata") or (prev_state.client_metadata if prev_state else {})
     turn_id = client_meta.get("turn_id") if isinstance(client_meta, dict) else None
-    session_key = prompt_cache_key or turn_id or None
+    session_id_meta = client_meta.get("session_id") if isinstance(client_meta, dict) else None
+    session_key = prompt_cache_key or session_id_meta or turn_id or None
 
     chat_req = OpenAIChatRequest(
         model=backend_model,
@@ -249,6 +387,7 @@ async def stream_responses_events(
     session_key: str | None = None,
     specific_account_id: str | None = None,
     client_resp_id: str | None = None,
+    raw_payload: dict[str, Any] | None = None,
 ) -> AsyncGenerator[dict[str, Any], None]:
     """
     Consumes chunks from AntigravityClient's stream_openai_chat and yields
@@ -256,6 +395,49 @@ async def stream_responses_events(
     """
     resp_id = client_resp_id or f"resp_{uuid.uuid4().hex[:16]}"
     model_name = chat_req.model or DEFAULT_MODEL
+
+    # Check for client warmup / prewarm (generate: false)
+    if raw_payload and raw_payload.get("generate") is False:
+        save_responses_state(
+            response_id=resp_id,
+            messages=list(chat_req.messages),
+            tools=chat_req.tools,
+            instructions=raw_payload.get("instructions"),
+            model=chat_req.model,
+            tool_choice=chat_req.tool_choice,
+            response_format=chat_req.response_format,
+            temperature=chat_req.temperature,
+            top_p=chat_req.top_p,
+            max_tokens=chat_req.max_tokens,
+            client_metadata=raw_payload.get("client_metadata"),
+        )
+        yield {
+            "type": "response.created",
+            "response": {
+                "id": resp_id,
+                "object": "response",
+                "status": "in_progress",
+                "model": model_name,
+                "output": [],
+                "usage": None,
+            },
+        }
+        yield {
+            "type": "response.completed",
+            "response": {
+                "id": resp_id,
+                "object": "response",
+                "status": "completed",
+                "model": model_name,
+                "output": [],
+                "usage": {
+                    "total_tokens": 0,
+                    "input_tokens": 0,
+                    "output_tokens": 0,
+                },
+            },
+        }
+        return
 
     # 1. response.created
     yield {
@@ -269,6 +451,10 @@ async def stream_responses_events(
             "usage": None,
         },
     }
+
+    reasoning_started = False
+    reasoning_done = False
+    reasoning_item_id = f"rsn_{uuid.uuid4().hex[:16]}"
 
     message_started = False
     msg_item_id = f"msg_{uuid.uuid4().hex[:16]}"
@@ -323,14 +509,47 @@ async def stream_responses_events(
             reasoning_delta = delta.get("reasoning_content")
             tool_calls = delta.get("tool_calls")
 
-            # Stream reasoning delta with content_index (required by Codex CLI SSE parser)
+            # Stream reasoning delta with proper item lifecycle
             if reasoning_delta:
+                if not reasoning_started:
+                    reasoning_started = True
+                    yield {
+                        "type": "response.output_item.added",
+                        "response_id": resp_id,
+                        "output_index": current_output_index,
+                        "item": {
+                            "id": reasoning_item_id,
+                            "type": "reasoning",
+                            "status": "in_progress",
+                            "summary": [],
+                        },
+                    }
                 yield {
                     "type": "response.reasoning_text.delta",
                     "response_id": resp_id,
-                    "delta": reasoning_delta,
+                    "item_id": reasoning_item_id,
+                    "output_index": current_output_index,
                     "content_index": 0,
+                    "delta": reasoning_delta,
                 }
+
+            # If message content or tool calls arrive, close the reasoning item first
+            if (content_delta or tool_calls) and reasoning_started and not reasoning_done:
+                reasoning_done = True
+                rsn_item = {
+                    "id": reasoning_item_id,
+                    "type": "reasoning",
+                    "status": "completed",
+                    "summary": [],
+                }
+                yield {
+                    "type": "response.output_item.done",
+                    "response_id": resp_id,
+                    "output_index": current_output_index,
+                    "item": rsn_item,
+                }
+                completed_output_items.append(rsn_item)
+                current_output_index += 1
 
             # Stream text content delta
             if content_delta:
@@ -398,6 +617,24 @@ async def stream_responses_events(
             },
         }
         return
+
+    # Close reasoning item if stream ended while reasoning was active
+    if reasoning_started and not reasoning_done:
+        reasoning_done = True
+        rsn_item = {
+            "id": reasoning_item_id,
+            "type": "reasoning",
+            "status": "completed",
+            "summary": [],
+        }
+        yield {
+            "type": "response.output_item.done",
+            "response_id": resp_id,
+            "output_index": current_output_index,
+            "item": rsn_item,
+        }
+        completed_output_items.append(rsn_item)
+        current_output_index += 1
 
     # Finalize message item if text was produced
     if message_started:
@@ -620,6 +857,40 @@ async def stream_responses_events(
         },
     }
 
+    # Save session state for incremental follow-up requests
+    assistant_msg: dict[str, Any] = {"role": "assistant"}
+    if accumulated_tool_calls:
+        assistant_msg["content"] = "".join(accumulated_text) if accumulated_text else None
+        assistant_msg["tool_calls"] = [
+            {
+                "id": tc["id"],
+                "type": "function",
+                "function": {
+                    "name": tc["name"],
+                    "arguments": tc["arguments"],
+                },
+            }
+            for tc in accumulated_tool_calls.values()
+        ]
+    else:
+        assistant_msg["content"] = "".join(accumulated_text)
+
+    all_messages_for_cache = list(chat_req.messages)
+    all_messages_for_cache.append(assistant_msg)
+    save_responses_state(
+        response_id=resp_id,
+        messages=all_messages_for_cache,
+        tools=chat_req.tools,
+        instructions=raw_payload.get("instructions") if raw_payload else None,
+        model=chat_req.model,
+        tool_choice=chat_req.tool_choice,
+        response_format=chat_req.response_format,
+        temperature=chat_req.temperature,
+        top_p=chat_req.top_p,
+        max_tokens=chat_req.max_tokens,
+        client_metadata=raw_payload.get("client_metadata") if raw_payload else None,
+    )
+
 
 async def generate_responses_dict(
     client: Any,
@@ -627,9 +898,39 @@ async def generate_responses_dict(
     session_key: str | None = None,
     specific_account_id: str | None = None,
     client_resp_id: str | None = None,
+    raw_payload: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Generates non-streaming response dictionary for OpenAI Responses API."""
     resp_id = client_resp_id or f"resp_{uuid.uuid4().hex[:16]}"
+
+    # Check for client warmup / prewarm (generate: false)
+    if raw_payload and raw_payload.get("generate") is False:
+        save_responses_state(
+            response_id=resp_id,
+            messages=list(chat_req.messages),
+            tools=chat_req.tools,
+            instructions=raw_payload.get("instructions"),
+            model=chat_req.model,
+            tool_choice=chat_req.tool_choice,
+            response_format=chat_req.response_format,
+            temperature=chat_req.temperature,
+            top_p=chat_req.top_p,
+            max_tokens=chat_req.max_tokens,
+            client_metadata=raw_payload.get("client_metadata"),
+        )
+        return {
+            "id": resp_id,
+            "object": "response",
+            "status": "completed",
+            "model": chat_req.model or DEFAULT_MODEL,
+            "output": [],
+            "usage": {
+                "total_tokens": 0,
+                "input_tokens": 0,
+                "output_tokens": 0,
+            },
+        }
+
     chat_res = await client.generate_openai_chat(
         chat_req,
         session_key=session_key,
@@ -737,6 +1038,32 @@ async def generate_responses_dict(
         usage_info.get("completion_tokens_details", {}).get("reasoning_tokens", 0)
         if isinstance(usage_info.get("completion_tokens_details"), dict)
         else 0
+    )
+
+    # Save session state for incremental follow-up requests
+    assistant_msg: dict[str, Any] = {"role": "assistant"}
+    if choices:
+        msg_obj = choices[0].get("message", {})
+        assistant_msg["content"] = msg_obj.get("content")
+        if msg_obj.get("tool_calls"):
+            assistant_msg["tool_calls"] = msg_obj.get("tool_calls")
+    else:
+        assistant_msg["content"] = ""
+
+    all_messages_for_cache = list(chat_req.messages)
+    all_messages_for_cache.append(assistant_msg)
+    save_responses_state(
+        response_id=resp_id,
+        messages=all_messages_for_cache,
+        tools=chat_req.tools,
+        instructions=raw_payload.get("instructions") if raw_payload else None,
+        model=chat_req.model,
+        tool_choice=chat_req.tool_choice,
+        response_format=chat_req.response_format,
+        temperature=chat_req.temperature,
+        top_p=chat_req.top_p,
+        max_tokens=chat_req.max_tokens,
+        client_metadata=raw_payload.get("client_metadata") if raw_payload else None,
     )
 
     return {
