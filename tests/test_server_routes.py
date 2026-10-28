@@ -427,6 +427,110 @@ class TestServerRoutes(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(data.get("type"), "response.failed")
             self.assertIn("error", data.get("response", {}))
 
+    async def test_websocket_responses_client_disconnect_during_stream(self):
+        endpoint = None
+        for r in self.app.routes:
+            if getattr(r, "endpoint", None) and r.endpoint.__name__ == "openai_responses_ws":
+                endpoint = r.endpoint
+                break
+        self.assertIsNotNone(endpoint)
+
+        ws = MagicMock()
+        ws.headers = {}
+        ws.query_params = {}
+        ws.accept = AsyncMock()
+        ws.receive_text = AsyncMock(side_effect=[
+            json.dumps({"type": "response.create", "model": "gemini-2.5-flash"}),
+            RuntimeError('WebSocket is not connected. Need to call "accept" first.'),
+        ])
+        ws.send_text = AsyncMock(side_effect=[
+            None,
+            WebSocketDisconnect(code=1006),
+        ])
+
+        async def dummy_events(*args, **kwargs):
+            yield {"type": "response.created"}
+            yield {"type": "response.output_text.delta", "delta": "hi"}
+
+        with patch("agy_proxy.server.stream_responses_events", side_effect=dummy_events):
+            with self.assertLogs("agy_proxy.server", level="DEBUG") as cm:
+                await endpoint(ws)
+
+        # Confirm debug disconnect log was recorded and no ERROR log was emitted
+        self.assertTrue(any("client disconnected during stream" in log for log in cm.output))
+        self.assertFalse(any("Responses WebSocket stream error" in log for log in cm.output))
+        self.assertFalse(any("Need to call" in log for log in cm.output))
+        # Ensure receive_text was only called once (did not loop into dead socket)
+        self.assertEqual(ws.receive_text.call_count, 1)
+
+    async def test_websocket_responses_client_disconnected_exception(self):
+        try:
+            from uvicorn.protocols.utils import ClientDisconnected
+        except ImportError:
+            class ClientDisconnected(Exception):
+                pass
+
+        endpoint = None
+        for r in self.app.routes:
+            if getattr(r, "endpoint", None) and r.endpoint.__name__ == "openai_responses_ws":
+                endpoint = r.endpoint
+                break
+        self.assertIsNotNone(endpoint)
+
+        ws = MagicMock()
+        ws.headers = {}
+        ws.query_params = {}
+        ws.accept = AsyncMock()
+        ws.receive_text = AsyncMock(side_effect=[
+            json.dumps({"type": "response.create", "model": "gemini-2.5-flash"}),
+            RuntimeError('WebSocket is not connected. Need to call "accept" first.'),
+        ])
+        ws.send_text = AsyncMock(side_effect=[
+            None,
+            ClientDisconnected(),
+        ])
+
+        async def dummy_events(*args, **kwargs):
+            yield {"type": "response.created"}
+            yield {"type": "response.output_text.delta", "delta": "hi"}
+
+        with patch("agy_proxy.server.stream_responses_events", side_effect=dummy_events):
+            with self.assertLogs("agy_proxy.server", level="DEBUG") as cm:
+                await endpoint(ws)
+
+        self.assertTrue(any("client disconnected during stream" in log for log in cm.output))
+        self.assertFalse(any("Responses WebSocket stream error" in log for log in cm.output))
+        self.assertEqual(ws.receive_text.call_count, 1)
+
+    async def test_websocket_responses_error_delivery_disconnect(self):
+        endpoint = None
+        for r in self.app.routes:
+            if getattr(r, "endpoint", None) and r.endpoint.__name__ == "openai_responses_ws":
+                endpoint = r.endpoint
+                break
+        self.assertIsNotNone(endpoint)
+
+        ws = MagicMock()
+        ws.headers = {}
+        ws.query_params = {}
+        ws.accept = AsyncMock()
+        ws.receive_text = AsyncMock(side_effect=[
+            json.dumps({"type": "response.create", "model": "gemini-2.5-flash"}),
+            RuntimeError('Should not be called!'),
+        ])
+        ws.send_text = AsyncMock(side_effect=WebSocketDisconnect(code=1006))
+
+        async def faulty_events(*args, **kwargs):
+            if False:
+                yield {}
+            raise ValueError("Upstream failure")
+
+        with patch("agy_proxy.server.stream_responses_events", side_effect=faulty_events):
+            await endpoint(ws)
+
+        # Loop must break immediately when error delivery encounters disconnect
+        self.assertEqual(ws.receive_text.call_count, 1)
+
     async def test_toggle_account_and_section_endpoints(self):
         import tempfile
         from pathlib import Path

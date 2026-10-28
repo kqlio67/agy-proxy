@@ -2135,7 +2135,8 @@ class AccountPool:
                     logger.warning("[%s] Proactive token refresh failed: %s", acc.email or acc.account_id, e)
 
         if refreshed_count > 0:
-            self.save_accounts()
+            if not any(getattr(a, "on_token_refreshed", None) for a in self.accounts.values()):
+                self.save_accounts()
             logger.info("Proactively refreshed %d expiring OAuth token(s)", refreshed_count)
         return refreshed_count
 

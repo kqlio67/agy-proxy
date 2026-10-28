@@ -21,6 +21,11 @@ import math
 import urllib.parse
 import httpx
 from fastapi import FastAPI, HTTPException, Request, status, WebSocket, WebSocketDisconnect
+try:
+    from uvicorn.protocols.utils import ClientDisconnected
+except ImportError:
+    class ClientDisconnected(Exception):  # type: ignore
+        pass
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.types import ASGIApp, Scope, Receive, Send
 from pathlib import Path
@@ -2768,8 +2773,30 @@ def create_app(
                             session_key=detected_session_key,
                         ):
                             await websocket.send_text(json.dumps(event, ensure_ascii=False))
+                    except (WebSocketDisconnect, ClientDisconnected, ConnectionResetError, BrokenPipeError):
+                        logger.debug("Responses WebSocket client disconnected during stream")
+                        break
+                    except RuntimeError as rerr:
+                        if "WebSocket is not connected" in str(rerr) or "Cannot call" in str(rerr):
+                            logger.debug("Responses WebSocket closed during stream: %s", rerr)
+                            break
+                        logger.error("Responses WebSocket stream error: %s", rerr, exc_info=logger.isEnabledFor(logging.DEBUG))
+                        err_event = {
+                            "type": "response.failed",
+                            "response": {
+                                "status": "failed",
+                                "error": {
+                                    "message": str(rerr) or "Internal server error during responses stream",
+                                    "type": "server_error",
+                                },
+                            },
+                        }
+                        try:
+                            await websocket.send_text(json.dumps(err_event, ensure_ascii=False))
+                        except Exception:
+                            break
                     except Exception as err:
-                        logger.error("Responses WebSocket stream error: %s", err, exc_info=True)
+                        logger.error("Responses WebSocket stream error: %s", err, exc_info=logger.isEnabledFor(logging.DEBUG))
                         err_event = {
                             "type": "response.failed",
                             "response": {
@@ -2783,9 +2810,14 @@ def create_app(
                         try:
                             await websocket.send_text(json.dumps(err_event, ensure_ascii=False))
                         except Exception:
-                            pass
-        except WebSocketDisconnect:
+                            break
+        except (WebSocketDisconnect, ClientDisconnected, ConnectionResetError, BrokenPipeError):
             pass
+        except RuntimeError as e:
+            if "WebSocket is not connected" in str(e) or "Cannot call" in str(e):
+                logger.debug("Responses WebSocket closed: %s", e)
+            else:
+                logger.warning("Responses WebSocket runtime error: %s", e, exc_info=logger.isEnabledFor(logging.DEBUG))
         except Exception as e:
             logger.debug("Responses WebSocket closed: %s", e)
 
@@ -3556,7 +3588,8 @@ def create_app(
                 else:
                     logger.info("[%s] %s (Antigravity CloudCode)", acc_label, req_model or "streamGenerateContent")
             else:
-                logger.debug("[%s] CloudCode passthrough: %s", acc_label, route_desc)
+                if not is_metadata:
+                    logger.debug("[%s] CloudCode passthrough: %s", acc_label, route_desc)
 
             # Ensure candidate uses its own project ID to avoid 404 permissions error across accounts
             candidate_body = copy.deepcopy(body) if isinstance(body, dict) else body
