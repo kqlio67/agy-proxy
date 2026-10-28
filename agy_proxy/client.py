@@ -1560,6 +1560,7 @@ class CloudCodeClient:
         req: AnthropicRequest,
         session_key: str | None = None,
         specific_account_id: str | None = None,
+        ping_interval: float = 10.0,
     ) -> AsyncGenerator[str, None]:
         """Streams Anthropic Claude Messages SSE events."""
         msg_id = f"msg_{uuid.uuid4().hex[:20]}"
@@ -1725,6 +1726,8 @@ class CloudCodeClient:
         total_cached_tokens = 0
         current_thought_sig: str | None = None
 
+        stream_gen = None
+        next_task: asyncio.Task[Any] | None = None
         try:
             stream_gen = self._post_sse_stream_with_failover(
                 "v1internal:streamGenerateContent?alt=sse",
@@ -1736,76 +1739,94 @@ class CloudCodeClient:
                 is_streaming=True,
             )
             stream_it = stream_gen.__aiter__()
-            while True:
-                try:
-                    data = await asyncio.wait_for(stream_it.__anext__(), timeout=10.0)
-                except asyncio.TimeoutError:
-                    yield 'event: ping\ndata: {"type": "ping"}\n\n'
-                    continue
-                except StopAsyncIteration:
-                    break
+            next_task = asyncio.create_task(stream_it.__anext__())
+            try:
+                while True:
+                    done, _ = await asyncio.wait([next_task], timeout=ping_interval)
+                    if not done:
+                        yield 'event: ping\ndata: {"type": "ping"}\n\n'
+                        continue
 
-                resp = data.get("response", data)
-                candidates = resp.get("candidates", [])
-                usage_meta = resp.get("usageMetadata", {})
+                    try:
+                        data = next_task.result()
+                    except StopAsyncIteration:
+                        break
 
-                if usage_meta:
-                    total_prompt_tokens = usage_meta.get("promptTokenCount", total_prompt_tokens)
-                    total_output_tokens = usage_meta.get("candidatesTokenCount", total_output_tokens)
-                    total_cached_tokens = usage_meta.get("cachedContentTokenCount", total_cached_tokens)
+                    next_task = asyncio.create_task(stream_it.__anext__())
 
-                for cand in candidates:
-                    text, thought, tool_calls, finish_reason, chunk_sig = parse_gemini_sse_candidate(cand)
-                    if chunk_sig:
-                        current_thought_sig = chunk_sig
+                    resp = data.get("response", data)
+                    candidates = resp.get("candidates", [])
+                    usage_meta = resp.get("usageMetadata", {})
 
-                    # Stream thinking if present
-                    if thought:
-                        if not has_started_thought_block:
-                            yield f"event: content_block_start\ndata: {json.dumps({'type': 'content_block_start', 'index': current_block_index, 'content_block': {'type': 'thinking', 'thinking': ''}})}\n\n"
-                            has_started_thought_block = True
-                        yield f"event: content_block_delta\ndata: {json.dumps({'type': 'content_block_delta', 'index': current_block_index, 'delta': {'type': 'thinking_delta', 'thinking': thought}})}\n\n"
+                    if usage_meta:
+                        total_prompt_tokens = usage_meta.get("promptTokenCount", total_prompt_tokens)
+                        total_output_tokens = usage_meta.get("candidatesTokenCount", total_output_tokens)
+                        total_cached_tokens = usage_meta.get("cachedContentTokenCount", total_cached_tokens)
 
-                    # If transitioning from thought to text/tool, close thought block
-                    if (text or tool_calls) and has_started_thought_block:
-                        sig = current_thought_sig or DEFAULT_THOUGHT_SIGNATURE
-                        yield f"event: content_block_delta\ndata: {json.dumps({'type': 'content_block_delta', 'index': current_block_index, 'delta': {'type': 'signature_delta', 'signature': sig}})}\n\n"
-                        yield f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': current_block_index})}\n\n"
-                        has_started_thought_block = False
-                        current_block_index += 1
+                    for cand in candidates:
+                        text, thought, tool_calls, finish_reason, chunk_sig = parse_gemini_sse_candidate(cand)
+                        if chunk_sig:
+                            current_thought_sig = chunk_sig
 
-                    # Stream text
-                    if text:
-                        if not has_started_text_block:
-                            yield f"event: content_block_start\ndata: {json.dumps({'type': 'content_block_start', 'index': current_block_index, 'content_block': {'type': 'text', 'text': ''}})}\n\n"
-                            has_started_text_block = True
-                        yield f"event: content_block_delta\ndata: {json.dumps({'type': 'content_block_delta', 'index': current_block_index, 'delta': {'type': 'text_delta', 'text': text}})}\n\n"
+                        # Stream thinking if present
+                        if thought:
+                            if not has_started_thought_block:
+                                yield f"event: content_block_start\ndata: {json.dumps({'type': 'content_block_start', 'index': current_block_index, 'content_block': {'type': 'thinking', 'thinking': ''}})}\n\n"
+                                has_started_thought_block = True
+                            yield f"event: content_block_delta\ndata: {json.dumps({'type': 'content_block_delta', 'index': current_block_index, 'delta': {'type': 'thinking_delta', 'thinking': thought}})}\n\n"
 
-                    # Stream tool use
-                    if tool_calls:
-                        # Close text block if active
-                        if has_started_text_block:
+                        # If transitioning from thought to text/tool, close thought block
+                        if (text or tool_calls) and has_started_thought_block:
+                            sig = current_thought_sig or DEFAULT_THOUGHT_SIGNATURE
+                            yield f"event: content_block_delta\ndata: {json.dumps({'type': 'content_block_delta', 'index': current_block_index, 'delta': {'type': 'signature_delta', 'signature': sig}})}\n\n"
                             yield f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': current_block_index})}\n\n"
-                            has_started_text_block = False
+                            has_started_thought_block = False
                             current_block_index += 1
 
-                        for tc in tool_calls:
-                            has_tool_calls = True
-                            tool_id = tc.get("id") or f"toolu_{uuid.uuid4().hex[:12]}"
-                            tool_name = tc.get("function", {}).get("name", "")
-                            raw_args = tc.get("function", {}).get("arguments", "{}")
+                        # Stream text
+                        if text:
+                            if not has_started_text_block:
+                                yield f"event: content_block_start\ndata: {json.dumps({'type': 'content_block_start', 'index': current_block_index, 'content_block': {'type': 'text', 'text': ''}})}\n\n"
+                                has_started_text_block = True
+                            yield f"event: content_block_delta\ndata: {json.dumps({'type': 'content_block_delta', 'index': current_block_index, 'delta': {'type': 'text_delta', 'text': text}})}\n\n"
 
-                            tool_idx = current_block_index
-                            current_block_index += 1
+                        # Stream tool use
+                        if tool_calls:
+                            # Close text block if active
+                            if has_started_text_block:
+                                yield f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': current_block_index})}\n\n"
+                                has_started_text_block = False
+                                current_block_index += 1
 
-                            # 1. content_block_start with empty input {}
-                            yield f"event: content_block_start\ndata: {json.dumps({'type': 'content_block_start', 'index': tool_idx, 'content_block': {'type': 'tool_use', 'id': tool_id, 'name': tool_name, 'input': {}}})}\n\n"
+                            for tc in tool_calls:
+                                has_tool_calls = True
+                                tool_id = tc.get("id") or f"toolu_{uuid.uuid4().hex[:12]}"
+                                tool_name = tc.get("function", {}).get("name", "")
+                                raw_args = tc.get("function", {}).get("arguments", "{}")
 
-                            # 2. content_block_delta with input_json_delta
-                            yield f"event: content_block_delta\ndata: {json.dumps({'type': 'content_block_delta', 'index': tool_idx, 'delta': {'type': 'input_json_delta', 'partial_json': raw_args}})}\n\n"
+                                tool_idx = current_block_index
+                                current_block_index += 1
 
-                            # 3. content_block_stop
-                            yield f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': tool_idx})}\n\n"
+                                # 1. content_block_start with empty input {}
+                                yield f"event: content_block_start\ndata: {json.dumps({'type': 'content_block_start', 'index': tool_idx, 'content_block': {'type': 'tool_use', 'id': tool_id, 'name': tool_name, 'input': {}}})}\n\n"
+
+                                # 2. content_block_delta with input_json_delta
+                                yield f"event: content_block_delta\ndata: {json.dumps({'type': 'content_block_delta', 'index': tool_idx, 'delta': {'type': 'input_json_delta', 'partial_json': raw_args}})}\n\n"
+
+                                # 3. content_block_stop
+                                yield f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': tool_idx})}\n\n"
+            finally:
+                if next_task and not next_task.done():
+                    next_task.cancel()
+                    try:
+                        await next_task
+                    except (asyncio.CancelledError, StopAsyncIteration, Exception):
+                        pass
+                if stream_gen:
+                    try:
+                        await stream_gen.aclose()
+                    except Exception:
+                        pass
 
             # Final cleanup for open blocks
             if has_started_thought_block:
