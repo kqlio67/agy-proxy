@@ -1899,11 +1899,13 @@ def main():
     # Create FastAPI app
     app = create_app(account_pool=pool, api_key=args.api_key)
 
-    # Check for updates in quick background task
+    # Check for updates (check cache first, fallback to fast non-blocking timeout)
     update_info = None
     try:
-        from agy_proxy.updater import check_for_updates
-        update_info = asyncio.run(check_for_updates())
+        from agy_proxy.updater import get_cached_update_info, check_for_updates
+        update_info = get_cached_update_info()
+        if update_info is None:
+            update_info = asyncio.run(check_for_updates(timeout=0.6))
     except Exception:
         pass
 

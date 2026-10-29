@@ -2254,6 +2254,22 @@ class TestServerRoutes(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data["error"]["type"], "invalid_request_error")
         self.assertIn("safeguards", data["error"]["message"])
 
+    async def test_fast_non_blocking_lifespan(self):
+        """Tests that server lifespan starts up without waiting for network calls."""
+        from agy_proxy.server import create_app
+        import time
+
+        mock_pool = MagicMock()
+        mock_pool.accounts = {}
+        mock_pool.load_accounts = MagicMock()
+        mock_pool.initialize_all = AsyncMock(side_effect=lambda: asyncio.sleep(5.0))
+
+        app = create_app(account_pool=mock_pool)
+        t0 = time.time()
+        async with app.router.lifespan_context(app):
+            elapsed = time.time() - t0
+            self.assertLess(elapsed, 1.0)
+            self.assertTrue(mock_pool.load_accounts.called)
 
 
 if __name__ == "__main__":

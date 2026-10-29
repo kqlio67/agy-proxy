@@ -1270,6 +1270,14 @@ CURATED_SAFE_FLAGS: dict[str, dict[str, Any]] = {
 
 # Optimized non-bool flag overrides
 NON_BOOL_OPTIMIZATIONS: dict[str, dict[str, Any]] = {
+    "deepagent-arm": {
+        "stringValue": "treatment",
+        "desc": "Activates deepagent multi-agent treatment cohort for autonomous subagents",
+    },
+    "deepagent_effort": {
+        "intValue": "3",
+        "desc": "Sets default deepagent reasoning effort to maximum depth",
+    },
     "default_subagent_interaction_timeout_seconds": {
         "intValue": "180",
         "desc": "Subagent interaction timeout extended from 60s to 180s to prevent premature agent failure on long runs",

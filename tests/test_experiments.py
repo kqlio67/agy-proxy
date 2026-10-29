@@ -609,3 +609,19 @@ def test_v2_25_0_model_enhancements():
     assert enhanced["models"]["gemini-3.1-flash-image"]["maxOutputTokens"] == 65536
 
 
+def test_deepagent_cohort_and_effort_injected():
+    """Verify deepagent-arm treatment and deepagent_effort are injected in enhance_list_experiments."""
+    input_data = {
+        "flags": [
+            {"name": "deepagent-arm", "stringValue": ""},
+            {"name": "enable-deepagent", "boolValue": False},
+        ]
+    }
+    enhanced = enhance_list_experiments(input_data)
+    flags_map = {f["name"]: f for f in enhanced["flags"]}
+    assert flags_map["enable-deepagent"]["boolValue"] is True
+    assert flags_map["deepagent-arm"]["stringValue"] == "treatment"
+    assert flags_map["deepagent_effort"]["intValue"] == "3"
+
+
+

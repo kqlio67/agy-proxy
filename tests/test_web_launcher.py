@@ -733,3 +733,21 @@ def test_patch_web_bundle_plugin_scheme(tmp_path):
     assert "/plugin/" in patched_html
 
 
+def test_patch_web_bundle_deepagent_flags(tmp_path):
+    from agy_proxy.web_launcher import patch_web_bundle
+
+    bundle = tmp_path / "web_bundle"
+    bundle.mkdir()
+    (bundle / "main.js").write_text("console.log('test');", encoding="utf-8")
+    (bundle / "index.html").write_text("<html><head><title>Web Hub</title></head><body></body></html>", encoding="utf-8")
+
+    success = patch_web_bundle(bundle)
+    assert success is True
+
+    patched_html = (bundle / "index.html").read_text(encoding="utf-8")
+    assert '"enable-deepagent": true' in patched_html
+    assert '"enable-subagent-hub": true' in patched_html
+    assert '"enable-swarm": true' in patched_html
+
+
+

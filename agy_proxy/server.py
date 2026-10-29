@@ -515,13 +515,22 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        # Startup: Ensure accounts are loaded and initialized
+        # Startup: Ensure accounts are loaded locally from disk without network blocking
+        bg_init_task = None
         try:
             if not pool.accounts:
                 pool.load_accounts()
-            await pool.initialize_all()
-            models_dict = await pool.get_pool_models() if pool.accounts else {}
+            # Fast local models discovery from loaded account state / catalog
+            models_dict = {}
+            for acc in pool.accounts.values():
+                if getattr(acc, "available_models", None):
+                    models_dict.update(acc.available_models)
+            if not models_dict:
+                from agy_proxy.models import PROXY_CATALOG_MODELS
+                models_dict = dict(PROXY_CATALOG_MODELS)
             logger.info("Antigravity Proxy ready: %d account(s) active, %d model(s) available in catalog", len(pool.accounts), len(models_dict))
+            # Run network-heavy account & project initialization asynchronously in the background
+            bg_init_task = asyncio.create_task(pool.initialize_all())
         except Exception as e:
             logger.warning("Startup initialization warning: %s", e)
 
@@ -552,6 +561,12 @@ def create_app(
             pool.save_accounts()
         except Exception:
             pass
+        if bg_init_task and not bg_init_task.done():
+            bg_init_task.cancel()
+            try:
+                await bg_init_task
+            except asyncio.CancelledError:
+                pass
         if bg_refresh_task:
             bg_refresh_task.cancel()
             try:
@@ -3540,6 +3555,8 @@ def create_app(
         if is_generation:
             is_deep = is_deepagent_model(req_model) or any("deepagent" in str(x).lower() for x in (req_model, body))
             timeout_sec = 600.0 if is_deep else 300.0
+        elif is_metadata:
+            timeout_sec = 2.5
         else:
             timeout_sec = 8.0
         from agy_proxy.auth import CLOUDCODE_BASE_URL
@@ -4575,9 +4592,9 @@ def create_app(
                     except Exception:
                         pass
 
-                # If non-generation metadata call hit network failure, serve cached metadata immediately
-                if not is_generation and is_metadata and is_net_error:
-                    logger.debug("[%s] Network unreachable for %s. Serving cached metadata immediately.", acc_label, route_desc)
+                # If non-generation metadata call hit network failure or last candidate failed, serve cached metadata immediately
+                if not is_generation and is_metadata and (is_net_error or is_last):
+                    logger.debug("[%s] Upstream unavailable for %s. Serving cached metadata immediately.", acc_label, route_desc)
                     cached_data = _get_cached_or_default_passthrough(action_key)
                     cached_data = _process_passthrough_metadata(action_key, cached_data)
                     return JSONResponse(status_code=200, content=cached_data)

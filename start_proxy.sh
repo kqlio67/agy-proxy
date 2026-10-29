@@ -106,12 +106,11 @@ export ANTIGRAVITY_VSCODE_HOST=1
 get_ls_pids() {
     pgrep -f "language_server" 2>/dev/null | while read -r pid; do
         [ "$pid" = "$$" ] && continue
-        local comm=""
         comm=$(ps -o comm= -p "$pid" 2>/dev/null || true)
         if [[ "$comm" == "bash" || "$comm" == "sh" ]]; then
             continue
         fi
-        local cmd=""
+        cmd=""
         if [ -f "/proc/$pid/cmdline" ]; then
             cmd=$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null || true)
         else
@@ -132,9 +131,9 @@ get_ls_pids() {
 
 # Check if a language_server process is in direct mode or points to another port
 is_direct_or_old_ls() {
-    local pid="$1"
-    local port="$2"
-    local cmd=""
+    pid="$1"
+    port="$2"
+    cmd=""
     if [ -f "/proc/$pid/cmdline" ]; then
         cmd=$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null || true)
     else
@@ -206,8 +205,25 @@ elif [ "${START_WEB:-0}" -eq 1 ]; then
     WATCHER_PID=$!
 fi
 
+# Standard launch: when no background watchers are running, execute python directly via exec
+# This replaces bash with Python, eliminating subshell signal issues, avoiding pop_var_context errors on Ctrl+C,
+# and ensuring instantaneous startup.
+if [ -z "${WATCHER_PID:-}" ]; then
+    if command -v uv >/dev/null 2>&1; then
+        exec uv run python main.py "$@"
+    elif command -v python3 >/dev/null 2>&1; then
+        exec python3 main.py "$@"
+    elif command -v python >/dev/null 2>&1; then
+        exec python main.py "$@"
+    else
+        echo "❌ Error: Neither 'uv' nor 'python3' was found in your PATH."
+        echo "Please install Python 3.10+ to run Antigravity Proxy."
+        exit 1
+    fi
+fi
+
 CLEANED_UP=0
-# Graceful stop: stop proxy background jobs cleanly without terminating external language_server instances
+# Graceful stop for watcher mode: stop background jobs cleanly
 cleanup_on_stop() {
     if [ "$CLEANED_UP" -eq 1 ]; then
         return
@@ -227,7 +243,7 @@ cleanup_on_stop() {
 }
 trap cleanup_on_stop EXIT INT TERM
 
-# Run python server with trap handling
+# Run python server with trap handling when background watcher is active
 if command -v uv >/dev/null 2>&1; then
     uv run python main.py "$@" &
     PY_PID=$!

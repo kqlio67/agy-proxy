@@ -1349,6 +1349,19 @@ var __enhanceUserStatus=function(b){if(!b||!b.cascadeModelConfigData||b._agyEnha
         }
         var curFlags = JSON.parse(localStorage.getItem("jetski.developer.customFlagOverrides") || "{}");
         var flagsToSet = {
+          "enable-deepagent": true,
+          "enable-subagent-hub": true,
+          "enable-subagent-user-messaging": true,
+          "enable-teamwork-subagents": true,
+          "enable-swarm": true,
+          "enable-native-swarm": true,
+          "enable-swarm-monitor": true,
+          "enable-swarm-narrator": true,
+          "enable-browser-subagent-auto-invoke": true,
+          "enable-browser-subagent-tab": true,
+          "enable-plugin-card-auto-resume": true,
+          "enable-developer-action-deepagent": true,
+          "enable-deepagent-v2": true,
           "enable-jetbox-terminal-v2": true,
           "enable-hub-builtin-browser": true,
           "enable-file-explorer-tab": true,

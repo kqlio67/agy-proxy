@@ -28,7 +28,16 @@ def parse_simple_version(v_str: str):
     return tuple(map(int, parts)) if parts else (0,)
 
 
-async def check_for_updates(force: bool = False) -> dict[str, Any]:
+def get_cached_update_info() -> dict[str, Any] | None:
+    """Returns cached update info if fresh (within 1 hour), else None."""
+    global _cached_update_info, _last_check_timestamp
+    now = time.time()
+    if _cached_update_info is not None and (now - _last_check_timestamp < CHECK_INTERVAL_SECONDS):
+        return _cached_update_info
+    return None
+
+
+async def check_for_updates(force: bool = False, timeout: float = 1.5) -> dict[str, Any]:
     """
     Checks GitHub Releases for a newer version.
     Caches results for 1 hour to prevent GitHub rate limiting.
@@ -58,14 +67,14 @@ async def check_for_updates(force: bool = False) -> dict[str, Any]:
             ["git", "rev-parse", "--is-inside-work-tree"],
             capture_output=True,
             text=True,
-            timeout=1.5,
+            timeout=0.8,
         )
         result["is_git_repo"] = git_check.returncode == 0
     except Exception:
         result["is_git_repo"] = False
 
     try:
-        async with httpx.AsyncClient(timeout=3.5, follow_redirects=True) as client:
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
             headers = {
                 "User-Agent": f"agy-proxy/{CURRENT_VERSION}",
                 "Accept": "application/vnd.github.v3+json",
