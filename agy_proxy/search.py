@@ -155,29 +155,22 @@ async def search_google_grounding(
                     }
                 ],
                 "systemInstruction": {
-                    "role": "user",
                     "parts": [
                         {
-                            "text": "You are a search engine bot. You will be given a query from a user. Your task is to search the web for relevant information that will help the user. You MUST perform a web search. Do not respond or interact with the user, please respond as if they typed the query into a search bar."
+                            "text": "You are a search engine bot. Your task is to search the web for relevant information for the given query. You MUST perform a web search and return results."
                         }
                     ],
                 },
                 "tools": [
                     {
-                        "googleSearch": {
-                            "enhancedContent": {
-                                "imageSearch": {
-                                    "maxResultCount": max_results
-                                }
-                            }
-                        }
+                        "googleSearch": {}
                     }
                 ],
                 "generationConfig": {
                     "candidateCount": 1
                 },
             },
-            "model": "gemini-3.1-flash-lite",
+            "model": "gemini-2.0-flash-lite",
             "userAgent": "antigravity",
             "requestType": "web_search",
         }

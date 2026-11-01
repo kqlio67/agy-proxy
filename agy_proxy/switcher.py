@@ -460,6 +460,19 @@ def format_agy_quota_display(account: AccountSession) -> str:
             format_progress_bar(c_5h),
             claude_q.get("5h", {}).get("description") or "Quota available",
         ])
+        argon_q = q_det.get("argon", {})
+        if argon_q.get("has_dedicated_bucket"):
+            a_wk = _get_fraction(argon_q.get("weekly", argon_q))
+            lines.extend([
+                "",
+                "",
+                "GEMINI 4 ARGON",
+                "Models within this group: Gemini 4 Argon",
+                "",
+                "Weekly Limit Remaining",
+                format_progress_bar(a_wk),
+                argon_q.get("weekly", {}).get("description") or argon_q.get("description") or "Quota available",
+            ])
         return "\n".join(lines)
 
     for i, group in enumerate(groups):

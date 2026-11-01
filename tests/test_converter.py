@@ -1112,6 +1112,23 @@ class TestModularConvertersPackage(unittest.TestCase):
         self.assertEqual(labels_opus.get("model_enum"), "MODEL_PLACEHOLDER_M26")
         self.assertEqual(labels_opus.get("used_claude"), "true")
 
+    def test_openai_to_cloudcode_payload_with_anthropic_message(self):
+        from agy_proxy.models import AnthropicMessage, OpenAIChatRequest
+        req = OpenAIChatRequest(
+            model="gemini-3.8-flash-high",
+            messages=[
+                AnthropicMessage(role="user", content="Hello from anthropic message object"),
+                {"role": "assistant", "content": "Hello!"},
+            ],
+        )
+        # Must not raise AttributeError: 'AnthropicMessage' object has no attribute 'name'
+        payload = openai_to_cloudcode_payload(req, project_id="p-123")
+        self.assertIsNotNone(payload)
+        contents = payload["request"]["contents"]
+        self.assertEqual(len(contents), 2)
+        self.assertEqual(contents[0]["role"], "user")
+        self.assertEqual(contents[0]["parts"][0]["text"], "Hello from anthropic message object")
+
 
 if __name__ == "__main__":
     unittest.main()

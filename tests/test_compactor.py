@@ -340,5 +340,34 @@ class TestSmartToolPruning(unittest.TestCase):
                 os.environ["CASCADE_USE_EXPERIMENT_CHECKPOINTER"] = orig_env
 
 
+class TestCompactConversationHistory(unittest.IsolatedAsyncioTestCase):
+    async def test_compact_openai_messages_preserves_openai_type(self):
+        from unittest.mock import patch
+        from agy_proxy.compactor import compact_conversation_history
+        from agy_proxy.models import OpenAIMessage, AnthropicMessage
+
+        # Test case where recent messages start with an assistant message (first_role != 'user')
+        # so it hits the summary_msg insertion branch
+        messages = [
+            OpenAIMessage(role="user", content="Turn 1: " + "word " * 100),
+            OpenAIMessage(role="assistant", content="Turn 2: " + "word " * 100),
+            OpenAIMessage(role="user", content="Turn 3: " + "word " * 100),
+            OpenAIMessage(role="assistant", content="Turn 4: " + "word " * 100),
+            OpenAIMessage(role="user", content="Turn 5: " + "word " * 100),
+        ]
+
+        with patch("agy_proxy.compactor._call_summarizer_llm", return_value="Summary of older messages"):
+            compacted, before, after = await compact_conversation_history(
+                account_pool=None,
+                messages=messages,
+                keep_last_n=2,
+            )
+            self.assertGreater(len(compacted), 0)
+            for m in compacted:
+                self.assertNotIsInstance(m, AnthropicMessage)
+                self.assertIsInstance(m, OpenAIMessage)
+                self.assertTrue(hasattr(m, "name"))
+
+
 if __name__ == "__main__":
     unittest.main()

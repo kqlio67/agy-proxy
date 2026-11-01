@@ -415,8 +415,11 @@ def calculate_cooldown_duration(
     if account and hasattr(account, "get_quota_details"):
         try:
             qd = account.get_quota_details()
-            from agy_proxy.models import is_3p_model
-            key = "3p" if (model and is_3p_model(model)) else "gemini"
+            from agy_proxy.models import is_3p_model, is_argon_model
+            if model and (model == "argon" or is_argon_model(model)) and qd.get("argon", {}).get("has_dedicated_bucket"):
+                key = "argon"
+            else:
+                key = "3p" if (model and is_3p_model(model)) else "gemini"
             group_q = qd.get(key, {})
             is_exhausted = (
                 group_q.get("percent", 100.0) <= 0.0

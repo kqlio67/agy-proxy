@@ -700,6 +700,116 @@ class TestCloudCodeClient(unittest.IsolatedAsyncioTestCase):
             self.assertIn("message_stop", event_types)
             self.assertNotIn("Done.", event_types)
 
+    async def test_argon_oauth_cloudcode_streaming_and_quota_isolation(self):
+        """Verifies that an OAuth account with Gemini 4 Argon quota (gemini-argon-wtu-weekly)
+        and 0% Gemini 3.8 / 3P quota can stream Argon via CloudCode cleanly with isolated rate-limiting."""
+        argon_acc = AntigravityOAuthSession(
+            account_id="acc_argon_pro",
+            email="argon@example.com",
+            refresh_token="ref_argon",
+            access_token="tok_argon",
+            enabled=True,
+        )
+        argon_acc.available_models = {
+            "gemini-4-argon-high": {"model": "MODEL_PLACEHOLDER_M417", "disabled": False},
+            "gemini-4-argon-medium": {"model": "MODEL_PLACEHOLDER_M418", "disabled": False},
+            "gemini-4-argon-low": {"model": "MODEL_PLACEHOLDER_M419", "disabled": False},
+            "gemini-3.8-flash-high": {"model": "MODEL_PLACEHOLDER_M318", "disabled": False},
+        }
+        argon_acc.quota_summary = {
+            "groups": [
+                {
+                    "displayName": "Gemini Models",
+                    "buckets": [
+                        {"bucketId": "gemini-weekly", "window": "weekly", "remainingFraction": 0},
+                        {"bucketId": "gemini-5h", "window": "5h", "remainingFraction": 0},
+                    ],
+                },
+                {
+                    "displayName": "Claude and GPT models",
+                    "buckets": [
+                        {"bucketId": "3p-weekly", "window": "weekly", "remainingFraction": 0},
+                        {"bucketId": "3p-5h", "window": "5h", "remainingFraction": 0},
+                    ],
+                },
+                {
+                    "displayName": "Gemini 4 Argon",
+                    "buckets": [
+                        {
+                            "bucketId": "gemini-argon-wtu-weekly",
+                            "window": "weekly",
+                            "remainingFraction": 0.996875,
+                            "resetTime": "2026-11-07T09:14:15Z",
+                        }
+                    ],
+                },
+            ]
+        }
+
+        # 1. Quota isolation: Gemini 3.8 & Claude are exhausted, Argon & overall account are NOT!
+        qd = argon_acc.get_quota_details()
+        self.assertTrue(qd["argon"]["has_dedicated_bucket"])
+        self.assertEqual(qd["gemini"]["weekly"]["percent"], 0.0)
+        self.assertAlmostEqual(qd["argon"]["weekly"]["percent"], 99.69, places=1)
+        self.assertTrue(argon_acc.is_quota_exhausted("gemini-3.8-flash-high"))
+        self.assertTrue(argon_acc.is_quota_exhausted("claude-sonnet-4-6"))
+        self.assertFalse(argon_acc.is_quota_exhausted("gemini-4-argon-medium"))
+        self.assertFalse(argon_acc.is_quota_exhausted("gemini-4-argon"))
+        self.assertFalse(argon_acc.is_quota_exhausted(None))
+        self.assertTrue(argon_acc.is_model_supported("gemini-4-argon"))
+        self.assertTrue(argon_acc.is_model_supported("gemini-4-argon-medium"))
+
+        # 2. Rate-limit isolation: rate-limiting Gemini 3.8 does not block Argon, and vice versa
+        argon_acc.mark_rate_limited("gemini-3.8-flash-high", duration=60.0)
+        self.assertTrue(argon_acc.is_rate_limited("gemini-3.8-flash-high"))
+        self.assertFalse(argon_acc.is_rate_limited("gemini-4-argon-medium"))
+
+        # 3. CloudCodeClient streams bare 'gemini-4-argon' mapped to 'gemini-4-argon-high' on CloudCode OAuth
+        pool = AccountPool()
+        pool.accounts = {argon_acc.account_id: argon_acc}
+        client = CloudCodeClient(pool)
+
+        sent_payloads = []
+
+        async def fake_argon_lines():
+            yield 'data: {"response": {"candidates": [{"content": {"parts": [{"thought": true, "text": "Thinking..."}, {"text": "Hello from Gemini 4 Argon!"}]}}], "modelVersion": "gemini-4-argon"}}'
+
+        mock_200_resp = MagicMock()
+        mock_200_resp.status_code = 200
+        mock_200_resp.request = httpx.Request("POST", "https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent")
+        mock_200_resp.aiter_lines = fake_argon_lines
+
+        mock_200_ctx = MagicMock()
+        mock_200_ctx.__aenter__ = AsyncMock(return_value=mock_200_resp)
+        mock_200_ctx.__aexit__ = AsyncMock(return_value=None)
+
+        def stream_side_effect(method, url, json=None, **kwargs):
+            sent_payloads.append(dict(json or {}))
+            return mock_200_ctx
+
+        mock_http_client = MagicMock(stream=MagicMock(side_effect=stream_side_effect))
+
+        with patch.object(argon_acc, "initialize_project", AsyncMock(return_value="argon-proj")), \
+             patch.object(argon_acc, "get_auth_headers", AsyncMock(return_value={"Authorization": "Bearer argon"})), \
+             patch.object(argon_acc, "get_http_client", AsyncMock(return_value=mock_http_client)):
+
+            chunks = []
+            gen = client._post_sse_stream_with_failover(
+                endpoint="v1internal:streamGenerateContent?alt=sse",
+                payload_builder_fn=lambda proj: {
+                    "project": proj,
+                    "model": "gemini-4-argon",
+                    "request": {"contents": [{"role": "user", "parts": [{"text": "Hi"}]}]},
+                },
+                model_name="gemini-4-argon",
+            )
+            async for ch in gen:
+                chunks.append(ch)
+
+            self.assertEqual(len(chunks), 1)
+            self.assertEqual(len(sent_payloads), 1)
+            self.assertEqual(sent_payloads[0]["model"], "gemini-4-argon-high")
+
 
 if __name__ == "__main__":
     unittest.main()

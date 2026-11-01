@@ -56,6 +56,14 @@ When an account exhausts its rate limit or receives an upstream `429 Too Many Re
 
 ---
 
+## 🔒 Secure Credential Storage & Native Windows Support
+
+By default, OAuth tokens and sensitive pool credentials are encrypted and stored via the operating system's native credential store:
+- **Linux & macOS**: Stored securely via system `keyring` (Secret Service / KWallet / Keychain).
+- **Windows**: Stored via native **Windows Credential Manager** (`advapi32.dll` ctypes integration). Even in standalone frozen executable builds without the `keyring` package, credentials are read and persisted with zero external dependencies.
+
+---
+
 ## 🌐 Upstream Proxy Support (`proxy_url` & Environment Variables)
 
 For corporate networks, geo-restricted countries, or custom routing, `agy-proxy` supports per-account proxy tunneling as well as global environment variables:

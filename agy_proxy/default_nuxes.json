@@ -1,11 +1,11 @@
 {
   "cascadeNuxes": [
     {
-      "uid": 59,
+      "uid": 58,
       "location": "CASCADE_NUX_LOCATION_MANAGER_BOTTOM_LEFT",
       "priority": 105,
       "title": "Gemini 4 Argon",
-      "body": "Gemini 4 Argon is now available to paid Pro plan subscribers.",
+      "body": "Gemini 4 Argon is now available to paid Pro plan subscribers. As part of Pro, we've rolled out a separate weekly-only Argon quota on top of your existing Gemini quota for 3.8 Flash.",
       "imageUrl": "",
       "videoUrl": "",
       "filter": {
@@ -22,7 +22,7 @@
           "g1-pro-tier"
         ],
         "requiredExperimentFlags": [
-          "Nux__show_gemini_4_argon_pro_trial_nux"
+          "Nux__show_gemini_4_argon_pro_launch_nux"
         ],
         "expirationDate": "2026-10-31"
       },
@@ -49,28 +49,23 @@
       "session": "NUX_SESSION_FIRST_RUN"
     },
     {
-      "uid": 48,
+      "uid": 52,
       "location": "CASCADE_NUX_LOCATION_MANAGER_BOTTOM_LEFT",
       "priority": 100,
-      "title": "Changes to third-party model access",
-      "body": "Opus 5.5 and Sonnet 5.5 are available on paid Pro and Ultra plans. Third-party model access will no longer be available on your current plan starting on November 2, 2026.",
+      "title": "Search Across Conversations",
+      "body": "Search conversations with ![search](icon://search) in the top left.\n\nView archived in the sidebar (![filter](icon://filter_list) menu).",
       "imageUrl": "",
       "videoUrl": "",
       "filter": {
         "clients": [
           "NUX_CLIENT_ANTIGRAVITY"
         ],
-        "userTiers": [
-          "free-tier",
-          "g1-plus-tier",
-          "g1-pro-tier",
-          "g1-ultra-tier",
-          "g1-ultra-lite-tier"
-        ],
-        "requiredExperimentFlags": [
-          "Nux__show_claude_opus_4_6_deprecation_nux"
-        ],
-        "expirationDate": "2026-11-02"
+        "versionFilter": {
+          "minVersion": "2.28.0"
+        },
+        "subclients": [
+          "hub"
+        ]
       },
       "session": "NUX_SESSION_RETURNING"
     }

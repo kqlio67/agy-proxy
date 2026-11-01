@@ -13,7 +13,13 @@ import uuid
 
 import httpx
 
-from agy_proxy.models import DEFAULT_MODEL, normalize_model_name, is_claude_5_5_model, is_deepagent_model
+from agy_proxy.models import (
+    DEFAULT_MODEL,
+    is_argon_model,
+    is_claude_5_5_model,
+    is_deepagent_model,
+    normalize_model_name,
+)
 
 logger = logging.getLogger("agy_proxy.converters.common")
 
@@ -665,6 +671,19 @@ def _apply_thinking_config(
         if thinking_config.get("includeThoughts") is not False:
             if thinking_config.get("thinkingBudget") == -1:
                 thinking_config["thinkingBudget"] = 0
+            if "thinkingLevel" not in thinking_config:
+                if backend_model.endswith("-low") or "-low" in backend_model:
+                    thinking_config["thinkingLevel"] = "LOW"
+                elif backend_model.endswith("-medium") or "-medium" in backend_model or "-med" in backend_model:
+                    thinking_config["thinkingLevel"] = "MEDIUM"
+                else:
+                    thinking_config["thinkingLevel"] = "HIGH"
+        else:
+            thinking_config.pop("thinkingLevel", None)
+    elif is_argon_model(backend_model):
+        if thinking_config.get("includeThoughts") is not False and thinking_config.get("thinkingBudget") != 0:
+            if thinking_config.get("thinkingBudget") == -1:
+                thinking_config.pop("thinkingBudget", None)
             if "thinkingLevel" not in thinking_config:
                 if backend_model.endswith("-low") or "-low" in backend_model:
                     thinking_config["thinkingLevel"] = "LOW"

@@ -18,6 +18,8 @@ try:
 except ImportError:
     keyring = None
 
+from agy_proxy.auth import wincred
+
 import httpx
 
 from agy_proxy.auth.api_key import AIStudioApiKeySession
@@ -46,25 +48,45 @@ from agy_proxy.auth.token_utils import (
 )
 from agy_proxy.models import is_3p_model, is_claude_5_5_model, get_claude_fallback_model
 
+_CRED_SERVICE = "agy_proxy.credentials"
+
+
+def _cred_read(acc_id: str) -> str | None:
+    """Read a stored credential blob, preferring keyring then native CredMan."""
+    if keyring is not None:
+        try:
+            val = keyring.get_password(_CRED_SERVICE, acc_id)
+            if val:
+                return val
+        except Exception:
+            pass
+    return wincred.get_password(_CRED_SERVICE, acc_id)
+
+
+def _cred_write(acc_id: str, value: str) -> bool:
+    if keyring is not None:
+        try:
+            keyring.set_password(_CRED_SERVICE, acc_id, value)
+            return True
+        except Exception:
+            pass
+    return wincred.set_password(_CRED_SERVICE, acc_id, value)
+
+
 def _load_sensitive_data(acc_id: str, item: dict):
-    if keyring is None:
-        return
     try:
-        data_str = keyring.get_password("agy_proxy.credentials", acc_id)
+        data_str = _cred_read(acc_id)
         if data_str:
             sensitive = json.loads(data_str)
-            item.update(sensitive)
-    except Exception:
+            if isinstance(sensitive, dict):
+                item.update(sensitive)
+    except Exception as e:
         pass  # Silently fallback to JSON per user preference
 
 def _save_sensitive_data(acc_id: str, sensitive: dict, fallback_item: dict):
-    if keyring is not None:
-        try:
-            keyring.set_password("agy_proxy.credentials", acc_id, json.dumps(sensitive))
-            return
-        except Exception:
-            pass  # Silently fallback to JSON per user preference
-    # Fallback to plain text if keyring is unavailable or fails
+    if _cred_write(acc_id, json.dumps(sensitive)):
+        return
+    # Fallback to plain text if the credential store is unavailable
     fallback_item.update(sensitive)
 
 def _web_sessions_match(a: Any, b: Any) -> bool:
@@ -636,6 +658,7 @@ class AccountPool:
                         on_token_refreshed=self.save_accounts,
                         proxy_url=proxy_val,
                         auth_user=int(item.get("auth_user", 0) or 0),
+                        temporary_chats=bool(item.get("temporary_chats", True)),
                     )
                     _restore_stats(acc, item)
                     self.accounts[acc_id] = acc
@@ -1163,8 +1186,7 @@ class AccountPool:
             # Prefer OAuth account if it has Argon tier; otherwise automatically route Argon requests to Gemini Web
             oauth_argon = [
                 acc for acc in active_pool
-                if getattr(acc, "auth_method", "") != "gemini_web"
-                and (norm_model in getattr(acc, "available_models", {}) or "gemini-4-argon" in getattr(acc, "available_models", {}))
+                if getattr(acc, "auth_method", "") not in ("gemini_web", "api_key")
             ]
             if oauth_argon:
                 active_pool = oauth_argon
@@ -1756,6 +1778,7 @@ class AccountPool:
         proxy_url: str | None = None,
         auth_user: int = 0,
         force_new: bool = False,
+        temporary_chats: bool = True,
     ) -> "GeminiWebSession":
         """
         Adds a Gemini Web (gemini.google.com browser session) to the pool.
@@ -1813,6 +1836,7 @@ class AccountPool:
             cdp_port=cdp_port,
             proxy_url=proxy_url,
             auth_user=auth_user,
+            temporary_chats=temporary_chats,
         )
 
         if acc._cookies.get("__Secure-1PSID"):
@@ -2080,6 +2104,8 @@ class AccountPool:
                         enabled=bool(item.get("enabled", True)),
                         on_token_refreshed=self.save_accounts,
                         proxy_url=item.get("proxy_url"),
+                        auth_user=int(item.get("auth_user", 0) or 0),
+                        temporary_chats=bool(item.get("temporary_chats", True)),
                     )
                 else:  # consumer OAuth
                     rf = item.get("refresh_token", "")

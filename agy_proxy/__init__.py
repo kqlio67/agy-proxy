@@ -2,7 +2,7 @@
 Antigravity Proxy - A versatile proxy for Google Antigravity / Gemini Code Assist.
 """
 
-__version__ = "2.0.0"
+__version__ = "2.1.0"
 
 try:
     from agy_proxy.dns_fallback import install_dns_fallback

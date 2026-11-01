@@ -305,10 +305,10 @@ def test_enhance_list_experiments_input_immutability():
 
 
 def test_v2_26_0_updates():
-    """Verify v2.26.0 User-Agent, new experiment IDs, and experimental flags."""
+    """Verify v2.28.2 User-Agent, experiment IDs, and experimental flags."""
     from agy_proxy.auth.constants import USER_AGENT
-    assert "2.26.0" in USER_AGENT
-    assert "cl=1005016104" in USER_AGENT
+    assert "2.28.2" in USER_AGENT
+    assert "cl=1009437749" in USER_AGENT
 
     payload = get_default_experiments_payload()
     exp_ids = payload["experimentIds"]
@@ -538,6 +538,8 @@ def test_default_experiments_catalog_completeness():
     assert 106724031 in payload["experimentIds"]
     assert 106811917 in payload["experimentIds"]
     assert 106822475 in payload["experimentIds"]
+    assert 106908755 in payload["experimentIds"]
+    assert 106937777 in payload["experimentIds"]
 
     flags = payload["flags"]
     flag_names = {f["name"] for f in flags}
@@ -569,14 +571,15 @@ def test_default_experiments_catalog_completeness():
     with open(DEFAULT_EXPERIMENTS_FILE, "r", encoding="utf-8") as f:
         raw_data = json.load(f)
 
-    assert len(raw_data["flags"]) == 509
+    assert len(raw_data["flags"]) == 525
     raw_flag_names = {f["name"] for f in raw_data["flags"]}
     assert "ReturnAdminControls__enable_for_cli" not in raw_flag_names
     assert "enable-swarm" not in raw_flag_names
     assert 106712040 in raw_data["experimentIds"]
     assert 106724031 in raw_data["experimentIds"]
     assert 106811917 in raw_data["experimentIds"]
-    assert 106822475 in raw_data["experimentIds"]
+    assert 106822474 in raw_data["experimentIds"]
+    assert 106913264 in raw_data["experimentIds"]
     assert "enable-browser-subagent-auto-invoke" in raw_flag_names
     assert "enable-plugin-card-auto-resume" in raw_flag_names
     assert "enable-rpc-sandbox-proxy" in raw_flag_names
@@ -588,6 +591,11 @@ def test_default_experiments_catalog_completeness():
     assert "enable-prompt-cache-keep-alive" in raw_flag_names
     assert "show_memory_operations" in raw_flag_names
     assert "ambient_prefetch_enabled" in raw_flag_names
+    assert "enable-context-usage-indicator" in raw_flag_names
+    assert "cli-enable-btw-threads" in raw_flag_names
+    assert "enable-new-themes" in raw_flag_names
+    assert "enable-user-message-bubbles" in raw_flag_names
+    assert "enable-hub-builtin-browser" in raw_flag_names
 
 
 def test_v2_25_0_model_enhancements():
@@ -622,6 +630,104 @@ def test_deepagent_cohort_and_effort_injected():
     assert flags_map["enable-deepagent"]["boolValue"] is True
     assert flags_map["deepagent-arm"]["stringValue"] == "treatment"
     assert flags_map["deepagent_effort"]["intValue"] == "3"
+
+
+def test_v2_28_2_flags_fetch_config_and_nuxes():
+    """Verify v2.28.2 curated flags, blocklist, partner marketplace, fetchConfig endpoint, and Argon NUX."""
+    import json
+    from pathlib import Path
+    from agy_proxy.experiments import enhance_fetch_config
+
+    v228_safe = [
+        "enable-context-usage-indicator",
+        "cli-enable-btw-threads",
+        "cli-suggest-auto-mode-in-permission-prompt",
+        "enable-new-themes",
+        "enable-user-message-bubbles",
+        "enable-paste-text-as-snippet",
+        "enable-conversation-only-revert",
+        "enable-customization-load-error-notice",
+        "enable-hook-status",
+        "enable-hub-builtin-browser",
+        "enable-plugin-auth",
+        "enable-remote-agent-fastpush-pin",
+    ]
+    v228_blocked = [
+        "enforce-default-permission-preset",
+        "enable-scoped-csrf-tokens",
+        "use-aicode-jetski-endpoint",
+    ]
+
+    upstream = {
+        "experimentIds": [],
+        "flags": (
+            [{"name": n, "boolValue": False} for n in v228_safe]
+            + [{"name": n, "boolValue": True} for n in v228_blocked]
+            + [{"name": "jetski-hub-announcement-message", "stringValue": "Please update Jetski..."}]
+        ),
+    }
+    enhanced = enhance_list_experiments(
+        upstream,
+        config_override={"enabled": True, "mode": "curated", "custom_overrides": {}},
+    )
+    fmap = {f["name"]: f for f in enhanced["flags"]}
+    for n in v228_safe:
+        assert fmap[n]["boolValue"] is True, f"Expected {n} to be True"
+    for n in v228_blocked:
+        assert fmap[n]["boolValue"] is False, f"Expected {n} to be False"
+
+    assert fmap["jetski-hub-announcement-message"]["stringValue"] == ""
+    assert fmap["browser-subagent-model"]["stringValue"] == "gemini-3.8-flash-low"
+    assert fmap["continuous-pprof-cpu-interval-minutes"]["intValue"] == "90"
+    marketplaces = fmap["agy-plugin-marketplaces"]["stringListValue"]["values"]
+    assert any("antigravity-plugins-partners=" in m for m in marketplaces)
+
+    # Verify enhance_fetch_config & GET /v1alpha:fetchConfig
+    fc_out = enhance_fetch_config(
+        {
+            "experimentConfig": {
+                "enabledExperimentIds": [106838234],
+                "experimentFlags": [{"name": "enable-deepagent", "boolValue": False}],
+            },
+            "availableExperiences": [],
+            "agySurfaceConfig": {"agentExperiences": {"experienceNames": ["gemini-3.8-flash-high"]}},
+        },
+        config_override={"enabled": True, "mode": "curated", "custom_overrides": {}},
+    )
+    fc_flags = {f["name"]: f for f in fc_out["experimentConfig"]["experimentFlags"]}
+    assert fc_flags["enable-deepagent"]["boolValue"] is True
+    assert 106913264 in fc_out["experimentConfig"]["enabledExperimentIds"]
+    exp_enums = {
+        e["name"]: e["surfaceConfig"]["clientModelEnumName"]
+        for e in fc_out["availableExperiences"]
+    }
+    assert exp_enums["gemini-4-argon-high"] == "MODEL_PLACEHOLDER_M417"
+    assert exp_enums["gemini-4-argon-medium"] == "MODEL_PLACEHOLDER_M418"
+    assert exp_enums["gemini-4-argon-low"] == "MODEL_PLACEHOLDER_M419"
+    assert exp_enums["tab_flash_lite_preview"] == "MODEL_PLACEHOLDER_M19"
+    assert exp_enums["tab_jump_flash_lite_preview"] == "MODEL_PLACEHOLDER_M28"
+
+    agent_names = fc_out["agySurfaceConfig"]["agentExperiences"]["experienceNames"]
+    assert "gemini-4-argon-high" in agent_names
+    assert "tab_flash_lite_preview" in agent_names
+    assert "tab_jump_flash_lite_preview" in agent_names
+
+    pool = AccountPool()
+    app = create_app(account_pool=pool)
+    client = TestClient(app)
+    resp = client.get("/v1alpha:fetchConfig")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert "experimentConfig" in body
+    assert any(
+        e.get("name") == "gemini-4-argon-medium"
+        for e in body.get("availableExperiences", [])
+    )
+
+    nuxes_path = Path(__file__).resolve().parent.parent / "agy_proxy" / "default_nuxes.json"
+    nuxes_data = json.loads(nuxes_path.read_text(encoding="utf-8"))
+    uids = {n.get("uid") for n in nuxes_data.get("cascadeNuxes", [])}
+    assert 58 in uids
 
 
 

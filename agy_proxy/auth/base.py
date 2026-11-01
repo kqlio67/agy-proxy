@@ -10,7 +10,7 @@ from typing import Any
 import httpx
 
 from agy_proxy.auth.constants import logger
-from agy_proxy.models import is_3p_model, is_claude_5_5_model
+from agy_proxy.models import is_3p_model, is_argon_model, is_claude_5_5_model
 
 
 class BaseAccountSession:
@@ -145,9 +145,10 @@ class BaseAccountSession:
                 else:
                     del self.rate_limited_models["claude-5-5"]
 
-        # 3. Group-level keys and aliases
-        is_3p = is_3p_model(model)
-        aliases = ["3p", "claude"] if is_3p else ["gemini"]
+        # 3. Group-level keys and aliases (Argon has its own dedicated quota/rate-limit pool)
+        is_argon = (model == "argon") or is_argon_model(model)
+        is_3p = False if is_argon else is_3p_model(model)
+        aliases = ["argon"] if is_argon else (["3p", "claude"] if is_3p else ["gemini"])
         for alias in aliases:
             if alias in self.rate_limited_models:
                 if now < self.rate_limited_models[alias]:
@@ -162,6 +163,16 @@ class BaseAccountSession:
                 if is_c55 and now < v:
                     return True
                 continue
+            k_is_argon = (k == "argon") or is_argon_model(k)
+            if k_is_argon:
+                if is_argon:
+                    if now < v:
+                        return True
+                    else:
+                        del self.rate_limited_models[k]
+                continue
+            if is_argon:
+                continue
             k_is_3p = is_3p_model(k)
             if (is_3p and k_is_3p) or (not is_3p and not k_is_3p):
                 if now < v:
@@ -174,6 +185,8 @@ class BaseAccountSession:
         """Marks account rate-limited for a duration."""
         if is_claude_5_5_model(model):
             key = "claude-5-5"
+        elif model == "argon" or is_argon_model(model):
+            key = "argon"
         else:
             is_3p = is_3p_model(model)
             key = "3p" if is_3p else "gemini"
@@ -219,10 +232,20 @@ class BaseAccountSession:
 
     def is_quota_exhausted(self, model: str | None = None) -> bool:
         """Checks if account has completely exhausted its quota (remainingFraction <= 0.001 or percent <= 0)."""
+        def _is_group_exhausted(group_q: dict[str, Any]) -> bool:
+            if group_q.get("percent", 100.0) <= 0.0 or group_q.get("fraction", 1.0) <= 0.001:
+                return True
+            if "weekly" in group_q and (group_q["weekly"].get("percent", 100.0) <= 0.0 or group_q["weekly"].get("fraction", 1.0) <= 0.001):
+                return True
+            if "5h" in group_q and (group_q["5h"].get("percent", 100.0) <= 0.0 or group_q["5h"].get("fraction", 1.0) <= 0.001):
+                return True
+            return False
+
         qd = self.get_quota_details()
         if not model:
             gemini_q = qd.get("gemini", {})
             claude_q = qd.get("3p", {}) or qd.get("claude", {})
+            argon_q = qd.get("argon", {})
             
             gemini_pct = gemini_q.get("percent", 100.0)
             claude_pct = claude_q.get("percent", 100.0)
@@ -238,30 +261,21 @@ class BaseAccountSession:
                 except Exception:
                     pass
 
-            gemini_ex = (
-                gemini_pct <= 0.0
-                or gemini_q.get("fraction", 1.0) <= 0.001
-                or (gemini_q.get("weekly", {}).get("percent", 100.0) <= 0.0 if "weekly" in gemini_q else False)
-                or (gemini_q.get("5h", {}).get("percent", 100.0) <= 0.0 if "5h" in gemini_q else False)
-            )
-            claude_ex = (
-                claude_pct <= 0.0
-                or claude_q.get("fraction", 1.0) <= 0.001
-                or (claude_q.get("weekly", {}).get("percent", 100.0) <= 0.0 if "weekly" in claude_q else False)
-                or (claude_q.get("5h", {}).get("percent", 100.0) <= 0.0 if "5h" in claude_q else False)
-            )
+            gemini_ex = _is_group_exhausted(gemini_q)
+            claude_ex = _is_group_exhausted(claude_q)
+            if argon_q.get("has_dedicated_bucket"):
+                argon_ex = _is_group_exhausted(argon_q)
+                return gemini_ex and claude_ex and argon_ex
             return gemini_ex and claude_ex
 
-        is_3p = is_3p_model(model)
-        key = "3p" if is_3p else "gemini"
-        group_q = qd.get(key, {})
-        if group_q.get("percent", 100.0) <= 0.0 or group_q.get("fraction", 1.0) <= 0.001:
-            return True
-        if "weekly" in group_q and (group_q["weekly"].get("percent", 100.0) <= 0.0 or group_q["weekly"].get("fraction", 1.0) <= 0.001):
-            return True
-        if "5h" in group_q and (group_q["5h"].get("percent", 100.0) <= 0.0 or group_q["5h"].get("fraction", 1.0) <= 0.001):
-            return True
-        return False
+        if model == "argon" or is_argon_model(model):
+            argon_q = qd.get("argon", {})
+            group_q = argon_q if argon_q.get("has_dedicated_bucket") else qd.get("gemini", {})
+        else:
+            is_3p = is_3p_model(model)
+            key = "3p" if is_3p else "gemini"
+            group_q = qd.get(key, {})
+        return _is_group_exhausted(group_q)
 
     @property
     def tier_id(self) -> str:

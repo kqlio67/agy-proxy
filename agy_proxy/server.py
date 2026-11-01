@@ -67,6 +67,7 @@ from agy_proxy.experiments import (
     enhance_available_models,
     enhance_quota_summary,
     enhance_load_code_assist,
+    enhance_fetch_config,
     get_default_experiments_payload,
     get_experiments_status,
     save_experiment_config,
@@ -105,10 +106,13 @@ def _get_default_passthrough_response(action_key: str) -> dict[str, Any]:
                 or "argon" in m
             )
             thinking_budget = -1
-            thinking_level = 2
+            thinking_level = 3 if ("high" in m or m == "gemini-4-argon") else 2
             if "deepagent" in m:
                 thinking_budget = 64000
                 thinking_level = 3
+            elif "argon" in m:
+                thinking_budget = -1
+                thinking_level = 1 if "low" in m else (2 if ("medium" in m or "med" in m) else 3)
             elif "low" in m:
                 thinking_budget = 1000
                 thinking_level = 1
@@ -132,6 +136,12 @@ def _get_default_passthrough_response(action_key: str) -> dict[str, Any]:
                     }
                 },
             }
+            if "argon" in m:
+                m_entry["maxOutputTokens"] = 65536
+                m_entry["supportsImages"] = True
+                m_entry["supportsVideo"] = True
+                m_entry["recommended"] = True
+                m_entry["disabled"] = False
             if m in CLOUDCODE_PLACEHOLDER_MAP:
                 m_entry["model"] = CLOUDCODE_PLACEHOLDER_MAP[m]
             if supports_thinking:
@@ -141,13 +151,13 @@ def _get_default_passthrough_response(action_key: str) -> dict[str, Any]:
                 m_entry["thinkingLevel"] = thinking_level
             models_dict[m] = m_entry
         sorted_model_ids = [
-            "gemini-3.8-flash-high",
-            "gemini-3.8-flash-medium",
-            "gemini-3.8-flash-low",
             "gemini-4-argon-high",
             "gemini-4-argon-medium",
             "gemini-4-argon-low",
             "gemini-4-argon",
+            "gemini-3.8-flash-high",
+            "gemini-3.8-flash-medium",
+            "gemini-3.8-flash-low",
             "gemini-3.7-flash-high",
             "gemini-3.7-flash-medium",
             "gemini-3.7-flash-low",
@@ -162,7 +172,7 @@ def _get_default_passthrough_response(action_key: str) -> dict[str, Any]:
         ]
         return {
             "models": models_dict,
-            "defaultAgentModelId": "gemini-3.8-flash-high",
+            "defaultAgentModelId": "gemini-4-argon-medium",
             "agentModelSorts": [
                 {
                     "displayName": "Recommended",
@@ -235,6 +245,58 @@ def _get_default_passthrough_response(action_key: str) -> dict[str, Any]:
         }
     elif action_key == "listExperiments":
         return get_default_experiments_payload()
+    elif action_key == "fetchConfig":
+        exp_payload = get_default_experiments_payload()
+        return {
+            "experimentConfig": {
+                "enabledExperimentIds": exp_payload.get("experimentIds", []),
+                "experimentFlags": exp_payload.get("flags", []),
+            },
+            "availableExperiences": [],
+            "agySurfaceConfig": {
+                "imageGenerationExperiences": {
+                    "experienceNames": ["gemini-3.1-flash-image"],
+                    "defaultExperience": "gemini-3.1-flash-image",
+                },
+                "commitMessageExperiences": {
+                    "experienceNames": ["gemini-3.5-flash-lite"],
+                    "defaultExperience": "gemini-3.5-flash-lite",
+                },
+                "webSearchExperiences": {
+                    "experienceNames": ["gemini-3.5-flash-lite"],
+                    "defaultExperience": "gemini-3.5-flash-lite",
+                },
+                "agentExperiences": {
+                    "experienceNames": [
+                        "gemini-4-argon-high",
+                        "gemini-4-argon-medium",
+                        "gemini-4-argon-low",
+                        "gemini-3.8-flash-high",
+                        "gemini-3.8-flash-medium",
+                        "gemini-3.8-flash-low",
+                        "claude-opus-5-5-high",
+                        "claude-sonnet-5-5-high",
+                    ],
+                    "defaultExperience": "gemini-4-argon-medium",
+                },
+                "tieredFlashLiteExperiences": {
+                    "experienceNames": ["gemini-3.5-flash-lite"],
+                    "defaultExperience": "gemini-3.5-flash-lite",
+                },
+                "tieredFlashExperiences": {
+                    "experienceNames": ["gemini-3.8-flash-tiered"],
+                    "defaultExperience": "gemini-3.8-flash-tiered",
+                },
+                "tieredProExperiences": {
+                    "experienceNames": ["gemini-3.8-flash-tiered"],
+                    "defaultExperience": "gemini-3.8-flash-tiered",
+                },
+                "audioTranscriptionExperiences": {
+                    "experienceNames": ["models/proactive-observer-v10"],
+                    "defaultExperience": "models/proactive-observer-v10",
+                },
+            },
+        }
     elif action_key == "fetchUserInfo":
         return {
             "userSettings": {},
@@ -286,6 +348,19 @@ def _get_default_passthrough_response(action_key: str) -> dict[str, Any]:
                     ],
                     "displayName": "Claude and GPT models",
                     "description": "Models within this group: Claude Opus, Claude Sonnet, GPT-OSS",
+                },
+                {
+                    "buckets": [
+                        {
+                            "bucketId": "gemini-argon-wtu-weekly",
+                            "displayName": "Weekly Limit Remaining",
+                            "window": "weekly",
+                            "description": "You have full weekly limit remaining.",
+                            "remainingFraction": 1.0,
+                        },
+                    ],
+                    "displayName": "Gemini 4 Argon",
+                    "description": "Gemini 4 Argon uses an isolated weekly quota.",
                 },
             ],
             "description": "Within each group, models share a weekly limit and a 5-hour limit.",
@@ -344,6 +419,7 @@ def _init_passthrough_cache():
         "fetchAvailableModels",
         "loadCodeAssist",
         "listExperiments",
+        "fetchConfig",
         "retrieveUserQuotaSummary",
         "cascadeNuxes",
         "agentPlugins",
@@ -373,6 +449,8 @@ def _process_passthrough_metadata(action_key: str, data: dict[str, Any]) -> dict
         return data
     if action_key == "listExperiments":
         return enhance_list_experiments(data)
+    elif action_key == "fetchConfig":
+        return enhance_fetch_config(data)
     elif action_key == "fetchAvailableModels":
         return enhance_available_models(data)
     elif action_key == "retrieveUserQuotaSummary":
@@ -3046,6 +3124,9 @@ def create_app(
         )
         # Gather available proxy models for Claude Code
         available_models = [
+            "anthropic.gemini-4-argon-high",
+            "anthropic.gemini-4-argon-medium",
+            "anthropic.gemini-4-argon-low",
             "anthropic.gemini-3.8-flash-high",
             "anthropic.gemini-3.8-flash",
             "anthropic.gemini-4-argon-web-high",
@@ -3316,6 +3397,114 @@ def create_app(
             media_type="application/octet-stream",
             headers={"Access-Control-Allow-Origin": "*"},
         )
+
+    # -------------------------------------------------------------------------
+    # AI Code v1alpha Compatibility Endpoints (e.g., GET /v1alpha:fetchConfig)
+    # -------------------------------------------------------------------------
+
+    @app.api_route("/v1alpha:{action}", methods=["GET", "POST"], include_in_schema=False)
+    @app.api_route("/v1alpha/{action_path:path}", methods=["GET", "POST"], include_in_schema=False)
+    async def aicode_v1alpha_passthrough(
+        request: Request,
+        action: str | None = None,
+        action_path: str | None = None,
+    ):
+        """Passthrough & enhancement router for https://aicode.googleapis.com/v1alpha:* (v2.28.2+ fetchConfig)."""
+        action_key = (action or action_path or "").split("?")[0].strip(":/")
+        if action_key.startswith(":"):
+            action_key = action_key[1:]
+        is_fetch_config = action_key == "fetchConfig" or action_key.endswith(":fetchConfig")
+        meta_key = "fetchConfig" if is_fetch_config else action_key
+
+        target_account = None
+        req_acc_id = request.headers.get("x-requested-account-id") or request.headers.get("x-account-id")
+        if req_acc_id and req_acc_id in pool.accounts:
+            target_account = pool.accounts[req_acc_id]
+
+        auth_header = request.headers.get("authorization") or ""
+        bearer_token = auth_header[7:].strip() if auth_header.lower().startswith("bearer ") else None
+        if bearer_token and not target_account:
+            for candidate in pool.accounts.values():
+                if not getattr(candidate, "enabled", True):
+                    continue
+                if getattr(candidate, "access_token", None) == bearer_token or getattr(candidate, "refresh_token", None) == bearer_token:
+                    target_account = candidate
+                    break
+
+        def _is_oauth_candidate(acc_obj) -> bool:
+            return (
+                bool(acc_obj)
+                and getattr(acc_obj, "enabled", True)
+                and getattr(acc_obj, "auth_method", "") not in ("gemini_web", "aistudio", "api_key")
+                and not getattr(acc_obj, "is_aistudio", False)
+            )
+
+        candidates = []
+        if _is_oauth_candidate(target_account):
+            candidates = [target_account]
+        else:
+            primary_acc = pool.primary_account if hasattr(pool, "primary_account") else None
+            if _is_oauth_candidate(primary_acc):
+                candidates = [primary_acc]
+            else:
+                candidates = [a for a in pool.accounts.values() if _is_oauth_candidate(a)]
+
+        if not candidates:
+            if is_fetch_config:
+                cached_data = _get_cached_or_default_passthrough("fetchConfig")
+                cached_data = _process_passthrough_metadata("fetchConfig", cached_data)
+                return JSONResponse(status_code=200, content=cached_data)
+            return JSONResponse(status_code=200, content={})
+
+        aicode_base = "https://aicode.googleapis.com"
+        if action:
+            target_url = f"{aicode_base}/v1alpha:{action}"
+        elif action_path:
+            clean_ap = action_path.split("?")[0].strip("/")
+            if clean_ap == "fetchConfig" or clean_ap.endswith(":fetchConfig"):
+                target_url = f"{aicode_base}/v1alpha:fetchConfig"
+            else:
+                target_url = f"{aicode_base}/v1alpha/{action_path}"
+        else:
+            target_url = f"{aicode_base}/v1alpha"
+
+        query_params = dict(request.query_params)
+        timeout_sec = 2.5 if is_fetch_config else 8.0
+        body = None
+        if request.method == "POST":
+            try:
+                body = await request.json()
+            except Exception:
+                body = None
+
+        for acc in candidates:
+            try:
+                headers = await acc.get_auth_headers()
+                req_ua = request.headers.get("user-agent", "")
+                if req_ua and any(k in req_ua.lower() for k in ("antigravity", "cloudcode", "aidev_client")):
+                    headers["User-Agent"] = req_ua
+                c = await acc.get_http_client()
+                if request.method == "POST":
+                    resp = await c.post(target_url, headers=headers, json=body, params=query_params, timeout=timeout_sec)
+                else:
+                    resp = await c.get(target_url, headers=headers, params=query_params, timeout=timeout_sec)
+
+                if resp.status_code == 200:
+                    data = resp.json()
+                    if is_fetch_config and isinstance(data, dict) and data:
+                        _PASSTHROUGH_METADATA_CACHE["fetchConfig"] = copy.deepcopy(data)
+                        _save_passthrough_cache()
+                    processed_data = _process_passthrough_metadata(meta_key, copy.deepcopy(data))
+                    return JSONResponse(status_code=200, content=processed_data)
+            except Exception as err:
+                logger.debug("v1alpha passthrough error (%s): %s", target_url, err)
+                continue
+
+        if is_fetch_config:
+            cached_data = _get_cached_or_default_passthrough("fetchConfig")
+            cached_data = _process_passthrough_metadata("fetchConfig", cached_data)
+            return JSONResponse(status_code=200, content=cached_data)
+        return JSONResponse(status_code=200, content={})
 
     # -------------------------------------------------------------------------
     # Internal CloudCode Compatibility Endpoints
@@ -3905,6 +4094,7 @@ def create_app(
                     get_claude_fallback_model,
                     is_deepagent_model,
                     is_gemini_web_model,
+                    resolve_cloudcode_argon_model,
                 )
 
                 # 1. DeepAgent swarm presets: route through flagship backend with 64k thinking budget
@@ -3956,6 +4146,17 @@ def create_app(
                         if "request" in candidate_body and isinstance(candidate_body["request"], dict):
                             candidate_body["request"]["model"] = target_m
 
+                # 4. Map bare Gemini 4 Argon alias to explicit CloudCode Argon model ID (gemini-4-argon-high)
+                if is_argon_model(target_m):
+                    resolved_argon = resolve_cloudcode_argon_model(target_m)
+                    if resolved_argon != target_m:
+                        logger.info("[%s] Auto-mapping %s -> %s for CloudCode backend", acc_label, target_m, resolved_argon)
+                        target_m = resolved_argon
+                        if isinstance(candidate_body, dict):
+                            candidate_body["model"] = target_m
+                            if "request" in candidate_body and isinstance(candidate_body["request"], dict):
+                                candidate_body["request"]["model"] = target_m
+
 
                 # Ensure generation payload strictly adheres to CloudCode StreamGenerateContentRequest schema
                 if is_generation and isinstance(candidate_body, dict):
@@ -3987,6 +4188,18 @@ def create_app(
 
                     candidate_body["model"] = target_m
                     candidate_body["request"]["model"] = target_m
+
+                    if is_argon_model(target_m):
+                        gen_cfg = candidate_body["request"].setdefault("generationConfig", {})
+                        if isinstance(gen_cfg, dict):
+                            gen_cfg.setdefault("maxOutputTokens", 65536)
+                            tc = gen_cfg.setdefault("thinkingConfig", {})
+                            if isinstance(tc, dict):
+                                tc.setdefault("includeThoughts", True)
+                                argon_lvl = "LOW" if "low" in target_m.lower() else ("MEDIUM" if "med" in target_m.lower() else "HIGH")
+                                tc.setdefault("thinkingLevel", argon_lvl)
+                                if tc.get("thinkingBudget") == -1:
+                                    tc.pop("thinkingBudget", None)
 
                     gen_cfg = candidate_body["request"].get("generationConfig")
                     if isinstance(gen_cfg, dict):

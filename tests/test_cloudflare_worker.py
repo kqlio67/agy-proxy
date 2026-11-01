@@ -55,7 +55,7 @@ def test_worker_endpoints_and_deepagent():
       const hReq = new Request('https://edge.workers.dev/health');
       const hRes = await worker.fetch(hReq, {{}});
       const hData = await hRes.json();
-      if (hData.version !== '2.26.0') throw new Error('Expected 2.26.0 in health');
+      if (hData.version !== '2.28.2') throw new Error('Expected 2.28.2 in health, got ' + hData.version);
 
       // 2. Gateway listExperiments deepagent injection
       const origFetch = globalThis.fetch;

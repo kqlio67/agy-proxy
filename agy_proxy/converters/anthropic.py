@@ -427,7 +427,8 @@ def anthropic_to_cloudcode_payload(
         labels.setdefault("used_claude", "true")
         labels.setdefault("used_non_gemini_model", "true")
 
-    target_backend_model = backend_model
+    from agy_proxy.models import resolve_cloudcode_argon_model
+    target_backend_model = resolve_cloudcode_argon_model(backend_model)
     if backend_model == "gemini-3.8-flash-deepagent":
         target_backend_model = "gemini-3.8-flash-high"
     elif backend_model == "claude-opus-4-6-deepagent":

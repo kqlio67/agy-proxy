@@ -2,6 +2,8 @@
 Data models and schemas for OpenAI, Anthropic, and Gemini API requests and responses.
 """
 
+from __future__ import annotations
+
 import time
 from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
@@ -342,13 +344,13 @@ CLOUDCODE_PLACEHOLDER_MAP: dict[str, str] = {
     "gemini-3.8-flash-high": "MODEL_PLACEHOLDER_M318",
     "gemini-3.8-flash-medium": "MODEL_PLACEHOLDER_M319",
     "gemini-3.8-flash-low": "MODEL_PLACEHOLDER_M320",
-    "gemini-4-argon-high": "MODEL_PLACEHOLDER_M421",
-    "gemini-4-argon-medium": "MODEL_PLACEHOLDER_M422",
-    "gemini-4-argon-low": "MODEL_PLACEHOLDER_M423",
-    "gemini-4-argon": "MODEL_PLACEHOLDER_M421",
+    "gemini-4-argon": "MODEL_PLACEHOLDER_M417",
+    "gemini-4-argon-high": "MODEL_PLACEHOLDER_M417",
+    "gemini-4-argon-medium": "MODEL_PLACEHOLDER_M418",
+    "gemini-4-argon-low": "MODEL_PLACEHOLDER_M419",
     "gemini-4-argon-disabled": "MODEL_PLACEHOLDER_M421",
     "gpt-oss-120b-medium": "MODEL_PLACEHOLDER_M410",
-    # Official Authentic CloudCode Enums from Antigravity Hub v2.26.0 / cl=1005016104
+    # Official Authentic CloudCode Enums from Antigravity Hub v2.28.2 / cl=1009437749
     "claude-opus-5-5-low": "MODEL_PLACEHOLDER_M400",
     "claude-opus-5-5-medium": "MODEL_PLACEHOLDER_M401",
     "claude-opus-5-5-high": "MODEL_PLACEHOLDER_M402",
@@ -453,7 +455,18 @@ REVERSE_PLACEHOLDER_MAP.update({
     "1319": "gemini-3.8-flash-medium",
     "1320": "gemini-3.8-flash-low",
     "1322": "gemini-3.8-flash-tiered",
+    "1417": "gemini-4-argon-high",
+    "1418": "gemini-4-argon-medium",
+    "1419": "gemini-4-argon-low",
     "1421": "gemini-4-argon",
+    "1422": "gemini-4-argon-medium",
+    "1423": "gemini-4-argon-low",
+    "model_placeholder_m417": "gemini-4-argon-high",
+    "model_placeholder_m418": "gemini-4-argon-medium",
+    "model_placeholder_m419": "gemini-4-argon-low",
+    "model_placeholder_m421": "gemini-4-argon",
+    "model_placeholder_m422": "gemini-4-argon-medium",
+    "model_placeholder_m423": "gemini-4-argon-low",
     # Legacy synthetic mappings for backward compatibility
     "model_placeholder_m515": "claude-sonnet-5-5-high",
     "model_placeholder_m516": "claude-sonnet-5-5-medium",
@@ -515,10 +528,10 @@ REVERSE_PLACEHOLDER_MAP.update({
 
 EXACT_MODEL_METADATA: dict[str, dict[str, Any]] = {
     # Gemini 4 Argon (CloudCode API - requires Argon-supported subscription tier)
-    "gemini-4-argon": {"displayName": "Gemini 4 Argon", "maxTokens": 1048576},
-    "gemini-4-argon-high": {"displayName": "Gemini 4 Argon (High)", "maxTokens": 1048576},
-    "gemini-4-argon-medium": {"displayName": "Gemini 4 Argon (Medium)", "maxTokens": 1048576},
-    "gemini-4-argon-low": {"displayName": "Gemini 4 Argon (Low)", "maxTokens": 1048576},
+    "gemini-4-argon": {"displayName": "Gemini 4 Argon", "maxTokens": 1048576, "maxOutputTokens": 65536, "supportsImages": True, "supportsVideo": True, "supportsThinking": True, "thinkingBudget": -1, "thinkingLevel": 3},
+    "gemini-4-argon-high": {"displayName": "Gemini 4 Argon (High)", "maxTokens": 1048576, "maxOutputTokens": 65536, "supportsImages": True, "supportsVideo": True, "supportsThinking": True, "thinkingBudget": -1, "thinkingLevel": 3},
+    "gemini-4-argon-medium": {"displayName": "Gemini 4 Argon (Medium)", "maxTokens": 1048576, "maxOutputTokens": 65536, "supportsImages": True, "supportsVideo": True, "supportsThinking": True, "thinkingBudget": -1, "thinkingLevel": 2},
+    "gemini-4-argon-low": {"displayName": "Gemini 4 Argon (Low)", "maxTokens": 1048576, "maxOutputTokens": 65536, "supportsImages": True, "supportsVideo": True, "supportsThinking": True, "thinkingBudget": -1, "thinkingLevel": 1},
     # Gemini 3.8 Flagship
     "gemini-3.8-flash-high": {"displayName": "Gemini 3.8 Flash (High)", "maxTokens": 1048576},
     "gemini-3.8-flash-medium": {"displayName": "Gemini 3.8 Flash (Medium)", "maxTokens": 1048576},
@@ -1029,6 +1042,13 @@ def is_argon_model(model_name: str | None) -> bool:
     return "argon" in norm
 
 
+def resolve_cloudcode_argon_model(model_name: str) -> str:
+    """Maps bare 'gemini-4-argon' (or '-disabled') to 'gemini-4-argon-high' for upstream CloudCode requests."""
+    if model_name in ("gemini-4-argon", "gemini-4-argon-disabled"):
+        return "gemini-4-argon-high"
+    return model_name
+
+
 def is_gemini_web_model(model_name: str | None) -> bool:
     """Checks whether the requested model explicitly targets the Gemini Web browser backend."""
     if not model_name:
@@ -1089,7 +1109,7 @@ class OpenAIMessage(BaseModel):
 
 class OpenAIChatRequest(BaseModel):
     model: str = DEFAULT_MODEL
-    messages: list[OpenAIMessage | dict[str, Any]]
+    messages: list[OpenAIMessage | AnthropicMessage | dict[str, Any]]
     stream: bool | None = False
     temperature: float | None = None
     top_p: float | None = None
@@ -1153,11 +1173,15 @@ class AnthropicContentBlock(BaseModel):
 class AnthropicMessage(BaseModel):
     role: str
     content: str | list[AnthropicContentBlock | dict[str, Any]]
+    name: str | None = None
+    tool_calls: list[dict[str, Any]] | None = None
+    tool_call_id: str | None = None
+    model_config = ConfigDict(extra="allow")
 
 
 class AnthropicRequest(BaseModel):
     model: str = DEFAULT_MODEL
-    messages: list[AnthropicMessage | dict[str, Any]]
+    messages: list[AnthropicMessage | OpenAIMessage | dict[str, Any]]
     system: str | list[dict[str, Any]] | None = None
     max_tokens: int | None = 4096
     temperature: float | None = None
@@ -1222,4 +1246,9 @@ def is_audio_model(model_name: Any) -> bool:
         return False
     cleaned = str(model_name).lower()
     return any(k in cleaned for k in ("whisper", "proactive-observer", "audio"))
+
+
+OpenAIChatRequest.model_rebuild()
+AnthropicRequest.model_rebuild()
+
 

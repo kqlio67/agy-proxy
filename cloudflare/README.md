@@ -73,6 +73,7 @@ You can now directly use:
 - **API Key**: `dummy` (or your `PROXY_API_KEY`)
 - **Default Model**: `gemini-3.8-flash-high`
 - **Supported Models**:
+  - `gemini-4-argon-high`, `gemini-4-argon-medium`, `gemini-4-argon-low`, `gemini-4-argon`
   - `gemini-3.8-flash-high`, `gemini-3.8-flash-medium`, `gemini-3.8-flash-low`
   - `gemini-3.7-flash-high`, `gemini-3.7-flash-medium`, `gemini-3.7-flash-low`
   - `gemini-3.1-pro-high`, `gemini-3.1-pro-low`
@@ -85,9 +86,10 @@ You can now directly use:
 
 ---
 
-## 💡 Key Features in v2.26.0
+## 💡 Key Features in v2.28.2
 
-- **Upstream User-Agent Alignment**: Uses `antigravity/hub/2.26.0` (cl=1005016104) matching official client telemetry.
+- **Upstream User-Agent Alignment**: Uses `antigravity/hub/2.28.2` (cl=1009437749) matching official client telemetry.
+- **Gemini 4 Argon CloudCode Support**: Full routing and isolated rate-limit tracking for `gemini-4-argon-high` (`M417`), `gemini-4-argon-medium` (`M418`), and `gemini-4-argon-low` (`M419`) with authentic `thinkingLevel` payloads, plus gateway pass-through for `/v1alpha:fetchConfig` (`aicode.googleapis.com`).
 - **Claude 5.5 Support & Auto-Fallback**: Full support for Claude Sonnet 5.5 & Opus 5.5 with 1M token context, adaptive reasoning, and automatic account fallback to Claude 4.6 on 404/429.
 - **DeepAgent & Experiments Activation**: Automatically activates `enable-deepagent: true` on `/v1internal:listExperiments` pass-through for autonomous subagent workflows (`/deepagent`).
 - **Claude Code Billing Header Stripping**: Strips internal `x-anthropic-billing-header:` prompts to eliminate Google CloudCode 429 RESOURCE_EXHAUSTED rejections.

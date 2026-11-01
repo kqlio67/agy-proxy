@@ -349,8 +349,13 @@ async def handle_auth_list():
             g_wk = int(q_details.get("gemini", {}).get("weekly", {}).get("percent", q_details.get("gemini", {}).get("percent", 100)))
             c_wk = int(q_details.get("3p", {}).get("weekly", {}).get("percent", q_details.get("3p", {}).get("percent", 100)))
             c_5h = int(q_details.get("3p", {}).get("5h", {}).get("percent", q_details.get("3p", {}).get("percent", 100)))
+            argon_q = q_details.get("argon", {})
 
             gemini_q = f"5h: [bold red]{g_5h}%[/bold red] | Wk: {g_wk}%" if g_5h <= 0 else f"5h: {g_5h}% | Wk: {g_wk}%"
+            if argon_q.get("has_dedicated_bucket"):
+                a_wk = int(argon_q.get("weekly", {}).get("percent", argon_q.get("percent", 0)))
+                a_str = f"[bold red]{a_wk}%[/bold red]" if a_wk <= 0 else f"[bold green]{a_wk}%[/bold green]"
+                gemini_q += f" | Argon: {a_str}"
             claude_q = f"Wk: [bold red]{c_wk}%[/bold red]" if c_wk <= 0 else f"Wk: {c_wk}%"
             if c_5h < 100:
                 claude_q += f" (5h: {c_5h}%)"
@@ -1329,7 +1334,7 @@ def build_parser() -> argparse.ArgumentParser:
     web_parser.add_argument("--debug", "--verbose", "-v", dest="verbose", action="store_true", help="Show raw language_server debug output in console (default: hidden, logged to file)")
     web_parser.add_argument("--direct", "--no-proxy", "-D", action="store_true", help="Bypass agy-proxy and connect directly to official Google backend")
     web_parser.add_argument("--restart", "-r", action="store_true", help="Force restart Antigravity Web even if already running")
-    web_parser.add_argument("--ide-version", type=str, default="2.26.0", help="Reported IDE version (default: 2.26.0)")
+    web_parser.add_argument("--ide-version", type=str, default="2.28.2", help="Reported IDE version (default: 2.28.2)")
     web_parser.add_argument("--patched", "-P", action="store_true", help="Launch with feature-patched Web UI bundle (unlocks Web Terminal, custom models, and UI enhancements)")
     web_parser.add_argument("--force-patch", "-f", "--force", action="store_true", help="Force re-extraction and re-patching of the Web UI bundle")
     web_parser.add_argument("--bundle-dir", "-d", type=str, default=None, help="Target directory for extracted & patched bundle (default: ~/.config/agy-proxy/web_ui)")
@@ -1721,7 +1726,7 @@ def main():
             ls_path=getattr(args, "ls_path", None),
             editor_path=getattr(args, "editor", None),
             detach=getattr(args, "detach", False),
-            ide_version=getattr(args, "ide_version", "2.26.0"),
+            ide_version=getattr(args, "ide_version", "2.28.2"),
             verbose=getattr(args, "verbose", False),
             direct=getattr(args, "direct", False),
             restart=getattr(args, "restart", False),
@@ -1821,6 +1826,7 @@ def main():
             "/v1internal:fetchAvailableModels",
             "/v1internal:retrieveUserQuotaSummary",
             "/v1internal/cascadeNuxes",
+            "/v1alpha:fetchConfig",
         )
 
         def filter(self, record: logging.LogRecord) -> bool:

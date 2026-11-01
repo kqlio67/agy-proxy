@@ -2986,12 +2986,14 @@ ightarrow$ v1.0.3</p>
         const qDetails = acc.quota_details || {};
         const geminiQ = qDetails.gemini || { percent: 100, fraction: 1.0 };
         const claudeQ = qDetails['3p'] || qDetails.claude || { percent: 100, fraction: 1.0 };
+        const argonQ = qDetails.argon || null;
         const geminiPct = Math.round(geminiQ.percent ?? (geminiQ.fraction * 100));
         const claudePct = Math.round(claudeQ.percent ?? (claudeQ.fraction * 100));
+        const argonPct = (argonQ && argonQ.has_dedicated_bucket) ? Math.round(argonQ.percent ?? (argonQ.fraction * 100)) : 0;
 
         if (currentAccountFilter === 'exhausted') {
           if (isApiKey || isWeb) return false;
-          if (geminiPct > 0 || claudePct > 0) return false;
+          if (geminiPct > 0 || claudePct > 0 || argonPct > 0) return false;
         }
 
         if (searchQ) {
@@ -3433,6 +3435,39 @@ ightarrow$ v1.0.3</p>
           `;
         }
       } else {
+        const argonQ = qDetails.argon || null;
+        const hasArgonBucket = Boolean(argonQ && argonQ.has_dedicated_bucket);
+        const argonPct = hasArgonBucket ? Math.round(argonQ.percent ?? (argonQ.fraction * 100)) : 0;
+        const argonWk = hasArgonBucket ? argonQ['weekly'] : null;
+        const argonWkPct = hasArgonBucket ? (argonWk != null ? Math.round(argonWk.percent ?? (argonWk.fraction * 100)) : argonPct) : 0;
+        const argonResetBadge = hasArgonBucket ? formatResetBadge(argonQ.reset_time, argonWkPct, 'Wk') : '';
+        const argonCooldown = hasArgonBucket ? ((acc.rate_limited_models && acc.rate_limited_models.argon) ? acc.rate_limited_models.argon : (argonQ.cooldown_seconds || 0)) : 0;
+        const argonIsExhausted = hasArgonBucket && argonWkPct <= 0;
+        const argonBoxHtml = hasArgonBucket ? `
+          <div class="p-2.5 rounded-xl bg-slate-900 border border-emerald-500/30 space-y-1.5 text-xs mt-2" title="${argonQ.description || 'Gemini 4 Argon: Dedicated Weekly Limit'}">
+            <div class="flex justify-between text-[11px] items-center">
+              <span class="text-emerald-300 font-semibold flex items-center gap-1.5">
+                <i class="fa-solid fa-atom text-emerald-400 text-[10px]"></i>
+                <span>Gemini 4 Argon</span>
+                <span class="text-[9px] text-slate-400 font-normal">(Weekly)</span>
+              </span>
+              <span class="font-bold font-mono ${argonWkPct <= 0 ? 'text-red-400' : 'text-emerald-300'}">${argonWkPct}%</span>
+            </div>
+            <div class="w-full h-2.5 bg-slate-950/90 rounded-full overflow-hidden border border-slate-800/80 shadow-inner">
+              <div class="h-full rounded-full transition-all duration-300 ${argonWkPct <= 0 ? 'bg-red-500' : (argonWkPct > 30 ? 'bg-gradient-to-r from-emerald-500 to-teal-400' : 'bg-gradient-to-r from-amber-500 to-yellow-400')}" style="width: ${Math.max(0, Math.min(100, argonWkPct))}%"></div>
+            </div>
+            <div class="text-[10px] flex justify-between items-center text-slate-500 pt-0.5">
+              <span class="text-[9px] text-slate-400 truncate">${
+                argonIsExhausted
+                  ? '<span class="text-red-400 font-semibold">Exhausted</span>'
+                  : (argonCooldown > 0
+                      ? `<span class="text-amber-400 font-semibold flex items-center gap-1"><i class="fa-solid fa-clock-rotate-left text-[8px]"></i>Cooldown (${formatCooldown(argonCooldown)})</span>`
+                      : 'Argon tier active')
+              }</span>
+              <span class="${argonIsExhausted ? 'text-red-400 font-semibold' : (argonCooldown > 0 ? 'text-amber-400' : 'text-slate-400')}">${argonResetBadge}</span>
+            </div>
+          </div>
+        ` : '';
         quotaSectionHtml = `
           <div class="grid grid-cols-2 gap-2 text-xs pt-1">
             <!-- Gemini Models Box -->
@@ -3521,6 +3556,7 @@ ightarrow$ v1.0.3</p>
               </div>
             </div>
           </div>
+          ${argonBoxHtml}
         `;
       }
 

@@ -13,6 +13,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, patch, MagicMock
 
 import httpx
+import pytest
 
 from agy_proxy.auth import (
     AccountPool,
@@ -32,6 +33,30 @@ from agy_proxy.auth import (
     parse_token_dict,
 )
 
+
+
+@pytest.fixture(autouse=True)
+def _no_credential_store(monkeypatch):
+    """Keep auth tests off the real OS credential store (and its side effects)."""
+    monkeypatch.setattr("agy_proxy.auth.pool._cred_read", lambda *a, **k: None)
+    monkeypatch.setattr("agy_proxy.auth.pool._cred_write", lambda *a, **k: False)
+
+
+class TestWinCredStore(unittest.TestCase):
+    """Native Windows Credential Manager fallback used when keyring is absent."""
+
+    def test_roundtrip(self):
+        from agy_proxy.auth import wincred
+
+        if not wincred.is_supported():
+            self.skipTest("Windows only")
+        service, user, value = "agy_proxy.selftest", "probe", '{"a": 1}'
+        self.assertTrue(wincred.set_password(service, user, value))
+        try:
+            self.assertEqual(wincred.get_password(service, user), value)
+        finally:
+            wincred._advapi32.CredDeleteW(wincred._target(service, user), wincred.CRED_TYPE_GENERIC, 0)
+        self.assertIsNone(wincred.get_password(service, user))
 
 
 class TestTokenParsing(unittest.TestCase):
@@ -2345,6 +2370,175 @@ class TestGeminiWebSession(unittest.TestCase):
         self.assertEqual(extracted.get("gemini-3.8-flash"), "56fdd199312815e2")
         self.assertEqual(extracted.get("gemini-3.1-pro"), "e6fa609c3fa255c0")
         self.assertEqual(extracted.get("gemini-3.5-flash-lite"), "8c46e95b1a07cecc")
+
+    def test_gemini_web_default_bl(self):
+        """Verify the updated default build label."""
+        from agy_proxy.auth.gemini_web import GeminiWebSession
+        self.assertEqual(GeminiWebSession._DEFAULT_BL, "boq_gemini-web-uiserver_20261028.12_p0")
+        session = GeminiWebSession(account_id="test_bl", cookies={"__Secure-1PSID": "mock_psid"})
+        self.assertEqual(session._bl_token, "boq_gemini-web-uiserver_20261028.12_p0")
+
+    def test_gemini_web_make_sapisidhash_and_get_hash(self):
+        """Verify SAPISIDHASH creation and session integration."""
+        import hashlib
+        from agy_proxy.auth.gemini_web import make_sapisidhash, GeminiWebSession
+
+        token = make_sapisidhash("test_sapisid", "https://gemini.google.com")
+        self.assertTrue(token.startswith("SAPISIDHASH "))
+        parts = token.split(" ")[1].split("_")
+        ts = int(parts[0])
+        sig = parts[1]
+        expected_sig = hashlib.sha1(f"{ts} test_sapisid https://gemini.google.com".encode("utf-8")).hexdigest()
+        self.assertEqual(sig, expected_sig)
+
+        # Session without SAPISID returns None
+        s1 = GeminiWebSession(account_id="no_sapisid", cookies={"__Secure-1PSID": "mock"})
+        self.assertIsNone(s1.get_sapisid_hash())
+
+        # Session with SAPISID returns valid header
+        s2 = GeminiWebSession(account_id="has_sapisid", cookies={"__Secure-1PSID": "mock", "SAPISID": "secret_sap"})
+        h = s2.get_sapisid_hash()
+        self.assertIsNotNone(h)
+        self.assertTrue(h.startswith("SAPISIDHASH "))
+
+        # Session with __Secure-3PAPISID fallback
+        s3 = GeminiWebSession(account_id="has_3papisid", cookies={"__Secure-1PSID": "mock", "__Secure-3PAPISID": "secret_3p"})
+        h3 = s3.get_sapisid_hash()
+        self.assertIsNotNone(h3)
+        self.assertTrue(h3.startswith("SAPISIDHASH "))
+
+    def test_gemini_web_extract_cookies_from_raw_extension_dict(self):
+        """Verify cookie extraction handles browser extension exports."""
+        from agy_proxy.auth.gemini_web import extract_cookies_from_raw, extract_auth_user_from_raw
+
+        # Dict with "cookie" string
+        c1 = extract_cookies_from_raw({"cookie": "__Secure-1PSID=val1; SID=val2", "email": "user@gmail.com"})
+        self.assertEqual(c1.get("__Secure-1PSID"), "val1")
+        self.assertEqual(c1.get("SID"), "val2")
+        self.assertEqual(c1.get("email"), "user@gmail.com")
+        self.assertNotIn("cookie", c1)
+
+        # Dict with "cookies" list
+        c2 = extract_cookies_from_raw({"cookies": [{"name": "__Secure-1PSID", "value": "val1"}, {"name": "SAPISID", "value": "sap_val"}]})
+        self.assertEqual(c2.get("__Secure-1PSID"), "val1")
+        self.assertEqual(c2.get("SAPISID"), "sap_val")
+
+        # JSON string containing "cookie"
+        c3 = extract_cookies_from_raw('{"cookie": "__Secure-1PSID=json_psid; HSID=json_hsid"}')
+        self.assertEqual(c3.get("__Secure-1PSID"), "json_psid")
+        self.assertEqual(c3.get("HSID"), "json_hsid")
+
+        # extract_auth_user_from_raw with dict
+        self.assertEqual(extract_auth_user_from_raw({"authuser": "2"}), 2)
+        self.assertEqual(extract_auth_user_from_raw({"auth_user": "1"}), 1)
+        self.assertEqual(extract_auth_user_from_raw({"account_index": "3"}), 3)
+
+    def test_gemini_web_temporary_chats_flags(self):
+        """Verify temporary_chats flag sets inner[41]=[1] and inner[45]=1, or inner[41]=[2] when disabled."""
+        from agy_proxy.auth.gemini_web import GeminiWebSession
+        session = GeminiWebSession(
+            account_id="test_temp_chats",
+            cookies={"__Secure-1PSID": "mock_psid"},
+            temporary_chats=True,
+        )
+        self.assertTrue(session.temporary_chats)
+        cfg = session.get_model_config("gemini-4-argon")
+
+        # 1. Default temporary_chats=True
+        body_temp = session._build_stream_generate_body("Test temp", model_config=cfg, client_uuid="UUID-1")
+        inner_temp = json.loads(json.loads(body_temp["f.req"])[1])
+        self.assertEqual(inner_temp[41], [1])
+        self.assertEqual(inner_temp[45], 1)
+
+        # 2. Overriding temporary_chats=False in _build_stream_generate_body
+        body_perm = session._build_stream_generate_body("Test perm", model_config=cfg, client_uuid="UUID-2", temporary_chats=False)
+        inner_perm = json.loads(json.loads(body_perm["f.req"])[1])
+        self.assertEqual(inner_perm[41], [2])
+        self.assertIsNone(inner_perm[45])
+
+        # 3. Instance with temporary_chats=False
+        session_perm = GeminiWebSession(
+            account_id="test_perm_inst",
+            cookies={"__Secure-1PSID": "mock_psid"},
+            temporary_chats=False,
+        )
+        self.assertFalse(session_perm.temporary_chats)
+        body_inst = session_perm._build_stream_generate_body("Test inst", model_config=cfg, client_uuid="UUID-3")
+        inner_inst = json.loads(json.loads(body_inst["f.req"])[1])
+        self.assertEqual(inner_inst[41], [2])
+        self.assertIsNone(inner_inst[45])
+
+        # 4. Serialization in to_dict / to_save_dict
+        d = session.to_dict()
+        self.assertTrue(d["temporary_chats"])
+        sd = session.to_save_dict()
+        self.assertTrue(sd["temporary_chats"])
+
+    def test_gemini_web_http_405_bl_refresh_and_retry(self):
+        """Verify that HTTP 405 response triggers build label refresh and retries the request."""
+        import asyncio
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from agy_proxy.auth.gemini_web import GeminiWebSession
+
+        session = GeminiWebSession(
+            account_id="test_405",
+            cookies={"__Secure-1PSID": "mock_psid"},
+        )
+        session._at_token = "valid_at_token"
+
+        mock_resp_405 = MagicMock()
+        mock_resp_405.status_code = 405
+        mock_resp_405.aread = AsyncMock(return_value=b"Method Not Allowed")
+
+        mock_resp_200 = MagicMock()
+        mock_resp_200.status_code = 200
+        mock_resp_200.cookies = MagicMock()
+        mock_resp_200.cookies.items.return_value = []
+        mock_resp_200.headers = MagicMock()
+        mock_resp_200.headers.get_list.return_value = []
+
+        async def mock_aiter_bytes():
+            yield b')]}\'\n\n100\n[["wrb.fr",null,"[null,[\\"c_123\\",\\"r_456\\"],{\\"18\\":\\"r_456\\"}]"]]\n'
+
+        mock_resp_200.aiter_bytes = mock_aiter_bytes
+
+        class MockStreamCM:
+            def __init__(self, resp):
+                self.resp = resp
+            async def __aenter__(self):
+                return self.resp
+            async def __aexit__(self, *args):
+                pass
+
+        call_count = 0
+        def stream_side_effect(method, url, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return MockStreamCM(mock_resp_405)
+            return MockStreamCM(mock_resp_200)
+
+        mock_client = AsyncMock()
+        mock_client.stream = MagicMock(side_effect=stream_side_effect)
+
+        async def fake_get_at_token(force_refresh=False):
+            if force_refresh:
+                session._bl_token = "boq_gemini-web-uiserver_NEW_VERSION"
+            return session._at_token
+
+        async def run_test():
+            with patch.object(session, "get_http_client", return_value=mock_client), \
+                 patch.object(session, "get_at_token", side_effect=fake_get_at_token):
+                chunks = []
+                async for c in session.stream_generate("Hello 405", model="gemini-4-argon"):
+                    chunks.append(c)
+
+                self.assertEqual(call_count, 2)
+                self.assertEqual(session._bl_token, "boq_gemini-web-uiserver_NEW_VERSION")
+                done_chunks = [c for c in chunks if c.get("type") == "done"]
+                self.assertEqual(len(done_chunks), 1)
+
+        asyncio.run(run_test())
 
 
 class TestTosViolationHandling(unittest.TestCase):

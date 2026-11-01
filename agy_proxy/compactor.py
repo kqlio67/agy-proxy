@@ -794,7 +794,7 @@ async def compact_conversation_history(
 
     # Construct compacted messages list
     # Determine format (dict or Anthropic/OpenAI object)
-    is_dict = isinstance(messages[0], dict)
+    is_dict = isinstance(messages[0], dict) if messages else True
     first_recent = recent_messages[0] if recent_messages else None
     first_role = (first_recent.get("role") if isinstance(first_recent, dict) else getattr(first_recent, "role", "")) if first_recent else ""
 
@@ -831,11 +831,21 @@ async def compact_conversation_history(
                 "content": formatted_summary,
             }
         else:
-            from agy_proxy.models import AnthropicMessage
-            summary_msg = AnthropicMessage(
-                role="user",
-                content=formatted_summary,
+            from agy_proxy.models import AnthropicMessage, OpenAIMessage
+            is_openai = any(
+                isinstance(m, OpenAIMessage) or type(m).__name__ == "OpenAIMessage"
+                for m in messages
             )
+            if is_openai:
+                summary_msg = OpenAIMessage(
+                    role="user",
+                    content=formatted_summary,
+                )
+            else:
+                summary_msg = AnthropicMessage(
+                    role="user",
+                    content=formatted_summary,
+                )
         compacted = [summary_msg] + list(recent_messages)
     tokens_after = estimate_total_tokens(compacted)
     savings_pct = int((1.0 - (tokens_after / max(1, tokens_before))) * 100)

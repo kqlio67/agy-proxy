@@ -844,21 +844,23 @@ class CloudCodeClient:
                         project = await acc.initialize_project()
                         url = f"{CLOUDCODE_BASE_URL}/{endpoint}"
                         payload = payload_builder_fn(project)
-                        backend_m = payload.get("model", model_name)
+                        from agy_proxy.models import is_argon_model, resolve_cloudcode_argon_model
+                        raw_backend_m = payload.get("model", model_name)
+                        backend_m = resolve_cloudcode_argon_model(raw_backend_m)
+                        if isinstance(payload, dict) and payload.get("model") != backend_m and "model" in payload:
+                            payload["model"] = backend_m
                         req_body = payload
 
-                        # If routing to Antigravity OAuth but the model is an Argon model (which CloudCode does not support),
-                        # skip this account — Argon requires a Gemini Web session. Do NOT silently swap the model.
-                        from agy_proxy.models import is_argon_model
-                        if is_argon_model(backend_m):
+                        # Skip Antigravity OAuth accounts whose subscription tier does not include Argon.
+                        if is_argon_model(backend_m) and not acc.is_model_supported(backend_m):
                             logger.debug(
-                                "[%s] Skipping Antigravity OAuth account for Argon model %s — requires Gemini Web session.",
+                                "[%s] Skipping Antigravity OAuth account for Argon model %s — subscription tier does not include Argon.",
                                 acc.name or acc.email,
                                 backend_m,
                             )
                             last_error = RuntimeError(
-                                f"Model {backend_m} requires a Gemini Web session. "
-                                "Add a gemini_web account via 'agy-proxy accounts add --har <file.har>'."
+                                f"Model {backend_m} is not available on this Antigravity OAuth account's subscription tier. "
+                                "Use an Argon-enabled Antigravity OAuth account or add a gemini_web account."
                             )
                             break
 
@@ -2119,7 +2121,9 @@ class CloudCodeClient:
         is_streaming: bool = True,
     ) -> AsyncGenerator[str, None]:
         """Streams native Gemini SSE events with multi-account support."""
+        from agy_proxy.models import resolve_cloudcode_argon_model
         backend_model = normalize_model_name(model)
+        upstream_model = resolve_cloudcode_argon_model(backend_model)
 
         def build_payload(project_id: str):
             sanitized_req = dict(raw_payload)
@@ -2129,7 +2133,7 @@ class CloudCodeClient:
                 "project": project_id,
                 "requestId": f"native/{uuid.uuid4()}",
                 "request": sanitized_req,
-                "model": backend_model,
+                "model": upstream_model,
                 "userAgent": "antigravity",
                 "requestType": "chat",
             }

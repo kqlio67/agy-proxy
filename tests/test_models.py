@@ -288,6 +288,60 @@ class TestModelNormalization(unittest.TestCase):
         self.assertEqual(tc["thinkingLevel"], "HIGH")
         self.assertTrue(tc["includeThoughts"])
 
+    def test_v2_28_2_argon_placeholders_and_thinking_config(self):
+        from agy_proxy.models import (
+            CLOUDCODE_PLACEHOLDER_MAP,
+            EXACT_MODEL_METADATA,
+            resolve_cloudcode_argon_model,
+        )
+        from agy_proxy.converters.openai import openai_to_cloudcode_payload
+        from agy_proxy.converters.anthropic import anthropic_to_cloudcode_payload
+
+        self.assertEqual(CLOUDCODE_PLACEHOLDER_MAP["gemini-4-argon"], "MODEL_PLACEHOLDER_M417")
+        self.assertEqual(CLOUDCODE_PLACEHOLDER_MAP["gemini-4-argon-high"], "MODEL_PLACEHOLDER_M417")
+        self.assertEqual(CLOUDCODE_PLACEHOLDER_MAP["gemini-4-argon-medium"], "MODEL_PLACEHOLDER_M418")
+        self.assertEqual(CLOUDCODE_PLACEHOLDER_MAP["gemini-4-argon-low"], "MODEL_PLACEHOLDER_M419")
+
+        self.assertEqual(normalize_model_name("MODEL_PLACEHOLDER_M417"), "gemini-4-argon-high")
+        self.assertEqual(normalize_model_name("MODEL_PLACEHOLDER_M418"), "gemini-4-argon-medium")
+        self.assertEqual(normalize_model_name("MODEL_PLACEHOLDER_M419"), "gemini-4-argon-low")
+        self.assertEqual(normalize_model_name(1417), "gemini-4-argon-high")
+        self.assertEqual(normalize_model_name(1418), "gemini-4-argon-medium")
+        self.assertEqual(normalize_model_name(1419), "gemini-4-argon-low")
+        # Legacy fallback enums still normalize cleanly
+        self.assertEqual(normalize_model_name("MODEL_PLACEHOLDER_M421"), "gemini-4-argon")
+        self.assertEqual(resolve_cloudcode_argon_model(normalize_model_name("MODEL_PLACEHOLDER_M421")), "gemini-4-argon-high")
+        self.assertEqual(normalize_model_name(1422), "gemini-4-argon-medium")
+
+        self.assertEqual(resolve_cloudcode_argon_model("gemini-4-argon"), "gemini-4-argon-high")
+        self.assertEqual(resolve_cloudcode_argon_model("gemini-4-argon-medium"), "gemini-4-argon-medium")
+        self.assertEqual(EXACT_MODEL_METADATA["gemini-4-argon-medium"]["maxOutputTokens"], 65536)
+        self.assertEqual(EXACT_MODEL_METADATA["gemini-4-argon-medium"]["thinkingLevel"], 2)
+
+        # OpenAI -> CloudCode Argon payload uses thinkingLevel without thinkingBudget: -1
+        oai_req = OpenAIChatRequest(
+            model="gemini-4-argon-medium",
+            messages=[{"role": "user", "content": "Hello Argon"}],
+        )
+        oai_payload = openai_to_cloudcode_payload(oai_req, project_id="test-proj")
+        self.assertEqual(oai_payload["model"], "gemini-4-argon-medium")
+        self.assertEqual(oai_payload["request"]["generationConfig"]["maxOutputTokens"], 65536)
+        oai_tc = oai_payload["request"]["generationConfig"]["thinkingConfig"]
+        self.assertEqual(oai_tc["thinkingLevel"], "MEDIUM")
+        self.assertTrue(oai_tc["includeThoughts"])
+        self.assertNotIn("thinkingBudget", oai_tc)
+
+        # Bare gemini-4-argon resolves to gemini-4-argon-high upstream
+        anth_req = AnthropicRequest(
+            model="gemini-4-argon",
+            messages=[{"role": "user", "content": "Hello Argon via Anthropic"}],
+        )
+        anth_payload = anthropic_to_cloudcode_payload(anth_req, project_id="test-proj")
+        self.assertEqual(anth_payload["model"], "gemini-4-argon-high")
+        anth_tc = anth_payload["request"]["generationConfig"]["thinkingConfig"]
+        self.assertEqual(anth_tc["thinkingLevel"], "HIGH")
+        self.assertNotIn("thinkingBudget", anth_tc)
+
 
 
 

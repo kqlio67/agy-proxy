@@ -463,10 +463,10 @@ def test_enhance_user_status_direct_and_proxy_models(tmp_path):
     patched_js = (bundle_dir / "main.js").read_text(encoding="utf-8")
 
     # Verify all expected model IDs and enums are present in MODEL_ENUM_MAP
-    assert '"gemini-4-argon":1421' in patched_js
-    assert '"gemini-4-argon-high":1421' in patched_js
-    assert '"gemini-4-argon-medium":1422' in patched_js
-    assert '"gemini-4-argon-low":1423' in patched_js
+    assert '"gemini-4-argon":1417' in patched_js
+    assert '"gemini-4-argon-high":1417' in patched_js
+    assert '"gemini-4-argon-medium":1418' in patched_js
+    assert '"gemini-4-argon-low":1419' in patched_js
     assert '"claude-sonnet-5-5-high":1515' in patched_js
     assert '"claude-opus-5-5-high":1518' in patched_js
     assert '"gemini-3.8-flash-deepagent":1522' in patched_js

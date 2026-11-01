@@ -1,199 +1,133 @@
 {
   "experimentIds": [
-    101551624,
-    101868197,
-    103012592,
-    103012598,
-    103118069,
-    103118072,
-    104638459,
-    104638466,
-    104673683,
-    104817729,
-    104913210,
-    104913215,
-    104922082,
-    104922093,
-    105011762,
-    105620012,
-    105620019,
-    105658064,
-    105658067,
-    105658068,
-    105658071,
-    105695344,
-    105695346,
-    105721268,
-    105721273,
-    105723762,
-    105746178,
-    105746180,
-    105746181,
-    105746183,
-    105785683,
-    105785684,
-    105821928,
-    105821930,
-    105822881,
-    105822884,
-    105822886,
-    105856899,
-    105867469,
-    105867471,
-    105887311,
-    105887313,
-    105906495,
-    105943694,
-    105943702,
-    105979517,
-    105979530,
-    105979531,
-    105979552,
-    105979553,
-    105979574,
-    106015328,
-    106015351,
-    106032301,
-    106032303,
-    106064028,
-    106064030,
-    106100625,
-    106100654,
-    106106760,
-    106113877,
-    106113900,
-    106121399,
-    106121401,
-    106121604,
-    106121607,
-    106143956,
-    106221097,
-    106221101,
-    106228452,
-    106264150,
-    106264162,
-    106264532,
-    106281951,
-    106283614,
-    106283618,
-    106392106,
-    106392108,
-    106392113,
-    106392115,
-    106392120,
-    106392122,
-    106413417,
-    106413419,
-    106428370,
-    106428372,
-    106458967,
-    106458969,
-    106474625,
-    106474627,
-    106511968,
-    106544525,
-    106544526,
-    106555564,
-    106555566,
-    106568390,
-    106568772,
-    106588527,
-    106596395,
-    106596396,
-    106597020,
-    106617388,
-    106617390,
-    106621675,
-    106640124,
-    106640126,
-    106643242,
-    106659335,
-    106659337,
-    106659338,
-    106659344,
-    106659346,
-    106659347,
-    106670811,
-    106676368,
-    106701431,
-    106701435,
-    106711598,
-    106712040,
-    106712041,
-    106713377,
-    106713379,
-    106713380,
-    106713382,
-    106724030,
-    106754391,
-    106761937,
-    106793467,
-    106834476,
     106838234,
-    106863974,
+    105979552,
+    105979574,
+    106015351,
+    106568772,
+    105867471,
+    105979530,
+    106597020,
+    106643242,
+    106913264,
     106724031,
+    106588527,
+    106596396,
+    106511968,
+    106676368,
+    106806116,
+    106121401,
+    106100625,
+    104638466,
+    101868197,
+    104817729,
+    105695344,
+    104913215,
+    106754391,
+    105821930,
+    106392122,
+    106413419,
+    106474627,
+    106555566,
+    106617390,
+    106736663,
+    106458969,
+    106583021,
+    106583027,
+    106583029,
+    106583025,
+    106808143,
+    106583023,
+    106713382,
+    104922093,
+    103012598,
+    106659346,
+    106143956,
+    106659337,
+    105856899,
+    106064030,
+    105723762,
+    105822884,
+    105785684,
+    105658071,
+    105943702,
+    106544525,
+    106640126,
+    105620019,
     106811917,
-    106822475
+    106392108,
+    106281951,
+    106264532,
+    106822474,
+    106712040,
+    105887313,
+    106032303,
+    106228452,
+    106113900,
+    106121607,
+    103118072,
+    105979531,
+    105979553,
+    106015328,
+    106568390,
+    105867469,
+    105979517,
+    106121399,
+    106100654,
+    104638459,
+    101551624,
+    104673683,
+    105695346,
+    104913210,
+    105821928,
+    106392120,
+    106413417,
+    106474625,
+    106555564,
+    106617388,
+    106458967,
+    106713380,
+    104922082,
+    103012592,
+    106659344,
+    106659335,
+    106064028,
+    105011762,
+    105822881,
+    105658068,
+    105943694,
+    106640124,
+    105620012,
+    106392106,
+    105887311,
+    106032301,
+    106113877,
+    106121604,
+    103118069
   ],
   "flags": [
     {
-      "name": "1p-projects-v5",
+      "name": "DatacloudTheme__enable_theme_v2",
       "boolValue": false
     },
     {
-      "name": "ApigeeCloudCode__enable_mock_server",
+      "name": "DuetAiLocalRag__enable_local_rag_chat",
+      "boolValue": true
+    },
+    {
+      "name": "GCAFeedbackBlock__enable_feedback_block",
       "boolValue": false
     },
     {
-      "name": "ApigeeGeminiChatTool__enable_apigee_gemini_chat_tool",
+      "name": "MetricService__enable_metric_service",
       "boolValue": true
     },
     {
-      "name": "CASCADE_USE_REPLACE_CONTENT_EDIT_TOOL",
-      "stringValue": "{\"max_fuzzy_edit_distance_fraction\": 0.001, \"allow_partial_replacement_success\": true, \"use_line_range\": true, \"fast_apply_fallback_config\": {\"enabled\": false, \"prompt_unchanged_threshold\": 5, \"content_view_radius_lines\": 200, \"content_edit_radius_lines\": 5}}"
-    },
-    {
-      "name": "Chat__chat_context_window_size",
-      "intValue": "-1"
-    },
-    {
-      "name": "Chat__code_customization_enable_learn_more_message",
-      "boolValue": true
-    },
-    {
-      "name": "Chat__delete_chat_request_button",
-      "boolValue": true
-    },
-    {
-      "name": "Chat__delete_response_after_stop",
-      "boolValue": true
-    },
-    {
-      "name": "Chat__display_prompt_recitations",
-      "boolValue": true
-    },
-    {
-      "name": "Chat__edit_chat_request_button",
-      "boolValue": true
-    },
-    {
-      "name": "Chat__enable_agent_mode_slash_commands",
-      "boolValue": true
-    },
-    {
-      "name": "Chat__enable_agentic_chat_ij",
-      "boolValue": true
-    },
-    {
-      "name": "Chat__enable_async_chat_intent_classification",
+      "name": "SDLCAgents__enable_azure_model_connection",
       "boolValue": false
     },
     {
-      "name": "Chat__enable_chat_agentic_mcp_chat",
-      "boolValue": true
-    },
-    {
-      "name": "Chat__enable_chat_checkpoints",
+      "name": "DatacloudDataplex__enable_bigquery_adapter",
       "boolValue": true
     },
     {
@@ -201,67 +135,52 @@
       "boolValue": true
     },
     {
-      "name": "Chat__enable_chat_folder_context_selection",
+      "name": "DuetAiGeneration__codeGeneration_enable_quickpick_chat",
       "boolValue": true
     },
     {
-      "name": "Chat__enable_chat_gemini_cli",
+      "name": "DuetAiLocalRag__enable_local_rag",
       "boolValue": true
     },
     {
-      "name": "Chat__enable_chat_intent_classification",
+      "name": "GcaUx__enable_gm3_design_system",
+      "boolValue": true
+    },
+    {
+      "name": "GcliAgentHistoryTruncation__enable_agent_history_truncation",
+      "flagId": 45773188,
       "boolValue": false
     },
     {
-      "name": "Chat__enable_chat_moa",
-      "boolValue": true
-    },
-    {
-      "name": "Chat__enable_chat_named_entity_recognition",
+      "name": "SDLCAgents__enable_anthropic_model_connection",
       "boolValue": false
     },
     {
-      "name": "Chat__enable_chat_rag_remote_repositories_context_selection",
-      "boolValue": true
+      "name": "SDLCAgents__enable_gemini_model_connection",
+      "boolValue": false
     },
     {
-      "name": "Chat__enable_chat_streaming",
-      "boolValue": true
-    },
-    {
-      "name": "Chat__enable_code_customization_webview",
-      "boolValue": true
-    },
-    {
-      "name": "Chat__enable_custom_prompts",
-      "boolValue": true
-    },
-    {
-      "name": "Chat__enable_full_codebase_awareness_chat",
-      "boolValue": true
-    },
-    {
-      "name": "Chat__enable_gemini3_announcement",
-      "boolValue": true
-    },
-    {
-      "name": "Chat__enable_local_codebase_awareness_chat_ij",
+      "name": "Chat__delete_response_after_stop",
       "boolValue": true
     },
     {
       "name": "Chat__enable_mcp_server",
+      "boolValue": false
+    },
+    {
+      "name": "DatacloudDataplex__enable_cloud_sql_adapter",
       "boolValue": true
     },
     {
-      "name": "Chat__enable_mcp_server_ij",
+      "name": "DatacloudSpark__enable_jupyter_token_broker",
       "boolValue": true
     },
     {
-      "name": "Chat__enable_sessions",
+      "name": "DuetAICodeTransformIj__enable_ij",
       "boolValue": true
     },
     {
-      "name": "Chat__enable_stream_generate_content_ij",
+      "name": "DuetAiGeneration__codeGeneration_use_transform_api",
       "boolValue": false
     },
     {
@@ -269,61 +188,391 @@
       "boolValue": false
     },
     {
-      "name": "Chat__enable_text_snippets",
-      "boolValue": true
-    },
-    {
-      "name": "Chat__enable_workspace_change_in_chat_history",
-      "boolValue": true
-    },
-    {
-      "name": "Chat__fca_chat_context_window_size",
-      "intValue": "3500000"
-    },
-    {
-      "name": "Chat__lca_chat_context_window_size_ij",
-      "intValue": "3500000"
-    },
-    {
-      "name": "Chat__local_bm25_chat_max_results",
-      "intValue": "10"
-    },
-    {
-      "name": "Chat__local_bm25_chat_tokenizer",
-      "stringValue": "wald_word3"
-    },
-    {
-      "name": "Chat__local_bm25_index_max_files",
-      "intValue": "25000"
-    },
-    {
-      "name": "Chat__stop_chat_request_button",
-      "boolValue": true
-    },
-    {
       "name": "CliComplexityBasedRouting__enabled",
-      "boolValue": true,
-      "flagId": 45750526
+      "flagId": 45750526,
+      "boolValue": true
     },
     {
-      "name": "CliComplexityBasedRouting__prompt_complexity",
-      "flagId": 45750527,
-      "intValue": "90"
+      "name": "DatacloudKnowledgeCatalog__enable_post_next_improvements",
+      "boolValue": true
+    },
+    {
+      "name": "DuetAiGeneration__auto_trigger_on_empty_class_struct_def",
+      "boolValue": true
+    },
+    {
+      "name": "DuetAiRemoteRag__enable_hyde_for_generation",
+      "boolValue": false
+    },
+    {
+      "name": "DuetAiRemoteRag__enable_remote_rag",
+      "boolValue": true
+    },
+    {
+      "name": "ApigeeGeminiChatTool__enable_apigee_gemini_chat_tool",
+      "boolValue": true
+    },
+    {
+      "name": "Chat__enable_chat_intent_classification",
+      "boolValue": false
+    },
+    {
+      "name": "Chat__enable_chat_named_entity_recognition",
+      "boolValue": false
+    },
+    {
+      "name": "DatacloudKnowledgeCatalog__enable_relationship_graph_details_panel",
+      "boolValue": true
+    },
+    {
+      "name": "DuetAiCompletion__codeCompletion_enableInfixCache",
+      "boolValue": false
+    },
+    {
+      "name": "DuetAiGeneration__codeGeneration_enable_diff_view",
+      "boolValue": false
+    },
+    {
+      "name": "DuetAiLocalRag__enable_local_rag_completion",
+      "boolValue": true
+    },
+    {
+      "name": "GcaCitationBlock__enable_citation_block",
+      "boolValue": false
+    },
+    {
+      "name": "DatacloudDataplex__enable_alloydb_adapter",
+      "boolValue": true
+    },
+    {
+      "name": "DuetAiCloudCodeAPI__enable_cloudcode_api",
+      "boolValue": true
+    },
+    {
+      "name": "DuetAiCompletion__codeCompletion_triggerForDeletion",
+      "boolValue": false
+    },
+    {
+      "name": "DuetAiLocalRag__enable_local_rag_completion_snippets_with_pruning",
+      "boolValue": false
+    },
+    {
+      "name": "DuetAiLocalRag__include_unit_test_files",
+      "boolValue": false
+    },
+    {
+      "name": "DuetAiProcessors__enable_prompt_recitations_check",
+      "boolValue": true
+    },
+    {
+      "name": "GcaTransformOutlines__enable_automatic_generation",
+      "boolValue": false
+    },
+    {
+      "name": "GcaTransformOutlines__enable_outlines",
+      "boolValue": true
+    },
+    {
+      "name": "Chat__enable_chat_streaming",
+      "boolValue": true
+    },
+    {
+      "name": "DuetAiMendelOverrides__inlineSuggestions_debounced_after_fetching",
+      "boolValue": false
+    },
+    {
+      "name": "FirebaseDataConnectChatTool__enable_firebase_data_connect_chat_tool",
+      "boolValue": false
+    },
+    {
+      "name": "GcaAipluginSwingToCompose__enable_compose",
+      "boolValue": false
+    },
+    {
+      "name": "GcaTransformFinishChanges__enable_finish_changes",
+      "boolValue": false
+    },
+    {
+      "name": "GeminiCLIIsLaunched__gemini_3_pro_launched",
+      "flagId": 45743869,
+      "boolValue": true
+    },
+    {
+      "name": "IntentAware__ellipsis",
+      "boolValue": false
+    },
+    {
+      "name": "IntentAware__enable_intent_aware_m1",
+      "boolValue": true
+    },
+    {
+      "name": "Chat__enable_chat_folder_context_selection",
+      "boolValue": false
+    },
+    {
+      "name": "DuetAICodeTransform__enable_m2",
+      "boolValue": true
+    },
+    {
+      "name": "DuetAiLocalRag__enable_local_rag_completion_snippets",
+      "boolValue": false
+    },
+    {
+      "name": "DuetAiLocalRag__enable_wald_file_selection",
+      "boolValue": false
+    },
+    {
+      "name": "GcaEventsPipeline__enable_events_pipeline_polling",
+      "boolValue": false
+    },
+    {
+      "name": "UserTelemetry__enable_user_telemetry_call",
+      "boolValue": true
     },
     {
       "name": "CodeassistMetrics__enable_codeassist_metric",
       "boolValue": false
     },
     {
-      "name": "DatacloudBigqueryGraph__enable_bigquery_graph",
+      "name": "DuetAiGenerationAndCompletion__track_suffix_length",
+      "boolValue": false
+    },
+    {
+      "name": "DuetAiLocalRag__enable_local_rag_completion_snippets_with_pruning_colocated_files",
+      "boolValue": false
+    },
+    {
+      "name": "DuetAiRemoteRag__enable_remote_rag_chat",
       "boolValue": true
+    },
+    {
+      "name": "GCAUpgradeToPaid__enable_g1_upgrade_flow",
+      "boolValue": false
+    },
+    {
+      "name": "GCAUpgradeToPaid__enable_upgrade_from_free_tier",
+      "boolValue": false
+    },
+    {
+      "name": "GcaFlashCompletions__completion_replaces_cursor_line",
+      "boolValue": false
+    },
+    {
+      "name": "Chat__enable_async_chat_intent_classification",
+      "boolValue": false
+    },
+    {
+      "name": "Chat__enable_chat_agentic_mcp_chat",
+      "boolValue": false
+    },
+    {
+      "name": "Chat__enable_full_codebase_awareness_chat",
+      "boolValue": true
+    },
+    {
+      "name": "DuetAiMendelOverrides__enable_gca_intent_classification_model_for_logging",
+      "boolValue": false
+    },
+    {
+      "name": "GeminiFreeTier__enable_free_tier",
+      "boolValue": false
+    },
+    {
+      "name": "DuetAiCompletion__codeCompletion_enablePrefetchNextSuggestions",
+      "boolValue": true
+    },
+    {
+      "name": "SyntaxAnalysis__enable_syntax_analysis",
+      "boolValue": false
+    },
+    {
+      "name": "DuetAiGeneration__codeGeneration_pane_view_default_config",
+      "boolValue": false
+    },
+    {
+      "name": "Chat__enable_stream_generate_content_ij",
+      "boolValue": false
     },
     {
       "name": "DatacloudDatabases__discoverability_improvements",
       "boolValue": true
     },
     {
+      "name": "DatacloudDataplex__enable_firestore_adapter",
+      "boolValue": true
+    },
+    {
+      "name": "DatacloudDataplex__enable_lakehouse_public_data",
+      "boolValue": true
+    },
+    {
+      "name": "DatacloudKnowledgeCatalog__enable_data_products",
+      "boolValue": true
+    },
+    {
+      "name": "DuetAiLocalRag__enable_local_rag_completion_snippets_with_pruning_bm25_scoring",
+      "boolValue": false
+    },
+    {
+      "name": "DuetAiMendelOverrides__enable_gca_intent_classification_as_default_model",
+      "boolValue": false
+    },
+    {
+      "name": "ApigeeCloudCode__enable_mock_server",
+      "boolValue": true
+    },
+    {
+      "name": "Chat__enable_agentic_chat_ij",
+      "boolValue": true
+    },
+    {
+      "name": "DuetAiGeneration__codeGeneration_enable_pane_view",
+      "boolValue": false
+    },
+    {
+      "name": "DuetAiLocalRag__merge_fragments",
+      "boolValue": true
+    },
+    {
+      "name": "GcaFlashCompletions__enable_client_postprocessing",
+      "boolValue": false
+    },
+    {
+      "name": "Chat__enable_local_codebase_awareness_chat_ij",
+      "boolValue": true
+    },
+    {
+      "name": "DatacloudDataplex__enable_biglake_adapter",
+      "boolValue": true
+    },
+    {
+      "name": "DuetAICodeTransform__display_prompt_recitations",
+      "boolValue": true
+    },
+    {
+      "name": "DuetAiLocalRag__include_doc_files",
+      "boolValue": false
+    },
+    {
+      "name": "SDLCAgents__enable_rest_model_connection",
+      "boolValue": false
+    },
+    {
+      "name": "Chat__enable_chat_moa",
+      "boolValue": false
+    },
+    {
+      "name": "DatacloudDataplex__enable_spanner_adapter",
+      "boolValue": true
+    },
+    {
+      "name": "DatacloudSpark__enable_load_in_spark_dataframe_from_gcs",
+      "boolValue": true
+    },
+    {
+      "name": "GeminiFreeTier__call_onboard_user_from_legacy_flow",
+      "boolValue": true
+    },
+    {
+      "name": "DatacloudDataplex__enable_bigtable_adapter",
+      "boolValue": true
+    },
+    {
+      "name": "DuetAiCompletion__codeCompletion_enableAdaptingCache",
+      "boolValue": false
+    },
+    {
+      "name": "DuetAiGeneration__codeGeneration_enable_codelens_call_to_action",
+      "boolValue": false
+    },
+    {
+      "name": "DuetAiGeneration__codeGeneration_enable_new_cy_vsc_ux",
+      "boolValue": false
+    },
+    {
+      "name": "DuetAiLocalRag__include_currently_open_files",
+      "boolValue": true
+    },
+    {
+      "name": "GcaFlashCompletions__enable_flash_completions",
+      "boolValue": false
+    },
+    {
+      "name": "GcaTelemetryBlock__enable_telemetry_block",
+      "boolValue": false
+    },
+    {
+      "name": "GcaTelemetry__enable_ai_characters_percentage",
+      "boolValue": true
+    },
+    {
+      "name": "Chat__display_prompt_recitations",
+      "boolValue": true
+    },
+    {
+      "name": "Chat__enable_chat_gemini_cli",
+      "boolValue": true
+    },
+    {
+      "name": "Chat__enable_mcp_server_ij",
+      "boolValue": true
+    },
+    {
+      "name": "DuetAi__custom_preambles",
+      "boolValue": true
+    },
+    {
+      "name": "GeminiCLIIsLaunched__gemini_3_1_flash_preview_launched",
+      "flagId": 45761848,
+      "boolValue": true
+    },
+    {
+      "name": "Chat__enable_sessions",
+      "boolValue": true
+    },
+    {
+      "name": "GeminiCLIIsLaunched__gemini_3_1_pro_preview_launched",
+      "flagId": 45760185,
+      "boolValue": true
+    },
+    {
+      "name": "DuetAICodeTransform__custom_slash_commands",
+      "boolValue": true
+    },
+    {
+      "name": "Chat__enable_agent_mode_slash_commands",
+      "boolValue": true
+    },
+    {
+      "name": "Chat__enable_code_customization_webview",
+      "boolValue": true
+    },
+    {
+      "name": "DatacloudBigqueryGraph__enable_bigquery_graph",
+      "boolValue": true
+    },
+    {
       "name": "DatacloudDatabases__enable_cloud_sql_built_in_user",
+      "boolValue": true
+    },
+    {
+      "name": "GeminiCLIIsLaunched__gemini_3_8_flash_launched",
+      "flagId": 45842815,
+      "boolValue": true
+    },
+    {
+      "name": "GeminiCLIIsLaunched__gemini_3_flash_ga_launched",
+      "flagId": 45780819,
+      "boolValue": true
+    },
+    {
+      "name": "GeminiCLIPreviewAvailable__enable_preview",
+      "flagId": 45740196,
+      "boolValue": true
+    },
+    {
+      "name": "GeminiCLIIsLaunched__gemini_3_1_flash_lite_ga_launched",
+      "flagId": 45784352,
       "boolValue": true
     },
     {
@@ -335,83 +584,32 @@
       "boolValue": true
     },
     {
-      "name": "DatacloudDataplex__enable_alloydb_adapter",
-      "boolValue": false
-    },
-    {
-      "name": "DatacloudDataplex__enable_biglake_adapter",
-      "boolValue": false
-    },
-    {
-      "name": "DatacloudDataplex__enable_bigquery_adapter",
-      "boolValue": false
-    },
-    {
-      "name": "DatacloudDataplex__enable_bigtable_adapter",
+      "name": "Chat__delete_chat_request_button",
       "boolValue": true
-    },
-    {
-      "name": "DatacloudDataplex__enable_cloud_sql_adapter",
-      "boolValue": false
-    },
-    {
-      "name": "DatacloudDataplex__enable_firestore_adapter",
-      "boolValue": false
-    },
-    {
-      "name": "DatacloudDataplex__enable_lakehouse_public_data",
-      "boolValue": true
-    },
-    {
-      "name": "DatacloudDataplex__enable_spanner_adapter",
-      "boolValue": false
     },
     {
       "name": "DatacloudFeedback__enable_listnr_survey",
       "boolValue": true
     },
     {
-      "name": "DatacloudKnowledgeCatalog__enable_data_products",
+      "name": "GcaTelemetry__send_aica_to_ccpa",
       "boolValue": true
     },
     {
-      "name": "DatacloudKnowledgeCatalog__enable_post_next_improvements",
+      "name": "GeminiCLIIsLaunched__gemini_3_1_flash_lite_preview_launched",
+      "flagId": 45771641,
       "boolValue": true
     },
     {
-      "name": "DatacloudKnowledgeCatalog__enable_relationship_graph_details_panel",
+      "name": "Chat__edit_chat_request_button",
       "boolValue": true
     },
     {
-      "name": "DatacloudMcp__enable_stdio_mcp_proxy",
+      "name": "SparkMonitorIntegration__enable_spark_monitor_integration",
       "boolValue": true
     },
     {
-      "name": "DatacloudSpark__enable_jupyter_token_broker",
-      "boolValue": true
-    },
-    {
-      "name": "DatacloudSpark__enable_load_in_spark_dataframe_from_gcs",
-      "boolValue": true
-    },
-    {
-      "name": "DatacloudSpark__enable_spark_in_sql_editor",
-      "boolValue": true
-    },
-    {
-      "name": "DatacloudTheme__enable_theme_v2",
-      "boolValue": false
-    },
-    {
-      "name": "DuetAICodeTransformIj__enable_ij",
-      "boolValue": true
-    },
-    {
-      "name": "DuetAICodeTransform__custom_slash_commands",
-      "boolValue": true
-    },
-    {
-      "name": "DuetAICodeTransform__display_prompt_recitations",
+      "name": "Chat__enable_workspace_change_in_chat_history",
       "boolValue": true
     },
     {
@@ -419,80 +617,287 @@
       "boolValue": true
     },
     {
-      "name": "DuetAICodeTransform__enable_m2",
+      "name": "Chat__stop_chat_request_button",
       "boolValue": true
     },
     {
-      "name": "DuetAiCloudCodeAPI__enable_cloudcode_api",
+      "name": "Chat__enable_text_snippets",
       "boolValue": true
     },
     {
-      "name": "DuetAiCompletion__adaptingCache_maxInflightRequests",
-      "intValue": "2"
+      "name": "DatacloudSpark__enable_runtime_profile",
+      "boolValue": true
+    },
+    {
+      "name": "DatacloudMcp__enable_stdio_mcp_proxy",
+      "boolValue": true
+    },
+    {
+      "name": "Chat__code_customization_enable_learn_more_message",
+      "boolValue": true
+    },
+    {
+      "name": "Chat__enable_chat_checkpoints",
+      "boolValue": true
+    },
+    {
+      "name": "Chat__enable_chat_rag_remote_repositories_context_selection",
+      "boolValue": true
+    },
+    {
+      "name": "Chat__enable_custom_prompts",
+      "boolValue": true
+    },
+    {
+      "name": "DatacloudSpark__enable_spark_in_sql_editor",
+      "boolValue": true
+    },
+    {
+      "name": "Chat__enable_gemini3_announcement",
+      "boolValue": true
+    },
+    {
+      "name": "Chat__local_bm25_chat_tokenizer",
+      "stringValue": "wald_word3"
+    },
+    {
+      "name": "DuetAiMendelOverrides__chat_clientId",
+      "stringValue": "CHAT_CLIENT_CLOUD_CODE_GEMINI_2_0_FLASH_001"
+    },
+    {
+      "name": "GcaApiMigration__platform_api_chat_experience",
+      "stringValue": ""
+    },
+    {
+      "name": "GcaApiMigration__product_api_chat_experience",
+      "stringValue": ""
+    },
+    {
+      "name": "GcaApiMigration__product_api_completion_experience",
+      "stringValue": ""
+    },
+    {
+      "name": "GcaApiMigration__product_api_generation_experience",
+      "stringValue": ""
+    },
+    {
+      "name": "DuetAiLocalRag__local_rag_fragmentation_algorithm",
+      "stringValue": "wholefile"
+    },
+    {
+      "name": "DuetAiLocalRag__local_rag_tokenization_algorithm",
+      "stringValue": "whitespace"
+    },
+    {
+      "name": "DuetAiMendelOverrides__gca_intent_classifier_model_name",
+      "stringValue": "/ml/m2p-role-prod-intentclassifiergca-servo-owner/prod.intentclassifiergca"
+    },
+    {
+      "name": "GcaApiMigration__platform_api_completion_experience",
+      "stringValue": ""
+    },
+    {
+      "name": "GcliCompressionPrompt__compression_prompt",
+      "flagId": 45773187,
+      "stringValue": ""
+    },
+    {
+      "name": "GeminiCLIBannerText__capacity_issues",
+      "flagId": 45740200,
+      "stringValue": ""
+    },
+    {
+      "name": "GeminiCLIBannerText__no_capacity_issues",
+      "flagId": 45740199,
+      "stringValue": ""
+    },
+    {
+      "name": "DuetAiMendelOverrides__gca_intent_classifier_model_version",
+      "stringValue": ""
+    },
+    {
+      "name": "GcaApiMigration__platform_api_generation_experience",
+      "stringValue": ""
+    },
+    {
+      "name": "GcaApiMigration__product_api_transformation_experience",
+      "stringValue": ""
+    },
+    {
+      "name": "GcaApiMigration__platform_api_transformation_experience",
+      "stringValue": ""
+    },
+    {
+      "name": "GcliConfigPayload__config_payload",
+      "flagId": 45773036,
+      "stringValue": ""
+    },
+    {
+      "name": "GcaEventsPipeline__events_pipeline_polling_interval_ms",
+      "intValue": "60000"
+    },
+    {
+      "name": "Chat__local_bm25_index_max_files",
+      "intValue": "25000"
     },
     {
       "name": "DuetAiCompletion__codeCompletion_client_side_context_size_limit",
       "intValue": "35000"
     },
     {
-      "name": "DuetAiCompletion__codeCompletion_enableAdaptingCache",
-      "boolValue": true
-    },
-    {
-      "name": "DuetAiCompletion__codeCompletion_enableInfixCache",
-      "boolValue": true
-    },
-    {
-      "name": "DuetAiCompletion__codeCompletion_enablePrefetchNextSuggestions",
-      "boolValue": true
-    },
-    {
-      "name": "DuetAiCompletion__codeCompletion_triggerForDeletion",
-      "boolValue": false
-    },
-    {
-      "name": "DuetAiGenerationAndCompletion__track_suffix_length",
-      "boolValue": false
-    },
-    {
-      "name": "DuetAiGeneration__auto_trigger_on_empty_class_struct_def",
-      "boolValue": true
+      "name": "DuetAiLocalRag__sliding_window_fragmenter_stride",
+      "intValue": "10"
     },
     {
       "name": "DuetAiGeneration__codeGeneration_context_window_size",
       "intValue": "64000"
     },
     {
-      "name": "DuetAiGeneration__codeGeneration_enable_codelens_call_to_action",
-      "boolValue": false
-    },
-    {
-      "name": "DuetAiGeneration__codeGeneration_enable_diff_view",
-      "boolValue": true
-    },
-    {
-      "name": "DuetAiGeneration__codeGeneration_enable_new_cy_vsc_ux",
-      "boolValue": false
-    },
-    {
-      "name": "DuetAiGeneration__codeGeneration_enable_pane_view",
-      "boolValue": true
-    },
-    {
-      "name": "DuetAiGeneration__codeGeneration_enable_quickpick_chat",
-      "boolValue": true
-    },
-    {
-      "name": "DuetAiGeneration__codeGeneration_pane_view_default_config",
-      "boolValue": false
-    },
-    {
-      "name": "DuetAiGeneration__codeGeneration_use_transform_api",
-      "boolValue": false
-    },
-    {
       "name": "DuetAiLocalRag__bm25_in_completion_max_results",
       "intValue": "15"
+    },
+    {
+      "name": "DuetAiLocalRag__top_k_test_files_to_include",
+      "intValue": "2"
+    },
+    {
+      "name": "Chat__fca_chat_context_window_size",
+      "intValue": "3500000"
+    },
+    {
+      "name": "DuetAiRemoteRag__max_snippets_rag_for_chat",
+      "intValue": "2"
+    },
+    {
+      "name": "GcliAgentHistoryTruncation__agent_history_retained_messages",
+      "flagId": 45773190,
+      "intValue": "15"
+    },
+    {
+      "name": "Timeouts__cli_total_request_timeout_seconds",
+      "flagId": 45773135,
+      "intValue": "600"
+    },
+    {
+      "name": "DuetAiLocalRag__otherfiles_chat_limit",
+      "intValue": "100"
+    },
+    {
+      "name": "DuetAiMendelOverrides__inlineSuggestions_debounceMs",
+      "intValue": "300"
+    },
+    {
+      "name": "DuetAiRemoteRag__max_snippets_rag_for_selected_code",
+      "intValue": "2"
+    },
+    {
+      "name": "GcliAgentHistoryTruncation__agent_history_truncation_threshold",
+      "flagId": 45773189,
+      "intValue": "30"
+    },
+    {
+      "name": "Chat__chat_context_window_size",
+      "intValue": "-1"
+    },
+    {
+      "name": "Chat__local_bm25_chat_max_results",
+      "intValue": "10"
+    },
+    {
+      "name": "DuetAiLocalRag__wald_local_rag_max_file_search_depth",
+      "intValue": "-1"
+    },
+    {
+      "name": "DuetAiMendelOverrides__inlineSuggestions_throttleMs",
+      "intValue": "0"
+    },
+    {
+      "name": "DuetAiRemoteRag__max_snippets_tailed_prompt",
+      "intValue": "4"
+    },
+    {
+      "name": "GCAUpgradeToPaid__current_tier_polling_interval_ms",
+      "intValue": "43200000"
+    },
+    {
+      "name": "GcliConfig__cli_max_attempts",
+      "flagId": 45774515,
+      "intValue": "10"
+    },
+    {
+      "name": "GeminiFreeTier__license_message_frequency_days",
+      "intValue": "60"
+    },
+    {
+      "name": "CliComplexityBasedRouting__prompt_complexity",
+      "flagId": 45750527,
+      "intValue": "90"
+    },
+    {
+      "name": "DuetAiLocalRag__max_file_search_depth",
+      "intValue": "2"
+    },
+    {
+      "name": "DuetAiRemoteRag__max_bm25_snippets_rag",
+      "intValue": "0"
+    },
+    {
+      "name": "DuetAiRemoteRag__max_named_entity_for_chat",
+      "intValue": "3"
+    },
+    {
+      "name": "Timeouts__cli_request_timeout_seconds",
+      "flagId": 45773134,
+      "intValue": "300"
+    },
+    {
+      "name": "DuetAiCompletion__adaptingCache_maxInflightRequests",
+      "intValue": "2"
+    },
+    {
+      "name": "DuetAiLocalRag__otherfiles_completion_limit",
+      "intValue": "15"
+    },
+    {
+      "name": "Chat__lca_chat_context_window_size_ij",
+      "intValue": "3500000"
+    },
+    {
+      "name": "DuetAiLocalRag__otherfiles_generation_limit",
+      "intValue": "40"
+    },
+    {
+      "name": "DuetAiLocalRag__sliding_window_fragmenter_window_size",
+      "intValue": "20"
+    },
+    {
+      "name": "DuetAiLocalRag__top_k_doc_files_to_include",
+      "intValue": "2"
+    },
+    {
+      "name": "DuetAiLocalRag__cache_total_files",
+      "floatValue": 250
+    },
+    {
+      "name": "DuetAiLocalRag__local_rag_reranking_by_language",
+      "floatValue": 0
+    },
+    {
+      "name": "DuetAiRemoteRag__max_distance_rag_for_chat",
+      "floatValue": 0.8
+    },
+    {
+      "name": "DuetAiRemoteRag__max_distance_rag_for_selected_code",
+      "floatValue": 0.8
+    },
+    {
+      "name": "DuetAiRemoteRag__max_distance_tailed_prompt",
+      "floatValue": 0.4
+    },
+    {
+      "name": "GeminiCLIContextCompression__threshold_fraction",
+      "flagId": 45740197,
+      "floatValue": 0
     },
     {
       "name": "DuetAiLocalRag__cache_co_located",
@@ -503,92 +908,12 @@
       "floatValue": 4194300
     },
     {
-      "name": "DuetAiLocalRag__cache_total_files",
-      "floatValue": 250
+      "name": "DuetAiRemoteRag__multi_query_tail_ns_for_generation",
+      "int32ListValue": {}
     },
     {
-      "name": "DuetAiLocalRag__enable_local_rag",
-      "boolValue": true
-    },
-    {
-      "name": "DuetAiLocalRag__enable_local_rag_chat",
-      "boolValue": true
-    },
-    {
-      "name": "DuetAiLocalRag__enable_local_rag_completion",
-      "boolValue": true
-    },
-    {
-      "name": "DuetAiLocalRag__enable_local_rag_completion_snippets",
-      "boolValue": true
-    },
-    {
-      "name": "DuetAiLocalRag__enable_local_rag_completion_snippets_with_pruning",
-      "boolValue": true
-    },
-    {
-      "name": "DuetAiLocalRag__enable_local_rag_completion_snippets_with_pruning_bm25_scoring",
-      "boolValue": true
-    },
-    {
-      "name": "DuetAiLocalRag__enable_local_rag_completion_snippets_with_pruning_colocated_files",
-      "boolValue": true
-    },
-    {
-      "name": "DuetAiLocalRag__enable_wald_file_selection",
-      "boolValue": true
-    },
-    {
-      "name": "DuetAiLocalRag__include_currently_open_files",
-      "boolValue": true
-    },
-    {
-      "name": "DuetAiLocalRag__include_doc_files",
-      "boolValue": true
-    },
-    {
-      "name": "DuetAiLocalRag__include_unit_test_files",
-      "boolValue": false
-    },
-    {
-      "name": "DuetAiLocalRag__local_rag_fragmentation_algorithm",
-      "stringValue": "wholefile"
-    },
-    {
-      "name": "DuetAiLocalRag__local_rag_reranking_by_language",
-      "floatValue": 0
-    },
-    {
-      "name": "DuetAiLocalRag__local_rag_tokenization_algorithm",
-      "stringValue": "whitespace"
-    },
-    {
-      "name": "DuetAiLocalRag__max_file_search_depth",
-      "intValue": "2"
-    },
-    {
-      "name": "DuetAiLocalRag__merge_fragments",
-      "boolValue": true
-    },
-    {
-      "name": "DuetAiLocalRag__otherfiles_chat_limit",
-      "intValue": "100"
-    },
-    {
-      "name": "DuetAiLocalRag__otherfiles_completion_limit",
-      "intValue": "15"
-    },
-    {
-      "name": "DuetAiLocalRag__otherfiles_generation_limit",
-      "intValue": "40"
-    },
-    {
-      "name": "DuetAiLocalRag__sliding_window_fragmenter_stride",
-      "intValue": "10"
-    },
-    {
-      "name": "DuetAiLocalRag__sliding_window_fragmenter_window_size",
-      "intValue": "20"
+      "name": "DuetAiRemoteRag__multi_query_tail_ns_for_completion",
+      "int32ListValue": {}
     },
     {
       "name": "DuetAiLocalRag__substrings_to_identify_doc_prompts",
@@ -608,394 +933,104 @@
       }
     },
     {
-      "name": "DuetAiLocalRag__top_k_doc_files_to_include",
-      "intValue": "2"
-    },
-    {
-      "name": "DuetAiLocalRag__top_k_test_files_to_include",
-      "intValue": "2"
-    },
-    {
-      "name": "DuetAiLocalRag__wald_local_rag_max_file_search_depth",
-      "intValue": "-1"
-    },
-    {
-      "name": "DuetAiMendelOverrides__chat_clientId",
-      "stringValue": "CHAT_CLIENT_CLOUD_CODE_GEMINI_2_0_FLASH_001"
-    },
-    {
-      "name": "DuetAiMendelOverrides__enable_gca_intent_classification_as_default_model",
+      "name": "enable-plugin-card-auto-resume",
       "boolValue": false
     },
     {
-      "name": "DuetAiMendelOverrides__enable_gca_intent_classification_model_for_logging",
+      "name": "enforce-telemetry-disabled",
       "boolValue": false
     },
     {
-      "name": "DuetAiMendelOverrides__gca_intent_classifier_model_name",
-      "stringValue": "/ml/m2p-role-prod-intentclassifiergca-servo-owner/prod.intentclassifiergca"
-    },
-    {
-      "name": "DuetAiMendelOverrides__gca_intent_classifier_model_version",
-      "stringValue": ""
-    },
-    {
-      "name": "DuetAiMendelOverrides__inlineSuggestions_debounceMs",
-      "intValue": "300"
-    },
-    {
-      "name": "DuetAiMendelOverrides__inlineSuggestions_debounced_after_fetching",
+      "name": "jetski-unified-customizations-panel-enabled",
       "boolValue": false
     },
     {
-      "name": "DuetAiMendelOverrides__inlineSuggestions_throttleMs",
-      "intValue": "0"
+      "name": "enforce-default-permission-preset",
+      "boolValue": false
     },
     {
-      "name": "DuetAiProcessors__enable_prompt_recitations_check",
+      "name": "enable-concierge-agent",
+      "boolValue": false
+    },
+    {
+      "name": "enable-gil-logging",
+      "boolValue": false
+    },
+    {
+      "name": "enable-hub-builtin-browser",
+      "flagId": 45844839,
       "boolValue": true
     },
     {
-      "name": "DuetAiRemoteRag__enable_hyde_for_generation",
-      "boolValue": true
-    },
-    {
-      "name": "DuetAiRemoteRag__enable_remote_rag",
-      "boolValue": true
-    },
-    {
-      "name": "DuetAiRemoteRag__enable_remote_rag_chat",
-      "boolValue": true
-    },
-    {
-      "name": "DuetAiRemoteRag__max_bm25_snippets_rag",
-      "intValue": "0"
-    },
-    {
-      "name": "DuetAiRemoteRag__max_distance_rag_for_chat",
-      "floatValue": 0.8
-    },
-    {
-      "name": "DuetAiRemoteRag__max_distance_rag_for_selected_code",
-      "floatValue": 0.8
-    },
-    {
-      "name": "DuetAiRemoteRag__max_distance_tailed_prompt",
-      "floatValue": 0.4
-    },
-    {
-      "name": "DuetAiRemoteRag__max_named_entity_for_chat",
-      "intValue": "3"
-    },
-    {
-      "name": "DuetAiRemoteRag__max_snippets_rag_for_chat",
-      "intValue": "2"
-    },
-    {
-      "name": "DuetAiRemoteRag__max_snippets_rag_for_selected_code",
-      "intValue": "2"
-    },
-    {
-      "name": "DuetAiRemoteRag__max_snippets_tailed_prompt",
-      "intValue": "4"
-    },
-    {
-      "name": "DuetAiRemoteRag__multi_query_tail_ns_for_completion",
-      "int32ListValue": {}
-    },
-    {
-      "name": "DuetAiRemoteRag__multi_query_tail_ns_for_generation",
-      "int32ListValue": {}
-    },
-    {
-      "name": "DuetAi__custom_preambles",
-      "boolValue": true
-    },
-    {
-      "name": "FirebaseDataConnectChatTool__enable_firebase_data_connect_chat_tool",
+      "name": "enable-swarm-narrator",
       "boolValue": false
     },
     {
-      "name": "GCAFeedbackBlock__enable_feedback_block",
-      "boolValue": false
-    },
-    {
-      "name": "GCAUpgradeToPaid__current_tier_polling_interval_ms",
-      "intValue": "43200000"
-    },
-    {
-      "name": "GCAUpgradeToPaid__enable_g1_upgrade_flow",
-      "boolValue": false
-    },
-    {
-      "name": "GCAUpgradeToPaid__enable_upgrade_from_free_tier",
-      "boolValue": false
-    },
-    {
-      "name": "GcaAipluginSwingToCompose__enable_compose",
-      "boolValue": false
-    },
-    {
-      "name": "GcaApiMigration__platform_api_chat_experience",
-      "stringValue": ""
-    },
-    {
-      "name": "GcaApiMigration__platform_api_completion_experience",
-      "stringValue": ""
-    },
-    {
-      "name": "GcaApiMigration__platform_api_generation_experience",
-      "stringValue": ""
-    },
-    {
-      "name": "GcaApiMigration__platform_api_transformation_experience",
-      "stringValue": ""
-    },
-    {
-      "name": "GcaApiMigration__product_api_chat_experience",
-      "stringValue": ""
-    },
-    {
-      "name": "GcaApiMigration__product_api_completion_experience",
-      "stringValue": ""
-    },
-    {
-      "name": "GcaApiMigration__product_api_generation_experience",
-      "stringValue": ""
-    },
-    {
-      "name": "GcaApiMigration__product_api_transformation_experience",
-      "stringValue": ""
-    },
-    {
-      "name": "GcaCitationBlock__enable_citation_block",
-      "boolValue": false
-    },
-    {
-      "name": "GcaEventsPipeline__enable_events_pipeline_polling",
-      "boolValue": false
-    },
-    {
-      "name": "GcaEventsPipeline__events_pipeline_polling_interval_ms",
-      "intValue": "60000"
-    },
-    {
-      "name": "GcaFlashCompletions__completion_replaces_cursor_line",
-      "boolValue": false
-    },
-    {
-      "name": "GcaFlashCompletions__enable_client_postprocessing",
-      "boolValue": false
-    },
-    {
-      "name": "GcaFlashCompletions__enable_flash_completions",
-      "boolValue": false
-    },
-    {
-      "name": "GcaTelemetryBlock__enable_telemetry_block",
-      "boolValue": false
-    },
-    {
-      "name": "GcaTelemetry__enable_ai_characters_percentage",
+      "name": "enable-jetbox-terminal-v2",
       "boolValue": true
     },
     {
-      "name": "GcaTelemetry__send_aica_to_ccpa",
+      "name": "enable-markdown-agents",
       "boolValue": true
     },
     {
-      "name": "GcaTransformFinishChanges__enable_finish_changes",
+      "name": "enable-plugin-bundles",
       "boolValue": false
     },
     {
-      "name": "GcaTransformOutlines__enable_automatic_generation",
+      "name": "enable-cost-accumulator",
       "boolValue": false
     },
     {
-      "name": "GcaTransformOutlines__enable_outlines",
-      "boolValue": true
-    },
-    {
-      "name": "GcaUx__enable_gm3_design_system",
-      "boolValue": true
-    },
-    {
-      "name": "GcliAgentHistoryTruncation__agent_history_retained_messages",
-      "flagId": 45773190,
-      "intValue": "15"
-    },
-    {
-      "name": "GcliAgentHistoryTruncation__agent_history_truncation_threshold",
-      "flagId": 45773189,
-      "intValue": "30"
-    },
-    {
-      "name": "GcliAgentHistoryTruncation__enable_agent_history_truncation",
-      "boolValue": false,
-      "flagId": 45773188
-    },
-    {
-      "name": "GcliCompressionPrompt__compression_prompt",
-      "flagId": 45773187,
-      "stringValue": ""
-    },
-    {
-      "name": "GcliConfigPayload__config_payload",
-      "flagId": 45773036,
-      "stringValue": ""
-    },
-    {
-      "name": "GcliConfig__cli_max_attempts",
-      "flagId": 45774515,
-      "intValue": "10"
-    },
-    {
-      "name": "GeminiCLIBannerText__capacity_issues",
-      "flagId": 45740200,
-      "stringValue": ""
-    },
-    {
-      "name": "GeminiCLIBannerText__no_capacity_issues",
-      "flagId": 45740199,
-      "stringValue": ""
-    },
-    {
-      "name": "GeminiCLIContextCompression__threshold_fraction",
-      "flagId": 45740197,
-      "floatValue": 0
-    },
-    {
-      "name": "GeminiCLIIsLaunched__gemini_3_1_flash_lite_ga_launched",
-      "boolValue": true,
-      "flagId": 45784352
-    },
-    {
-      "name": "GeminiCLIIsLaunched__gemini_3_1_flash_lite_preview_launched",
-      "boolValue": true,
-      "flagId": 45771641
-    },
-    {
-      "name": "GeminiCLIIsLaunched__gemini_3_1_flash_preview_launched",
-      "boolValue": true,
-      "flagId": 45761848
-    },
-    {
-      "name": "GeminiCLIIsLaunched__gemini_3_1_pro_preview_launched",
-      "boolValue": true,
-      "flagId": 45760185
-    },
-    {
-      "name": "GeminiCLIIsLaunched__gemini_3_8_flash_launched",
-      "boolValue": true,
-      "flagId": 45842815
-    },
-    {
-      "name": "GeminiCLIIsLaunched__gemini_3_flash_ga_launched",
-      "boolValue": true,
-      "flagId": 45780819
-    },
-    {
-      "name": "GeminiCLIIsLaunched__gemini_3_pro_launched",
-      "boolValue": true,
-      "flagId": 45743869
-    },
-    {
-      "name": "GeminiCLIPreviewAvailable__enable_preview",
-      "boolValue": true,
-      "flagId": 45740196
-    },
-    {
-      "name": "GeminiFreeTier__call_onboard_user_from_legacy_flow",
-      "boolValue": true
-    },
-    {
-      "name": "GeminiFreeTier__enable_free_tier",
+      "name": "context-window-selector",
       "boolValue": false
     },
     {
-      "name": "GeminiFreeTier__license_message_frequency_days",
-      "intValue": "60"
-    },
-    {
-      "name": "IntentAware__ellipsis",
+      "name": "convenient-multi-agent-coordination",
       "boolValue": false
     },
     {
-      "name": "IntentAware__enable_intent_aware_m1",
-      "boolValue": true
-    },
-    {
-      "name": "MetricService__enable_metric_service",
-      "boolValue": true
-    },
-    {
-      "name": "SDLCAgents__enable_anthropic_model_connection",
-      "boolValue": true
-    },
-    {
-      "name": "SDLCAgents__enable_azure_model_connection",
-      "boolValue": true
-    },
-    {
-      "name": "SDLCAgents__enable_gemini_model_connection",
-      "boolValue": true
-    },
-    {
-      "name": "SDLCAgents__enable_rest_model_connection",
-      "boolValue": true
-    },
-    {
-      "name": "SparkMonitorIntegration__enable_spark_monitor_integration",
-      "boolValue": true
-    },
-    {
-      "name": "SyntaxAnalysis__enable_syntax_analysis",
+      "name": "enable-abfs-workspace-ui",
       "boolValue": false
     },
     {
-      "name": "Timeouts__cli_request_timeout_seconds",
-      "flagId": 45773134,
-      "intValue": "300"
-    },
-    {
-      "name": "Timeouts__cli_total_request_timeout_seconds",
-      "flagId": 45773135,
-      "intValue": "600"
-    },
-    {
-      "name": "UserTelemetry__enable_user_telemetry_call",
+      "name": "enable-ask-question-tool",
       "boolValue": true
     },
     {
-      "name": "agent-retry-config",
-      "stringValue": ""
+      "name": "enable-aux-pane-redesign",
+      "boolValue": true
     },
     {
-      "name": "agent-script-reroute",
-      "stringValue": ""
+      "name": "turn-on-projects-internally",
+      "boolValue": true
     },
     {
-      "name": "agy-cli-announcement-message",
-      "stringValue": ""
+      "name": "dark-launch-aicode-quota-status",
+      "boolValue": false
     },
     {
-      "name": "agy-hub-announcement-message",
-      "stringValue": ""
+      "name": "enable-trustedcli-config-files",
+      "boolValue": false
     },
     {
-      "name": "agy-plugin-marketplaces",
-      "stringListValue": {
-        "values": [
-          "antigravity-plugins-official=https://www.gstatic.com/antigravity/plugins/marketplace.json"
-        ]
-      }
+      "name": "enable-user-message-bubbles",
+      "boolValue": false
     },
     {
-      "name": "agy-plugin-shelves",
-      "stringValue": "{\"shelves\": [{\n      \"id\": \"google-workspace\",\n      \"displayName\": \"Google Workspace\",\n      \"description\": \"Connect to Google Workspace, including Docs, Sheets, Slides, Drive, and Calendar.\",\n      \"position\": 10,\n      \"customizationIds\": [\n        \"antigravity-plugins-official/plugin/gdocs\",\n        \"antigravity-plugins-official/plugin/gsheets\",\n        \"antigravity-plugins-official/plugin/gslides\",\n        \"antigravity-plugins-official/plugin/gdrive\",\n        \"antigravity-plugins-official/plugin/gcalendar\"\n      ]\n    },{\n      \"id\": \"build-with-google\",\n      \"displayName\": \"Build with Google\",\n      \"description\": \"Build on Google's developer platforms, including Android, Chrome, Gemini, and Google Cloud.\",\n      \"position\": 20,\n      \"customizationIds\": [\n        \"antigravity-plugins-official/plugin/gemini-api\",\n        \"antigravity-plugins-official/plugin/chrome-devtools-plugin\",\n        \"antigravity-plugins-official/plugin/android-cli-plugin\",\n        \"antigravity-plugins-official/plugin/firebase\",\n        \"antigravity-plugins-official/plugin/science\",\n        \"antigravity-plugins-official/plugin/google-antigravity-sdk\",\n        \"antigravity-plugins-official/plugin/google-developer-knowledge\",\n        \"antigravity-plugins-official/plugin/modern-web-guidance-plugin\",\n        \"antigravity-plugins-official/plugin/google_maps_platform\",\n        \"antigravity-plugins-official/plugin/flutter\",\n        \"antigravity-plugins-official/plugin/data-agent-kit-plugin\",\n        \"antigravity-plugins-official/plugin/google-cloud-developer\"\n      ]\n    }]}"
+      "name": "shadow-call-aicode-mendel",
+      "boolValue": true
     },
     {
-      "name": "allow-experimental-monitors",
+      "name": "show_memory_operations",
+      "boolValue": false
+    },
+    {
+      "name": "enable-agent-omnitrace",
+      "boolValue": false
+    },
+    {
+      "name": "enable-agent-team",
       "boolValue": false
     },
     {
@@ -1003,32 +1038,954 @@
       "boolValue": false
     },
     {
+      "name": "cascade-use-sed-edit-tool",
+      "boolValue": false
+    },
+    {
+      "name": "enable-ask-permission-tool",
+      "boolValue": false
+    },
+    {
+      "name": "enable-battle-mode",
+      "boolValue": false
+    },
+    {
+      "name": "enable-list-plugin-accounts-tool",
+      "boolValue": true
+    },
+    {
+      "name": "enable-mcp-plugin-auth",
+      "boolValue": true
+    },
+    {
+      "name": "enable-pane-selection-actions",
+      "boolValue": false
+    },
+    {
+      "name": "sidecar-gateway",
+      "boolValue": true
+    },
+    {
+      "name": "enable-subagent-hub",
+      "boolValue": false
+    },
+    {
+      "name": "enable-customization-kind-rule",
+      "boolValue": true
+    },
+    {
+      "name": "use-model-reported-token-count",
+      "boolValue": true
+    },
+    {
+      "name": "enable-pdf-viewer",
+      "boolValue": true
+    },
+    {
+      "name": "enable-simplified-skin",
+      "boolValue": false
+    },
+    {
+      "name": "enable-tasks",
+      "boolValue": true
+    },
+    {
+      "name": "use-slash-plan",
+      "boolValue": true
+    },
+    {
+      "name": "enable-url-artifacts",
+      "flagId": 45825098,
+      "boolValue": false
+    },
+    {
+      "name": "enable-code-search-palette",
+      "boolValue": false
+    },
+    {
+      "name": "enable-customization-load-error-notice",
+      "boolValue": true
+    },
+    {
+      "name": "cli-enable-vetted-permission",
+      "boolValue": false
+    },
+    {
+      "name": "configure-artifact-width",
+      "boolValue": false
+    },
+    {
+      "name": "enable-context-usage-indicator",
+      "boolValue": false
+    },
+    {
+      "name": "enable-jj-vcs-ui",
+      "boolValue": false
+    },
+    {
+      "name": "enable-new-themes",
+      "boolValue": false
+    },
+    {
+      "name": "enable-skill-accumulator",
+      "boolValue": true
+    },
+    {
+      "name": "jetski-sidecar-declared-permissions",
+      "boolValue": true
+    },
+    {
+      "name": "ambient_prefetch_enabled",
+      "boolValue": false
+    },
+    {
+      "name": "enable-browser-subagent-webview-ux",
+      "boolValue": false
+    },
+    {
+      "name": "enable-generative-hooks",
+      "boolValue": false
+    },
+    {
+      "name": "enable-side-question-rework",
+      "flagId": 45837903,
+      "boolValue": false
+    },
+    {
+      "name": "show-model-selection-change",
+      "boolValue": true
+    },
+    {
+      "name": "enable-advanced-builtin-workflow",
+      "boolValue": false
+    },
+    {
+      "name": "enable-fork-in-new-abfs-workspace",
+      "boolValue": false
+    },
+    {
+      "name": "enable-lazy-loaded-projects",
+      "boolValue": false
+    },
+    {
+      "name": "enable-rpc-sandbox-proxy",
+      "boolValue": false
+    },
+    {
+      "name": "enable-sidecar-sdk",
+      "boolValue": true
+    },
+    {
+      "name": "enable-background-task-accumulator",
+      "boolValue": true
+    },
+    {
+      "name": "enable-conversation-only-revert",
+      "boolValue": true
+    },
+    {
+      "name": "enable-model-capacity-exhausted-retries",
+      "boolValue": true
+    },
+    {
+      "name": "enable-sidecars",
+      "boolValue": true
+    },
+    {
+      "name": "enable-voice-relay",
+      "boolValue": false
+    },
+    {
+      "name": "deprecate-workflows",
+      "boolValue": true
+    },
+    {
+      "name": "enable-base-ui-tooltips",
+      "flagId": 45834473,
+      "boolValue": true
+    },
+    {
+      "name": "enable-continuous-pprof",
+      "boolValue": false
+    },
+    {
+      "name": "enable-reconcile-summaries",
+      "boolValue": true
+    },
+    {
+      "name": "sso-based-user-identity",
+      "boolValue": false
+    },
+    {
+      "name": "use-aicode-mendel",
+      "boolValue": false
+    },
+    {
+      "name": "enable-conversation-sharing-prototype",
+      "boolValue": false
+    },
+    {
+      "name": "enable-terminal-setup-script",
+      "boolValue": false
+    },
+    {
+      "name": "enable-timeout-notification",
+      "boolValue": false
+    },
+    {
+      "name": "enable-browser-subagent-v2",
+      "boolValue": true
+    },
+    {
+      "name": "enable-persistent-terminals",
+      "boolValue": true
+    },
+    {
+      "name": "enable-styles-css-cleanup",
+      "flagId": 45817109,
+      "boolValue": false
+    },
+    {
+      "name": "enable-plugin-themes",
+      "boolValue": false
+    },
+    {
+      "name": "enable-remote-control-audio-transcription",
+      "boolValue": true
+    },
+    {
+      "name": "jetski-autonomous-mode",
+      "boolValue": false
+    },
+    {
+      "name": "enable-conversation-groups",
+      "boolValue": false
+    },
+    {
+      "name": "enable-conversation-search-v2",
+      "boolValue": true
+    },
+    {
+      "name": "enable-customization-kind-workflow",
+      "boolValue": true
+    },
+    {
+      "name": "disable-system-message-tag",
+      "boolValue": false
+    },
+    {
+      "name": "remove-conversation-history",
+      "boolValue": true
+    },
+    {
+      "name": "enable-conversation-forking",
+      "boolValue": false
+    },
+    {
+      "name": "enable-customization-skills",
+      "boolValue": true
+    },
+    {
+      "name": "enable-remote-terminal-predictive-echo",
+      "boolValue": true
+    },
+    {
+      "name": "enable-ui-sidecars",
+      "boolValue": true
+    },
+    {
+      "name": "google-workspace-mentions",
+      "flagId": 45825097,
+      "boolValue": false
+    },
+    {
+      "name": "cortex-snapshot-revert",
+      "boolValue": false
+    },
+    {
+      "name": "enable-browser-subagent-webview-script",
+      "boolValue": false
+    },
+    {
+      "name": "enable-deepagent",
+      "boolValue": false
+    },
+    {
+      "name": "enable-notebook-rendering",
+      "boolValue": true
+    },
+    {
+      "name": "enable-project-4k",
+      "boolValue": false
+    },
+    {
+      "name": "disable-command-assessor",
+      "boolValue": false
+    },
+    {
+      "name": "enable-file-viewer-keyboard-navigation",
+      "boolValue": false
+    },
+    {
+      "name": "enable-fork-in-new-citc-workspace",
+      "boolValue": false
+    },
+    {
+      "name": "enable-jetbox-gcert",
+      "boolValue": false
+    },
+    {
+      "name": "show-trajectory-labeling-ad",
+      "boolValue": false
+    },
+    {
+      "name": "cli-enable-search-everything",
+      "boolValue": false
+    },
+    {
+      "name": "enable-agent-plugins-spec",
+      "boolValue": false
+    },
+    {
+      "name": "enable-inference-traffic-migration",
+      "boolValue": false
+    },
+    {
+      "name": "enable-permissioned-github",
+      "boolValue": false
+    },
+    {
+      "name": "enable-plugin-updates-menu",
+      "boolValue": false
+    },
+    {
+      "name": "enable-scoped-csrf-tokens",
+      "boolValue": false
+    },
+    {
+      "name": "enable-text-transitions",
+      "boolValue": false
+    },
+    {
+      "name": "enable-browser-subagent-auto-invoke",
+      "boolValue": false
+    },
+    {
+      "name": "cascade-enable-notebook-edit-tool",
+      "boolValue": false
+    },
+    {
+      "name": "enable-hook-status",
+      "boolValue": true
+    },
+    {
+      "name": "enable-mcp-apps",
+      "boolValue": false
+    },
+    {
+      "name": "cli-enable-jetmon",
+      "boolValue": false
+    },
+    {
+      "name": "enable-conversation-project-migration",
+      "boolValue": true
+    },
+    {
+      "name": "enable-enterprise-remote-ai",
+      "boolValue": false
+    },
+    {
+      "name": "enable-get-screenshot-data",
+      "boolValue": false
+    },
+    {
+      "name": "enable-notifications-settings",
+      "boolValue": true
+    },
+    {
+      "name": "enable-remote-persistent-agents",
+      "boolValue": false
+    },
+    {
+      "name": "enable-ark",
+      "boolValue": false
+    },
+    {
+      "name": "enable-vscode-injection-removal",
+      "flagId": 45827954,
+      "boolValue": false
+    },
+    {
+      "name": "use-component-rewrite",
+      "boolValue": true
+    },
+    {
+      "name": "enable-customization-kind-plugin",
+      "boolValue": true
+    },
+    {
+      "name": "enable-jetbox-gcert-v2",
+      "flagId": 45807049,
+      "boolValue": false
+    },
+    {
+      "name": "enable-sidecars-user-config-migration-ready",
+      "boolValue": false
+    },
+    {
+      "name": "enable-state-accumulator",
+      "boolValue": true
+    },
+    {
+      "name": "enable-upload-html-artifact-to-drive",
+      "flagId": 45856317,
+      "boolValue": false
+    },
+    {
+      "name": "1p-projects-v5",
+      "boolValue": false
+    },
+    {
+      "name": "enable-battle-mode-custom-agents",
+      "boolValue": true
+    },
+    {
+      "name": "enable-daemon-commands",
+      "boolValue": true
+    },
+    {
+      "name": "enable-fork-in-new-worktree",
+      "boolValue": false
+    },
+    {
+      "name": "enable-learn-slash-command",
+      "boolValue": true
+    },
+    {
+      "name": "enable-swarm-monitor",
+      "boolValue": true
+    },
+    {
+      "name": "show-all-models-in-gemini-app",
+      "boolValue": false
+    },
+    {
+      "name": "allow-experimental-monitors",
+      "boolValue": false
+    },
+    {
+      "name": "disable-tool-hook-notices",
+      "boolValue": false
+    },
+    {
+      "name": "enable-gemini-next-opt-out-switch",
+      "boolValue": false
+    },
+    {
+      "name": "summary-store-reads",
+      "boolValue": false
+    },
+    {
+      "name": "use-canonical-stub-for-checkin",
+      "boolValue": false
+    },
+    {
+      "name": "enable-critique-decorator",
+      "boolValue": false
+    },
+    {
+      "name": "enable-native-swarm",
+      "boolValue": false
+    },
+    {
+      "name": "enable-remote-battle-mode",
+      "boolValue": false
+    },
+    {
+      "name": "enable-retroactive-projects-migration",
+      "boolValue": true
+    },
+    {
+      "name": "si_dreaming_split_large_memories",
+      "boolValue": false
+    },
+    {
+      "name": "enable-customization-kind-skill",
+      "boolValue": true
+    },
+    {
+      "name": "enable-run-workflow-tool",
+      "boolValue": false
+    },
+    {
+      "name": "enable-sidebar-unread-dot",
+      "boolValue": false
+    },
+    {
+      "name": "disable-teamwork-forced-flash-model",
+      "boolValue": false
+    },
+    {
+      "name": "enable-audio-transcription",
+      "boolValue": true
+    },
+    {
+      "name": "collect-x20-quotas-on-checkin",
+      "boolValue": false
+    },
+    {
+      "name": "disable-search-tools",
+      "boolValue": false
+    },
+    {
+      "name": "enable-context-menu-system",
+      "flagId": 45838944,
+      "boolValue": true
+    },
+    {
+      "name": "enable-continue-after-injection",
+      "boolValue": false
+    },
+    {
+      "name": "enable-gob-repo-vcs-ui",
+      "boolValue": true
+    },
+    {
+      "name": "jetski-shared-beyond-session-id",
+      "boolValue": false
+    },
+    {
+      "name": "enable-auto-permission-preset",
+      "boolValue": true
+    },
+    {
+      "name": "enable-citc-workspace-hygiene-rule",
+      "boolValue": true
+    },
+    {
+      "name": "enable-customization-kind-hooks",
+      "boolValue": true
+    },
+    {
+      "name": "enable-plugins",
+      "boolValue": true
+    },
+    {
+      "name": "enable-conversation-selection-quoting",
+      "boolValue": true
+    },
+    {
+      "name": "enable-fork-provenance",
+      "boolValue": false
+    },
+    {
+      "name": "enable-gob-cog-vcs-ui",
+      "boolValue": true
+    },
+    {
+      "name": "enable-owl-slash-command",
+      "boolValue": true
+    },
+    {
+      "name": "enable-mcp-non-blocking-turn-load",
+      "boolValue": true
+    },
+    {
+      "name": "enable-prompt-cache-keep-alive",
+      "boolValue": false
+    },
+    {
+      "name": "enable-teamwork-subagent",
+      "boolValue": true
+    },
+    {
+      "name": "json-hooks-enabled",
+      "boolValue": true
+    },
+    {
+      "name": "mcp-lazy-load-tools",
+      "boolValue": true
+    },
+    {
+      "name": "enable-ripgrep-path-search",
+      "boolValue": true
+    },
+    {
+      "name": "cascade-enable-messaging",
+      "boolValue": true
+    },
+    {
+      "name": "enable-input-draft-persistence",
+      "boolValue": false
+    },
+    {
+      "name": "enable-resource-manager",
+      "boolValue": false
+    },
+    {
+      "name": "jetski-generative-ui",
+      "boolValue": true
+    },
+    {
+      "name": "remote-control-webrtc-mesh",
+      "boolValue": true
+    },
+    {
+      "name": "enable-fork-artifact-streaming",
+      "boolValue": false
+    },
+    {
+      "name": "enable-skill-search-tool",
+      "boolValue": false
+    },
+    {
+      "name": "enable-split-view",
+      "flagId": 45823456,
+      "boolValue": true
+    },
+    {
+      "name": "enable-wait-tool",
+      "boolValue": false
+    },
+    {
+      "name": "use-aicode-jetski-endpoint",
+      "boolValue": false
+    },
+    {
+      "name": "enable-browser-subagent-webview",
+      "boolValue": false
+    },
+    {
+      "name": "enable-context-role",
+      "boolValue": false
+    },
+    {
+      "name": "enable-jetski-chat",
+      "boolValue": false
+    },
+    {
+      "name": "cortex-snapshot-recording",
+      "boolValue": false
+    },
+    {
+      "name": "enable-autonomous-mode-critic",
+      "boolValue": false
+    },
+    {
+      "name": "enable-critique-preview",
+      "boolValue": false
+    },
+    {
+      "name": "enable-primes-tracing",
+      "boolValue": false
+    },
+    {
+      "name": "enable-command-assessor",
+      "boolValue": true
+    },
+    {
+      "name": "enable-developer-mode",
+      "boolValue": false
+    },
+    {
+      "name": "enable-fork-with-subagents",
+      "boolValue": false
+    },
+    {
+      "name": "enable-bottom-terminal-panel",
+      "boolValue": false
+    },
+    {
+      "name": "enable-compact-slash-command",
+      "boolValue": true
+    },
+    {
+      "name": "enable-fast-output-close",
+      "boolValue": false
+    },
+    {
+      "name": "enable-plugin-sidebar-section",
+      "boolValue": false
+    },
+    {
+      "name": "enable-profiles",
+      "boolValue": false
+    },
+    {
+      "name": "enable-programmatic-tools",
+      "boolValue": false
+    },
+    {
+      "name": "enable-chatski-connect-page",
+      "boolValue": false
+    },
+    {
+      "name": "enable-customization-kind-mcp",
+      "boolValue": true
+    },
+    {
+      "name": "enable-remote-conversation-terminal",
+      "boolValue": false
+    },
+    {
+      "name": "enable-sidecar-pill-auto-open",
+      "boolValue": false
+    },
+    {
+      "name": "memory_source_attribution",
+      "boolValue": false
+    },
+    {
+      "name": "send-subagent-initial-prompt-as-message",
+      "boolValue": true
+    },
+    {
+      "name": "enable-settings-error-card",
+      "boolValue": true
+    },
+    {
+      "name": "permission-v2",
+      "boolValue": true
+    },
+    {
+      "name": "enable-marketplace-search-tool",
+      "boolValue": true
+    },
+    {
+      "name": "enable-fig-vcs-ui",
+      "boolValue": true
+    },
+    {
+      "name": "enable-git-vcs-ui",
+      "boolValue": true
+    },
+    {
+      "name": "markdown-table-v2",
+      "boolValue": false
+    },
+    {
+      "name": "pin-depot-head",
+      "boolValue": false
+    },
+    {
+      "name": "enable-directory-local-discovery",
+      "boolValue": false
+    },
+    {
+      "name": "enable-paste-text-as-snippet",
+      "boolValue": false
+    },
+    {
+      "name": "enable-conversation-navigator-chapter-titles",
+      "boolValue": false
+    },
+    {
+      "name": "enable-customization-kind-agent",
+      "boolValue": true
+    },
+    {
+      "name": "enable-image-generator-subagent",
+      "boolValue": true
+    },
+    {
+      "name": "enable-input-autocomplete",
+      "boolValue": false
+    },
+    {
+      "name": "enable-permissions-selector",
+      "boolValue": true
+    },
+    {
+      "name": "remote-control-setting-enabled",
+      "boolValue": true
+    },
+    {
+      "name": "cli-enable-btw-threads",
+      "boolValue": false
+    },
+    {
+      "name": "cli-enable-conversation-groups",
+      "boolValue": false
+    },
+    {
+      "name": "enable-fork-at-historical-step",
+      "boolValue": false
+    },
+    {
+      "name": "enable-omni-mention-search",
+      "boolValue": false
+    },
+    {
+      "name": "native-swarm-spanner-board",
+      "boolValue": false
+    },
+    {
+      "name": "disable-loop-detection",
+      "boolValue": true
+    },
+    {
+      "name": "enable-thought-steering-from-selection",
+      "boolValue": false
+    },
+    {
+      "name": "enable-ask-custom-permission-tool",
+      "boolValue": false
+    },
+    {
+      "name": "enable-battle-contrib-variants",
+      "boolValue": false
+    },
+    {
+      "name": "enable-keybinding-customization",
+      "boolValue": false
+    },
+    {
+      "name": "enable-review",
+      "boolValue": false
+    },
+    {
+      "name": "enable-citc-top-level-write-guard",
+      "boolValue": false
+    },
+    {
+      "name": "enable-plugin-auth",
+      "boolValue": true
+    },
+    {
+      "name": "enable-thought-editing",
+      "boolValue": false
+    },
+    {
+      "name": "enable-customization-kind-flow",
+      "boolValue": false
+    },
+    {
+      "name": "enable-remote-ai",
+      "boolValue": false
+    },
+    {
+      "name": "enable-deferred-tool-loading",
+      "boolValue": false
+    },
+    {
+      "name": "enable-run-command-semantic-rendering",
+      "boolValue": false
+    },
+    {
+      "name": "scheduled-tasks-v2",
+      "boolValue": true
+    },
+    {
+      "name": "enable-per-conversation-telemetry-toggle",
+      "boolValue": false
+    },
+    {
+      "name": "enable-plugin-context-providers",
+      "boolValue": false
+    },
+    {
+      "name": "enable-pty",
+      "boolValue": true
+    },
+    {
+      "name": "enable-conversation-navigator",
+      "boolValue": true
+    },
+    {
+      "name": "enable-file-diff-accumulator",
+      "boolValue": true
+    },
+    {
+      "name": "enable-file-explorer-tab",
+      "boolValue": false
+    },
+    {
+      "name": "enable-github-decorator",
+      "boolValue": false
+    },
+    {
+      "name": "enable-subagent-user-messaging",
+      "boolValue": true
+    },
+    {
       "name": "apply-trajectory-acls",
       "boolValue": true
     },
     {
-      "name": "auto-command-config",
-      "stringValue": "{\"system_allowlist\": [\"cd\"], \"sandbox_system_allowlist\": [\"head\", \"tail\", \"mkdir\", \"cd\", \"cp\", \"mv\", \"cat\", \"find\", \"grep\", \"rm\", \"touch\", \"less\", \"clear\", \"ls\"]}"
+      "name": "enable-feature-manager-keybindings",
+      "boolValue": true
     },
     {
-      "name": "auto-mode-permission-preset",
-      "stringValue": "auto"
+      "name": "enable-pseudo-project",
+      "boolValue": true
     },
     {
-      "name": "battle-mode-max-turns",
-      "intValue": "0"
+      "name": "use-core-direct",
+      "boolValue": true
     },
     {
-      "name": "battle-winner-survey-percent",
-      "intValue": "50"
+      "name": "enable-thumbs-down-reroll",
+      "boolValue": false
     },
     {
-      "name": "best-of-nudge-length-threshold",
-      "intValue": "150"
+      "name": "disable-system-message-merging",
+      "boolValue": false
     },
     {
-      "name": "browser-subagent-model",
-      "stringValue": "MODEL_PLACEHOLDER_M18"
+      "name": "cli-suggest-auto-mode-in-permission-prompt",
+      "boolValue": false
+    },
+    {
+      "name": "disable-stained-loas2-creds",
+      "boolValue": true
+    },
+    {
+      "name": "enable-resume-conversations-from-restart",
+      "boolValue": false
+    },
+    {
+      "name": "enable-sqlite-trajectory",
+      "boolValue": true
+    },
+    {
+      "name": "sidecar-iframe-prewarm",
+      "boolValue": true
+    },
+    {
+      "name": "cli-disable-stream-conversation-updates-rehydration",
+      "boolValue": false
+    },
+    {
+      "name": "enable-remote-agent-fastpush-pin",
+      "boolValue": true
+    },
+    {
+      "name": "enable-skill-icons",
+      "boolValue": false
+    },
+    {
+      "name": "enable-trajectory-debug-in-battle-mode",
+      "boolValue": false
+    },
+    {
+      "name": "remote-control-companion-url",
+      "stringValue": "https://antigravity.google.com"
+    },
+    {
+      "name": "agent-script-reroute",
+      "stringValue": ""
+    },
+    {
+      "name": "jetski-cli-announcement-message",
+      "stringValue": ""
+    },
+    {
+      "name": "jetski-plugin-promotions",
+      "stringValue": ""
+    },
+    {
+      "name": "sonar-active-tags",
+      "stringValue": ""
     },
     {
       "name": "cascade-agent-api-config",
@@ -1039,898 +1996,120 @@
       "stringValue": "{\"enabled\": true, \"max_conversations\": 20}"
     },
     {
-      "name": "cascade-enable-messaging",
-      "boolValue": true
-    },
-    {
-      "name": "cascade-enable-notebook-edit-tool",
-      "boolValue": false
-    },
-    {
-      "name": "cascade-knowledge-config",
-      "stringValue": "{\"enabled\": false, \"min_turns_between_knowledge_generation\": 10000}"
-    },
-    {
-      "name": "cascade-use-sed-edit-tool",
-      "boolValue": false
-    },
-    {
-      "name": "checkpoint-variant",
-      "stringValue": "claude-1m_840k"
-    },
-    {
-      "name": "cli-enable-conversation-groups",
-      "boolValue": false
-    },
-    {
-      "name": "cli-enable-jetmon",
-      "boolValue": false
-    },
-    {
-      "name": "cli-enable-search-everything",
-      "boolValue": false
-    },
-    {
-      "name": "cli-enable-vetted-permission",
-      "boolValue": false
-    },
-    {
-      "name": "collect-x20-quotas-on-checkin",
-      "boolValue": false
-    },
-    {
-      "name": "configure-artifact-width",
-      "boolValue": false
-    },
-    {
-      "name": "context-engine-config",
-      "stringValue": "{}"
-    },
-    {
-      "name": "context-window-selector",
-      "boolValue": true
-    },
-    {
-      "name": "continuous-pprof-cpu-duration-seconds",
-      "intValue": "10"
-    },
-    {
-      "name": "continuous-pprof-cpu-interval-minutes",
-      "intValue": "30"
-    },
-    {
-      "name": "continuous-pprof-heap-interval-minutes",
-      "intValue": "30"
-    },
-    {
-      "name": "continuous-pprof-mem-check-interval-minutes",
-      "intValue": "1"
-    },
-    {
-      "name": "continuous-pprof-mem-cooldown-minutes",
-      "intValue": "30"
-    },
-    {
-      "name": "continuous-pprof-mem-threshold-gib",
-      "intValue": "16"
-    },
-    {
       "name": "contrib-experiment-variant",
       "stringValue": ""
-    },
-    {
-      "name": "convenient-multi-agent-coordination",
-      "boolValue": true
-    },
-    {
-      "name": "cortex-snapshot-recording",
-      "boolValue": false
-    },
-    {
-      "name": "cortex-snapshot-revert",
-      "boolValue": false
-    },
-    {
-      "name": "customization-token-budget",
-      "intValue": "20000"
-    },
-    {
-      "name": "dbtrajectory-step-cache-ttl-seconds",
-      "intValue": "0"
     },
     {
       "name": "deepagent-arm",
       "stringValue": ""
     },
     {
-      "name": "default_subagent_interaction_timeout_seconds",
-      "intValue": "60"
+      "name": "record-error-sampling-rates",
+      "stringValue": "{\n      \"error_match_to_sample_rate\": {\n        \"LS_CRASH\": 1.0,\n        \"ui_client_jetski_chat_setup_failed\": 1.0\n      }\n    }"
     },
     {
-      "name": "deprecate-workflows",
-      "boolValue": true
+      "name": "browser-subagent-model",
+      "stringValue": "gemini-3.8-flash-low"
     },
     {
-      "name": "disable-command-assessor",
-      "boolValue": false
+      "name": "jetski-hub-announcement-message",
+      "stringValue": "Please update Jetski to v2026.10.14.04+. If the Update pill stays stuck on v2026.10.14\u201315, run: sudo systemctl restart x20.service (b/575647882)"
     },
     {
-      "name": "disable-loop-detection",
-      "boolValue": true
+      "name": "remote-control-proxy-server-url",
+      "stringValue": "jetski-webchannel.googleapis.com:443"
     },
     {
-      "name": "disable-search-tools",
-      "boolValue": false
-    },
-    {
-      "name": "disable-stained-loas2-creds",
-      "boolValue": true
-    },
-    {
-      "name": "disable-system-message-merging",
-      "boolValue": false
-    },
-    {
-      "name": "disable-system-message-tag",
-      "boolValue": false
-    },
-    {
-      "name": "disable-teamwork-forced-flash-model",
-      "boolValue": false
-    },
-    {
-      "name": "disable-tool-hook-notices",
-      "boolValue": false
-    },
-    {
-      "name": "enable-abfs-workspace-ui",
-      "boolValue": false
-    },
-    {
-      "name": "enable-agent-omnitrace",
-      "boolValue": false
-    },
-    {
-      "name": "enable-agent-plugins-spec",
-      "boolValue": false
-    },
-    {
-      "name": "enable-agent-team",
-      "boolValue": true
-    },
-    {
-      "name": "enable-ark",
-      "boolValue": false
-    },
-    {
-      "name": "enable-ask-custom-permission-tool",
-      "boolValue": false
-    },
-    {
-      "name": "enable-ask-permission-tool",
-      "boolValue": true
-    },
-    {
-      "name": "enable-ask-question-tool",
-      "boolValue": true
-    },
-    {
-      "name": "enable-audio-transcription",
-      "boolValue": true
-    },
-    {
-      "name": "enable-auto-permission-preset",
-      "boolValue": true
-    },
-    {
-      "name": "enable-autonomous-mode-critic",
-      "boolValue": true
-    },
-    {
-      "name": "enable-aux-pane-redesign",
-      "boolValue": true
-    },
-    {
-      "name": "enable-background-task-accumulator",
-      "boolValue": true
-    },
-    {
-      "name": "enable-base-ui-tooltips",
-      "boolValue": true,
-      "flagId": 45834473
-    },
-    {
-      "name": "enable-battle-contrib-variants",
-      "boolValue": true
-    },
-    {
-      "name": "enable-battle-mode",
-      "boolValue": true
-    },
-    {
-      "name": "enable-battle-mode-custom-agents",
-      "boolValue": true
-    },
-    {
-      "name": "enable-browser-subagent-v2",
-      "boolValue": true
-    },
-    {
-      "name": "enable-code-search-palette",
-      "boolValue": true
-    },
-    {
-      "name": "enable-command-assessor",
-      "boolValue": true
-    },
-    {
-      "name": "enable-compact-slash-command",
-      "boolValue": true
-    },
-    {
-      "name": "enable-concierge-agent",
-      "boolValue": true
-    },
-    {
-      "name": "enable-context-menu-system",
-      "boolValue": true,
-      "flagId": 45838944
-    },
-    {
-      "name": "enable-context-role",
-      "boolValue": false
-    },
-    {
-      "name": "enable-continue-after-injection",
-      "boolValue": false
-    },
-    {
-      "name": "enable-continuous-pprof",
-      "boolValue": false
-    },
-    {
-      "name": "enable-conversation-forking",
-      "boolValue": true
-    },
-    {
-      "name": "enable-conversation-groups",
-      "boolValue": true
-    },
-    {
-      "name": "enable-conversation-navigator",
-      "boolValue": true
-    },
-    {
-      "name": "enable-conversation-only-revert",
-      "boolValue": true
-    },
-    {
-      "name": "enable-conversation-project-migration",
-      "boolValue": true
-    },
-    {
-      "name": "enable-conversation-search-v2",
-      "boolValue": true
-    },
-    {
-      "name": "enable-conversation-selection-quoting",
-      "boolValue": true
-    },
-    {
-      "name": "enable-conversation-sharing-prototype",
-      "boolValue": false
-    },
-    {
-      "name": "enable-cost-accumulator",
-      "boolValue": false
-    },
-    {
-      "name": "enable-critique-decorator",
-      "boolValue": false
-    },
-    {
-      "name": "enable-critique-preview",
-      "boolValue": false
-    },
-    {
-      "name": "enable-customization-kind-agent",
-      "boolValue": true
-    },
-    {
-      "name": "enable-customization-kind-flow",
-      "boolValue": false
-    },
-    {
-      "name": "enable-customization-kind-hooks",
-      "boolValue": true
-    },
-    {
-      "name": "enable-customization-kind-mcp",
-      "boolValue": true
-    },
-    {
-      "name": "enable-customization-kind-plugin",
-      "boolValue": true
-    },
-    {
-      "name": "enable-customization-kind-rule",
-      "boolValue": true
-    },
-    {
-      "name": "enable-customization-kind-skill",
-      "boolValue": true
-    },
-    {
-      "name": "enable-customization-kind-workflow",
-      "boolValue": true
-    },
-    {
-      "name": "enable-customization-load-error-notice",
-      "boolValue": false
-    },
-    {
-      "name": "enable-customization-skills",
-      "boolValue": true
-    },
-    {
-      "name": "enable-daemon-commands",
-      "boolValue": true
-    },
-    {
-      "name": "enable-deepagent",
-      "boolValue": true
-    },
-    {
-      "name": "enable-deferred-tool-loading",
-      "boolValue": false
-    },
-    {
-      "name": "enable-developer-mode",
-      "boolValue": true
-    },
-    {
-      "name": "enable-directory-local-discovery",
-      "boolValue": true
-    },
-    {
-      "name": "enable-enterprise-remote-ai",
-      "boolValue": false
-    },
-    {
-      "name": "enable-fast-output-close",
-      "boolValue": false
-    },
-    {
-      "name": "enable-feature-manager-keybindings",
-      "boolValue": true
-    },
-    {
-      "name": "enable-fig-vcs-ui",
-      "boolValue": true
-    },
-    {
-      "name": "enable-file-diff-accumulator",
-      "boolValue": true
-    },
-    {
-      "name": "enable-file-explorer-tab",
-      "boolValue": true
-    },
-    {
-      "name": "enable-file-viewer-keyboard-navigation",
-      "boolValue": true
-    },
-    {
-      "name": "enable-fork-artifact-streaming",
-      "boolValue": true
-    },
-    {
-      "name": "enable-fork-at-historical-step",
-      "boolValue": true
-    },
-    {
-      "name": "enable-fork-in-new-abfs-workspace",
-      "boolValue": false
-    },
-    {
-      "name": "enable-fork-in-new-citc-workspace",
-      "boolValue": true
-    },
-    {
-      "name": "enable-fork-in-new-worktree",
-      "boolValue": true
-    },
-    {
-      "name": "enable-fork-provenance",
-      "boolValue": false
-    },
-    {
-      "name": "enable-fork-with-subagents",
-      "boolValue": true
-    },
-    {
-      "name": "enable-gemini-next-opt-out-switch",
-      "boolValue": false
-    },
-    {
-      "name": "enable-generative-hooks",
-      "boolValue": true
-    },
-    {
-      "name": "enable-get-screenshot-data",
-      "boolValue": false
-    },
-    {
-      "name": "enable-gil-logging",
-      "boolValue": false
-    },
-    {
-      "name": "enable-git-vcs-ui",
-      "boolValue": true
-    },
-    {
-      "name": "enable-gob-cog-vcs-ui",
-      "boolValue": true
-    },
-    {
-      "name": "enable-gob-repo-vcs-ui",
-      "boolValue": true
-    },
-    {
-      "name": "enable-hook-status",
-      "boolValue": true
-    },
-    {
-      "name": "enable-hub-builtin-browser",
-      "boolValue": true,
-      "flagId": 45844839
-    },
-    {
-      "name": "enable-image-generator-subagent",
-      "boolValue": true
-    },
-    {
-      "name": "enable-input-autocomplete",
-      "boolValue": true
-    },
-    {
-      "name": "enable-input-draft-persistence",
-      "boolValue": true
-    },
-    {
-      "name": "enable-jetbox-gcert",
-      "boolValue": false
-    },
-    {
-      "name": "enable-jetbox-gcert-v2",
-      "boolValue": true,
-      "flagId": 45807049
-    },
-    {
-      "name": "enable-jetbox-terminal-v2",
-      "boolValue": true
-    },
-    {
-      "name": "enable-jetski-chat",
-      "boolValue": false
-    },
-    {
-      "name": "enable-jj-vcs-ui",
-      "boolValue": false
-    },
-    {
-      "name": "enable-lazy-loaded-projects",
-      "boolValue": false
-    },
-    {
-      "name": "enable-learn-slash-command",
-      "boolValue": true
-    },
-    {
-      "name": "enable-list-plugin-accounts-tool",
-      "boolValue": false
-    },
-    {
-      "name": "enable-markdown-agents",
-      "boolValue": true
-    },
-    {
-      "name": "enable-marketplace-search-tool",
-      "boolValue": true
-    },
-    {
-      "name": "enable-mcp-apps",
-      "boolValue": true
-    },
-    {
-      "name": "enable-mcp-non-blocking-turn-load",
-      "boolValue": true
-    },
-    {
-      "name": "enable-mcp-plugin-auth",
-      "boolValue": true
-    },
-    {
-      "name": "enable-model-capacity-exhausted-retries",
-      "boolValue": true
-    },
-    {
-      "name": "enable-native-swarm",
-      "boolValue": true
-    },
-    {
-      "name": "enable-notebook-rendering",
-      "boolValue": true
-    },
-    {
-      "name": "enable-notifications-settings",
-      "boolValue": false
-    },
-    {
-      "name": "enable-owl-slash-command",
-      "boolValue": true
-    },
-    {
-      "name": "enable-pdf-viewer",
-      "boolValue": true
-    },
-    {
-      "name": "enable-per-conversation-telemetry-toggle",
-      "boolValue": false
-    },
-    {
-      "name": "enable-permissioned-github",
-      "boolValue": false
-    },
-    {
-      "name": "enable-permissions-selector",
-      "boolValue": true
-    },
-    {
-      "name": "enable-persistent-terminals",
-      "boolValue": true
-    },
-    {
-      "name": "enable-pierre-viewer",
-      "boolValue": false
-    },
-    {
-      "name": "enable-plugin-auth",
-      "boolValue": true
-    },
-    {
-      "name": "enable-plugin-bundles",
-      "boolValue": true
-    },
-    {
-      "name": "enable-plugin-context-providers",
-      "boolValue": true
-    },
-    {
-      "name": "enable-plugin-sidebar-section",
-      "boolValue": true
-    },
-    {
-      "name": "enable-plugin-themes",
-      "boolValue": true
-    },
-    {
-      "name": "enable-plugins",
-      "boolValue": true
-    },
-    {
-      "name": "enable-primes-tracing",
-      "boolValue": false
-    },
-    {
-      "name": "enable-profiles",
-      "boolValue": false
-    },
-    {
-      "name": "enable-programmatic-tools",
-      "boolValue": true
-    },
-    {
-      "name": "enable-project-4k",
-      "boolValue": false
-    },
-    {
-      "name": "enable-pseudo-project",
-      "boolValue": true
-    },
-    {
-      "name": "enable-pty",
-      "boolValue": true
-    },
-    {
-      "name": "enable-reconcile-summaries",
-      "boolValue": true
-    },
-    {
-      "name": "enable-remote-agent-fastpush-pin",
-      "boolValue": true
-    },
-    {
-      "name": "enable-remote-ai",
-      "boolValue": false
-    },
-    {
-      "name": "enable-remote-control-audio-transcription",
-      "boolValue": true
-    },
-    {
-      "name": "enable-resource-manager",
-      "boolValue": false
-    },
-    {
-      "name": "enable-resume-conversations-from-restart",
-      "boolValue": true
-    },
-    {
-      "name": "enable-retroactive-projects-migration",
-      "boolValue": true
-    },
-    {
-      "name": "enable-review",
-      "boolValue": false
-    },
-    {
-      "name": "enable-ripgrep-path-search",
-      "boolValue": true
-    },
-    {
-      "name": "enable-run-command-semantic-rendering",
-      "boolValue": true
-    },
-    {
-      "name": "enable-run-workflow-tool",
-      "boolValue": true
-    },
-    {
-      "name": "enable-scoped-csrf-tokens",
-      "boolValue": false
-    },
-    {
-      "name": "enable-settings-error-card",
-      "boolValue": true
-    },
-    {
-      "name": "enable-sidebar-unread-dot",
-      "boolValue": false
-    },
-    {
-      "name": "enable-sidecar-sdk",
-      "boolValue": true
-    },
-    {
-      "name": "enable-sidecars",
-      "boolValue": true
-    },
-    {
-      "name": "enable-sidecars-user-config-migration-ready",
-      "boolValue": false
-    },
-    {
-      "name": "enable-simplified-skin",
-      "boolValue": false
-    },
-    {
-      "name": "enable-skill-accumulator",
-      "boolValue": true
-    },
-    {
-      "name": "enable-skill-icons",
-      "boolValue": true
-    },
-    {
-      "name": "enable-skill-search-tool",
-      "boolValue": true
-    },
-    {
-      "name": "enable-split-view",
-      "boolValue": true,
-      "flagId": 45823456
-    },
-    {
-      "name": "enable-sqlite-trajectory",
-      "boolValue": true
-    },
-    {
-      "name": "enable-state-accumulator",
-      "boolValue": true
-    },
-    {
-      "name": "enable-styles-css-cleanup",
-      "boolValue": true,
-      "flagId": 45817109
-    },
-    {
-      "name": "enable-subagent-hub",
-      "boolValue": true
-    },
-    {
-      "name": "enable-subagent-user-messaging",
-      "boolValue": true
-    },
-    {
-      "name": "enable-swarm-monitor",
-      "boolValue": true
-    },
-    {
-      "name": "enable-swarm-narrator",
-      "boolValue": false
-    },
-    {
-      "name": "enable-tasks",
-      "boolValue": true
-    },
-    {
-      "name": "enable-teamwork-subagent",
-      "boolValue": true
-    },
-    {
-      "name": "enable-terminal-setup-script",
-      "boolValue": false
-    },
-    {
-      "name": "enable-text-transitions",
-      "boolValue": false
-    },
-    {
-      "name": "enable-thought-editing",
-      "boolValue": true
-    },
-    {
-      "name": "enable-thought-steering-from-selection",
-      "boolValue": true
-    },
-    {
-      "name": "enable-thumbs-down-reroll",
-      "boolValue": false
-    },
-    {
-      "name": "enable-timeout-notification",
-      "boolValue": false
-    },
-    {
-      "name": "enable-trajectory-debug-in-battle-mode",
-      "boolValue": true
-    },
-    {
-      "name": "enable-trustedcli-config-files",
-      "boolValue": true
-    },
-    {
-      "name": "enable-ui-sidecars",
-      "boolValue": true
-    },
-    {
-      "name": "enable-upload-html-artifact-to-drive",
-      "boolValue": true,
-      "flagId": 45856317
-    },
-    {
-      "name": "enable-url-artifacts",
-      "boolValue": true,
-      "flagId": 45825098
-    },
-    {
-      "name": "enable-voice-relay",
-      "boolValue": false
-    },
-    {
-      "name": "enable-vscode-injection-removal",
-      "boolValue": false,
-      "flagId": 45827954
-    },
-    {
-      "name": "enable-wait-tool",
-      "boolValue": true
-    },
-    {
-      "name": "google-workspace-mentions",
-      "boolValue": true,
-      "flagId": 45825097
-    },
-    {
-      "name": "inject_3_memories_1_skill",
-      "boolValue": false
-    },
-    {
-      "name": "invoke-subagent-config",
-      "stringValue": "{\"enabled\": true, \"always_inherit_model\": false}"
-    },
-    {
-      "name": "jetbox-usage-tips",
-      "stringListValue": {}
-    },
-    {
-      "name": "jetski-autonomous-mode",
-      "boolValue": true
-    },
-    {
-      "name": "jetski-bundle-promotions",
+      "name": "review-arm",
       "stringValue": ""
     },
     {
-      "name": "jetski-cli-announcement-message",
+      "name": "third-party-tools-disclaimer-text",
+      "stringValue": "{\n          \"default\": \"Google does not control the availability or functionality of third party developer tools. Your data from third party developer tools connected to your Antigravity instance may be shared with Google. Google will protect any such data in accordance with the Google Privacy Policy, found here: {privacyPolicyLink}\",\n          \"marketplace\": \"Google does not control the availability or functionality of third party developer tools. Your data from third party developer tools connected to your Antigravity instance may be shared with Google. Google will protect any such data in accordance with the Google Privacy Policy, found here: {privacyPolicyLink}\",\n          \"catalogs\": {\n            \"antigravity-plugins-official\": \"\"\n          }\n        }"
+    },
+    {
+      "name": "verifiers_experiment_config",
       "stringValue": ""
     },
     {
-      "name": "jetski-generative-ui",
-      "boolValue": true
+      "name": "best-of-n-default-model-id",
+      "stringValue": ""
+    },
+    {
+      "name": "agent-retry-config",
+      "stringValue": ""
+    },
+    {
+      "name": "agy-plugin-shelves",
+      "stringValue": "{\"shelves\": [{\n      \"id\": \"google-workspace\",\n      \"displayName\": \"Google Workspace\",\n      \"description\": \"Connect to Google Workspace, including Docs, Sheets, Slides, Drive, and Calendar.\",\n      \"position\": 10,\n      \"customizationIds\": [\n        \"antigravity-plugins-official/plugin/gdocs\",\n        \"antigravity-plugins-official/plugin/gsheets\",\n        \"antigravity-plugins-official/plugin/gslides\",\n        \"antigravity-plugins-official/plugin/gdrive\",\n        \"antigravity-plugins-official/plugin/gcalendar\"\n      ]\n    },{\n      \"id\": \"build-with-google\",\n      \"displayName\": \"Build with Google\",\n      \"description\": \"Build on Google's developer platforms, including Android, Chrome, Gemini, and Google Cloud.\",\n      \"position\": 20,\n      \"customizationIds\": [\n        \"antigravity-plugins-official/plugin/gemini-api\",\n        \"antigravity-plugins-official/plugin/chrome-devtools-plugin\",\n        \"antigravity-plugins-official/plugin/android-cli-plugin\",\n        \"antigravity-plugins-official/plugin/firebase\",\n        \"antigravity-plugins-official/plugin/science\",\n        \"antigravity-plugins-official/plugin/google-antigravity-sdk\",\n        \"antigravity-plugins-official/plugin/google-developer-knowledge\",\n        \"antigravity-plugins-official/plugin/modern-web-guidance-plugin\",\n        \"antigravity-plugins-official/plugin/google_maps_platform\",\n        \"antigravity-plugins-official/plugin/flutter\",\n        \"antigravity-plugins-official/plugin/data-agent-kit-plugin\",\n        \"antigravity-plugins-official/plugin/google-cloud-developer\"\n      ]\n    },{\n      \"id\": \"design-creative-media\",\n      \"displayName\": \"Design, Creative & Media\",\n      \"description\": \"Design, creative, and media tools.\",\n      \"position\": 30,\n      \"customizationIds\": [\n        \"antigravity-plugins-partners/plugin/canva\",\n        \"antigravity-plugins-partners/plugin/figma\",\n        \"antigravity-plugins-partners/plugin/mobbin\"\n      ]\n    },{\n      \"id\": \"productivity-project-management\",\n      \"displayName\": \"Productivity & Project Management\",\n      \"description\": \"Plan work, track issues, sign documents, and manage your notes and files.\",\n      \"position\": 40,\n      \"customizationIds\": [\n        \"antigravity-plugins-partners/plugin/atlassian-twg-cli\",\n        \"antigravity-plugins-partners/plugin/dropbox\",\n        \"antigravity-plugins-partners/plugin/linear\",\n        \"antigravity-plugins-partners/plugin/monday\",\n        \"antigravity-plugins-partners/plugin/notion\",\n        \"antigravity-plugins-partners/plugin/pandadoc\",\n        \"antigravity-plugins-partners/plugin/trello\"\n      ]\n    },{\n      \"id\": \"cloud-hosting-deployment\",\n      \"displayName\": \"Cloud Hosting & Deployment\",\n      \"description\": \"Deploy and host your apps, sites, and their backends.\",\n      \"position\": 50,\n      \"customizationIds\": [\n        \"antigravity-plugins-partners/plugin/netlify\",\n        \"antigravity-plugins-partners/plugin/railway\",\n        \"antigravity-plugins-partners/plugin/vercel-plugin\",\n        \"antigravity-plugins-partners/plugin/wix\",\n        \"antigravity-plugins-partners/plugin/wordpress\"\n      ]\n    },{\n      \"id\": \"developer-tools\",\n      \"displayName\": \"Developer Tools\",\n      \"description\": \"APIs, services, and tools to build, test, secure, and run your apps.\",\n      \"position\": 60,\n      \"customizationIds\": [\n        \"antigravity-plugins-partners/plugin/auth0\",\n        \"antigravity-plugins-partners/plugin/base44\",\n        \"antigravity-plugins-partners/plugin/browse\",\n        \"antigravity-plugins-partners/plugin/coderabbit\",\n        \"antigravity-plugins-partners/plugin/context7\",\n        \"antigravity-plugins-partners/plugin/crowdstrike\",\n        \"antigravity-plugins-partners/plugin/datadog\",\n        \"antigravity-plugins-partners/plugin/dynatrace\",\n        \"antigravity-plugins-partners/plugin/endor-labs-agent-kit\",\n        \"antigravity-plugins-partners/plugin/soc\",\n        \"antigravity-plugins-partners/plugin/harness-antigravity\",\n        \"antigravity-plugins-partners/plugin/keenable\",\n        \"antigravity-plugins-partners/plugin/leapwork-play\",\n        \"antigravity-plugins-partners/plugin/mongodb-atlas\",\n        \"antigravity-plugins-partners/plugin/parallel\",\n        \"antigravity-plugins-partners/plugin/ping-identity-pingone\",\n        \"antigravity-plugins-partners/plugin/postman\",\n        \"antigravity-plugins-partners/plugin/qodo\",\n        \"antigravity-plugins-partners/plugin/sentinelone-purple-mcp\",\n        \"antigravity-plugins-partners/plugin/sentry\",\n        \"antigravity-plugins-partners/plugin/supabase\",\n        \"antigravity-plugins-partners/plugin/superpowers\",\n        \"antigravity-plugins-partners/plugin/unity\",\n        \"antigravity-plugins-partners/plugin/virustotal\"\n      ]\n    },{\n      \"id\": \"business\",\n      \"displayName\": \"Business\",\n      \"description\": \"Payments, CRM, accounting, data, identity, customer support, marketing, and workflow automation.\",\n      \"position\": 70,\n      \"customizationIds\": [\n        \"antigravity-plugins-partners/plugin/zoho-bigin\",\n        \"antigravity-plugins-partners/plugin/databricks\",\n        \"antigravity-plugins-partners/plugin/intercom\",\n        \"antigravity-plugins-partners/plugin/semrush\",\n        \"antigravity-plugins-partners/plugin/stripe\",\n        \"antigravity-plugins-partners/plugin/wispr-flow\",\n        \"antigravity-plugins-partners/plugin/zapier\",\n        \"antigravity-plugins-partners/plugin/zohobooks-antigravity\",\n        \"antigravity-plugins-partners/plugin/zoho-crm-plugin\",\n        \"antigravity-plugins-partners/plugin/zoho-desk-antigravity\",\n        \"antigravity-plugins-partners/plugin/zoho-projects\"\n      ]\n    }]}"
+    },
+    {
+      "name": "context-engine-config",
+      "stringValue": "{}"
+    },
+    {
+      "name": "jetski-featured-plugins",
+      "stringValue": ""
     },
     {
       "name": "jetski-hiring-link-text",
       "stringValue": ""
     },
     {
-      "name": "jetski-hiring-link-url",
-      "stringValue": ""
-    },
-    {
-      "name": "jetski-hub-announcement-message",
-      "stringValue": ""
-    },
-    {
-      "name": "jetski-plugin-promotions",
-      "stringValue": ""
-    },
-    {
-      "name": "jetski-shared-beyond-session-id",
-      "boolValue": false
-    },
-    {
-      "name": "jetski-sidecar-declared-permissions",
-      "boolValue": true
-    },
-    {
-      "name": "jetski-unified-customizations-panel-enabled",
-      "boolValue": true
-    },
-    {
-      "name": "json-hooks-enabled",
-      "boolValue": true
-    },
-    {
-      "name": "log-artifacts-config",
-      "stringValue": "{\"enabled\": true, \"hideNominalToolSteps\": false, \"hidePlannerResponseText\": false, \"maxBytesPerStep\": 4096, \"maxBytesPerToolArg\": 2048, \"hideSystemSteps\": false, \"hideUserImplicitSteps\": false}"
-    },
-    {
-      "name": "markdown-table-v2",
-      "boolValue": true
-    },
-    {
-      "name": "max-best-of-n",
-      "intValue": "10"
-    },
-    {
-      "name": "max-conversation-save-count",
-      "intValue": "500"
-    },
-    {
-      "name": "max-media-attachments",
-      "intValue": "5"
-    },
-    {
-      "name": "max-tokens-per-step",
-      "intValue": "16384"
-    },
-    {
-      "name": "mcp-lazy-load-tools",
-      "boolValue": true
-    },
-    {
-      "name": "native-swarm-spanner-board",
-      "boolValue": false
-    },
-    {
       "name": "native-swarm-suggested-models",
       "stringValue": ""
     },
     {
-      "name": "permission-v2",
-      "boolValue": true
+      "name": "voice-engine-addr",
+      "stringValue": ""
+    },
+    {
+      "name": "checkpoint-variant",
+      "stringValue": "claude-1m_840k"
+    },
+    {
+      "name": "invoke-subagent-config",
+      "stringValue": "{\"enabled\": true, \"always_inherit_model\": false}"
+    },
+    {
+      "name": "jetski-hiring-link-url",
+      "stringValue": ""
+    },
+    {
+      "name": "media-compression-config",
+      "stringValue": ""
+    },
+    {
+      "name": "remote-control-version",
+      "stringValue": "v2"
+    },
+    {
+      "name": "sonar-monitors-config",
+      "stringValue": ""
+    },
+    {
+      "name": "CASCADE_USE_REPLACE_CONTENT_EDIT_TOOL",
+      "stringValue": "{\"max_fuzzy_edit_distance_fraction\": 0.001, \"allow_partial_replacement_success\": true, \"use_line_range\": true, \"fast_apply_fallback_config\": {\"enabled\": false, \"prompt_unchanged_threshold\": 5, \"content_view_radius_lines\": 200, \"content_edit_radius_lines\": 5}}"
+    },
+    {
+      "name": "agy-featured-plugins",
+      "stringValue": "{\"cards\": [{\n      \"id\": \"featured\",\n      \"customizationIds\": [\n        \"antigravity-plugins-official/plugin/firebase\",\n        \"antigravity-plugins-partners/plugin/notion\",\n        \"antigravity-plugins-partners/plugin/context7\",\n        \"antigravity-plugins-partners/plugin/linear\",\n        \"antigravity-plugins-partners/plugin/dynatrace\",\n        \"antigravity-plugins-partners/plugin/stripe\"\n      ]\n    }]}"
+    },
+    {
+      "name": "agy-hub-announcement-message",
+      "stringValue": ""
+    },
+    {
+      "name": "auto-command-config",
+      "stringValue": "{\"system_allowlist\": [\"cd\"], \"sandbox_system_allowlist\": [\"head\", \"tail\", \"mkdir\", \"cd\", \"cp\", \"mv\", \"cat\", \"find\", \"grep\", \"rm\", \"touch\", \"less\", \"clear\", \"ls\"]}"
+    },
+    {
+      "name": "auto-mode-permission-preset",
+      "stringValue": "auto"
+    },
+    {
+      "name": "log-artifacts-config",
+      "stringValue": "{\"enabled\": true, \"hideNominalToolSteps\": false, \"hidePlannerResponseText\": false, \"maxBytesPerStep\": 4096, \"maxBytesPerToolArg\": 2048, \"hideSystemSteps\": false, \"hideUserImplicitSteps\": false}"
     },
     {
       "name": "plugin-kill-switch",
@@ -1941,281 +2120,137 @@
       "stringValue": ""
     },
     {
-      "name": "record-error-sampling-rates",
-      "stringValue": "{\n      \"error_match_to_sample_rate\": {\n        \"LS_CRASH\": 1.0\n      }\n    }"
-    },
-    {
-      "name": "remote-control-companion-url",
-      "stringValue": "https://antigravity.google.com"
-    },
-    {
-      "name": "remote-control-proxy-server-url",
-      "stringValue": "jetski-webchannel.googleapis.com:443"
-    },
-    {
-      "name": "remote-control-setting-enabled",
-      "boolValue": true
-    },
-    {
-      "name": "remote-control-silence-timeout-seconds",
-      "intValue": "60"
-    },
-    {
-      "name": "remote-control-version",
-      "stringValue": "v2"
-    },
-    {
-      "name": "remote-control-webrtc-mesh",
-      "boolValue": true
-    },
-    {
-      "name": "remove-conversation-history",
-      "boolValue": false
-    },
-    {
-      "name": "review-arm",
+      "name": "agy-cli-announcement-message",
       "stringValue": ""
     },
     {
-      "name": "rpc-telemetry-allowlist",
-      "stringListValue": {}
+      "name": "cascade-knowledge-config",
+      "stringValue": "{\"enabled\": false, \"min_turns_between_knowledge_generation\": 10000}"
     },
     {
-      "name": "rules-token-budget",
+      "name": "jetski-bundle-promotions",
+      "stringValue": ""
+    },
+    {
+      "name": "customization-token-budget",
       "intValue": "20000"
-    },
-    {
-      "name": "scheduled-tasks-v2",
-      "boolValue": true
-    },
-    {
-      "name": "send-subagent-initial-prompt-as-message",
-      "boolValue": true
-    },
-    {
-      "name": "shadow-call-aicode-mendel",
-      "boolValue": false
-    },
-    {
-      "name": "show-all-models-in-gemini-app",
-      "boolValue": false
-    },
-    {
-      "name": "show-model-selection-change",
-      "boolValue": true
-    },
-    {
-      "name": "show-trajectory-labeling-ad",
-      "boolValue": false
-    },
-    {
-      "name": "sidecar-gateway",
-      "boolValue": true
-    },
-    {
-      "name": "sidecar-iframe-prewarm",
-      "boolValue": true
-    },
-    {
-      "name": "sonar-monitors-config",
-      "stringValue": ""
-    },
-    {
-      "name": "sso-based-user-identity",
-      "boolValue": false
-    },
-    {
-      "name": "summary-store-reads",
-      "boolValue": false
-    },
-    {
-      "name": "tool-output-max-bytes",
-      "intValue": "10240"
-    },
-    {
-      "name": "turn-on-projects-internally",
-      "boolValue": true
-    },
-    {
-      "name": "use-aicode-jetski-endpoint",
-      "boolValue": false
-    },
-    {
-      "name": "use-canonical-stub-for-checkin",
-      "boolValue": false
-    },
-    {
-      "name": "use-component-rewrite",
-      "boolValue": true
-    },
-    {
-      "name": "use-core-direct",
-      "boolValue": true
-    },
-    {
-      "name": "use-model-reported-token-count",
-      "boolValue": true
-    },
-    {
-      "name": "use-slash-plan",
-      "boolValue": true
-    },
-    {
-      "name": "user-interaction-timeout-seconds",
-      "intValue": "0"
-    },
-    {
-      "name": "verifiers_experiment_config",
-      "stringValue": ""
-    },
-    {
-      "name": "voice-engine-addr",
-      "stringValue": ""
-    },
-    {
-      "name": "pin-depot-head",
-      "boolValue": false
-    },
-    {
-      "name": "cli-disable-stream-conversation-updates-rehydration",
-      "boolValue": false
-    },
-    {
-      "name": "enable-side-question-rework",
-      "flagId": 45837903,
-      "boolValue": false
-    },
-    {
-      "name": "enable-advanced-builtin-workflow",
-      "boolValue": false
-    },
-    {
-      "name": "ambient_memory_si_enabled",
-      "boolValue": true
-    },
-    {
-      "name": "enable-citc-workspace-hygiene-rule",
-      "boolValue": true
-    },
-    {
-      "name": "use-aicode-mendel",
-      "boolValue": false
-    },
-    {
-      "name": "enable-browser-subagent-webview",
-      "boolValue": false
-    },
-    {
-      "name": "enable-inference-traffic-migration",
-      "boolValue": false
-    },
-    {
-      "name": "max_injected_skills",
-      "intValue": "-1"
-    },
-    {
-      "name": "max_injected_memories",
-      "intValue": "-1"
-    },
-    {
-      "name": "cli-seasonal-theme-periods",
-      "stringListValue": {}
-    },
-    {
-      "name": "best-of-n-default-model-id",
-      "stringValue": ""
-    },
-    {
-      "name": "enable-bottom-terminal-panel",
-      "boolValue": false
-    },
-    {
-      "name": "enable-browser-subagent-webview-script",
-      "boolValue": false
-    },
-    {
-      "name": "enable-iwa-builtin-browser",
-      "boolValue": false
-    },
-    {
-      "name": "enable-omni-mention-search",
-      "boolValue": false
-    },
-    {
-      "name": "science-plugin-split-targets",
-      "stringListValue": {}
-    },
-    {
-      "name": "enable-browser-subagent-auto-invoke",
-      "boolValue": false
-    },
-    {
-      "name": "enable-plugin-card-auto-resume",
-      "boolValue": false
-    },
-    {
-      "name": "enable-rpc-sandbox-proxy",
-      "boolValue": false
-    },
-    {
-      "name": "memory_source_attribution",
-      "boolValue": false
-    },
-    {
-      "name": "agy-featured-plugins",
-      "stringValue": ""
-    },
-    {
-      "name": "ambient_prefetch_enabled",
-      "boolValue": false
-    },
-    {
-      "name": "ambient_query_max_thought_chars",
-      "intValue": "0"
     },
     {
       "name": "ambient_query_max_thought_steps",
       "intValue": "0"
     },
     {
-      "name": "cli-suggest-auto-mode-in-permission-prompt",
-      "boolValue": false
+      "name": "best-of-nudge-length-threshold",
+      "intValue": "150"
     },
     {
-      "name": "enable-browser-subagent-webview-ux",
-      "boolValue": false
+      "name": "continuous-pprof-cpu-interval-minutes",
+      "intValue": "90"
     },
     {
-      "name": "enable-conversation-navigator-chapter-titles",
-      "boolValue": false
+      "name": "continuous-pprof-heap-interval-minutes",
+      "intValue": "90"
     },
     {
-      "name": "enable-keybinding-customization",
-      "boolValue": false
+      "name": "continuous-pprof-mem-threshold-gib",
+      "intValue": "16"
     },
     {
-      "name": "enable-prompt-cache-keep-alive",
-      "boolValue": false
+      "name": "max-conversation-save-count",
+      "intValue": "500"
     },
     {
-      "name": "enable-remote-battle-mode",
-      "boolValue": false
+      "name": "max_injected_memories",
+      "intValue": "-1"
     },
     {
-      "name": "enable-remote-persistent-agents",
-      "boolValue": false
+      "name": "ambient_query_max_thought_chars",
+      "intValue": "0"
     },
     {
-      "name": "enable-remote-terminal-predictive-echo",
-      "boolValue": true
+      "name": "battle-mode-max-turns",
+      "intValue": "0"
     },
     {
-      "name": "jetski-featured-plugins",
-      "stringValue": ""
+      "name": "continuous-pprof-cpu-duration-seconds",
+      "intValue": "10"
     },
     {
-      "name": "show_memory_operations",
-      "boolValue": false
+      "name": "max-media-attachments",
+      "intValue": "5"
+    },
+    {
+      "name": "max-tokens-per-step",
+      "intValue": "16384"
+    },
+    {
+      "name": "remote-control-silence-timeout-seconds",
+      "intValue": "60"
+    },
+    {
+      "name": "user-interaction-timeout-seconds",
+      "intValue": "0"
+    },
+    {
+      "name": "dbtrajectory-step-cache-ttl-seconds",
+      "intValue": "0"
+    },
+    {
+      "name": "default_subagent_interaction_timeout_seconds",
+      "intValue": "60"
+    },
+    {
+      "name": "battle-winner-survey-percent",
+      "intValue": "50"
+    },
+    {
+      "name": "continuous-pprof-mem-check-interval-minutes",
+      "intValue": "1"
+    },
+    {
+      "name": "continuous-pprof-mem-cooldown-minutes",
+      "intValue": "30"
+    },
+    {
+      "name": "rules-token-budget",
+      "intValue": "20000"
+    },
+    {
+      "name": "tool-output-max-bytes",
+      "intValue": "10240"
+    },
+    {
+      "name": "max-best-of-n",
+      "intValue": "10"
+    },
+    {
+      "name": "max_injected_skills",
+      "intValue": "-1"
+    },
+    {
+      "name": "jetbox-usage-tips",
+      "stringListValue": {}
+    },
+    {
+      "name": "rpc-telemetry-allowlist",
+      "stringListValue": {}
+    },
+    {
+      "name": "science-plugin-split-targets",
+      "stringListValue": {}
+    },
+    {
+      "name": "agy-plugin-marketplaces",
+      "stringListValue": {
+        "values": [
+          "antigravity-plugins-official=https://www.gstatic.com/antigravity/plugins/marketplace.json",
+          "antigravity-plugins-partners=https://www.gstatic.com/antigravity/plugins-partners/marketplace.json"
+        ]
+      }
+    },
+    {
+      "name": "cli-seasonal-theme-periods",
+      "stringListValue": {}
     }
   ]
 }

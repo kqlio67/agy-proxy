@@ -6,6 +6,7 @@ and interfaces directly with Google's StreamGenerate endpoint.
 
 import asyncio
 import codecs
+import hashlib
 import inspect
 import json
 import re
@@ -24,6 +25,16 @@ from agy_proxy.auth.constants import logger
 from agy_proxy.models import is_3p_model
 
 
+def make_sapisidhash(sapisid: str, origin: str = "https://gemini.google.com") -> str:
+    """
+    Generates the Authorization: SAPISIDHASH <timestamp>_<sha1> header for Google 1st-party endpoints.
+    Requires origin binding for requests authenticated via SAPISID / __Secure-3PAPISID cookies.
+    """
+    ts = int(time.time())
+    sig = hashlib.sha1(f"{ts} {sapisid} {origin}".encode("utf-8")).hexdigest()
+    return f"SAPISIDHASH {ts}_{sig}"
+
+
 def extract_cookies_from_raw(raw: str | dict[str, Any] | list[Any]) -> dict[str, str]:
     """
     Extracts Google session cookies from:
@@ -32,6 +43,7 @@ def extract_cookies_from_raw(raw: str | dict[str, Any] | list[Any]) -> dict[str,
       - cURL command containing -H 'cookie: ...'
       - HAR JSON string or dict (HTTP Archive format from browser Network tab)
       - DevTools cookie export JSON list ([{"name": "...", "value": "..."}, ...])
+      - Extension export JSON dict ({"cookie": "..."} or {"cookies": [...]})
       - Plain dictionary of cookies ({"__Secure-1PSID": "..."})
     """
     cookies: dict[str, str] = {}
@@ -49,38 +61,6 @@ def extract_cookies_from_raw(raw: str | dict[str, Any] | list[Any]) -> dict[str,
                 if k and v:
                     res[k] = v
         return res
-
-    if isinstance(raw, dict):
-        # Case 1: HAR format dict
-        if "log" in raw and isinstance(raw["log"], dict) and "entries" in raw["log"]:
-            entries = raw["log"]["entries"]
-            for entry in entries:
-                if not isinstance(entry, dict):
-                    continue
-                req = entry.get("request", {})
-                url = req.get("url", "")
-                if "gemini.google.com" in url or "google.com" in url or not url:
-                    for c in req.get("cookies", []):
-                        if isinstance(c, dict) and "name" in c and "value" in c:
-                            cookies[str(c["name"])] = str(c["value"])
-                    for h in req.get("headers", []):
-                        if isinstance(h, dict) and h.get("name", "").lower() == "cookie":
-                            cookies.update(_parse_cookie_header(h.get("value", "")))
-            return cookies
-        # Case 2: Plain cookie dict
-        for k, v in raw.items():
-            if isinstance(v, str):
-                cookies[str(k)] = v
-            elif isinstance(v, dict) and "value" in v:
-                cookies[str(k)] = str(v["value"])
-        return cookies
-
-    if isinstance(raw, list):
-        # Case 3: List of cookie objects
-        for item in raw:
-            if isinstance(item, dict) and "name" in item and "value" in item:
-                cookies[str(item["name"])] = str(item["value"])
-        return cookies
 
     if isinstance(raw, str):
         text = raw.strip()
@@ -102,6 +82,58 @@ def extract_cookies_from_raw(raw: str | dict[str, Any] | list[Any]) -> dict[str,
 
         return _parse_cookie_header(text)
 
+    if isinstance(raw, list):
+        # Case 3: List of cookie objects
+        for item in raw:
+            if isinstance(item, dict) and "name" in item and "value" in item:
+                cookies[str(item["name"])] = str(item["value"])
+        return cookies
+
+    if isinstance(raw, dict):
+        # Case 1: HAR format dict
+        if "log" in raw and isinstance(raw["log"], dict) and "entries" in raw["log"]:
+            entries = raw["log"]["entries"]
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    continue
+                req = entry.get("request", {})
+                url = req.get("url", "")
+                if "gemini.google.com" in url or "google.com" in url or not url:
+                    for c in req.get("cookies", []):
+                        if isinstance(c, dict) and "name" in c and "value" in c:
+                            cookies[str(c["name"])] = str(c["value"])
+                    for h in req.get("headers", []):
+                        if isinstance(h, dict) and h.get("name", "").lower() == "cookie":
+                            cookies.update(_parse_cookie_header(h.get("value", "")))
+            return cookies
+
+        # Case 2: Extension export with "cookie" or "cookies" key
+        for key in ("cookie", "cookies"):
+            if key in raw:
+                val = raw[key]
+                if isinstance(val, str):
+                    cookies.update(_parse_cookie_header(val))
+                elif isinstance(val, list):
+                    for item in val:
+                        if isinstance(item, dict) and "name" in item and "value" in item:
+                            cookies[str(item["name"])] = str(item["value"])
+                elif isinstance(val, dict):
+                    for k, v in val.items():
+                        if isinstance(v, str):
+                            cookies[str(k)] = v
+                        elif isinstance(v, dict) and "value" in v:
+                            cookies[str(k)] = str(v["value"])
+
+        # Also support plain cookie dict or extra fields
+        for k, v in raw.items():
+            if str(k).lower() in ("cookie", "cookies", "log"):
+                continue
+            if isinstance(v, str):
+                cookies[str(k)] = v
+            elif isinstance(v, dict) and "value" in v:
+                cookies[str(k)] = str(v["value"])
+        return cookies
+
     return cookies
 
 
@@ -111,11 +143,15 @@ def extract_auth_user_from_raw(raw: str | dict[str, Any] | list[Any] | None) -> 
       - HAR export dict or JSON (checks URLs like /u/1/ and headers X-Goog-AuthUser)
       - cURL command (checks URL or -H 'X-Goog-AuthUser: 1')
       - Plain string containing /u/1/ or authuser=1
+      - Dict containing authuser, auth_user, account_index, or u
     """
     if not raw:
         return None
 
     if isinstance(raw, dict):
+        for k in ("authuser", "auth_user", "account_index", "u"):
+            if k in raw and str(raw[k]).isdigit():
+                return int(raw[k])
         if "log" in raw and isinstance(raw["log"], dict) and "entries" in raw["log"]:
             for entry in raw["log"]["entries"]:
                 if not isinstance(entry, dict):
@@ -207,7 +243,7 @@ class GeminiWebSession(AccountSession):
         "SEARCH_SAMESITE",
     ]
     # Build label — extracted from first StreamGenerate response or hard-coded fallback
-    _DEFAULT_BL = "boq_gemini-web-uiserver_20261019.15_p0"
+    _DEFAULT_BL = "boq_gemini-web-uiserver_20261028.12_p0"
 
     MODEL_CONFIGS: dict[str, dict[str, Any]] = {
         # -------------------------------------------------------------
@@ -491,6 +527,7 @@ class GeminiWebSession(AccountSession):
         cdp_port: int = 9222,
         proxy_url: str | None = None,
         auth_user: int = 0,
+        temporary_chats: bool = True,
         **kwargs,
     ):
         super().__init__(
@@ -506,6 +543,7 @@ class GeminiWebSession(AccountSession):
             **kwargs,
         )
         self.auth_user: int = int(auth_user or kwargs.get("account_index", 0) or 0)
+        self.temporary_chats: bool = bool(temporary_chats if temporary_chats is not None else kwargs.get("temporary_chats", True))
         self._cookies: dict[str, str] = cookies or {}
         self._at_token: str | None = None
         self._f_sid: str | None = None
@@ -1084,6 +1122,17 @@ class GeminiWebSession(AccountSession):
                 parts.append(f"{k}={v}")
         return "; ".join(parts)
 
+    def get_sapisid_hash(self, origin: str = "https://gemini.google.com") -> str | None:
+        """Returns SAPISIDHASH authorization header value if SAPISID cookie is present."""
+        sapisid = (
+            self._cookies.get("SAPISID")
+            or self._cookies.get("__Secure-3PAPISID")
+            or self._cookies.get("__Secure-1PAPISID")
+        )
+        if not sapisid:
+            return None
+        return make_sapisidhash(sapisid, origin=origin)
+
     # ------------------------------------------------------------------ #
     # AT (CSRF) token
     # ------------------------------------------------------------------ #
@@ -1101,6 +1150,10 @@ class GeminiWebSession(AccountSession):
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             "Accept-Language": "en-US,en;q=0.9",
         }
+        sapisid_auth = self.get_sapisid_hash(self.GEMINI_WEB_BASE)
+        if sapisid_auth:
+            app_headers["Authorization"] = sapisid_auth
+            app_headers["X-Origin"] = self.GEMINI_WEB_BASE
         if self.auth_user > 0:
             app_headers["X-Goog-AuthUser"] = str(self.auth_user)
 
@@ -1151,6 +1204,11 @@ class GeminiWebSession(AccountSession):
                             if isinstance(v, str) and (v.startswith("AFWLbD") or k in ("SNlM0e", "thykhd")):
                                 self._at_token = v
                                 break
+                        if "cfb2h" in wiz and isinstance(wiz["cfb2h"], str):
+                            self._bl_token = wiz["cfb2h"]
+                            logger.debug("[GeminiWeb] Build label bl extracted from WIZ_global_data (%s)", self._bl_token)
+                        if "FdrFJe" in wiz:
+                            self._f_sid = str(wiz["FdrFJe"])
                     except Exception:
                         pass
             if m and not self._at_token:
@@ -1166,6 +1224,8 @@ class GeminiWebSession(AccountSession):
 
             # Extract build label: "cfb2h":"..."
             m_bl = re.search(r'"cfb2h"\s*:\s*"([^"]+)"', html)
+            if not m_bl:
+                m_bl = re.search(r'WIZ_global_data\s*=\s*\{[^}]*"cfb2h"\s*:\s*"([^"]+)"', html, re.DOTALL)
             if m_bl:
                 self._bl_token = m_bl.group(1)
                 logger.debug("[GeminiWeb] Build label bl extracted from HTML (%s)", self._bl_token)
@@ -1311,6 +1371,8 @@ class GeminiWebSession(AccountSession):
         turn_index: int = 0,
         image_parts: list[dict[str, Any]] | None = None,
         model_name: str | None = None,
+        temporary_chats: bool | None = None,
+        at_token: str | None = None,
     ) -> dict[str, str]:
         """
         Builds the URL-encoded form body for StreamGenerate matching real Google Web client.
@@ -1355,7 +1417,14 @@ class GeminiWebSession(AccountSession):
         inner[18] = 0
         inner[27] = 1
         inner[30] = [4, 16, 19]
-        inner[41] = [2]
+
+        use_temp_chats = getattr(self, "temporary_chats", True) if temporary_chats is None else temporary_chats
+        if use_temp_chats:
+            inner[41] = [1]
+            inner[45] = 1
+        else:
+            inner[41] = [2]
+
         inner[49] = 40 if is_task_model else model_config.get("feature_mode", 0)
         inner[53] = 0
         inner[59] = client_uuid
@@ -1398,7 +1467,7 @@ class GeminiWebSession(AccountSession):
 
         return {
             "f.req": f_req,
-            "at": self._at_token or "",
+            "at": at_token or self._at_token or "",
         }
 
     # ------------------------------------------------------------------ #
@@ -1412,6 +1481,7 @@ class GeminiWebSession(AccountSession):
         session_id: str | None = None,
         image_parts: list[dict[str, Any]] | None = None,
         timeout: float = 120.0,
+        temporary_chats: bool | None = None,
     ) -> AsyncGenerator[dict[str, Any], None]:
         """
         Calls Gemini Web StreamGenerate endpoint with model and turn tracking.
@@ -1464,7 +1534,7 @@ class GeminiWebSession(AccountSession):
         model_config = self.get_model_config(model)
         client_uuid = str(uuid.uuid4()).upper()
 
-        for attempt in range(2):
+        for attempt in range(3):
             at_token = await self.get_at_token()
             if not at_token and self.cdp_port and attempt == 0:
                 logger.info("[GeminiWeb] Missing AT token, attempting CDP cookie refresh...")
@@ -1487,6 +1557,8 @@ class GeminiWebSession(AccountSession):
                 turn_index=turn_index,
                 image_parts=image_parts,
                 model_name=model,
+                temporary_chats=temporary_chats,
+                at_token=at_token,
             )
 
             req_id = self._next_req_id()
@@ -1534,6 +1606,10 @@ class GeminiWebSession(AccountSession):
                 "x-goog-ext-73010990-jspb": "[0,0,0]",
                 "x-same-domain": "1",
             }
+            sapisid_auth = self.get_sapisid_hash(self.GEMINI_WEB_BASE)
+            if sapisid_auth:
+                headers["Authorization"] = sapisid_auth
+                headers["X-Origin"] = self.GEMINI_WEB_BASE
             if self.auth_user > 0:
                 headers["X-Goog-AuthUser"] = str(self.auth_user)
 
@@ -1552,7 +1628,7 @@ class GeminiWebSession(AccountSession):
                         await self._notify_token_refreshed()
 
                     if response.status_code in (401, 403):
-                        if self.cdp_port and attempt == 0:
+                        if self.cdp_port and attempt < 2:
                             logger.info("[GeminiWeb] Got %d auth error, attempting CDP refresh (port %d)...", response.status_code, self.cdp_port)
                             if await self.refresh_cookies_from_browser():
                                 await self._notify_token_refreshed()
@@ -1560,6 +1636,16 @@ class GeminiWebSession(AccountSession):
                                 continue  # Retry with refreshed cookies
                         yield {"type": "error", "message": f"Auth error ({response.status_code}) — cookies expired. Re-login to Gemini in browser."}
                         return
+
+                    if response.status_code == 405 and attempt < 2:
+                        logger.warning("[GeminiWeb] Got HTTP 405 with BL %s, attempting to refresh build label...", self._bl_token)
+                        old_bl = self._bl_token
+                        await self.get_at_token(force_refresh=True)
+                        if self._bl_token != old_bl:
+                            logger.info("[GeminiWeb] Build label refreshed to %s, retrying request...", self._bl_token)
+                        else:
+                            logger.info("[GeminiWeb] Retrying request after HTTP 405...")
+                        continue
 
                     if response.status_code != 200:
                         if conv_id:
@@ -1804,10 +1890,11 @@ class GeminiWebSession(AccountSession):
                     return
 
             except (httpx.RequestError, asyncio.TimeoutError) as e:
-                logger.warning("[GeminiWeb] stream_generate network error (attempt %d): %s", attempt, e)
-                if attempt == 0 and self.cdp_port:
+                err_label = str(e) or type(e).__name__
+                logger.warning("[GeminiWeb] stream_generate network error (attempt %d): %s", attempt, err_label)
+                if attempt == 0:
                     continue
-                yield {"type": "error", "message": f"Network error connecting to Gemini Web: {e}"}
+                yield {"type": "error", "message": f"Network error connecting to Gemini Web: {err_label}"}
                 return
             except Exception as e:
                 logger.warning("[GeminiWeb] stream_generate error: %s", e)
@@ -1839,6 +1926,10 @@ class GeminiWebSession(AccountSession):
             "Origin": self.GEMINI_WEB_BASE,
             "Referer": f"{self.GEMINI_WEB_BASE}/",
         }
+        sapisid_auth = self.get_sapisid_hash(self.GEMINI_WEB_BASE)
+        if sapisid_auth:
+            headers["Authorization"] = sapisid_auth
+            headers["X-Origin"] = self.GEMINI_WEB_BASE
         client = await self.get_http_client()
         try:
             resp = await client.post(url, headers=headers, data={"f.req": req_payload, "at": at_token}, timeout=10.0)
@@ -1897,6 +1988,10 @@ class GeminiWebSession(AccountSession):
             "Origin": self.GEMINI_WEB_BASE,
             "Referer": f"{self.GEMINI_WEB_BASE}/",
         }
+        sapisid_auth = self.get_sapisid_hash(self.GEMINI_WEB_BASE)
+        if sapisid_auth:
+            headers["Authorization"] = sapisid_auth
+            headers["X-Origin"] = self.GEMINI_WEB_BASE
         client = await self.get_http_client()
         try:
             resp = await client.post(url, headers=headers, data={"f.req": req_payload, "at": at_token}, timeout=5.0)
@@ -1962,6 +2057,10 @@ class GeminiWebSession(AccountSession):
             "Origin": self.GEMINI_WEB_BASE,
             "Referer": f"{self.GEMINI_WEB_BASE}/",
         }
+        sapisid_auth = self.get_sapisid_hash(self.GEMINI_WEB_BASE)
+        if sapisid_auth:
+            headers["Authorization"] = sapisid_auth
+            headers["X-Origin"] = self.GEMINI_WEB_BASE
         client = await self.get_http_client()
         try:
             resp = await client.post(url, headers=headers, data={"f.req": req_payload, "at": at_token}, timeout=10.0)
@@ -2056,6 +2155,7 @@ class GeminiWebSession(AccountSession):
         d["auth_method"] = "gemini_web"
         d["cdp_port"] = getattr(self, "cdp_port", 9222)
         d["auth_user"] = getattr(self, "auth_user", 0)
+        d["temporary_chats"] = getattr(self, "temporary_chats", True)
         return d
 
     def to_save_dict(self) -> dict[str, Any]:
@@ -2074,4 +2174,5 @@ class GeminiWebSession(AccountSession):
             "last_used_model": getattr(self, "last_used_model", None),
             "last_client_type": getattr(self, "last_client_type", None),
             "auth_user": getattr(self, "auth_user", 0),
+            "temporary_chats": getattr(self, "temporary_chats", True),
         }

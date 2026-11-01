@@ -13,7 +13,7 @@
  */
 
 const DEFAULT_USER_AGENT =
-  "antigravity/hub/2.26.0 (aidev_client; os_type=linux; arch=amd64; cl=1005016104)";
+  "antigravity/hub/2.28.2 (aidev_client; os_type=linux; arch=amd64; cl=1009437749)";
 
 const DEFAULT_MODEL = "gemini-3.8-flash-high";
 
@@ -23,6 +23,7 @@ const DEFAULT_CLIENT_SECRET = "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";
 
 const UPSTREAM_TARGETS = {
   cloudcode: "https://daily-cloudcode-pa.googleapis.com",
+  aicode: "https://aicode.googleapis.com",
   genai: "https://generativelanguage.googleapis.com",
   oauth: "https://oauth2.googleapis.com",
   userinfo: "https://www.googleapis.com/oauth2/v2",
@@ -446,8 +447,10 @@ const tokenCache = new Map();
 const rateLimitMap = new Map();
 
 function isAccountRateLimited(acc, model) {
-  const is3p = model.includes("claude") || model.includes("gpt-oss");
-  const key = `${acc.account_id || acc.email || "acc"}:${is3p ? "3p" : "gemini"}`;
+  const isArgon = model.includes("argon");
+  const is3p = !isArgon && (model.includes("claude") || model.includes("gpt-oss"));
+  const group = isArgon ? "argon" : (is3p ? "3p" : "gemini");
+  const key = `${acc.account_id || acc.email || "acc"}:${group}`;
   const expiry = rateLimitMap.get(key);
   if (!expiry) return false;
   if (Date.now() > expiry) {
@@ -482,11 +485,22 @@ function isModelSupported(acc, model) {
   }
   const isArgon = norm.includes("argon");
   if (isArgon) {
+    if (acc.auth_method === "api_key" || acc.api_key) return false;
     if (acc.auth_method === "gemini_web") return true;
-    if (availList.length > 0 && availList.includes(norm)) {
-      if (typeof acc.available_models === "object" && acc.available_models[norm] && acc.available_models[norm].disabled) {
-        return false;
+    if (availList.length > 0) {
+      const argonKeys = [norm, "gemini-4-argon-high", "gemini-4-argon-medium", "gemini-4-argon-low", "gemini-4-argon"];
+      for (const k of argonKeys) {
+        if (availList.includes(k)) {
+          if (!Array.isArray(avail) && typeof avail === "object" && avail[k] && avail[k].disabled) {
+            continue;
+          }
+          return true;
+        }
       }
+      return false;
+    }
+    const qsGroups = acc.quota_summary && Array.isArray(acc.quota_summary.groups) ? acc.quota_summary.groups : [];
+    if (qsGroups.some(g => String(g.displayName || "").toLowerCase().includes("argon") || (Array.isArray(g.buckets) && g.buckets.some(b => String(b.bucketId || "").toLowerCase().includes("argon"))))) {
       return true;
     }
     return false;
@@ -514,8 +528,10 @@ function parseResetDuration(text) {
 }
 
 function markAccountRateLimited(acc, model, durationMs = 15000) {
-  const is3p = model.includes("claude") || model.includes("gpt-oss");
-  const key = `${acc.account_id || acc.email || "acc"}:${is3p ? "3p" : "gemini"}`;
+  const isArgon = model.includes("argon");
+  const is3p = !isArgon && (model.includes("claude") || model.includes("gpt-oss"));
+  const group = isArgon ? "argon" : (is3p ? "3p" : "gemini");
+  const key = `${acc.account_id || acc.email || "acc"}:${group}`;
   rateLimitMap.set(key, Date.now() + durationMs);
 }
 
@@ -928,7 +944,9 @@ function buildCloudCodePayload(reqJson, backendModel, auth) {
   }
 
   let targetBackendModel = backendModel;
-  if (backendModel === "gemini-3.8-flash-deepagent" || backendModel === "gemini-deepagent") {
+  if (backendModel === "gemini-4-argon" || backendModel === "gemini-4-argon-disabled") {
+    targetBackendModel = "gemini-4-argon-high";
+  } else if (backendModel === "gemini-3.8-flash-deepagent" || backendModel === "gemini-deepagent") {
     targetBackendModel = "gemini-3.8-flash-high";
   } else if (
     backendModel === "claude-sonnet-4-6-deepagent" ||
@@ -966,6 +984,25 @@ function buildCloudCodePayload(reqJson, backendModel, auth) {
     } else if (reqJson.thinking.type === "disabled") {
       thinkingConfig.includeThoughts = false;
       thinkingConfig.thinkingBudget = 0;
+    }
+  }
+
+  if (targetBackendModel.includes("argon")) {
+    if (thinkingConfig.includeThoughts !== false && thinkingConfig.thinkingBudget !== 0) {
+      if (thinkingConfig.thinkingBudget === -1) {
+        delete thinkingConfig.thinkingBudget;
+      }
+      if (!thinkingConfig.thinkingLevel) {
+        if (targetBackendModel.includes("low")) {
+          thinkingConfig.thinkingLevel = "LOW";
+        } else if (targetBackendModel.includes("medium") || targetBackendModel.includes("med")) {
+          thinkingConfig.thinkingLevel = "MEDIUM";
+        } else {
+          thinkingConfig.thinkingLevel = "HIGH";
+        }
+      }
+    } else {
+      delete thinkingConfig.thinkingLevel;
     }
   }
 
@@ -1115,7 +1152,7 @@ export default {
             status: "ok",
             message: "hello",
             proxy: "agy-proxy-edge",
-            version: "2.26.0",
+            version: "2.28.2",
           }),
           { status: 200, headers: { "Content-Type": "application/json", ...CORS_HEADERS } }
         );
@@ -1139,9 +1176,10 @@ export default {
             responses: `${url.origin}/v1/responses`,
             models: `${url.origin}/v1/models`,
             gateway_cloudcode: `${url.origin}/cloudcode/v1internal:streamGenerateContent`,
+            gateway_aicode: `${url.origin}/aicode/v1alpha:fetchConfig`,
             gateway_genai: `${url.origin}/genai/v1beta/models`,
           },
-          version: "2.26.0",
+          version: "2.28.2",
         };
         return new Response(JSON.stringify(info, null, 2), {
           headers: { "Content-Type": "application/json", ...CORS_HEADERS },
@@ -1551,6 +1589,14 @@ export default {
     } else if (url.pathname.startsWith("/userinfo/")) {
       targetBase = UPSTREAM_TARGETS.userinfo;
       targetPath = url.pathname.replace(/^\/userinfo/, "");
+    } else if (url.pathname.startsWith("/aicode/")) {
+      targetBase = UPSTREAM_TARGETS.aicode;
+      targetPath = url.pathname.replace(/^\/aicode/, "");
+    } else if (
+      url.pathname.startsWith("/v1alpha:") ||
+      url.pathname.startsWith("/v1alpha/")
+    ) {
+      targetBase = UPSTREAM_TARGETS.aicode;
     } else if (
       url.pathname.includes("v1internal:") ||
       url.pathname.includes("v1internal/") ||

@@ -56,6 +56,11 @@ BLOCKLIST_FLAGS: set[str] = {
     "allow-pss-experimental-monitors",
     "allow-experimental-monitors",
     "shadow-call-aicode-mendel",
+    "enforce-default-permission-preset",
+    "enable-citc-top-level-write-guard",
+    "enable-chatski-connect-page",
+    "enable-scoped-csrf-tokens",
+    "use-aicode-jetski-endpoint",
 }
 
 DISABLER_PATTERN = re.compile(r"^disable-(?!loop-detection)")
@@ -1266,6 +1271,102 @@ CURATED_SAFE_FLAGS: dict[str, dict[str, Any]] = {
         "category": "rag_context",
         "desc": "v2.26.0 Flag: Displays Cortex memory storage and retrieval operations in trajectory",
     },
+    "ambient_memory_si_enabled": {
+        "value": True,
+        "category": "rag_context",
+        "desc": "v2.26.0 Flag: Enables ambient Cortex memory system instructions",
+    },
+    # --- v2.28.2 Experimental Flags ---
+    "DatacloudSpark__enable_runtime_profile": {
+        "value": True,
+        "category": "sdlc_models",
+        "desc": "v2.28.2 Flag: Enables runtime profiling for Spark generation workflows",
+    },
+    "cli-enable-btw-threads": {
+        "value": True,
+        "category": "agents",
+        "desc": "v2.28.2 Flag: Enables side-question (/btw) parallel conversation threads in CLI",
+    },
+    "enable-context-usage-indicator": {
+        "value": True,
+        "category": "ui_editor",
+        "desc": "v2.28.2 Flag: Displays live context window token usage indicator in composer",
+    },
+    "enable-github-decorator": {
+        "value": True,
+        "category": "ui_editor",
+        "desc": "v2.28.2 Flag: Enables rich GitHub PR/issue link decorators in chat and artifacts",
+    },
+    "enable-new-themes": {
+        "value": True,
+        "category": "ui_editor",
+        "desc": "v2.28.2 Flag: Unlocks new Antigravity Hub and IDE UI color themes",
+    },
+    "enable-pane-selection-actions": {
+        "value": True,
+        "category": "ui_editor",
+        "desc": "v2.28.2 Flag: Enables inline quick-action toolbar on text/code selections across panes",
+    },
+    "enable-paste-text-as-snippet": {
+        "value": True,
+        "category": "ui_editor",
+        "desc": "v2.28.2 Flag: Automatically collapses large pasted text blocks into clean snippets",
+    },
+    "enable-plugin-updates-menu": {
+        "value": True,
+        "category": "tools_plugins",
+        "desc": "v2.28.2 Flag: Enables plugin update notifications and one-click updates menu",
+    },
+    "enable-remote-conversation-terminal": {
+        "value": True,
+        "category": "ui_editor",
+        "desc": "v2.28.2 Flag: Enables integrated terminal streaming inside remote conversation sessions",
+    },
+    "enable-sidecar-pill-auto-open": {
+        "value": True,
+        "category": "tools_plugins",
+        "desc": "v2.28.2 Flag: Automatically opens relevant UI plugin sidecar pills when suggested",
+    },
+    "enable-user-message-bubbles": {
+        "value": True,
+        "category": "ui_editor",
+        "desc": "v2.28.2 Flag: Renders distinct modern message bubbles for user prompts in chat",
+    },
+    "si_dreaming_split_large_memories": {
+        "value": True,
+        "category": "rag_context",
+        "desc": "v2.28.2 Flag: Splits oversized Cortex memories during background dreaming consolidation",
+    },
+    "enable-conversation-only-revert": {
+        "value": True,
+        "category": "ui_editor",
+        "desc": "v2.28.2 Flag: Allows reverting conversation state without rolling back workspace files",
+    },
+    "enable-customization-load-error-notice": {
+        "value": True,
+        "category": "tools_plugins",
+        "desc": "v2.28.2 Flag: Displays clear diagnostic notice when a skill, rule, or plugin fails to load",
+    },
+    "enable-hook-status": {
+        "value": True,
+        "category": "tools_plugins",
+        "desc": "v2.28.2 Flag: Displays lifecycle hook execution status in chat trajectory",
+    },
+    "enable-hub-builtin-browser": {
+        "value": True,
+        "category": "agents",
+        "desc": "v2.28.2 Flag: Enables Antigravity Hub built-in browser integration",
+    },
+    "enable-plugin-auth": {
+        "value": True,
+        "category": "tools_plugins",
+        "desc": "v2.28.2 Flag: Enables OAuth and credential sign-in flows for marketplace plugins",
+    },
+    "enable-remote-agent-fastpush-pin": {
+        "value": True,
+        "category": "agents",
+        "desc": "v2.28.2 Flag: Pins fastpush remote agent revision for consistent remote agent sessions",
+    },
 }
 
 # Optimized non-bool flag overrides
@@ -1459,8 +1560,8 @@ NON_BOOL_OPTIMIZATIONS: dict[str, dict[str, Any]] = {
         "desc": "v2.22.0 Int Value: best-of-nudge-length-threshold",
     },
     "continuous-pprof-cpu-interval-minutes": {
-        "intValue": "30",
-        "desc": "v2.22.0 Int Value: continuous-pprof-cpu-interval-minutes",
+        "intValue": "90",
+        "desc": "v2.28.2 Int Value: continuous-pprof-cpu-interval-minutes",
     },
     "max-best-of-n": {
         "intValue": "10",
@@ -1491,12 +1592,29 @@ NON_BOOL_OPTIMIZATIONS: dict[str, dict[str, Any]] = {
         "desc": "v2.22.0 Int Value: continuous-pprof-cpu-duration-seconds",
     },
     "continuous-pprof-heap-interval-minutes": {
-        "intValue": "30",
-        "desc": "v2.22.0 Int Value: continuous-pprof-heap-interval-minutes",
+        "intValue": "90",
+        "desc": "v2.28.2 Int Value: continuous-pprof-heap-interval-minutes",
     },
     "agy-plugin-marketplaces": {
-        "stringListValue": {"values": ["antigravity-plugins-official=https://www.gstatic.com/antigravity/plugins/marketplace.json"]},
-        "desc": "v2.22.0 Config: agy-plugin-marketplaces",
+        "stringListValue": {
+            "values": [
+                "antigravity-plugins-official=https://www.gstatic.com/antigravity/plugins/marketplace.json",
+                "antigravity-plugins-partners=https://www.gstatic.com/antigravity/plugins-partners/marketplace.json",
+            ]
+        },
+        "desc": "v2.28.2 Config: agy-plugin-marketplaces (official + partners catalogs)",
+    },
+    "agy-featured-plugins": {
+        "stringValue": '{"cards": [{"id": "featured", "customizationIds": ["antigravity-plugins-official/plugin/firebase", "antigravity-plugins-partners/plugin/notion", "antigravity-plugins-partners/plugin/context7", "antigravity-plugins-partners/plugin/linear", "antigravity-plugins-partners/plugin/dynatrace", "antigravity-plugins-partners/plugin/stripe"]}]}',
+        "desc": "v2.28.2 Config: agy-featured-plugins",
+    },
+    "browser-subagent-model": {
+        "stringValue": "gemini-3.8-flash-low",
+        "desc": "v2.28.2 Config: browser-subagent-model",
+    },
+    "jetski-hub-announcement-message": {
+        "stringValue": "",
+        "desc": "Suppresses internal Google x20.service announcement banner",
     },
     "jetbox-usage-tips": {
         "stringListValue": {},
@@ -1519,8 +1637,8 @@ NON_BOOL_OPTIMIZATIONS: dict[str, dict[str, Any]] = {
         "desc": "Remote control protocol version",
     },
     "agy-plugin-shelves": {
-        "stringValue": '{"shelves": [{"id": "google-workspace", "displayName": "Google Workspace", "description": "Connect to Google Workspace, including Docs, Sheets, Slides, Drive, and Calendar.", "position": 10, "customizationIds": ["antigravity-plugins-official/plugin/gdocs", "antigravity-plugins-official/plugin/gsheets", "antigravity-plugins-official/plugin/gslides", "antigravity-plugins-official/plugin/gdrive", "antigravity-plugins-official/plugin/gcalendar"]}, {"id": "build-with-google", "displayName": "Build with Google", "description": "Build on Google\'s developer platforms, including Android, Chrome, Gemini, and Google Cloud.", "position": 20, "customizationIds": ["antigravity-plugins-official/plugin/gemini-api", "antigravity-plugins-official/plugin/chrome-devtools-plugin", "antigravity-plugins-official/plugin/android-cli-plugin", "antigravity-plugins-official/plugin/firebase", "antigravity-plugins-official/plugin/science", "antigravity-plugins-official/plugin/google-antigravity-sdk", "antigravity-plugins-official/plugin/google-developer-knowledge", "antigravity-plugins-official/plugin/modern-web-guidance-plugin", "antigravity-plugins-official/plugin/google_maps_platform", "antigravity-plugins-official/plugin/flutter", "antigravity-plugins-official/plugin/data-agent-kit-plugin", "antigravity-plugins-official/plugin/google-cloud-developer"]}]}',
-        "desc": "v2.23.0 Config: agy-plugin-shelves",
+        "stringValue": '{"shelves": [{"id": "google-workspace", "displayName": "Google Workspace", "description": "Connect to Google Workspace, including Docs, Sheets, Slides, Drive, and Calendar.", "position": 10, "customizationIds": ["antigravity-plugins-official/plugin/gdocs", "antigravity-plugins-official/plugin/gsheets", "antigravity-plugins-official/plugin/gslides", "antigravity-plugins-official/plugin/gdrive", "antigravity-plugins-official/plugin/gcalendar"]}, {"id": "build-with-google", "displayName": "Build with Google", "description": "Build on Google\'s developer platforms, including Android, Chrome, Gemini, and Google Cloud.", "position": 20, "customizationIds": ["antigravity-plugins-official/plugin/gemini-api", "antigravity-plugins-official/plugin/chrome-devtools-plugin", "antigravity-plugins-official/plugin/android-cli-plugin", "antigravity-plugins-official/plugin/firebase", "antigravity-plugins-official/plugin/science", "antigravity-plugins-official/plugin/google-antigravity-sdk", "antigravity-plugins-official/plugin/google-developer-knowledge", "antigravity-plugins-official/plugin/modern-web-guidance-plugin", "antigravity-plugins-official/plugin/google_maps_platform", "antigravity-plugins-official/plugin/flutter", "antigravity-plugins-official/plugin/data-agent-kit-plugin", "antigravity-plugins-official/plugin/google-cloud-developer"]}, {"id": "design-creative-media", "displayName": "Design, Creative & Media", "description": "Design, creative, and media tools.", "position": 30, "customizationIds": ["antigravity-plugins-partners/plugin/canva", "antigravity-plugins-partners/plugin/figma", "antigravity-plugins-partners/plugin/mobbin"]}, {"id": "productivity-project-management", "displayName": "Productivity & Project Management", "description": "Plan work, track issues, sign documents, and manage your notes and files.", "position": 40, "customizationIds": ["antigravity-plugins-partners/plugin/atlassian-twg-cli", "antigravity-plugins-partners/plugin/dropbox", "antigravity-plugins-partners/plugin/linear", "antigravity-plugins-partners/plugin/monday", "antigravity-plugins-partners/plugin/notion", "antigravity-plugins-partners/plugin/pandadoc", "antigravity-plugins-partners/plugin/trello"]}, {"id": "cloud-hosting-deployment", "displayName": "Cloud Hosting & Deployment", "description": "Deploy and host your apps, sites, and their backends.", "position": 50, "customizationIds": ["antigravity-plugins-partners/plugin/netlify", "antigravity-plugins-partners/plugin/railway", "antigravity-plugins-partners/plugin/vercel-plugin", "antigravity-plugins-partners/plugin/wix", "antigravity-plugins-partners/plugin/wordpress"]}, {"id": "developer-tools", "displayName": "Developer Tools", "description": "APIs, services, and tools to build, test, secure, and run your apps.", "position": 60, "customizationIds": ["antigravity-plugins-partners/plugin/auth0", "antigravity-plugins-partners/plugin/base44", "antigravity-plugins-partners/plugin/browse", "antigravity-plugins-partners/plugin/coderabbit", "antigravity-plugins-partners/plugin/context7", "antigravity-plugins-partners/plugin/crowdstrike", "antigravity-plugins-partners/plugin/datadog", "antigravity-plugins-partners/plugin/dynatrace", "antigravity-plugins-partners/plugin/endor-labs-agent-kit", "antigravity-plugins-partners/plugin/soc", "antigravity-plugins-partners/plugin/harness-antigravity", "antigravity-plugins-partners/plugin/keenable", "antigravity-plugins-partners/plugin/leapwork-play", "antigravity-plugins-partners/plugin/mongodb-atlas", "antigravity-plugins-partners/plugin/parallel", "antigravity-plugins-partners/plugin/ping-identity-pingone", "antigravity-plugins-partners/plugin/postman", "antigravity-plugins-partners/plugin/qodo", "antigravity-plugins-partners/plugin/sentinelone-purple-mcp", "antigravity-plugins-partners/plugin/sentry", "antigravity-plugins-partners/plugin/supabase", "antigravity-plugins-partners/plugin/superpowers", "antigravity-plugins-partners/plugin/unity", "antigravity-plugins-partners/plugin/virustotal"]}, {"id": "business", "displayName": "Business", "description": "Payments, CRM, accounting, data, identity, customer support, marketing, and workflow automation.", "position": 70, "customizationIds": ["antigravity-plugins-partners/plugin/zoho-bigin", "antigravity-plugins-partners/plugin/databricks", "antigravity-plugins-partners/plugin/intercom", "antigravity-plugins-partners/plugin/semrush", "antigravity-plugins-partners/plugin/stripe", "antigravity-plugins-partners/plugin/wispr-flow", "antigravity-plugins-partners/plugin/zapier", "antigravity-plugins-partners/plugin/zohobooks-antigravity", "antigravity-plugins-partners/plugin/zoho-crm-plugin", "antigravity-plugins-partners/plugin/zoho-desk-antigravity", "antigravity-plugins-partners/plugin/zoho-projects"]}]}',
+        "desc": "v2.28.2 Config: agy-plugin-shelves (7 official + partner shelves)",
     },
     "checkpoint-variant": {
         "stringValue": "claude-1m_840k",
@@ -1559,7 +1677,15 @@ CURATED_EXPERIMENT_IDS: list[int] = [
     106643242, 106659335, 106659337, 106659338, 106659344, 106659346, 106659347,
     106670811, 106676368, 106701431, 106701435, 106711598, 106712040, 106713377, 106713379,
     106713380, 106713382, 106724030, 106754391, 106834476, 106838234,
-    106724031, 106811917, 106822475
+    106724031, 106811917, 106822475,
+    106712041, 106761937, 106793467, 106863974,
+    # v2.28.2 Experiment IDs (Argon M417-M419, Partner Marketplaces, Context Indicator, FetchConfig)
+    106260793, 106263850, 106583021, 106583023, 106583025, 106583027, 106583029,
+    106736663, 106786387, 106786388, 106788235, 106791753, 106791765, 106793263,
+    106793266, 106798730, 106798741, 106805272, 106806116, 106808143, 106822474,
+    106826239, 106826316, 106827293, 106827294, 106828852, 106828853, 106828854,
+    106833630, 106848320, 106863826, 106863827, 106865004, 106865006, 106908755,
+    106913264, 106927140, 106937777,
 ]
 
 
@@ -1837,6 +1963,22 @@ def enhance_available_models(data: dict[str, Any]) -> dict[str, Any]:
         models["gemini-4-argon"].pop("tagTitle", None)
         models["gemini-4-argon"].pop("tagDescription", None)
 
+    for _argon_k, _argon_ph, _argon_lvl in (
+        ("gemini-4-argon-high", "MODEL_PLACEHOLDER_M417", 3),
+        ("gemini-4-argon-medium", "MODEL_PLACEHOLDER_M418", 2),
+        ("gemini-4-argon-low", "MODEL_PLACEHOLDER_M419", 1),
+    ):
+        if _argon_k in models and isinstance(models[_argon_k], dict):
+            models[_argon_k]["disabled"] = False
+            models[_argon_k]["recommended"] = True
+            models[_argon_k].setdefault("model", _argon_ph)
+            models[_argon_k].setdefault("thinkingLevel", _argon_lvl)
+            models[_argon_k].setdefault("maxOutputTokens", 65536)
+            models[_argon_k].setdefault("supportsImages", True)
+            models[_argon_k].setdefault("supportsVideo", True)
+            models[_argon_k].setdefault("supportsThinking", True)
+            models[_argon_k].pop("betaWarningMessage", None)
+
     # Strip Notice / Unavailable / deprecation warning badges from all models for clean desktop UI
     for m_info in models.values():
         if isinstance(m_info, dict):
@@ -1903,10 +2045,13 @@ def enhance_available_models(data: dict[str, Any]) -> dict[str, Any]:
                     or "argon" in m
                 )
                 thinking_budget = -1
-                thinking_level = 2
+                thinking_level = 3 if ("high" in m or m == "gemini-4-argon") else 2
                 if "deepagent" in m:
                     thinking_budget = 64000
                     thinking_level = 3
+                elif "argon" in m:
+                    thinking_budget = -1
+                    thinking_level = 1 if "low" in m else (2 if ("medium" in m or "med" in m) else 3)
                 elif "low" in m:
                     thinking_budget = 1000
                     thinking_level = 1
@@ -1930,6 +2075,12 @@ def enhance_available_models(data: dict[str, Any]) -> dict[str, Any]:
                         }
                     },
                 }
+                if "argon" in m:
+                    m_entry["maxOutputTokens"] = 65536
+                    m_entry["supportsImages"] = True
+                    m_entry["supportsVideo"] = True
+                    m_entry["recommended"] = True
+                    m_entry["disabled"] = False
                 if m in CLOUDCODE_PLACEHOLDER_MAP:
                     m_entry["model"] = CLOUDCODE_PLACEHOLDER_MAP[m]
                 if supports_thinking:
@@ -2027,6 +2178,169 @@ def enhance_load_code_assist(data: dict[str, Any]) -> dict[str, Any]:
     }
     data["gcpManaged"] = False
     data.pop("ineligibleTiers", None)
+    return data
+
+
+def enhance_fetch_config(
+    data: dict[str, Any],
+    config_override: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """
+    Enhances GET https://aicode.googleapis.com/v1alpha:fetchConfig (introduced in v2.28.2):
+    1. Enhances experimentConfig.experimentFlags and experimentConfig.enabledExperimentIds
+       via enhance_list_experiments while preserving the v1alpha fetchConfig schema.
+    2. Injects Gemini 4 Argon (High/Medium/Low -> M417/M418/M419) into availableExperiences
+       and agySurfaceConfig.agentExperiences.experienceNames when absent.
+    """
+    if not isinstance(data, dict):
+        return data
+
+    data = copy.deepcopy(data)
+
+    exp_cfg = data.get("experimentConfig")
+    if not isinstance(exp_cfg, dict):
+        exp_cfg = {}
+        data["experimentConfig"] = exp_cfg
+
+    raw_flags = (
+        exp_cfg.get("experimentFlags")
+        if isinstance(exp_cfg.get("experimentFlags"), list)
+        else exp_cfg.get("flags", [])
+    )
+    raw_ids = (
+        exp_cfg.get("enabledExperimentIds")
+        if isinstance(exp_cfg.get("enabledExperimentIds"), list)
+        else exp_cfg.get("experimentIds", [])
+    )
+
+    enhanced_exp = enhance_list_experiments(
+        {
+            "flags": raw_flags,
+            "experimentIds": raw_ids,
+        },
+        config_override=config_override,
+    )
+    exp_cfg["experimentFlags"] = enhanced_exp.get("flags", [])
+    exp_cfg["enabledExperimentIds"] = enhanced_exp.get("experimentIds", [])
+    exp_cfg.pop("flags", None)
+    exp_cfg.pop("experimentIds", None)
+
+    argon_specs = [
+        ("gemini-4-argon-high", "Gemini 4 Argon (High)", "HIGH", "MODEL_PLACEHOLDER_M417"),
+        ("gemini-4-argon-medium", "Gemini 4 Argon (Medium)", "MEDIUM", "MODEL_PLACEHOLDER_M418"),
+        ("gemini-4-argon-low", "Gemini 4 Argon (Low)", "LOW", "MODEL_PLACEHOLDER_M419"),
+    ]
+    tab_specs = [
+        (
+            "tab_flash_lite_preview",
+            "Tab Flash Lite (Unlimited)",
+            "MODEL_PLACEHOLDER_M19",
+            16384,
+            4096,
+        ),
+        (
+            "tab_jump_flash_lite_preview",
+            "Tab Jump Prediction (Unlimited)",
+            "MODEL_PLACEHOLDER_M28",
+            16384,
+            4096,
+        ),
+    ]
+
+    experiences = data.get("availableExperiences")
+    if isinstance(experiences, list):
+        existing_names = {
+            e.get("name") for e in experiences if isinstance(e, dict) and e.get("name")
+        }
+        for exp_name, disp_name, think_lvl, enum_name in argon_specs:
+            if exp_name not in existing_names:
+                experiences.append(
+                    {
+                        "name": exp_name,
+                        "model": {
+                            "modelId": "gemini-4-argon",
+                            "name": "models/gemini-4-argon",
+                            "displayName": disp_name,
+                            "baseModelId": "gemini-4-argon",
+                            "version": "4.0-argon-10-2026",
+                            "description": "Gemini 4 Argon",
+                            "inputTokenLimit": 1048576,
+                            "outputTokenLimit": 65536,
+                            "supportedThinkingLevels": ["LOW", "MEDIUM", "HIGH"],
+                            "supportedFeatures": [
+                                "AUDIO_INPUT",
+                                "BROWSE_AS_A_TOOL",
+                                "CODE_EXECUTION",
+                                "DOCUMENT_INPUT",
+                                "FUNCTION_CALLING",
+                                "IMAGE_INPUT",
+                                "JSON_SCHEMA_OUTPUT",
+                                "SEARCH_AS_A_TOOL",
+                                "THINKING",
+                                "THINKING_LEVEL",
+                                "TOP_P",
+                                "VIDEO_INPUT",
+                            ],
+                            "generationConfig": {
+                                "thinkingConfig": {
+                                    "includeThoughts": True,
+                                    "thinkingLevel": think_lvl,
+                                },
+                                "maxOutputTokens": 65536,
+                            },
+                            "modelProvider": "GOOGLE",
+                        },
+                        "surfaceConfig": {
+                            "clientModelEnumName": enum_name,
+                            "tags": [{"title": "New"}],
+                        },
+                    }
+                )
+
+        for exp_name, disp_name, enum_name, in_lim, out_lim in tab_specs:
+            if exp_name not in existing_names:
+                experiences.append(
+                    {
+                        "name": exp_name,
+                        "model": {
+                            "modelId": exp_name,
+                            "name": f"models/{exp_name}",
+                            "displayName": disp_name,
+                            "baseModelId": exp_name,
+                            "version": "tab-flash-lite-08-2026",
+                            "description": f"Google Antigravity {disp_name} completion model",
+                            "inputTokenLimit": in_lim,
+                            "outputTokenLimit": out_lim,
+                            "supportedFeatures": [
+                                "CODE_EXECUTION",
+                                "DOCUMENT_INPUT",
+                                "FUNCTION_CALLING",
+                                "IMAGE_INPUT",
+                            ],
+                            "generationConfig": {
+                                "maxOutputTokens": out_lim,
+                            },
+                            "modelProvider": "GOOGLE",
+                        },
+                        "surfaceConfig": {
+                            "clientModelEnumName": enum_name,
+                            "tags": [{"title": "Fast"}],
+                        },
+                    }
+                )
+
+    surface_cfg = data.get("agySurfaceConfig")
+    if isinstance(surface_cfg, dict):
+        agent_exp = surface_cfg.get("agentExperiences")
+        if isinstance(agent_exp, dict) and isinstance(agent_exp.get("experienceNames"), list):
+            exp_names_list = agent_exp["experienceNames"]
+            for exp_name, _, _, _ in reversed(argon_specs):
+                if exp_name not in exp_names_list:
+                    exp_names_list.insert(0, exp_name)
+            for exp_name, _, _, _, _ in tab_specs:
+                if exp_name not in exp_names_list:
+                    exp_names_list.append(exp_name)
+
     return data
 
 

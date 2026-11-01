@@ -46,6 +46,8 @@ scratch/
 dumped_flows.*
 flags_extracted.txt
 interesting_flows.txt
+*.zip
+*.tar.gz
 
 # Cloudflare
 .wrangler/
