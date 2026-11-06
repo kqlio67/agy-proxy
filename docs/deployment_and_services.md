@@ -12,7 +12,7 @@ docker run -d \
   --name agy-proxy \
   -p 8000:8000 \
   -v agy_data:/root/.config/agy-proxy \
-  ghcr.io/qumhab/agy-proxy:latest
+  ghcr.io/agy-proxy/agy-proxy:latest
 ```
 
 ### Docker Compose
@@ -20,7 +20,7 @@ Create a `docker-compose.yml`:
 ```yaml
 services:
   agy-proxy:
-    image: ghcr.io/qumhab/agy-proxy:latest
+    image: ghcr.io/agy-proxy/agy-proxy:latest
     container_name: agy-proxy
     restart: unless-stopped
     ports:
@@ -69,7 +69,7 @@ Run `agy-proxy` directly on Android smartphones and tablets:
 pkg update && pkg install python git -y
 
 # 2. Clone and install dependencies:
-git clone https://github.com/qumhab/agy-proxy.git
+git clone https://github.com/agy-proxy/agy-proxy.git
 cd agy-proxy
 pip install -e .
 

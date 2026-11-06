@@ -642,7 +642,7 @@ class GeminiWebSession(AccountSession):
                 logger.debug("Failed loading %s: %s", cfg_tokens_path, e)
         # 3. From traffic directories if available (fallback only — does not overwrite JSON config)
         search_dirs = [
-            Path("/home/qumhab/tmp_gemini/trafic"),
+            Path("~/.config/agy-proxy/traffic"),
         ]
         for traffic_dir in search_dirs:
             if traffic_dir.is_dir():

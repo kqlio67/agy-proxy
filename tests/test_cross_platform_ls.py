@@ -3,7 +3,7 @@ Unit and integration tests for cross-platform Antigravity language_server detect
 Validates:
 1. Desktop App / Hub layouts (Linux, macOS, Windows)
 2. Dedicated Antigravity IDE layouts (Linux x64/arm, macOS Apple Silicon/Intel, Windows x64/arm)
-3. Actual test directory packages in /home/qumhab/tmp_gemini/new2
+3. Actual test directory packages in ~/tmp_gemini/new2
 4. Subpath navigation and recursive fallback
 5. Persistent config retrieval and storage
 """
@@ -137,7 +137,7 @@ def test_mock_windows_ide(tmp_path):
 
 def test_real_antigravity_app_x64():
     """Verify discovery against real Antigravity app x64 on disk."""
-    real_path = Path("/home/qumhab/tmp_gemini/new2/Antigravity app/Antigravity-x64")
+    real_path = Path("~/tmp_gemini/new2/Antigravity app/Antigravity-x64")
     if real_path.exists():
         found = find_language_server(custom_path=real_path, persist=False)
         assert found is not None
@@ -147,7 +147,7 @@ def test_real_antigravity_app_x64():
 
 def test_real_antigravity_app_arm64():
     """Verify discovery against real Antigravity app arm64 on disk."""
-    real_path = Path("/home/qumhab/tmp_gemini/new2/Antigravity app/Antigravity-arm64")
+    real_path = Path("~/tmp_gemini/new2/Antigravity app/Antigravity-arm64")
     if real_path.exists():
         found = find_language_server(custom_path=real_path, persist=False)
         assert found is not None
@@ -157,7 +157,7 @@ def test_real_antigravity_app_arm64():
 
 def test_real_antigravity_ide_x64():
     """Verify discovery against real Antigravity IDE x64 on disk."""
-    real_path = Path("/home/qumhab/tmp_gemini/new2/Antigravity IDE/Antigravity IDE-x64")
+    real_path = Path("~/tmp_gemini/new2/Antigravity IDE/Antigravity IDE-x64")
     if real_path.exists():
         found = find_language_server(custom_path=real_path, persist=False)
         assert found is not None
@@ -167,7 +167,7 @@ def test_real_antigravity_ide_x64():
 
 def test_real_antigravity_ide_arm64():
     """Verify discovery against real Antigravity IDE arm64 on disk."""
-    real_path = Path("/home/qumhab/tmp_gemini/new2/Antigravity IDE/Antigravity IDE-arm64")
+    real_path = Path("~/tmp_gemini/new2/Antigravity IDE/Antigravity IDE-arm64")
     if real_path.exists():
         found = find_language_server(custom_path=real_path, persist=False)
         assert found is not None
@@ -177,7 +177,7 @@ def test_real_antigravity_ide_arm64():
 
 def test_real_antigravity_ide_parent_folder():
     """Verify discovery when pointing to parent folder 'Antigravity IDE' containing multiple builds."""
-    real_path = Path("/home/qumhab/tmp_gemini/new2/Antigravity IDE")
+    real_path = Path("~/tmp_gemini/new2/Antigravity IDE")
     if real_path.exists():
         found = find_language_server(custom_path=real_path, persist=False)
         assert found is not None
@@ -187,7 +187,7 @@ def test_real_antigravity_ide_parent_folder():
 
 def test_patch_script_discovery():
     """Verify agy-proxy patch can discover binaries in test directory."""
-    real_ide = Path("/home/qumhab/tmp_gemini/new2/Antigravity IDE/Antigravity IDE-x64")
+    real_ide = Path("~/tmp_gemini/new2/Antigravity IDE/Antigravity IDE-x64")
     if real_ide.exists():
         res = subprocess.run([sys.executable, "-m", "agy_proxy.cli", "patch", "status", "-e", str(real_ide)], capture_output=True, text=True)
         assert res.returncode == 0

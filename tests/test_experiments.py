@@ -7,6 +7,7 @@ from agy_proxy.experiments import (
     enhance_list_experiments,
     enhance_available_models,
     enhance_quota_summary,
+    enhance_load_code_assist,
     get_default_experiments_payload,
     get_experiments_status,
     set_experiment_override,
@@ -728,6 +729,81 @@ def test_v2_28_2_flags_fetch_config_and_nuxes():
     nuxes_data = json.loads(nuxes_path.read_text(encoding="utf-8"))
     uids = {n.get("uid") for n in nuxes_data.get("cascadeNuxes", [])}
     assert 58 in uids
+
+
+def test_enhance_quota_summary_pool_sync():
+    """Verify that enhance_quota_summary synchronizes real fractions and accounts from active pool."""
+    from unittest.mock import MagicMock
+
+    mock_pool = MagicMock()
+    mock_acc1 = MagicMock()
+    mock_acc1.email = "dev1@gmail.com"
+    mock_acc1.is_primary = True
+    mock_acc1.auth_method = "consumer"
+    mock_acc1.quota_details = {
+        "gemini": {"percent": 45.0, "is_rate_limited": False},
+        "3p": {"percent": 80.0, "is_rate_limited": False},
+        "argon": {"percent": 0.0, "is_rate_limited": False},
+    }
+    mock_acc1.quota_summary = {
+        "groups": [
+            {
+                "buckets": [
+                    {
+                        "bucketId": "gemini-weekly",
+                        "remainingFraction": 0.45,
+                        "description": "You have used some of your weekly limit, it will fully refresh in 3 days.",
+                    }
+                ]
+            }
+        ]
+    }
+
+    mock_acc2 = MagicMock()
+    mock_acc2.email = "dev2@gmail.com"
+    mock_acc2.is_primary = False
+    mock_acc2.auth_method = "consumer"
+    mock_acc2.quota_details = {
+        "gemini": {"percent": 100.0, "is_rate_limited": False},
+        "3p": {"percent": 100.0, "is_rate_limited": False},
+        "argon": {"percent": 100.0, "is_rate_limited": False},
+    }
+
+    mock_pool.accounts = {"acc1": mock_acc1, "acc2": mock_acc2}
+    mock_pool.get_primary_account.return_value = mock_acc1
+
+    raw_summary = {
+        "groups": [
+            {
+                "displayName": "Gemini Models",
+                "buckets": [
+                    {
+                        "bucketId": "gemini-weekly",
+                        "displayName": "Weekly Limit Remaining",
+                        "remainingFraction": 1.0,
+                        "description": "Standard",
+                    }
+                ],
+            }
+        ]
+    }
+
+    enhanced = enhance_quota_summary(raw_summary, pool=mock_pool)
+    bucket = enhanced["groups"][0]["buckets"][0]
+
+    # Fraction reflects primary real fraction
+    assert round(bucket["remainingFraction"] * 100) == 45
+    # Description reflects active account, reset string, and pool status
+    assert "dev1@gmail.com" in bucket["description"]
+    assert "45%" in bucket["description"]
+    assert "Pool: 2/2 accounts ready" in bucket["description"]
+    assert "Resets in 3 days" in bucket["description"]
+
+    # Also verify enhance_load_code_assist displays pool metadata
+    code_assist = enhance_load_code_assist({}, pool=mock_pool)
+    assert "dev1@gmail.com" in code_assist["currentTier"]["description"]
+    assert "2 Google accounts connected" in code_assist["currentTier"]["description"]
+
 
 
 

@@ -438,6 +438,9 @@ def _save_passthrough_cache():
         logger.debug("Could not save passthrough cache: %s", e)
 
 
+_GLOBAL_ACCOUNT_POOL: Any = None
+
+
 def _get_cached_or_default_passthrough(action_key: str) -> dict[str, Any]:
     if action_key in _PASSTHROUGH_METADATA_CACHE:
         return copy.deepcopy(_PASSTHROUGH_METADATA_CACHE[action_key])
@@ -454,9 +457,9 @@ def _process_passthrough_metadata(action_key: str, data: dict[str, Any]) -> dict
     elif action_key == "fetchAvailableModels":
         return enhance_available_models(data)
     elif action_key == "retrieveUserQuotaSummary":
-        return enhance_quota_summary(data)
+        return enhance_quota_summary(data, pool=_GLOBAL_ACCOUNT_POOL)
     elif action_key == "loadCodeAssist":
-        return enhance_load_code_assist(data)
+        return enhance_load_code_assist(data, pool=_GLOBAL_ACCOUNT_POOL)
     return data
 
 
@@ -589,6 +592,9 @@ def create_app(
     else:
         pool = AccountPool()
 
+    global _GLOBAL_ACCOUNT_POOL
+    _GLOBAL_ACCOUNT_POOL = pool
+
     client = CloudCodeClient(pool)
 
     @asynccontextmanager
@@ -678,6 +684,7 @@ def create_app(
             allow_credentials=False,
             allow_methods=["*"],
             allow_headers=["*"],
+            allow_private_network=True,
         )
     elif origins_to_allow:
         app.add_middleware(
@@ -686,6 +693,7 @@ def create_app(
             allow_credentials=True,
             allow_methods=["*"],
             allow_headers=["*"],
+            allow_private_network=True,
         )
     else:
         # Default: securely allow localhost and local development origins
@@ -700,6 +708,7 @@ def create_app(
             allow_credentials=True,
             allow_methods=["*"],
             allow_headers=["*"],
+            allow_private_network=True,
         )
 
     # Clean cancellation and shutdown handling for HTTP, WebSockets, and lifespan events
@@ -1919,6 +1928,101 @@ def create_app(
         await pool.initialize_all()
         return {"status": "refreshed", "count": len(pool.accounts)}
 
+    # -------------------------------------------------------------------------
+    # External LLM Providers API Endpoints
+    # -------------------------------------------------------------------------
+
+    @app.get("/api/providers")
+    async def list_external_providers():
+        from agy_proxy.providers import external_provider_manager, DEFAULT_PROVIDER_PRESETS
+        return {
+            "providers": [p.model_dump() for p in external_provider_manager.providers.values()],
+            "routing": external_provider_manager.routing_settings.model_dump(),
+            "presets": DEFAULT_PROVIDER_PRESETS,
+            "active_models": external_provider_manager.get_all_active_models(),
+        }
+
+    @app.post("/api/providers")
+    async def add_or_update_external_provider(provider_data: dict[str, Any]):
+        from agy_proxy.providers import external_provider_manager, ExternalProviderConfig
+        try:
+            cfg = ExternalProviderConfig(**provider_data)
+            external_provider_manager.add_or_update_provider(cfg)
+            return {"status": "ok", "provider": cfg.model_dump()}
+        except Exception as e:
+            logger.error("Failed to add external provider: %s", e)
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.delete("/api/providers/{provider_id}")
+    async def delete_external_provider(provider_id: str):
+        from agy_proxy.providers import external_provider_manager
+        deleted = external_provider_manager.remove_provider(provider_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Provider not found")
+        return {"status": "deleted", "provider_id": provider_id}
+
+    @app.post("/api/providers/{provider_id}/toggle")
+    async def toggle_external_provider(provider_id: str, body: dict[str, Any] | None = None):
+        from agy_proxy.providers import external_provider_manager
+        en = body.get("enabled") if isinstance(body, dict) else None
+        success = external_provider_manager.toggle_provider(provider_id, enabled=en)
+        if not success:
+            raise HTTPException(status_code=404, detail="Provider not found")
+        return {"status": "ok", "provider_id": provider_id, "enabled": external_provider_manager.providers[provider_id].enabled}
+
+    @app.post("/api/providers/{provider_id}/test")
+    async def test_external_provider(provider_id: str):
+        from agy_proxy.providers import external_provider_manager
+        cfg = external_provider_manager.providers.get(provider_id)
+        if not cfg:
+            raise HTTPException(status_code=404, detail="Provider not found")
+        instance = external_provider_manager.get_provider_instance(provider_id)
+        if not instance:
+            from agy_proxy.providers.manager import _create_provider_instance
+            instance = _create_provider_instance(cfg)
+        test_result = await instance.test_connection()
+        return test_result
+
+    @app.post("/api/providers/{provider_id}/discover")
+    async def discover_provider_models(provider_id: str):
+        from agy_proxy.providers import external_provider_manager
+        cfg = external_provider_manager.providers.get(provider_id)
+        if not cfg:
+            raise HTTPException(status_code=404, detail="Provider not found")
+        instance = external_provider_manager.get_provider_instance(provider_id)
+        if not instance:
+            from agy_proxy.providers.manager import _create_provider_instance
+            instance = _create_provider_instance(cfg)
+        discovered = await instance.discover_models()
+        if discovered:
+            existing_ids = {m.id for m in cfg.models}
+            for d in discovered:
+                if d.id not in existing_ids:
+                    cfg.models.append(d)
+            external_provider_manager.save()
+        return {
+            "status": "ok",
+            "provider_id": provider_id,
+            "discovered_count": len(discovered),
+            "models": [m.model_dump() for m in cfg.models],
+        }
+
+    @app.get("/api/providers/routing")
+    async def get_providers_routing():
+        from agy_proxy.providers import external_provider_manager
+        return external_provider_manager.routing_settings.model_dump()
+
+    @app.post("/api/providers/routing")
+    async def update_providers_routing(routing_data: dict[str, Any]):
+        from agy_proxy.providers import external_provider_manager, RoutingSettings
+        try:
+            rs = RoutingSettings(**routing_data)
+            external_provider_manager.routing_settings = rs
+            external_provider_manager.save()
+            return {"status": "ok", "routing": rs.model_dump()}
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
 
     @app.get("/api/cache/stats")
     async def get_cache_stats():
@@ -1930,6 +2034,129 @@ def create_app(
             "active_sessions": len(session_affinity._sessions),
             "cached_contents_count": len(google_context_cache._cache_map),
         }
+
+    @app.get("/api/cache/summary")
+    async def get_ide_cache_summary():
+        from agy_proxy.cleaner import cache_cleaner
+        return cache_cleaner.get_cache_summary()
+
+    @app.post("/api/cache/clean")
+    async def clean_ide_cache(request: Request):
+        from agy_proxy.cleaner import cache_cleaner
+        categories = None
+        try:
+            body = await request.json()
+            if isinstance(body, dict) and "categories" in body:
+                categories = body["categories"]
+        except Exception:
+            pass
+        return cache_cleaner.clean_cache(categories=categories)
+
+    @app.get("/api/ide/extension")
+    async def get_ide_extension_status():
+        from agy_proxy.extension import get_extension_status
+        return get_extension_status()
+
+    @app.post("/api/ide/extension/install")
+    async def install_ide_extension_endpoint():
+        from agy_proxy.extension import install_ide_extension
+        return install_ide_extension()
+
+    @app.post("/api/ide/extension/uninstall")
+    async def uninstall_ide_extension_endpoint():
+        from agy_proxy.extension import uninstall_ide_extension
+        return uninstall_ide_extension()
+
+    @app.get("/api/tunnel/status")
+    async def get_tunnel_status():
+        from agy_proxy.tunnel import tunnel_manager
+        return tunnel_manager.get_status()
+
+    @app.post("/api/tunnel/config")
+    async def configure_tunnel_host(request: Request):
+        from agy_proxy.tunnel import tunnel_manager
+        body = await request.json()
+        host = body.get("host")
+        if not host:
+            raise HTTPException(status_code=400, detail="Missing host parameter")
+        remote_port = int(body.get("remote_port", 8000))
+        local_port = int(body.get("local_port", 8000))
+        return tunnel_manager.configure_ssh_host(host, remote_port=remote_port, local_port=local_port)
+
+    @app.post("/api/tunnel/start")
+    async def start_tunnel_endpoint(request: Request):
+        from agy_proxy.tunnel import tunnel_manager
+        body = await request.json()
+        target = body.get("target")
+        if not target:
+            raise HTTPException(status_code=400, detail="Missing target parameter")
+        remote_port = int(body.get("remote_port", 8000))
+        local_port = int(body.get("local_port", 8000))
+        ssh_options = body.get("ssh_options")
+        return tunnel_manager.start_tunnel(target, remote_port=remote_port, local_port=local_port, ssh_options=ssh_options)
+
+    @app.post("/api/tunnel/stop")
+    async def stop_tunnel_endpoint(request: Request):
+        from agy_proxy.tunnel import tunnel_manager
+        body = await request.json()
+        target = body.get("target")
+        if not target:
+            raise HTTPException(status_code=400, detail="Missing target parameter")
+        return tunnel_manager.stop_tunnel(target)
+
+    @app.get("/api/tunnel/snippet")
+    async def get_tunnel_snippet(port: int = 8000):
+        from agy_proxy.tunnel import tunnel_manager
+        return {"snippet": tunnel_manager.get_remote_setup_snippet(remote_port=port)}
+
+    @app.get("/api/patch/status")
+    async def get_patch_status_endpoint():
+        from agy_proxy.patcher import get_patch_status
+        return get_patch_status()
+
+    @app.get("/api/patch/launcher")
+    async def get_launcher_status_endpoint():
+        from agy_proxy.patcher import DesktopLauncher
+        return DesktopLauncher().status()
+
+    @app.post("/api/patch/launcher/install")
+    async def install_launcher_endpoint():
+        from agy_proxy.patcher import DesktopLauncher
+        return DesktopLauncher().install()
+
+    @app.post("/api/patch/launcher/uninstall")
+    async def uninstall_launcher_endpoint():
+        from agy_proxy.patcher import DesktopLauncher
+        return DesktopLauncher().uninstall()
+
+    @app.get("/api/patch/autoguard")
+    async def get_autoguard_status():
+        from agy_proxy.patcher import AutoGuard
+        guard = AutoGuard()
+        running, pid = guard.is_running()
+        return {"running": running, "pid": pid}
+
+    @app.post("/api/patch/autoguard/check")
+    async def check_autoguard_endpoint():
+        from agy_proxy.patcher import AutoGuard
+        return AutoGuard().check_and_repair()
+
+    @app.post("/api/patch/autoguard/start")
+    async def start_autoguard_endpoint(request: Request):
+        from agy_proxy.patcher import AutoGuard
+        interval = 10
+        try:
+            body = await request.json()
+            if "interval" in body:
+                interval = int(body["interval"])
+        except Exception:
+            pass
+        return AutoGuard().start_daemon(interval_seconds=interval)
+
+    @app.post("/api/patch/autoguard/stop")
+    async def stop_autoguard_endpoint():
+        from agy_proxy.patcher import AutoGuard
+        return AutoGuard().stop_daemon()
 
     @app.get("/api/context/settings")
     async def get_compactor_settings():
@@ -2050,6 +2277,21 @@ def create_app(
                 for m_id in sorted(VALID_CLOUDCODE_MODELS)
                 if not m_id.startswith(("tab_", "chat_"))
             }
+        try:
+            from agy_proxy.providers import external_provider_manager
+            for ext_m in external_provider_manager.get_all_active_models():
+                m_id = ext_m["id"]
+                models_dict[m_id] = {
+                    "displayName": f"{ext_m.get('provider_name', 'External')} - {ext_m.get('name', m_id)}",
+                    "maxTokens": 131072,
+                    "quotaInfo": {"remainingFraction": 1.0},
+                    "accounts": {ext_m.get("provider_id", "external"): {"status": "available", "remainingFraction": 1.0}},
+                    "available_accounts": 1,
+                    "total_accounts": 1,
+                    "pool_remaining_fraction": 1.0,
+                }
+        except Exception as e:
+            logger.warning("Failed to include external models in /api/models: %s", e)
         return {"models": models_dict}
 
     @app.post("/api/refresh")
@@ -2176,6 +2418,37 @@ def create_app(
                         )
                     )
 
+        # 3. Third-party external models (OpenRouter, Ollama, DeepSeek, Groq, NVIDIA NIM)
+        try:
+            from agy_proxy.providers import external_provider_manager
+            for em in external_provider_manager.get_all_active_models():
+                em_id = em["id"]
+                if em_id not in seen_ids:
+                    seen_ids.add(em_id)
+                    model_cards.append(
+                        ModelCard(
+                            id=em_id,
+                            display_name=em["display_name"],
+                            max_tokens=em["context_window"],
+                            remaining_quota=1.0,
+                            reset_time=None,
+                        )
+                    )
+                raw_id = em.get("raw_id")
+                if raw_id and raw_id not in seen_ids:
+                    seen_ids.add(raw_id)
+                    model_cards.append(
+                        ModelCard(
+                            id=raw_id,
+                            display_name=em["display_name"],
+                            max_tokens=em["context_window"],
+                            remaining_quota=1.0,
+                            reset_time=None,
+                        )
+                    )
+        except Exception as e:
+            logger.debug("Failed to append external models to /v1/models: %s", e)
+
         return ModelListResponse(data=model_cards)
 
     @app.get("/v1/models")
@@ -2265,6 +2538,87 @@ def create_app(
             or request.query_params.get("account_id")
             or getattr(req, "account_id", None)
         )
+
+        # Check if requested model targets an external provider (OpenRouter, Ollama, DeepSeek, Groq, NVIDIA NIM)
+        from agy_proxy.providers import external_provider_manager
+        raw_req_model = req.model or DEFAULT_MODEL
+        if external_provider_manager.is_external_model(raw_req_model):
+            ext_target = external_provider_manager.resolve_model(raw_req_model)
+            if ext_target:
+                provider, upstream_model_id, _ = ext_target
+                logger.info("[%s] Routing OpenAI chat completion -> %s (External %s)", raw_req_model, upstream_model_id, provider.name)
+                ext_payload = req.model_dump(exclude_none=True)
+                ext_payload["model"] = upstream_model_id
+                t0_ext = time.time()
+
+                if req.stream:
+                    async def ext_openai_stream():
+                        p_toks = 0
+                        c_toks = 0
+                        t_toks = 0
+                        try:
+                            async for chunk in provider.stream_chat(ext_payload):
+                                yield f"data: {json.dumps(chunk)}\n\n"
+                                usage = chunk.get("usage")
+                                if isinstance(usage, dict):
+                                    p_toks = usage.get("prompt_tokens", p_toks)
+                                    c_toks = usage.get("completion_tokens", c_toks)
+                                    t_toks = usage.get("total_tokens", t_toks)
+                            yield "data: [DONE]\n\n"
+
+                            from agy_proxy.traffic import traffic_inspector
+                            traffic_inspector.record(
+                                method="POST",
+                                path="/v1/chat/completions",
+                                client_model=raw_req_model,
+                                backend_model=f"{provider.name}: {upstream_model_id}",
+                                account_id=provider.id,
+                                account_email=provider.name,
+                                status_code=200,
+                                duration_ms=(time.time() - t0_ext) * 1000,
+                                stream=True,
+                                prompt_tokens=p_toks,
+                                completion_tokens=c_toks,
+                                total_tokens=t_toks or (p_toks + c_toks),
+                            )
+                        except Exception as err:
+                            logger.error("[%s] External stream error: %s", provider.name, err)
+                            err_chunk = {"error": {"message": str(err), "type": "upstream_error"}}
+                            yield f"data: {json.dumps(err_chunk)}\n\n"
+                            yield "data: [DONE]\n\n"
+
+                    return StreamingResponse(
+                        ext_openai_stream(),
+                        media_type="text/event-stream",
+                        headers={
+                            "Cache-Control": "no-cache",
+                            "Connection": "keep-alive",
+                            "X-Accel-Buffering": "no",
+                            "openai-model": upstream_model_id,
+                            "x-request-id": f"resp_{uuid.uuid4().hex[:16]}",
+                        },
+                    )
+                else:
+                    ext_resp = await provider.chat_completion(ext_payload)
+                    from agy_proxy.traffic import traffic_inspector
+                    usage = ext_resp.get("usage", {})
+                    p_toks = usage.get("prompt_tokens", 0)
+                    c_toks = usage.get("completion_tokens", 0)
+                    traffic_inspector.record(
+                        method="POST",
+                        path="/v1/chat/completions",
+                        client_model=raw_req_model,
+                        backend_model=f"{provider.name}: {upstream_model_id}",
+                        account_id=provider.id,
+                        account_email=provider.name,
+                        status_code=200,
+                        duration_ms=(time.time() - t0_ext) * 1000,
+                        stream=False,
+                        prompt_tokens=p_toks,
+                        completion_tokens=c_toks,
+                        total_tokens=p_toks + c_toks,
+                    )
+                    return JSONResponse(content=ext_resp)
 
         try:
             if req.stream:
@@ -2966,6 +3320,90 @@ def create_app(
             or getattr(req, "account_id", None)
         )
 
+        # Check if requested model targets an external provider (OpenRouter, Ollama, DeepSeek, Groq, NVIDIA NIM)
+        from agy_proxy.providers import external_provider_manager
+        raw_req_model = req.model or DEFAULT_MODEL
+        if external_provider_manager.is_external_model(raw_req_model):
+            ext_target = external_provider_manager.resolve_model(raw_req_model)
+            if ext_target:
+                provider, upstream_model_id, _ = ext_target
+                logger.info("[%s] Routing Anthropic Messages -> %s (External %s)", raw_req_model, upstream_model_id, provider.name)
+                from agy_proxy.converters.anthropic import anthropic_to_cloudcode_payload
+                from agy_proxy.converters.cloudcode_to_openai import (
+                    cloudcode_to_openai_chat,
+                    OpenAIToAnthropicSSETranslator,
+                    openai_response_to_anthropic,
+                )
+                cc_payload = anthropic_to_cloudcode_payload(req, project_id="external")
+                ext_payload = cloudcode_to_openai_chat(cc_payload, upstream_model_id)
+                t0_ext = time.time()
+
+                if req.stream:
+                    async def ext_anthropic_stream():
+                        translator = OpenAIToAnthropicSSETranslator(model_name=raw_req_model)
+                        try:
+                            async for chunk in provider.stream_chat(ext_payload):
+                                lines = translator.process_chunk(chunk)
+                                for l in lines:
+                                    yield l
+
+                            from agy_proxy.traffic import traffic_inspector
+                            traffic_inspector.record(
+                                method="POST",
+                                path="/v1/messages",
+                                client_model=raw_req_model,
+                                backend_model=f"{provider.name}: {upstream_model_id}",
+                                account_id=provider.id,
+                                account_email=provider.name,
+                                status_code=200,
+                                duration_ms=(time.time() - t0_ext) * 1000,
+                                stream=True,
+                                prompt_tokens=translator.prompt_tokens,
+                                completion_tokens=translator.completion_tokens,
+                                total_tokens=translator.prompt_tokens + translator.completion_tokens,
+                            )
+                        except Exception as err:
+                            logger.error("[%s] External stream error for Anthropic client: %s", provider.name, err)
+                            err_event = {
+                                "type": "error",
+                                "error": {"type": "api_error", "message": str(err)},
+                            }
+                            yield f"event: error\ndata: {json.dumps(err_event)}\n\n"
+
+                    return StreamingResponse(
+                        ext_anthropic_stream(),
+                        media_type="text/event-stream",
+                        headers={
+                            "Cache-Control": "no-cache",
+                            "Connection": "keep-alive",
+                            "Content-Type": "text/event-stream; charset=utf-8",
+                            "X-Accel-Buffering": "no",
+                            "anthropic-version": "2023-06-01",
+                        },
+                    )
+                else:
+                    ext_resp = await provider.chat_completion(ext_payload)
+                    anth_resp = openai_response_to_anthropic(ext_resp, model_name=raw_req_model)
+                    from agy_proxy.traffic import traffic_inspector
+                    usage = ext_resp.get("usage", {})
+                    p_toks = usage.get("prompt_tokens", 0)
+                    c_toks = usage.get("completion_tokens", 0)
+                    traffic_inspector.record(
+                        method="POST",
+                        path="/v1/messages",
+                        client_model=raw_req_model,
+                        backend_model=f"{provider.name}: {upstream_model_id}",
+                        account_id=provider.id,
+                        account_email=provider.name,
+                        status_code=200,
+                        duration_ms=(time.time() - t0_ext) * 1000,
+                        stream=False,
+                        prompt_tokens=p_toks,
+                        completion_tokens=c_toks,
+                        total_tokens=p_toks + c_toks,
+                    )
+                    return JSONResponse(content=anth_resp)
+
         try:
             if req.stream:
                 return StreamingResponse(
@@ -3095,7 +3533,7 @@ def create_app(
             authorization=request.headers.get("Authorization"),
             x_api_key=request.headers.get("x-api-key"),
         )
-        email = "qumhab@antigravity"
+        email = "proxy@antigravity.local"
         if pool and getattr(pool, "accounts", None):
             for acc in pool.accounts.values():
                 if getattr(acc, "email", None):
@@ -3646,6 +4084,68 @@ def create_app(
             if m_path:
                 req_model = normalize_model_name(m_path.group(1))
 
+        # ── Third-party External LLM routing (Antigravity IDE -> OpenRouter, Ollama, DeepSeek, Groq, NVIDIA NIM) ──
+        from agy_proxy.providers import external_provider_manager
+        if is_generation and external_provider_manager.is_external_model(req_model):
+            ext_target = external_provider_manager.resolve_model(req_model)
+            if ext_target:
+                provider, upstream_model_id, m_cfg = ext_target
+                logger.info("[%s] Antigravity IDE -> %s (External %s)", req_model, upstream_model_id, provider.name)
+                from agy_proxy.converters.cloudcode_to_openai import (
+                    cloudcode_to_openai_chat,
+                    CloudCodeSSETranslator,
+                    openai_response_to_cloudcode,
+                )
+                openai_payload = cloudcode_to_openai_chat(body, upstream_model_id)
+                query_params = dict(request.query_params)
+                is_sse = query_params.get("alt") == "sse" or "alt=sse" in str(request.url)
+
+                if is_sse:
+                    async def ext_cc_sse_stream():
+                        translator = CloudCodeSSETranslator()
+                        try:
+                            async for chunk in provider.stream_chat(openai_payload):
+                                events = translator.process_chunk(chunk)
+                                for ev in events:
+                                    yield f"data: {json.dumps(ev)}\n\n"
+
+                            _record_cloudcode_traffic(
+                                acc_obj=type("ExternalAccount", (), {"account_id": provider.id, "email": provider.name, "auth_method": "external"})(),
+                                st_code=200,
+                                data_dict=None,
+                                raw_text=None,
+                            )
+                        except Exception as err:
+                            logger.error("[%s] External provider stream error (%s): %s", req_model, provider.name, err)
+                            err_event = {
+                                "response": {
+                                    "candidates": [{
+                                        "content": {"role": "model", "parts": [{"text": f"Error from {provider.name}: {err}"}]},
+                                        "finishReason": "STOP",
+                                    }]
+                                }
+                            }
+                            yield f"data: {json.dumps(err_event)}\n\n"
+
+                    return StreamingResponse(
+                        ext_cc_sse_stream(),
+                        media_type="text/event-stream",
+                        headers={
+                            "Cache-Control": "no-cache",
+                            "Connection": "keep-alive",
+                            "Content-Type": "text/event-stream; charset=utf-8",
+                            "X-Accel-Buffering": "no",
+                        },
+                    )
+                else:
+                    try:
+                        raw_resp = await provider.chat_completion(openai_payload)
+                        cc_resp = openai_response_to_cloudcode(raw_resp)
+                        return JSONResponse(status_code=200, content=cc_resp)
+                    except Exception as err:
+                        logger.error("[%s] External provider completion error: %s", req_model, err)
+                        return JSONResponse(status_code=500, content={"error": {"message": str(err)}})
+
         # 2. Identify target account from Authorization header or explicit account header if present
         target_account = None
         req_acc_id = request.headers.get("x-requested-account-id") or request.headers.get("x-account-id")
@@ -3674,10 +4174,38 @@ def create_app(
                 except Exception:
                     pass
 
+        # Extract session identifier for conversation affinity & backend cache reuse
+        session_key = (
+            request.headers.get("x-session-id")
+            or request.headers.get("x-conversation-id")
+            or request.headers.get("anthropic-session-id")
+        )
+        if not session_key and isinstance(body, dict):
+            req_dict = body.get("request", body) if isinstance(body.get("request"), dict) else body
+            session_key = (
+                req_dict.get("sessionId")
+                or req_dict.get("conversationId")
+                or body.get("sessionId")
+                or body.get("conversationId")
+                or body.get("requestId")
+            )
+            if not session_key:
+                raw_contents = req_dict.get("contents") or body.get("contents")
+                if isinstance(raw_contents, list) and raw_contents:
+                    from agy_proxy.cache import session_affinity
+                    session_key = session_affinity.get_session_key(raw_contents)
+
+        preferred_account_id = None
+        if session_key:
+            from agy_proxy.cache import session_affinity
+            pinned = session_affinity.get_pinned_account(session_key)
+            if pinned:
+                preferred_account_id = pinned[0]
+
         # 3. Build candidate accounts list
         if is_generation:
             try:
-                candidates = pool.get_candidate_accounts(model=req_model)
+                candidates = pool.get_candidate_accounts(model=req_model, preferred_account_id=preferred_account_id)
             except Exception as e:
                 logger.debug("Failed to get candidate accounts: %s", e)
                 candidates = [a for a in pool.accounts.values() if getattr(a, "enabled", True)]
@@ -3691,19 +4219,23 @@ def create_app(
                 if web_ready:
                     candidates = web_ready + [a for a in candidates if a not in web_ready]
 
-            # Prioritize target_account if requested and healthy
-            target_can_handle = (
-                not is_gemini_web_model(req_model) or getattr(target_account, "auth_method", "") == "gemini_web"
-            )
-            if target_can_handle and is_argon_model(req_model) and not is_gemini_web_model(req_model):
-                target_can_handle = getattr(target_account, "has_argon_access", False) or bool(
-                    target_account and target_account.is_model_supported(req_model)
+            # If a session is pinned to an account and healthy, maintain affinity
+            if preferred_account_id and any(a.account_id == preferred_account_id for a in candidates):
+                candidates = [a for a in candidates if a.account_id == preferred_account_id] + [a for a in candidates if a.account_id != preferred_account_id]
+            else:
+                # Prioritize target_account if requested and healthy
+                target_can_handle = (
+                    not is_gemini_web_model(req_model) or getattr(target_account, "auth_method", "") == "gemini_web"
                 )
-            if target_account and target_can_handle:
-                if target_account in candidates:
-                    candidates = [target_account] + [a for a in candidates if a.account_id != target_account.account_id]
-                elif getattr(target_account, "enabled", True):
-                    candidates = [target_account] + candidates
+                if target_can_handle and is_argon_model(req_model) and not is_gemini_web_model(req_model):
+                    target_can_handle = getattr(target_account, "has_argon_access", False) or bool(
+                        target_account and target_account.is_model_supported(req_model)
+                    )
+                if target_account and target_can_handle:
+                    if target_account in candidates:
+                        candidates = [target_account] + [a for a in candidates if a.account_id != target_account.account_id]
+                    elif getattr(target_account, "enabled", True):
+                        candidates = [target_account] + candidates
         else:
             if target_account:
                 candidates = [target_account]
@@ -3732,6 +4264,50 @@ def create_app(
         )
 
         if not candidates:
+            if is_generation:
+                fb_target = external_provider_manager.get_fallback_target()
+                if fb_target:
+                    fb_provider, fb_upstream_id, fb_m_cfg = fb_target
+                    logger.info("[Auto-Failover] No Google accounts available. Routing to fallback %s (%s)...", fb_provider.name, fb_upstream_id)
+                    from agy_proxy.converters.cloudcode_to_openai import (
+                        cloudcode_to_openai_chat,
+                        CloudCodeSSETranslator,
+                        openai_response_to_cloudcode,
+                    )
+                    openai_payload = cloudcode_to_openai_chat(body, fb_upstream_id)
+                    query_params = dict(request.query_params)
+                    is_sse = query_params.get("alt") == "sse" or "alt=sse" in str(request.url)
+                    if is_sse:
+                        async def ext_fb_sse_stream():
+                            translator = CloudCodeSSETranslator()
+                            try:
+                                async for chunk in fb_provider.stream_chat(openai_payload):
+                                    events = translator.process_chunk(chunk)
+                                    for ev in events:
+                                        yield f"data: {json.dumps(ev)}\n\n"
+                            except Exception as err:
+                                err_event = {
+                                    "response": {
+                                        "candidates": [{"content": {"role": "model", "parts": [{"text": f"Error from fallback {fb_provider.name}: {err}"}]}, "finishReason": "STOP"}]
+                                    }
+                                }
+                                yield f"data: {json.dumps(err_event)}\n\n"
+
+                        return StreamingResponse(
+                            ext_fb_sse_stream(),
+                            media_type="text/event-stream",
+                            headers={
+                                "Cache-Control": "no-cache",
+                                "Connection": "keep-alive",
+                                "Content-Type": "text/event-stream; charset=utf-8",
+                                "X-Accel-Buffering": "no",
+                            },
+                        )
+                    else:
+                        raw_resp = await fb_provider.chat_completion(openai_payload)
+                        cc_resp = openai_response_to_cloudcode(raw_resp)
+                        return JSONResponse(status_code=200, content=cc_resp)
+
             if is_metadata:
                 cached_data = _get_cached_or_default_passthrough(action_key)
                 cached_data = _process_passthrough_metadata(action_key, cached_data)
@@ -3781,6 +4357,20 @@ def create_app(
                 target_url = f"{CLOUDCODE_BASE_URL}/v1internal/{action_path}"
         else:
             target_url = f"{CLOUDCODE_BASE_URL}/v1internal"
+
+        # Telemetry & Trajectory Sinkhole: immediately return 200 OK for tracking / telemetry actions
+        telemetry_actions = {
+            "recordCodeAssistMetrics",
+            "writeTrajectoryAcls",
+            "recordPromptEvent",
+            "recordTrajectory",
+            "recordCommandExecution",
+            "recordEvent",
+        }
+        check_act = action or (clean_ap.split(":")[-1].split("/")[-1] if action_path else "")
+        if check_act in telemetry_actions or (check_act and (check_act.startswith("record") or check_act.startswith("writeTrajectory"))):
+            logger.debug("[Telemetry Sinkhole] Dropped telemetry action: %s", check_act)
+            return JSONResponse(content={}, status_code=200)
 
         last_error = ""
 
@@ -4186,6 +4776,27 @@ def create_app(
                             if inner_k not in candidate_body["request"]:
                                 candidate_body["request"][inner_k] = val
 
+                    # Clean systemInstruction to save context and eliminate decoy/refusal boilerplate
+                    if "systemInstruction" in candidate_body["request"]:
+                        si = candidate_body["request"]["systemInstruction"]
+                        if isinstance(si, dict) and "parts" in si and isinstance(si["parts"], list):
+                            from agy_proxy.converters.common import clean_system_prompt_text
+                            for part in si["parts"]:
+                                if isinstance(part, dict) and "text" in part and isinstance(part["text"], str):
+                                    part["text"] = clean_system_prompt_text(part["text"])
+
+                    # Apply permissive safety settings to prevent false refusals on coding/debugging tasks
+                    candidate_body["request"]["safetySettings"] = [
+                        {"category": cat, "threshold": "BLOCK_NONE"}
+                        for cat in (
+                            "HARM_CATEGORY_HARASSMENT",
+                            "HARM_CATEGORY_HATE_SPEECH",
+                            "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                            "HARM_CATEGORY_DANGEROUS_CONTENT",
+                            "HARM_CATEGORY_CIVIC_INTEGRITY",
+                        )
+                    ]
+
                     candidate_body["model"] = target_m
                     candidate_body["request"]["model"] = target_m
 
@@ -4232,28 +4843,54 @@ def create_app(
                 c = await acc.get_http_client()
 
                 is_streaming_call = is_generation and is_sse and isinstance(c, httpx.AsyncClient)
-                if is_streaming_call:
-                    timeout_obj = httpx.Timeout(timeout_sec, connect=20.0, read=timeout_sec, write=120.0, pool=60.0)
-                    if isinstance(candidate_body, dict):
-                        req_send = c.build_request("POST", target_url, headers=headers, json=candidate_body, params=query_params, timeout=timeout_obj)
-                    elif candidate_body is not None:
-                        req_send = c.build_request("POST", target_url, headers=headers, content=str(candidate_body).encode("utf-8"), params=query_params, timeout=timeout_obj)
-                    else:
-                        req_send = c.build_request("POST", target_url, headers=headers, params=query_params, timeout=timeout_obj)
-                    resp = await c.send(req_send, stream=True)
-                    if resp.status_code != 200:
-                        await resp.aread()
-                elif request.method == "POST":
-                    if isinstance(candidate_body, dict):
-                        resp = await c.post(target_url, headers=headers, json=candidate_body, params=query_params, timeout=timeout_sec)
-                    elif candidate_body is not None:
-                        resp = await c.post(target_url, headers=headers, content=str(candidate_body).encode("utf-8"), params=query_params, timeout=timeout_sec)
-                    else:
-                        resp = await c.post(target_url, headers=headers, params=query_params, timeout=timeout_sec)
-                elif request.method == "GET":
-                    resp = await c.get(target_url, headers=headers, params=query_params, timeout=timeout_sec)
-                else:
-                    resp = await c.request(request.method, target_url, headers=headers, json=candidate_body if isinstance(candidate_body, dict) else None, params=query_params, timeout=timeout_sec)
+                resp = None
+                for req_attempt in range(2):
+                    try:
+                        if is_streaming_call:
+                            timeout_obj = httpx.Timeout(timeout_sec, connect=20.0, read=timeout_sec, write=120.0, pool=60.0)
+                            if isinstance(candidate_body, dict):
+                                req_send = c.build_request("POST", target_url, headers=headers, json=candidate_body, params=query_params, timeout=timeout_obj)
+                            elif candidate_body is not None:
+                                req_send = c.build_request("POST", target_url, headers=headers, content=str(candidate_body).encode("utf-8"), params=query_params, timeout=timeout_obj)
+                            else:
+                                req_send = c.build_request("POST", target_url, headers=headers, params=query_params, timeout=timeout_obj)
+                            resp = await c.send(req_send, stream=True)
+                            if resp.status_code != 200:
+                                await resp.aread()
+                        elif request.method == "POST":
+                            if isinstance(candidate_body, dict):
+                                resp = await c.post(target_url, headers=headers, json=candidate_body, params=query_params, timeout=timeout_sec)
+                            elif candidate_body is not None:
+                                resp = await c.post(target_url, headers=headers, content=str(candidate_body).encode("utf-8"), params=query_params, timeout=timeout_sec)
+                            else:
+                                resp = await c.post(target_url, headers=headers, params=query_params, timeout=timeout_sec)
+                        elif request.method == "GET":
+                            resp = await c.get(target_url, headers=headers, params=query_params, timeout=timeout_sec)
+                        else:
+                            resp = await c.request(request.method, target_url, headers=headers, json=candidate_body if isinstance(candidate_body, dict) else None, params=query_params, timeout=timeout_sec)
+                        break
+                    except (httpx.TransportError, OSError, asyncio.TimeoutError) as net_err:
+                        if req_attempt == 0:
+                            err_name = type(net_err).__name__
+                            err_str = str(net_err).strip()
+                            net_err_detail = f"{err_name}: {err_str}" if err_str else err_name
+                            logger.info(
+                                "[%s] Transient connection error (%s) on pooled socket for %s. Resetting client and retrying once...",
+                                acc_label,
+                                net_err_detail,
+                                route_desc,
+                            )
+                            try:
+                                await acc.close(force=True)
+                            except Exception:
+                                pass
+                            await asyncio.sleep(0.2)
+                            c = await acc.get_http_client()
+                            headers = await acc.get_auth_headers()
+                            _apply_client_user_agent(headers)
+                            is_streaming_call = is_generation and is_sse and isinstance(c, httpx.AsyncClient)
+                            continue
+                        raise
 
                 # Retry / failover logic
                 if resp.status_code == 401 and not is_last:
@@ -4280,6 +4917,9 @@ def create_app(
                         err_hint,
                     )
                     acc.mark_rate_limited(req_model if is_generation else "default", duration=cd_dur)
+                    if session_key:
+                        from agy_proxy.cache import session_affinity
+                        session_affinity.unpin_session(session_key)
                     if hasattr(acc, "fetch_quota"):
                         try:
                             asyncio.create_task(acc.fetch_quota())
@@ -4477,6 +5117,9 @@ def create_app(
                             default_cooldown=15.0,
                         )
                         acc.mark_rate_limited(req_model, duration=cd_dur)
+                        if session_key:
+                            from agy_proxy.cache import session_affinity
+                            session_affinity.unpin_session(session_key)
                         if hasattr(acc, "fetch_quota"):
                             try:
                                 asyncio.create_task(acc.fetch_quota())
@@ -4644,6 +5287,60 @@ def create_app(
                                 logger.debug("[%s] Fallback attempt to %s error: %s", fb_label, DEFAULT_MODEL, fb_err)
                                 continue
 
+                # Auto-Failover to external provider (OpenRouter, Ollama, DeepSeek) if all Google attempts failed
+                if resp.status_code >= 400 and is_generation and is_last:
+                    fb_target = external_provider_manager.get_fallback_target()
+                    if fb_target:
+                        fb_provider, fb_upstream_id, fb_m_cfg = fb_target
+                        logger.warning(
+                            "[Auto-Failover] ⚠️ Google CloudCode failed (%d). 🔄 Auto-failing over to external provider %s (%s)!",
+                            resp.status_code,
+                            fb_provider.name,
+                            fb_upstream_id,
+                        )
+                        from agy_proxy.converters.cloudcode_to_openai import (
+                            cloudcode_to_openai_chat,
+                            CloudCodeSSETranslator,
+                            openai_response_to_cloudcode,
+                        )
+                        openai_payload = cloudcode_to_openai_chat(candidate_body or body, fb_upstream_id)
+                        query_params = dict(request.query_params)
+                        is_sse = query_params.get("alt") == "sse" or "alt=sse" in str(request.url)
+                        if is_sse:
+                            async def ext_failover_sse_stream():
+                                translator = CloudCodeSSETranslator()
+                                try:
+                                    async for chunk in fb_provider.stream_chat(openai_payload):
+                                        events = translator.process_chunk(chunk)
+                                        for ev in events:
+                                            yield f"data: {json.dumps(ev)}\n\n"
+                                except Exception as fb_err:
+                                    logger.error("[Auto-Failover] Stream error (%s): %s", fb_provider.name, fb_err)
+                                    err_event = {
+                                        "response": {
+                                            "candidates": [{"content": {"role": "model", "parts": [{"text": f"Error from fallback {fb_provider.name}: {fb_err}"}]}, "finishReason": "STOP"}]
+                                        }
+                                    }
+                                    yield f"data: {json.dumps(err_event)}\n\n"
+
+                            return StreamingResponse(
+                                ext_failover_sse_stream(),
+                                media_type="text/event-stream",
+                                headers={
+                                    "Cache-Control": "no-cache",
+                                    "Connection": "keep-alive",
+                                    "Content-Type": "text/event-stream; charset=utf-8",
+                                    "X-Accel-Buffering": "no",
+                                },
+                            )
+                        else:
+                            try:
+                                raw_resp = await fb_provider.chat_completion(openai_payload)
+                                cc_resp = openai_response_to_cloudcode(raw_resp)
+                                return JSONResponse(status_code=200, content=cc_resp)
+                            except Exception as fb_err:
+                                logger.error("[Auto-Failover] Completion error: %s", fb_err)
+
                 if resp.status_code >= 400:
                     err_summary = _extract_error_message(resp)
                     logger.error("[%s] CloudCode Error %d: %s", acc_label, resp.status_code, err_summary)
@@ -4659,6 +5356,9 @@ def create_app(
                     acc.total_requests = getattr(acc, "total_requests", 0) + 1
                     acc.last_used_timestamp = time.time()
                     acc.last_used_model = req_model
+                    if session_key:
+                        from agy_proxy.cache import session_affinity
+                        session_affinity.pin_session(session_key, acc.account_id, getattr(acc, "account_id", session_key))
 
                 if resp.status_code == 200 and is_streaming_call and hasattr(resp, "aiter_bytes"):
                     _record_cloudcode_traffic(acc, 200, raw_text="[streamGenerateContent SSE Stream]")
@@ -4699,11 +5399,18 @@ def create_app(
                             logger.info("[%s] CloudCode streaming client cancelled / disconnected (%s)", acc_label, route_desc)
                             raise
                         except Exception as stream_err:
-                            logger.warning("[%s] CloudCode streaming error mid-stream (%s): %s", acc_label, route_desc, stream_err)
+                            err_type = type(stream_err).__name__
+                            err_msg = str(stream_err).strip()
+                            stream_err_detail = f"{err_type}: {err_msg}" if err_msg else err_type
+                            logger.warning("[%s] CloudCode streaming error mid-stream (%s): %s", acc_label, route_desc, stream_err_detail)
+                            try:
+                                await acc.close(force=True)
+                            except Exception:
+                                pass
                             err_event = {
                                 "error": {
                                     "code": 500,
-                                    "message": f"CloudCode stream error: {stream_err}",
+                                    "message": f"CloudCode stream error: {stream_err_detail}",
                                     "status": "INTERNAL",
                                 }
                             }
@@ -4801,7 +5508,7 @@ def create_app(
                 # Reset broken pooled HTTP connections for this account on transport failure
                 if is_net_error:
                     try:
-                        await acc.close()
+                        await acc.close(force=True)
                     except Exception:
                         pass
 

@@ -472,6 +472,23 @@ class TestClaudeCliCommand(unittest.TestCase):
             self.assertEqual(env.get("ANTHROPIC_BASE_URL"), "http://127.0.0.1:9000")
             self.assertEqual(env.get("ANTHROPIC_AUTH_TOKEN"), "agy-proxy-token")
             self.assertNotIn("ANTHROPIC_API_KEY", env)
+            self.assertEqual(env.get("CLAUDE_CODE_MAX_CONTEXT_TOKENS"), "1000000")
+            self.assertEqual(env.get("CLAUDE_CODE_AUTO_COMPACT_WINDOW"), "800000")
+            self.assertEqual(env.get("CLAUDE_CODE_MCP_SKIP_UNCHANGED_RELIST"), "1")
+            self.assertNotIn("CLAUDE_CODE_EVEN_MORE_DANGEROUSLY_SKIP_PERMISSIONS", env)
+
+    @patch("shutil.which", return_value="/usr/local/bin/claude")
+    @patch("subprocess.run")
+    def test_handle_run_claude_no_mcp(self, mock_run, mock_which):
+        cli.handle_run_claude(
+            port=8000,
+            model="anthropic.gemini-3.8-flash-high",
+            no_mcp=True,
+        )
+        self.assertTrue(mock_run.called)
+        cmd, kwargs = mock_run.call_args
+        args = cmd[0]
+        self.assertIn("--strict-mcp-config", args)
 
     @patch("shutil.which", return_value=None)
     def test_handle_run_claude_missing_binary(self, mock_which):
@@ -488,6 +505,112 @@ class TestClaudeCliCommand(unittest.TestCase):
             self.assertTrue(mock_handle_claude.called)
             _, kwargs = mock_handle_claude.call_args
             self.assertEqual(kwargs.get("extra_args"), ["-c", "--print", "hello"])
+
+    @patch("agy_proxy.cli.handle_run_claude")
+    def test_cli_main_claude_mcp_arg(self, mock_handle_claude):
+        test_args = ["agy-proxy", "claude", "--mcp", "rea", "--resume", "123"]
+        with patch.object(sys, "argv", test_args):
+            cli.main()
+            self.assertTrue(mock_handle_claude.called)
+            _, kwargs = mock_handle_claude.call_args
+            self.assertEqual(kwargs.get("mcp"), "rea")
+            self.assertEqual(kwargs.get("extra_args"), ["--resume", "123"])
+
+    @patch("shutil.which", return_value="/usr/local/bin/claude")
+    @patch("subprocess.run")
+    def test_handle_run_claude_selective_mcp(self, mock_run, mock_which):
+        with patch("agy_proxy.claude_helper.get_installed_mcp_servers", return_value={"rea": {"command": "node"}}):
+            cli.handle_run_claude(
+                port=8000,
+                mcp="rea",
+            )
+            self.assertTrue(mock_run.called)
+            cmd, _ = mock_run.call_args
+            args = cmd[0]
+            self.assertIn("--strict-mcp-config", args)
+            self.assertIn("--mcp-config", args)
+            idx = args.index("--mcp-config")
+            temp_path = args[idx + 1]
+            # Since subprocess.run finished, temp file should be cleaned up by finally block
+            self.assertFalse(os.path.exists(temp_path))
+
+    @patch("shutil.which", return_value="/usr/local/bin/claude")
+    @patch("subprocess.run")
+    def test_handle_run_claude_strips_double_dash(self, mock_run, mock_which):
+        cli.handle_run_claude(
+            port=8000,
+            extra_args=["--", "-p", "hello"],
+        )
+        self.assertTrue(mock_run.called)
+        cmd, _ = mock_run.call_args
+        args = cmd[0]
+        self.assertNotIn("--", args)
+        self.assertIn("-p", args)
+        self.assertIn("hello", args)
+
+    @patch("subprocess.run")
+    def test_handle_run_claude_list_mcp(self, mock_run):
+        with patch("agy_proxy.claude_helper.get_installed_mcp_servers", return_value={"tool1": {"command": "c1"}}):
+            cli.handle_run_claude(list_mcp=True)
+            self.assertFalse(mock_run.called)
+
+    @patch("agy_proxy.cli.handle_run_claude")
+    def test_cli_main_claude_direct(self, mock_handle_claude):
+        test_args = ["agy-proxy", "claude", "--direct", "-p", "test"]
+        with patch.object(sys, "argv", test_args):
+            cli.main()
+            self.assertTrue(mock_handle_claude.called)
+            _, kwargs = mock_handle_claude.call_args
+            self.assertTrue(kwargs.get("direct"))
+            self.assertEqual(kwargs.get("extra_args"), ["-p", "test"])
+
+    @patch("shutil.which", return_value="/usr/local/bin/claude")
+    @patch("subprocess.run")
+    def test_handle_run_claude_direct_env(self, mock_run, mock_which):
+        with patch.dict(os.environ, {"ANTHROPIC_BASE_URL": "http://127.0.0.1:8000"}):
+            cli.handle_run_claude(direct=True)
+            self.assertTrue(mock_run.called)
+            _, kwargs = mock_run.call_args
+            env = kwargs.get("env", {})
+            self.assertNotIn("ANTHROPIC_BASE_URL", env)
+            self.assertNotIn("ANTHROPIC_AUTH_TOKEN", env)
+            self.assertEqual(env.get("DISABLE_TELEMETRY"), "1")
+            self.assertEqual(env.get("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"), "1")
+
+    @patch("shutil.which", return_value="/usr/local/bin/claude")
+    @patch("subprocess.run")
+    def test_handle_run_claude_danger_preserves_rm_safety(self, mock_run, mock_which):
+        cli.handle_run_claude(danger=True)
+        self.assertTrue(mock_run.called)
+        _, kwargs = mock_run.call_args
+        env = kwargs.get("env", {})
+        # Standard danger mode should NOT set nuclear bypass
+        self.assertNotIn("CLAUDE_CODE_EVEN_MORE_DANGEROUSLY_SKIP_PERMISSIONS", env)
+
+    @patch("shutil.which", return_value="/usr/local/bin/claude")
+    @patch("subprocess.run")
+    def test_handle_run_claude_extra_danger_option(self, mock_run, mock_which):
+        cli.handle_run_claude(extra_danger=True)
+        self.assertTrue(mock_run.called)
+        _, kwargs = mock_run.call_args
+        env = kwargs.get("env", {})
+        self.assertEqual(env.get("CLAUDE_CODE_EVEN_MORE_DANGEROUSLY_SKIP_PERMISSIONS"), "1")
+
+    @patch("agy_proxy.cli.handle_patch_claude_command")
+    def test_cli_main_patch_claude(self, mock_patch):
+        test_args = ["agy-proxy", "patch-claude", "status"]
+        with patch.object(sys, "argv", test_args):
+            cli.main()
+            self.assertTrue(mock_patch.called)
+
+    @patch("agy_proxy.cli.handle_setup_claude")
+    def test_cli_main_setup_claude_direct(self, mock_setup):
+        test_args = ["agy-proxy", "setup-claude", "--direct"]
+        with patch.object(sys, "argv", test_args):
+            cli.main()
+            self.assertTrue(mock_setup.called)
+            _, kwargs = mock_setup.call_args
+            self.assertTrue(kwargs.get("direct"))
 
 
 if __name__ == "__main__":

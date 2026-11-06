@@ -7,6 +7,7 @@ Modular converter package for protocol translation between:
 from agy_proxy.converters.anthropic import anthropic_to_cloudcode_payload
 from agy_proxy.converters.common import (
     DEFAULT_MODEL,
+    DEFAULT_SAFETY_SETTINGS,
     DEFAULT_THOUGHT_SIGNATURE,
     _IMAGE_CACHE,
     _THOUGHT_SIGNATURE_CACHE,
@@ -14,8 +15,10 @@ from agy_proxy.converters.common import (
     _extract_media_from_url,
     _extract_message_text,
     _is_title_generation,
+    clean_system_prompt_text,
     ensure_tool_pairing_integrity,
     get_thought_signature,
+    is_explicit_compact_request,
     normalize_model_name,
     sanitize_gemini_contents_thought_signatures,
     sanitize_gemini_schema,
@@ -23,6 +26,13 @@ from agy_proxy.converters.common import (
     to_dict,
 )
 from agy_proxy.converters.openai import openai_to_cloudcode_payload
+from agy_proxy.converters.cloudcode_to_openai import (
+    cloudcode_to_openai_chat,
+    CloudCodeSSETranslator,
+    openai_response_to_cloudcode,
+    OpenAIToAnthropicSSETranslator,
+    openai_response_to_anthropic,
+)
 from agy_proxy.converters.streaming import (
     create_openai_chunk,
     parse_gemini_sse_candidate,
@@ -32,6 +42,7 @@ from agy_proxy.models import AnthropicRequest, OpenAIChatRequest
 __all__ = [
     "AnthropicRequest",
     "DEFAULT_MODEL",
+    "DEFAULT_SAFETY_SETTINGS",
     "DEFAULT_THOUGHT_SIGNATURE",
     "OpenAIChatRequest",
     "_IMAGE_CACHE",
@@ -41,9 +52,11 @@ __all__ = [
     "_extract_message_text",
     "_is_title_generation",
     "anthropic_to_cloudcode_payload",
+    "clean_system_prompt_text",
     "create_openai_chunk",
     "ensure_tool_pairing_integrity",
     "get_thought_signature",
+    "is_explicit_compact_request",
     "normalize_model_name",
     "openai_to_cloudcode_payload",
     "parse_gemini_sse_candidate",
@@ -51,4 +64,7 @@ __all__ = [
     "sanitize_gemini_schema",
     "save_thought_signature",
     "to_dict",
+    "cloudcode_to_openai_chat",
+    "CloudCodeSSETranslator",
+    "openai_response_to_cloudcode",
 ]

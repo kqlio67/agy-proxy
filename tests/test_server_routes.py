@@ -210,6 +210,14 @@ class TestServerRoutes(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertIsInstance(resp.json(), dict)
 
+    async def test_telemetry_sinkhole_drops_metrics_safely(self):
+        resp = await self.client.post(
+            "/v1internal:recordCodeAssistMetrics",
+            json={"metric": "latency", "value": 150},
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json(), {})
+
     async def test_cloudcode_internal_passthrough_actions(self):
         # 1. POST action with payload
         resp_post = await self.client.post(
@@ -287,6 +295,106 @@ class TestServerRoutes(unittest.IsolatedAsyncioTestCase):
                     passthrough_warns = [a for a in warn_args if "CloudCode passthrough error" in a[0]]
                     self.assertTrue(len(passthrough_warns) > 0)
                     self.assertIn("RemoteProtocolError", passthrough_warns[0][3])
+
+    async def test_cloudcode_passthrough_retry_on_transient_read_error(self):
+        # Verify that a transient ReadError on attempt 0 resets the client and transparently retries on the same account
+        mock_acc1 = MagicMock()
+        mock_acc1.account_id = "acc1"
+        mock_acc1.email = "acc1@example.com"
+        mock_acc1.auth_method = "consumer"
+        mock_acc1.enabled = True
+        mock_acc1.project_id = "test-proj"
+        mock_acc1.is_model_supported = MagicMock(return_value=True)
+        mock_acc1.get_auth_headers = AsyncMock(return_value={"Authorization": "Bearer test"})
+        mock_acc1.close = AsyncMock()
+
+        mock_acc2 = MagicMock()
+        mock_acc2.account_id = "acc2"
+        mock_acc2.email = "acc2@example.com"
+        mock_acc2.auth_method = "consumer"
+        mock_acc2.enabled = True
+        mock_acc2.project_id = "test-proj"
+        mock_acc2.is_model_supported = MagicMock(return_value=True)
+        mock_acc2.get_auth_headers = AsyncMock(return_value={"Authorization": "Bearer test2"})
+
+        call_count = 0
+        async def mock_post(url, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise httpx.ReadError("Connection reset by peer")
+            resp = MagicMock()
+            resp.status_code = 200
+            resp.json = MagicMock(return_value={"response": {"candidates": [{"content": {"parts": [{"text": "success"}]}}]}})
+            resp.text = json.dumps(resp.json())
+            return resp
+
+        mock_http_client = MagicMock()
+        mock_http_client.post = mock_post
+        mock_acc1.get_http_client = AsyncMock(return_value=mock_http_client)
+
+        with patch.object(self.pool, "get_candidate_accounts", return_value=[mock_acc1, mock_acc2]):
+            with patch.object(self.pool, "accounts", {mock_acc1.account_id: mock_acc1, mock_acc2.account_id: mock_acc2}):
+                resp = await self.client.post(
+                    "/v1internal:generateContent",
+                    json={"model": "gemini-3.8-flash-high", "request": {"contents": []}},
+                )
+                self.assertEqual(resp.status_code, 200)
+                self.assertEqual(call_count, 2)
+                self.assertTrue(mock_acc1.close.called)
+                mock_acc2.get_auth_headers.assert_not_called()
+
+    async def test_cloudcode_passthrough_streaming_retry_on_read_error(self):
+        # Verify that an httpx.AsyncClient streaming send ReadError on attempt 0 retries on the same account
+        mock_acc1 = MagicMock()
+        mock_acc1.account_id = "acc_stream1"
+        mock_acc1.email = "stream1@example.com"
+        mock_acc1.auth_method = "consumer"
+        mock_acc1.enabled = True
+        mock_acc1.project_id = "test-proj"
+        mock_acc1.is_model_supported = MagicMock(return_value=True)
+        mock_acc1.get_auth_headers = AsyncMock(return_value={"Authorization": "Bearer test"})
+        mock_acc1.close = AsyncMock()
+
+        mock_acc2 = MagicMock()
+        mock_acc2.account_id = "acc_stream2"
+        mock_acc2.email = "stream2@example.com"
+        mock_acc2.auth_method = "consumer"
+        mock_acc2.enabled = True
+        mock_acc2.project_id = "test-proj"
+        mock_acc2.is_model_supported = MagicMock(return_value=True)
+        mock_acc2.get_auth_headers = AsyncMock(return_value={"Authorization": "Bearer test2"})
+
+        send_count = 0
+        async def mock_send(req, stream=False):
+            nonlocal send_count
+            send_count += 1
+            if send_count == 1:
+                raise httpx.ReadError("Connection reset by peer")
+            # 2nd attempt succeeds
+            async def fake_stream():
+                yield b"data: {\"response\": {\"candidates\": [{\"content\": {\"parts\": [{\"text\": \"stream success\"}]}}]}}\n\n"
+            resp = MagicMock()
+            resp.status_code = 200
+            resp.aiter_bytes = fake_stream
+            resp.aclose = AsyncMock()
+            return resp
+
+        mock_http_client = MagicMock(spec=httpx.AsyncClient)
+        mock_http_client.build_request = MagicMock(return_value=MagicMock())
+        mock_http_client.send = mock_send
+        mock_acc1.get_http_client = AsyncMock(return_value=mock_http_client)
+
+        with patch.object(self.pool, "get_candidate_accounts", return_value=[mock_acc1, mock_acc2]):
+            with patch.object(self.pool, "accounts", {mock_acc1.account_id: mock_acc1, mock_acc2.account_id: mock_acc2}):
+                resp = await self.client.post(
+                    "/v1internal:streamGenerateContent?alt=sse",
+                    json={"model": "gemini-3.8-flash-high", "request": {"contents": []}},
+                )
+                self.assertEqual(resp.status_code, 200)
+                self.assertEqual(send_count, 2)
+                self.assertTrue(mock_acc1.close.called)
+                mock_acc2.get_auth_headers.assert_not_called()
 
     async def test_gemini_web_api_routes(self):
         # 1. Add web account with raw cookies

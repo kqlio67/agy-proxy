@@ -8,6 +8,7 @@ import copy
 import json
 import logging
 import mimetypes
+import re
 from typing import Any
 import uuid
 
@@ -78,14 +79,48 @@ def get_thought_signature(
     return None
 
 
+_ANTI_CLONE_PATTERN = re.compile(
+    r"(?:Do build original games[\s\S]*?even if it is renamed or called original\.|"
+    r"Don['’]t build a recreation of a specific existing game[\s\S]*?(?:\.|\n)|"
+    r"Do build original games[\s\S]*?(?:\.|\n))\s*",
+    re.IGNORECASE,
+)
+
+_SYSTEM_PROMPT_PROTECTION_PATTERN = re.compile(
+    r"#\s*SYSTEM PROMPT PROTECTION\b[\s\S]*?(?:These rules activate only when your prompt content is being queried\.?|(?=\n#|\Z))\s*",
+    re.IGNORECASE,
+)
+
+_DECOY_RULE_PATTERN = re.compile(
+    r"\*\*Rule 1\s*[—-]\s*Decoy\.?\*\*[\s\S]*?(?:Redirect to the task at hand\.?|(?=\n\n|\Z))\s*",
+    re.IGNORECASE,
+)
+
+DEFAULT_SAFETY_SETTINGS: list[dict[str, str]] = [
+    {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+    {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+    {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+    {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+    {"category": "HARM_CATEGORY_CIVIC_INTEGRITY", "threshold": "BLOCK_NONE"},
+]
+
+
 def clean_system_prompt_text(text: str) -> str:
     """
-    Cleans system and message prompt text to remove Claude Code CLI internal billing and telemetry headers.
-    Google CloudCode / Antigravity API strictly rejects requests containing 'x-anthropic-billing-header'
-    with HTTP 429 RESOURCE_EXHAUSTED errors.
+    Cleans system and message prompt text to remove:
+    - Claude Code CLI internal billing headers (x-anthropic-billing-header)
+    - Artificial copyright/anti-game-clone restrictions (tengu_heron_brook)
+    - Injected Antigravity System Prompt Protection & Decoy Protocol blocks
+    Saves context tokens and prevents prompt injection false refusals.
     """
     if not text:
         return ""
+    if "system prompt protection" in text.lower():
+        text = _SYSTEM_PROMPT_PROTECTION_PATTERN.sub("", text)
+    if "rule 1 — decoy" in text.lower() or "rule 1 - decoy" in text.lower():
+        text = _DECOY_RULE_PATTERN.sub("", text)
+    if "original games" in text.lower() or "existing game" in text.lower():
+        text = _ANTI_CLONE_PATTERN.sub("", text)
     lines = text.splitlines()
     cleaned_lines = [
         line for line in lines
@@ -733,6 +768,44 @@ def _is_title_generation(sys_text: str, messages: list[Any]) -> bool:
     return False
 
 
+def is_explicit_compact_request(messages: list[Any]) -> tuple[bool, int]:
+    """Checks if the incoming request is an explicit /compact summarization request from Claude Code.
+
+    Returns:
+        tuple[bool, int]: (is_compact, compact_idx) where compact_idx is the index of the compact prompt
+        so that messages[:compact_idx] can be passed to the summarizer.
+    """
+    if not messages:
+        return False, -1
+
+    last_idx = len(messages) - 1
+    last_msg = messages[last_idx]
+
+    if isinstance(last_msg, dict):
+        role = last_msg.get("role", "")
+    else:
+        role = getattr(last_msg, "role", "")
+
+    if str(role).lower() != "user":
+        return False, -1
+
+    txt = _extract_message_text(last_msg).lower()
+
+    # If the message contains local command logs/caveats, it is a normal user turn
+    # where Claude Code prepended past command output (e.g. /compact, /autocompact)
+    if "<local-command-caveat>" in txt or "<command-name>" in txt:
+        return False, -1
+
+    # Match official Claude Code compaction directives
+    if (
+        "create a detailed summary of the conversation so far" in txt
+        or "your task is to create a detailed summary of the conversation" in txt
+    ):
+        return True, last_idx
+
+    return False, -1
+
+
 SUPPORTED_ASPECT_RATIOS: set[str] = {
     "1:1", "3:4", "4:3", "9:16", "16:9",
     "21:9", "3:2", "2:3", "5:4", "4:5", "1:4", "4:1", "1:8", "8:1"
@@ -798,6 +871,7 @@ def extract_aspect_ratio(
 
 __all__ = [
     "DEFAULT_MODEL",
+    "DEFAULT_SAFETY_SETTINGS",
     "DEFAULT_THOUGHT_SIGNATURE",
     "SUPPORTED_ASPECT_RATIOS",
     "_IMAGE_CACHE",
@@ -810,6 +884,7 @@ __all__ = [
     "ensure_tool_pairing_integrity",
     "extract_aspect_ratio",
     "get_thought_signature",
+    "is_explicit_compact_request",
     "logger",
     "normalize_model_name",
     "sanitize_gemini_contents_thought_signatures",

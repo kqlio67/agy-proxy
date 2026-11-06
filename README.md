@@ -85,16 +85,22 @@ agy-proxy web --download-server
 ```
 👉 *Detailed guide: [Antigravity Web Mode & Patched Hub](docs/web_mode.md)*
 
-### 2. 🤖 Claude Code CLI
-Run Anthropic's official Claude Code CLI routed through `agy-proxy`:
+### 2. 🤖 Claude Code CLI (Proxy or Direct Vanilla)
+Run Anthropic's official Claude Code CLI with 1M Gemini context or directly with official Anthropic API:
 ```bash
-# Launch interactive session:
+# Launch with Gemini 1M context via proxy:
 agy-proxy claude
 
-# Launch with specific model:
-agy-proxy claude -m claude-sonnet-4-6
+# Launch directly with official Anthropic API (debloated, zero telemetry):
+agy-proxy claude --direct
+
+# Patch binary to remove prompt restrictions and debloat tips:
+agy-proxy patch-claude apply
+
+# Autonomous execution with selective MCP tools:
+agy-proxy claude --danger --mcp rea
 ```
-👉 *Detailed guide: [Claude Code CLI Integration](docs/claude_code.md)*
+👉 *Detailed guide: [Claude Code CLI Integration & Patcher](docs/claude_code.md)*
 
 ### 3. ⌨️ OpenAI Codex CLI
 Run OpenAI Codex CLI with full Antigravity model catalog:
@@ -131,7 +137,7 @@ All in-depth technical guides, configuration references, and tutorials are organ
 | :--- | :--- | :--- |
 | 🖥️ | [Antigravity IDE Integration](docs/antigravity_ide.md) | `language_server` patcher, automatic discovery, live watchdog, and flag table. |
 | 🚀 | [Web Mode & Patched Hub](docs/web_mode.md) | No-Electron optimization, unlocked Web Terminal, File Explorer, Battle Mode. |
-| 🤖 | [Claude Code CLI Guide](docs/claude_code.md) | 1-click runner, persistent `~/.claude/settings.json`, and Error 500 role fix. |
+| 🤖 | [Claude Code CLI Guide](docs/claude_code.md) | 1-click runner, direct vanilla mode, binary patcher, selective MCP, and debloater. |
 | ⌨️ | [OpenAI Codex CLI Guide](docs/codex_cli.md) | Interactive model launcher and `~/.codex/config.toml` setup. |
 | 💻 | [IDEs & Coding Agents](docs/ides_and_agents.md) | Cursor, Windsurf, VS Code (Continue, Roo Code, Cline), Aider, and OpenCode. |
 | 👥 | [Multi-Account Pool & Failover](docs/accounts_and_failover.md) | OAuth PKCE login, API keys, quota balancing, session switching, and proxy tunneling. |

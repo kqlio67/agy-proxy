@@ -437,6 +437,7 @@
             <button onclick="setAccountFilter('oauth')" data-filter="oauth" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-white transition">OAuth (<span id="countOAuth">0</span>)</button>
             <button onclick="setAccountFilter('apikey')" data-filter="apikey" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-white transition">API Keys (<span id="countApiKey">0</span>)</button>
             <button onclick="setAccountFilter('web')" data-filter="web" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-white transition">Web (<span id="countWeb">0</span>)</button>
+            <button onclick="setAccountFilter('external')" data-filter="external" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-purple-400 transition">External AI (<span id="countExternal">0</span>)</button>
             <button onclick="setAccountFilter('exhausted')" data-filter="exhausted" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-red-400 transition">0% (<span id="countExhausted">0</span>)</button>
           </div>
 
@@ -834,6 +835,127 @@
           <code id="codeAnthropicEndpoint" class="text-xs font-mono text-purple-400 block truncate select-all">http://localhost:8000</code>
           <p class="text-[10px] text-slate-500">Use with ANTHROPIC_BASE_URL for Claude Code, Roo Code / Cline, Aider, and Anthropic SDK.</p>
         </div>
+      </div>
+    </div>
+
+    <!-- Antigravity Companion Suite & Ecosystem Hub -->
+    <div class="p-6 rounded-2xl bg-dark-card border border-dark-border space-y-5">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
+        <div>
+          <h2 class="text-base font-bold text-white flex items-center">
+            <i class="fa-solid fa-rocket mr-2 text-indigo-400"></i> Antigravity IDE & Ecosystem Suite
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">Status-bar companion extension, deep cache purger, auto-guard update protector, and remote SSH routing.</p>
+        </div>
+        <div class="flex items-center space-x-2">
+          <span class="inline-flex items-center px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-semibold font-mono text-xs">
+            <i class="fa-solid fa-shield-halved mr-1.5 text-[10px]"></i> Non-Destructive Interception
+          </span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+
+        <!-- 1. IDE Companion Extension Card -->
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3 flex flex-col hover:border-indigo-500/40 transition">
+          <div class="space-y-1">
+            <div class="font-bold text-slate-200 text-sm flex items-center justify-between">
+              <span class="flex items-center space-x-2">
+                <div class="w-6 h-6 rounded-lg bg-indigo-600/20 text-indigo-400 flex items-center justify-center text-xs">
+                  <i class="fa-solid fa-window-maximize"></i>
+                </div>
+                <span>IDE Status-Bar</span>
+              </span>
+              <span id="ideExtensionBadge" class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 font-mono">Checking...</span>
+            </div>
+            <p class="text-[11px] text-slate-400 leading-snug">Shows live quota %, model runway, and fast actions directly in Antigravity's status bar.</p>
+          </div>
+          <div class="pt-2 mt-auto space-y-2">
+            <div class="grid grid-cols-2 gap-2">
+              <button onclick="triggerExtensionInstall()" class="py-1.5 px-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-center text-xs transition flex items-center justify-center space-x-1 shadow-sm">
+                <i class="fa-solid fa-download text-[10px]"></i>
+                <span>Install</span>
+              </button>
+              <button onclick="triggerExtensionUninstall()" class="py-1.5 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-center text-xs transition flex items-center justify-center space-x-1 border border-slate-700">
+                <i class="fa-solid fa-trash-can text-[10px]"></i>
+                <span>Remove</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Cache Cleaner Card -->
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3 flex flex-col hover:border-emerald-500/40 transition">
+          <div class="space-y-1">
+            <div class="font-bold text-slate-200 text-sm flex items-center justify-between">
+              <span class="flex items-center space-x-2">
+                <div class="w-6 h-6 rounded-lg bg-emerald-600/20 text-emerald-400 flex items-center justify-center text-xs">
+                  <i class="fa-solid fa-broom"></i>
+                </div>
+                <span>Deep Cache Cleaner</span>
+              </span>
+              <span id="ideCacheBloatBadge" class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-mono font-semibold">...</span>
+            </div>
+            <p class="text-[11px] text-slate-400 leading-snug">Safely purges Brain logs, checkpoints, GPU/Shader cache, and crash dumps to free hundreds of MBs.</p>
+          </div>
+          <div class="pt-2 mt-auto">
+            <button onclick="triggerCacheClean()" id="cacheCleanBtn" class="w-full py-1.5 px-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-center text-xs transition flex items-center justify-center space-x-1.5 shadow-sm">
+              <i class="fa-solid fa-broom text-[10px]"></i>
+              <span>Purge Cache Now</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 3. AutoGuard & Non-Destructive Launcher Card -->
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3 flex flex-col hover:border-cyan-500/40 transition">
+          <div class="space-y-1">
+            <div class="font-bold text-slate-200 text-sm flex items-center justify-between">
+              <span class="flex items-center space-x-2">
+                <div class="w-6 h-6 rounded-lg bg-cyan-600/20 text-cyan-400 flex items-center justify-center text-xs">
+                  <i class="fa-solid fa-shield-heart"></i>
+                </div>
+                <span>Seamless AutoGuard</span>
+              </span>
+              <span id="autoGuardStatusBadge" class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 font-mono font-semibold">Active</span>
+            </div>
+            <p class="text-[11px] text-slate-400 leading-snug">Protects against patch decay. Seamlessly auto-rewraps language_server when official updates arrive.</p>
+          </div>
+          <div class="pt-2 mt-auto space-y-2">
+            <div class="grid grid-cols-2 gap-2">
+              <button onclick="triggerAutoGuardCheck()" class="py-1.5 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 font-semibold text-center text-xs transition flex items-center justify-center space-x-1 border border-slate-700">
+                <i class="fa-solid fa-stethoscope text-[10px]"></i>
+                <span>Check</span>
+              </button>
+              <button onclick="triggerLauncherInstall()" class="py-1.5 px-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-center text-xs transition flex items-center justify-center space-x-1 shadow-sm">
+                <i class="fa-solid fa-layer-group text-[10px]"></i>
+                <span>Override</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. Remote SSH Reverse Tunnel Card -->
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3 flex flex-col hover:border-purple-500/40 transition">
+          <div class="space-y-1">
+            <div class="font-bold text-slate-200 text-sm flex items-center justify-between">
+              <span class="flex items-center space-x-2">
+                <div class="w-6 h-6 rounded-lg bg-purple-600/20 text-purple-400 flex items-center justify-center text-xs">
+                  <i class="fa-solid fa-network-wired"></i>
+                </div>
+                <span>Remote SSH Tunnel</span>
+              </span>
+              <span class="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-400 border border-purple-500/30 font-mono font-semibold">Zero-Root</span>
+            </div>
+            <p class="text-[11px] text-slate-400 leading-snug">Routes remote server AI traffic back through local agy-proxy via SSH reverse port forwarding.</p>
+          </div>
+          <div class="pt-2 mt-auto">
+            <button onclick="copyTunnelSnippet()" class="w-full py-1.5 px-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-semibold text-center text-xs transition flex items-center justify-center space-x-1.5 shadow-sm">
+              <i class="fa-solid fa-copy text-[10px]"></i>
+              <span>Copy Remote Env Script</span>
+            </button>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -1355,6 +1477,9 @@ https://your-tunnel.trycloudflare.com/v1</pre>
         <button id="tabBtnWeb" onclick="switchAddTab('web')" class="flex-1 py-2 rounded-lg font-semibold transition text-slate-400 hover:text-white">
           <i class="fa-solid fa-globe mr-1.5"></i> Gemini Web (HAR / Cookies)
         </button>
+        <button id="tabBtnExternal" onclick="switchAddTab('external')" class="flex-1 py-2 rounded-lg font-semibold transition text-slate-400 hover:text-white">
+          <i class="fa-solid fa-brain mr-1.5"></i> External AI (Ollama / OpenRouter)
+        </button>
       </div>
 
       <!-- Tab 1: Google OAuth Content -->
@@ -1447,6 +1572,75 @@ https://your-tunnel.trycloudflare.com/v1</pre>
               <input type="checkbox" id="webForceNewCheckbox" class="rounded bg-slate-800 border-slate-700 text-teal-500 focus:ring-0">
               <span>Force new session slot (don't update existing matching account)</span>
             </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 4: External AI Providers Content -->
+      <div id="tabContentExternal" class="space-y-4 text-xs hidden">
+        <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
+          <div class="font-semibold text-slate-200 text-sm flex items-center justify-between">
+            <span class="flex items-center">
+              <i class="fa-solid fa-brain mr-2 text-purple-400"></i> External LLM Provider
+            </span>
+            <span class="text-[10px] text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-full font-medium">Two-Way Gateway</span>
+          </div>
+          <p class="text-slate-400 text-[11px]">Connect local Ollama models or external cloud keys (OpenRouter, DeepSeek, Groq, NVIDIA NIM) directly inside Antigravity IDE and API clients:</p>
+
+          <!-- 1-Click Presets -->
+          <div class="space-y-1">
+            <label class="text-[10px] text-slate-400 font-semibold tracking-wider uppercase block">1-Click Presets</label>
+            <div class="flex flex-wrap gap-1.5">
+              <button type="button" onclick="applyProviderPreset('ollama')" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium transition text-[11px] flex items-center gap-1.5">
+                <i class="fa-solid fa-server text-emerald-400"></i> Ollama (Local)
+              </button>
+              <button type="button" onclick="applyProviderPreset('openrouter')" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium transition text-[11px] flex items-center gap-1.5">
+                <i class="fa-solid fa-route text-indigo-400"></i> OpenRouter
+              </button>
+              <button type="button" onclick="applyProviderPreset('deepseek')" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium transition text-[11px] flex items-center gap-1.5">
+                <i class="fa-solid fa-atom text-blue-400"></i> DeepSeek
+              </button>
+              <button type="button" onclick="applyProviderPreset('groq')" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium transition text-[11px] flex items-center gap-1.5">
+                <i class="fa-solid fa-bolt text-amber-400"></i> Groq
+              </button>
+              <button type="button" onclick="applyProviderPreset('nvidia')" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium transition text-[11px] flex items-center gap-1.5">
+                <i class="fa-solid fa-microchip text-green-400"></i> NVIDIA NIM
+              </button>
+              <button type="button" onclick="applyProviderPreset('custom')" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium transition text-[11px] flex items-center gap-1.5">
+                <i class="fa-solid fa-sliders text-cyan-400"></i> Custom
+              </button>
+            </div>
+          </div>
+
+          <div class="space-y-2.5 pt-1">
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="text-[11px] text-slate-300 block mb-1 font-medium">Provider Name</label>
+                <input type="text" id="provNameInput" placeholder="e.g. Ollama Local" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-purple-500">
+              </div>
+              <div>
+                <label class="text-[11px] text-slate-300 block mb-1 font-medium">Provider ID (Prefix)</label>
+                <input type="text" id="provIdInput" placeholder="e.g. ollama" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-purple-500 font-mono">
+              </div>
+            </div>
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label class="text-[11px] text-slate-300 font-medium">Base URL</label>
+                <button type="button" id="btnDiscoverModal" onclick="discoverModelsFromModal()" class="text-[10px] text-purple-400 hover:text-purple-300 underline font-medium hidden">
+                  <i class="fa-solid fa-arrows-rotate mr-1"></i>Auto-Discover Models
+                </button>
+              </div>
+              <input type="text" id="provUrlInput" placeholder="e.g. http://localhost:11434/v1" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-purple-500 font-mono">
+            </div>
+            <div>
+              <label class="text-[11px] text-slate-300 block mb-1 font-medium">API Key (Optional for local Ollama / LM Studio)</label>
+              <input type="password" id="provKeyInput" placeholder="sk-..." class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-purple-500 font-mono">
+            </div>
+            <div>
+              <label class="text-[11px] text-slate-300 block mb-1 font-medium">Model Identifiers (comma-separated)</label>
+              <input type="text" id="provModelsInput" placeholder="e.g. qwen2.5-coder:latest, deepseek-r1:latest" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-purple-500 font-mono">
+              <span class="text-[10px] text-slate-500 mt-1 block">These models will appear directly in Antigravity IDE's native model dropdown!</span>
+            </div>
           </div>
         </div>
       </div>
@@ -1777,6 +1971,8 @@ ightarrow$ v1.0.3</p>
     let currentOAuthState = null;
     let currentOAuthVerifier = null;
     let rawAccountsData = [];
+    let rawProvidersData = [];
+    let rawRoutingSettings = { enable_external_failover: false, fallback_model: null };
     let currentAccountView = 'grid';
     let currentAccountFilter = 'all';
     let collapsedSections = new Set(); // tracks which section addTypes are collapsed
@@ -2512,9 +2708,10 @@ ightarrow$ v1.0.3</p>
         dot.className = 'w-2 h-2 rounded-full bg-amber-400 animate-ping';
       }
       try {
-        const [res, cliRes] = await Promise.all([
+        const [res, cliRes, provRes] = await Promise.all([
           fetch('/api/accounts'),
           fetch('/api/accounts/cli-active').catch(() => null),
+          fetch('/api/providers').catch(() => null),
         ]);
         const data = await res.json();
         currentRoutingStrategy = data.routing_strategy || 'primary';
@@ -2525,6 +2722,11 @@ ightarrow$ v1.0.3</p>
           cliActiveAccountId = cliData?.cli?.account_id || null;
           standaloneActiveAccountId = cliData?.standalone?.account_id || null;
           ideActiveAccountId = cliData?.ide?.account_id || null;
+        }
+        if (provRes && provRes.ok) {
+          const provData = await provRes.json();
+          rawProvidersData = provData.providers || [];
+          rawRoutingSettings = provData.routing || { enable_external_failover: false, fallback_model: null };
         }
         renderAccounts();
         populatePlaygroundAccounts();
@@ -2961,17 +3163,24 @@ ightarrow$ v1.0.3</p>
         kpiClaudePool.className = `text-base sm:text-xl font-bold font-mono mt-0.5 truncate ${avgClaudeQuota > 50 ? 'text-emerald-400' : (avgClaudeQuota > 20 ? 'text-amber-400' : 'text-red-400')}`;
       }
 
+      let totalExternal = rawProvidersData.length;
       if (document.getElementById('countAll')) document.getElementById('countAll').innerText = totalAll;
       if (document.getElementById('navActivePoolCounter')) document.getElementById('navActivePoolCounter').innerText = totalAll;
       if (document.getElementById('countOAuth')) document.getElementById('countOAuth').innerText = totalOAuth;
       if (document.getElementById('countApiKey')) document.getElementById('countApiKey').innerText = totalApiKey;
       if (document.getElementById('countWeb')) document.getElementById('countWeb').innerText = totalWeb;
+      if (document.getElementById('countExternal')) document.getElementById('countExternal').innerText = totalExternal;
       if (document.getElementById('countExhausted')) document.getElementById('countExhausted').innerText = totalExhausted;
 
-      document.getElementById('accountPoolCount').innerText = `${totalAll} account${totalAll === 1 ? '' : 's'}`;
+      document.getElementById('accountPoolCount').innerText = `${totalAll + totalExternal} source${(totalAll + totalExternal) === 1 ? '' : 's'}`;
 
-      if (totalAll === 0) {
-        container.innerHTML = '<div class="p-8 rounded-2xl bg-dark-card border border-dark-border text-center text-slate-500 text-sm">No accounts found. Click "Add Account" to connect one.</div>';
+      if (currentAccountFilter === 'external') {
+        container.innerHTML = renderExternalProvidersSection(currentAccountView === 'grid');
+        return;
+      }
+
+      if (totalAll === 0 && totalExternal === 0) {
+        container.innerHTML = '<div class="p-8 rounded-2xl bg-dark-card border border-dark-border text-center text-slate-500 text-sm">No accounts or external providers found. Click "Add Account" to connect one.</div>';
         return;
       }
 
@@ -3082,6 +3291,9 @@ ightarrow$ v1.0.3</p>
           apiKeyAccounts,
           currentAccountView === 'grid'
         );
+
+        // Section 4: External LLM Providers & Local Models
+        fullHtml += renderExternalProvidersSection(currentAccountView === 'grid');
         fullHtml += '</div>';
         container.innerHTML = fullHtml;
       } else {
@@ -3142,7 +3354,7 @@ ightarrow$ v1.0.3</p>
     }
 
     function collapseAllSections() {
-      ['oauth', 'web', 'apikey'].forEach(t => collapsedSections.add(t));
+      ['oauth', 'web', 'apikey', 'external'].forEach(t => collapsedSections.add(t));
       renderAccounts();
     }
 
@@ -3152,6 +3364,25 @@ ightarrow$ v1.0.3</p>
     }
 
     async function toggleSectionAccounts(addType, enable) {
+      if (addType === 'external') {
+        const action = enable ? 'enable' : 'disable';
+        showToast(`${enable ? 'Enabling' : 'Disabling'} all external providers...`, 'info');
+        try {
+          await Promise.all(rawProvidersData.map(p =>
+            fetch(`/api/providers/${encodeURIComponent(p.id)}/toggle`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ enabled: enable })
+            })
+          ));
+          showToast(`All external providers ${action}d!`, 'success');
+          await loadAccounts(true);
+          await loadModels();
+        } catch (err) {
+          showToast(`Error: ${err.message}`, 'error');
+        }
+        return;
+      }
       const typeMap = { oauth: 'consumer', web: 'gemini_web', apikey: 'api_key' };
       const authMethod = typeMap[addType];
       const targets = rawAccountsData.filter(a => {
@@ -3315,6 +3546,443 @@ ightarrow$ v1.0.3</p>
         });
         html += '</tbody></table></div></div>';
       }
+      return html;
+    }
+
+    // ==========================================
+    // External LLM Providers & Routing
+    // ==========================================
+    function applyProviderPreset(presetKey) {
+      const presets = {
+        ollama: {
+          name: 'Ollama Local',
+          id: 'ollama',
+          url: 'http://localhost:11434/v1',
+          key: '',
+          models: 'qwen2.5-coder:latest, deepseek-r1:latest, llama3.2:latest',
+          showDiscover: true
+        },
+        openrouter: {
+          name: 'OpenRouter',
+          id: 'openrouter',
+          url: 'https://openrouter.ai/api/v1',
+          key: '',
+          models: 'anthropic/claude-3.5-sonnet, openai/gpt-4o, deepseek/deepseek-r1',
+          showDiscover: false
+        },
+        deepseek: {
+          name: 'DeepSeek AI',
+          id: 'deepseek',
+          url: 'https://api.deepseek.com/v1',
+          key: '',
+          models: 'deepseek-chat, deepseek-reasoner',
+          showDiscover: false
+        },
+        groq: {
+          name: 'Groq',
+          id: 'groq',
+          url: 'https://api.groq.com/openai/v1',
+          key: '',
+          models: 'llama-3.3-70b-versatile, deepseek-r1-distill-llama-70b',
+          showDiscover: false
+        },
+        nvidia: {
+          name: 'NVIDIA NIM',
+          id: 'nvidia',
+          url: 'https://integrate.api.nvidia.com/v1',
+          key: '',
+          models: 'meta/llama-3.3-70b-instruct, deepseek-ai/deepseek-r1',
+          showDiscover: false
+        },
+        custom: {
+          name: 'Custom Provider',
+          id: '',
+          url: 'http://localhost:8080/v1',
+          key: '',
+          models: '',
+          showDiscover: false
+        }
+      };
+
+      const p = presets[presetKey];
+      if (!p) return;
+      const elName = document.getElementById('provNameInput');
+      const elId = document.getElementById('provIdInput');
+      const elUrl = document.getElementById('provUrlInput');
+      const elKey = document.getElementById('provKeyInput');
+      const elModels = document.getElementById('provModelsInput');
+      const btnDiscover = document.getElementById('btnDiscoverModal');
+
+      if (elName) elName.value = p.name;
+      if (elId) elId.value = p.id;
+      if (elUrl) elUrl.value = p.url;
+      if (elKey) elKey.value = p.key;
+      if (elModels) elModels.value = p.models;
+      if (btnDiscover) {
+        if (p.showDiscover) btnDiscover.classList.remove('hidden');
+        else btnDiscover.classList.add('hidden');
+      }
+    }
+
+    async function discoverModelsFromModal() {
+      const url = document.getElementById('provUrlInput')?.value?.trim();
+      const id = document.getElementById('provIdInput')?.value?.trim() || 'ollama';
+      const name = document.getElementById('provNameInput')?.value?.trim() || id;
+      const key = document.getElementById('provKeyInput')?.value?.trim() || null;
+      if (!url) {
+        alert('Please enter Base URL first.');
+        return;
+      }
+      const btn = document.getElementById('btnDiscoverModal');
+      const oldHtml = btn ? btn.innerHTML : '';
+      if (btn) btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>Discovering...';
+      try {
+        const provType = id.toLowerCase().includes('ollama') ? 'ollama' : 'openai_compatible';
+        await fetch('/api/providers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: id,
+            name: name,
+            provider_type: provType,
+            base_url: url,
+            api_key: key,
+            enabled: true,
+            models: []
+          })
+        });
+        const discRes = await fetch(`/api/providers/${encodeURIComponent(id)}/discover`, { method: 'POST' });
+        const data = await discRes.json();
+        if (data.models && data.models.length > 0) {
+          const mList = data.models.map(m => m.id).join(', ');
+          const inputEl = document.getElementById('provModelsInput');
+          if (inputEl) inputEl.value = mList;
+          alert(`Discovered ${data.models.length} model(s): ` + data.models.map(m => m.id).slice(0, 5).join(', '));
+        } else {
+          alert('No models found at ' + url);
+        }
+      } catch (err) {
+        alert('Failed to discover models: ' + err.message);
+      } finally {
+        if (btn) btn.innerHTML = oldHtml;
+      }
+    }
+
+    async function toggleProvider(providerId, enable) {
+      try {
+        const res = await fetch(`/api/providers/${encodeURIComponent(providerId)}/toggle`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enabled: enable })
+        });
+        if (!res.ok) throw new Error(await res.text());
+        showToast(`Provider "${providerId}" ${enable ? 'enabled' : 'disabled'}`, 'success');
+        await loadAccounts(true);
+        await loadModels();
+      } catch (err) {
+        showToast('Failed to toggle provider: ' + err.message, 'error');
+      }
+    }
+
+    async function deleteProvider(providerId) {
+      if (!confirm(`Are you sure you want to remove external provider "${providerId}"?`)) return;
+      try {
+        const res = await fetch(`/api/providers/${encodeURIComponent(providerId)}`, {
+          method: 'DELETE'
+        });
+        if (!res.ok) throw new Error(await res.text());
+        showToast(`Provider "${providerId}" deleted`, 'success');
+        await loadAccounts();
+        await loadModels();
+      } catch (err) {
+        showToast('Failed to delete provider: ' + err.message, 'error');
+      }
+    }
+
+    async function testProvider(providerId) {
+      const badge = document.getElementById(`prov-ping-${providerId}`);
+      if (badge) {
+        badge.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-purple-400 mr-1"></i>Testing...';
+        badge.className = 'text-[10px] font-mono text-purple-300 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-full';
+      }
+      try {
+        const res = await fetch(`/api/providers/${encodeURIComponent(providerId)}/test`, {
+          method: 'POST'
+        });
+        const data = await res.json();
+        if (badge) {
+          if (data.success) {
+            badge.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-400 mr-1"></i>${Math.round(data.latency_ms)}ms`;
+            badge.className = 'text-[10px] font-mono text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full';
+            showToast(`Provider "${providerId}" connected in ${Math.round(data.latency_ms)}ms`, 'success');
+          } else {
+            badge.innerHTML = `<i class="fa-solid fa-circle-xmark text-red-400 mr-1"></i>Offline`;
+            badge.className = 'text-[10px] font-mono text-red-300 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-full';
+            showToast(`Connection error for "${providerId}": ${data.error || 'Failed'}`, 'error');
+          }
+        }
+      } catch (err) {
+        if (badge) {
+          badge.innerHTML = `<i class="fa-solid fa-circle-xmark text-red-400 mr-1"></i>Error`;
+          badge.className = 'text-[10px] font-mono text-red-300 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-full';
+        }
+        showToast(`Test failed: ${err.message}`, 'error');
+      }
+    }
+
+    async function discoverProvider(providerId) {
+      showToast(`Auto-discovering models for "${providerId}"...`, 'info');
+      try {
+        const res = await fetch(`/api/providers/${encodeURIComponent(providerId)}/discover`, {
+          method: 'POST'
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        showToast(`Discovered ${data.discovered_count} model(s) for "${providerId}"!`, 'success');
+        await loadAccounts();
+        await loadModels();
+      } catch (err) {
+        showToast(`Failed to discover models: ${err.message}`, 'error');
+      }
+    }
+
+    async function handleFailoverChange() {
+      const isEnabled = document.getElementById('toggleFailoverCheckbox')?.checked ?? false;
+      const fallbackModel = document.getElementById('selectFailoverModel')?.value || null;
+      try {
+        const res = await fetch('/api/providers/routing', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            enable_external_failover: isEnabled,
+            fallback_model: fallbackModel
+          })
+        });
+        if (!res.ok) throw new Error(await res.text());
+        rawRoutingSettings.enable_external_failover = isEnabled;
+        rawRoutingSettings.fallback_model = fallbackModel;
+        showToast(`Auto-failover ${isEnabled ? 'enabled (' + (fallbackModel || 'default') + ')' : 'disabled'}`, 'success');
+        renderAccounts();
+      } catch (err) {
+        showToast('Failed to update failover settings: ' + err.message, 'error');
+      }
+    }
+
+    function renderExternalProvidersSection(isGrid = true) {
+      const sectionId = 'acc-section-external';
+      const isCollapsed = collapsedSections.has('external');
+      const count = rawProvidersData.length;
+      let totalActiveModels = 0;
+      let enabledCount = 0;
+      rawProvidersData.forEach(p => {
+        if (p.enabled !== false) {
+          enabledCount++;
+          totalActiveModels += (p.models ? p.models.length : 0);
+        }
+      });
+      const disabledCount = count - enabledCount;
+      const summaryBadge = `<span class="text-[10px] text-slate-400 font-mono">${enabledCount} active (${totalActiveModels} models)${disabledCount > 0 ? `, ${disabledCount} paused` : ''}</span>`;
+
+      let html = `
+        <div class="space-y-0 pt-1" id="${sectionId}">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-800/80 cursor-pointer group" onclick="toggleSection('external', event)">
+            <div class="flex items-center space-x-2.5 min-w-0 flex-1">
+              <div class="w-8 h-8 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-400 text-sm shrink-0">
+                <i class="fa-solid fa-brain"></i>
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center space-x-2 flex-wrap gap-y-1">
+                  <h3 class="text-sm sm:text-base font-bold text-white truncate">External LLM Providers & Local Models</h3>
+                  <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 font-bold shrink-0">${count}</span>
+                  ${isCollapsed ? summaryBadge : ''}
+                </div>
+                <p class="text-[11px] text-slate-400 mt-0.5 truncate">Two-way gateway: Local Ollama, OpenRouter, DeepSeek, Groq, NVIDIA NIM in Antigravity IDE & 429 auto-failover</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0" onclick="event.stopPropagation()">
+              <button onclick="toggleSectionAccounts('external', true)" class="text-[10px] px-2 py-1 rounded-lg bg-slate-900 hover:bg-emerald-600 hover:text-white text-slate-400 border border-slate-800 font-medium transition flex items-center space-x-1" title="Enable all external providers">
+                <i class="fa-solid fa-play text-emerald-400 text-[9px]"></i>
+                <span>Enable</span>
+              </button>
+              <button onclick="toggleSectionAccounts('external', false)" class="text-[10px] px-2 py-1 rounded-lg bg-slate-900 hover:bg-amber-600 hover:text-white text-slate-400 border border-slate-800 font-medium transition flex items-center space-x-1" title="Disable all external providers">
+                <i class="fa-solid fa-pause text-amber-400 text-[9px]"></i>
+                <span>Disable</span>
+              </button>
+              <button onclick="openAddAccountModal('external')" class="text-xs px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold transition flex items-center space-x-1.5 shadow-sm">
+                <i class="fa-solid fa-plus text-[10px]"></i>
+                <span>+ Add External AI</span>
+              </button>
+              <button class="text-slate-500 hover:text-white p-1 transition group-hover:text-slate-300" title="${isCollapsed ? 'Expand' : 'Collapse'}">
+                <i class="fa-solid ${isCollapsed ? 'fa-chevron-down' : 'fa-chevron-up'} text-[11px]"></i>
+              </button>
+            </div>
+          </div>
+      `;
+
+      if (isCollapsed) {
+        html += '</div>';
+        return html;
+      }
+
+      html += '<div class="space-y-4 pt-3.5">';
+
+      // Google 429 Quota Auto-Failover Banner Card
+      let fallbackOptions = '';
+      rawProvidersData.forEach(p => {
+        if (p.enabled !== false && p.models) {
+          p.models.forEach(m => {
+            const mFullId = `${p.id}/${m.id}`;
+            const isSel = (rawRoutingSettings?.fallback_model === mFullId || rawRoutingSettings?.fallback_model === m.id) ? 'selected' : '';
+            fallbackOptions += `<option value="${mFullId}" ${isSel}>${p.name}: ${m.name || m.id}</option>`;
+          });
+        }
+      });
+
+      const isFailoverActive = Boolean(rawRoutingSettings?.enable_external_failover);
+      html += `
+        <div class="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-purple-950/30 via-slate-900 to-indigo-950/30 border border-purple-500/25 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-sm">
+          <div class="flex items-center space-x-3 min-w-0">
+            <div class="w-9 h-9 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 shrink-0">
+              <i class="fa-solid fa-shuffle text-sm"></i>
+            </div>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center space-x-2">
+                <h4 class="text-xs sm:text-sm font-bold text-white">Google 429 Quota Auto-Failover</h4>
+                <span class="text-[9px] px-2 py-0.5 rounded-full font-bold ${isFailoverActive ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-slate-800 text-slate-400 border border-slate-700'}">${isFailoverActive ? 'ACTIVE' : 'OFF'}</span>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-0.5">When all Google accounts in your pool hit rate limits (429), automatically failover to this external model without breaking IDE sessions.</p>
+            </div>
+          </div>
+          <div class="flex items-center space-x-2 shrink-0 self-end md:self-auto">
+            <select id="selectFailoverModel" onchange="handleFailoverChange()" class="bg-slate-900 border border-purple-500/30 rounded-lg px-2.5 py-1.5 text-xs text-purple-200 focus:outline-none focus:border-purple-400 font-mono">
+              <option value="">-- No Fallback Model --</option>
+              ${fallbackOptions}
+            </select>
+            <label class="relative inline-flex items-center cursor-pointer" title="Toggle Auto-Failover">
+              <input type="checkbox" id="toggleFailoverCheckbox" onchange="handleFailoverChange()" ${isFailoverActive ? 'checked' : ''} class="sr-only peer">
+              <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+            </label>
+          </div>
+        </div>
+      `;
+
+      if (rawProvidersData.length === 0) {
+        html += `
+          <div class="p-6 rounded-2xl bg-dark-card/50 border border-dark-border border-dashed text-center space-y-2 text-xs text-slate-400">
+            <p>No external LLM providers configured yet.</p>
+            <button onclick="openAddAccountModal('external')" class="text-xs px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-medium inline-flex items-center space-x-1.5 transition shadow">
+              <i class="fa-solid fa-plus text-[10px]"></i>
+              <span>Connect Ollama / OpenRouter / DeepSeek</span>
+            </button>
+          </div>
+        </div></div>
+        `;
+        return html;
+      }
+
+      html += '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">';
+      rawProvidersData.forEach(p => {
+        let iconClass = 'fa-solid fa-brain text-purple-400';
+        let bgIcon = 'bg-purple-500/15 border-purple-500/30';
+        const idLower = (p.id || '').toLowerCase();
+        if (idLower.includes('ollama')) {
+          iconClass = 'fa-solid fa-server text-emerald-400';
+          bgIcon = 'bg-emerald-500/15 border-emerald-500/30';
+        } else if (idLower.includes('openrouter')) {
+          iconClass = 'fa-solid fa-route text-indigo-400';
+          bgIcon = 'bg-indigo-500/15 border-indigo-500/30';
+        } else if (idLower.includes('deepseek')) {
+          iconClass = 'fa-solid fa-atom text-blue-400';
+          bgIcon = 'bg-blue-500/15 border-blue-500/30';
+        } else if (idLower.includes('groq')) {
+          iconClass = 'fa-solid fa-bolt text-amber-400';
+          bgIcon = 'bg-amber-500/15 border-amber-500/30';
+        } else if (idLower.includes('nvidia')) {
+          iconClass = 'fa-solid fa-microchip text-green-400';
+          bgIcon = 'bg-green-500/15 border-green-500/30';
+        }
+
+        const isEnabled = p.enabled !== false;
+        const modelsCount = (p.models || []).length;
+
+        let modelsBadgesHtml = '';
+        if (p.models && p.models.length > 0) {
+          modelsBadgesHtml = p.models.map(m => `
+            <span class="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-slate-300" title="Model: ${p.id}/${m.id}">
+              ${m.supports_thinking ? '<i class="fa-solid fa-brain text-purple-400 text-[9px]" title="Thinking / CoT"></i>' : ''}
+              <span class="truncate max-w-[130px]">${m.name || m.id}</span>
+            </span>
+          `).join('');
+        } else {
+          modelsBadgesHtml = '<span class="text-[10px] text-slate-500 italic">No models listed. Click Discover or Add.</span>';
+        }
+
+        html += `
+          <div class="p-4 rounded-2xl bg-dark-card border border-dark-border flex flex-col justify-between hover:border-slate-700 transition shadow-sm space-y-3">
+            <div>
+              <div class="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-800/80">
+                <div class="flex items-center space-x-2.5 min-w-0">
+                  <div class="w-8 h-8 rounded-xl ${bgIcon} border flex items-center justify-center text-sm shrink-0">
+                    <i class="${iconClass}"></i>
+                  </div>
+                  <div class="min-w-0">
+                    <div class="flex items-center space-x-1.5">
+                      <h4 class="text-xs sm:text-sm font-bold text-white truncate">${p.name || p.id}</h4>
+                      <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-300 border border-purple-500/20">${p.id}</span>
+                    </div>
+                    <span class="text-[10px] text-slate-400 font-mono block truncate" title="${p.base_url}">${p.base_url}</span>
+                  </div>
+                </div>
+                <div class="flex items-center space-x-2 shrink-0">
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" onchange="toggleProvider('${p.id}', this.checked)" ${isEnabled ? 'checked' : ''} class="sr-only peer">
+                    <div class="w-8 h-4 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-purple-600"></div>
+                  </label>
+                </div>
+              </div>
+
+              <!-- Auth & Latency Info -->
+              <div class="flex items-center justify-between text-[11px] pt-2 text-slate-400">
+                <span class="flex items-center gap-1 font-mono text-[10px]">
+                  <i class="fa-solid fa-key text-[9px] text-slate-500"></i>
+                  ${p.api_key ? 'API Key Set' : 'No Key (Local)'}
+                </span>
+                <span id="prov-ping-${p.id}" class="text-[10px] font-mono text-slate-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded-full">
+                  Ready
+                </span>
+              </div>
+
+              <!-- Models List -->
+              <div class="pt-2">
+                <div class="flex items-center justify-between mb-1">
+                  <span class="text-[10px] font-semibold tracking-wider uppercase text-slate-500">Active Models (${modelsCount})</span>
+                </div>
+                <div class="flex flex-wrap gap-1 max-h-24 overflow-y-auto custom-scrollbar">
+                  ${modelsBadgesHtml}
+                </div>
+              </div>
+            </div>
+
+            <!-- Card Actions -->
+            <div class="flex items-center justify-between pt-2.5 border-t border-slate-800/80">
+              <div class="flex items-center gap-1.5">
+                <button onclick="testProvider('${p.id}')" class="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 font-medium text-[11px] flex items-center gap-1 transition shadow-sm" title="Test Connection & Latency">
+                  <i class="fa-solid fa-bolt text-amber-400 text-[10px]"></i>
+                  <span>Ping</span>
+                </button>
+                <button onclick="discoverProvider('${p.id}')" class="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 font-medium text-[11px] flex items-center gap-1 transition shadow-sm" title="Auto-discover models from this provider">
+                  <i class="fa-solid fa-arrows-rotate text-purple-400 text-[10px]"></i>
+                  <span>Discover</span>
+                </button>
+              </div>
+              <button onclick="deleteProvider('${p.id}')" class="p-1.5 rounded-lg hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition" title="Delete Provider">
+                <i class="fa-solid fa-trash text-xs"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      });
+      html += '</div></div></div>';
       return html;
     }
 
@@ -4435,23 +5103,6 @@ ightarrow$ v1.0.3</p>
     }
 
     let currentAddTab = 'oauth';
-
-    function switchAddTab(tab) {
-      currentAddTab = tab;
-      const btnOAuth = document.getElementById('tabBtnOAuth');
-      const btnApiKey = document.getElementById('tabBtnApiKey');
-      const btnWeb = document.getElementById('tabBtnWeb');
-      const contentOAuth = document.getElementById('tabContentOAuth');
-      const contentApiKey = document.getElementById('tabContentApiKey');
-      const contentWeb = document.getElementById('tabContentWeb');
-
-      [btnOAuth, btnApiKey, btnWeb].forEach(b => {
-        if (b) b.className = 'flex-1 py-2 rounded-lg font-semibold transition text-slate-400 hover:text-white';
-      });
-      [contentOAuth, contentApiKey, contentWeb].forEach(c => {
-        if (c) c.classList.add('hidden');
-      });
-
     let isStartingOAuth = false;
 
     async function initOAuthFlow(forceNew = false) {
@@ -4489,16 +5140,37 @@ ightarrow$ v1.0.3</p>
       }
     }
 
-    if (tab === 'oauth') {
-        btnOAuth.className = 'flex-1 py-2 rounded-lg font-semibold transition bg-indigo-600 text-white shadow';
-        contentOAuth.classList.remove('hidden');
+    function switchAddTab(tab) {
+      currentAddTab = tab;
+      const btnOAuth = document.getElementById('tabBtnOAuth');
+      const btnApiKey = document.getElementById('tabBtnApiKey');
+      const btnWeb = document.getElementById('tabBtnWeb');
+      const btnExternal = document.getElementById('tabBtnExternal');
+      const contentOAuth = document.getElementById('tabContentOAuth');
+      const contentApiKey = document.getElementById('tabContentApiKey');
+      const contentWeb = document.getElementById('tabContentWeb');
+      const contentExternal = document.getElementById('tabContentExternal');
+
+      [btnOAuth, btnApiKey, btnWeb, btnExternal].forEach(b => {
+        if (b) b.className = 'flex-1 py-2 rounded-lg font-semibold transition text-slate-400 hover:text-white';
+      });
+      [contentOAuth, contentApiKey, contentWeb, contentExternal].forEach(c => {
+        if (c) c.classList.add('hidden');
+      });
+
+      if (tab === 'oauth') {
+        if (btnOAuth) btnOAuth.className = 'flex-1 py-2 rounded-lg font-semibold transition bg-indigo-600 text-white shadow';
+        if (contentOAuth) contentOAuth.classList.remove('hidden');
         initOAuthFlow(false);
       } else if (tab === 'apikey') {
-        btnApiKey.className = 'flex-1 py-2 rounded-lg font-semibold transition bg-indigo-600 text-white shadow';
-        contentApiKey.classList.remove('hidden');
+        if (btnApiKey) btnApiKey.className = 'flex-1 py-2 rounded-lg font-semibold transition bg-indigo-600 text-white shadow';
+        if (contentApiKey) contentApiKey.classList.remove('hidden');
       } else if (tab === 'web') {
-        btnWeb.className = 'flex-1 py-2 rounded-lg font-semibold transition bg-teal-600 text-white shadow';
-        contentWeb.classList.remove('hidden');
+        if (btnWeb) btnWeb.className = 'flex-1 py-2 rounded-lg font-semibold transition bg-teal-600 text-white shadow';
+        if (contentWeb) contentWeb.classList.remove('hidden');
+      } else if (tab === 'external') {
+        if (btnExternal) btnExternal.className = 'flex-1 py-2 rounded-lg font-semibold transition bg-purple-600 text-white shadow';
+        if (contentExternal) contentExternal.classList.remove('hidden');
       }
     }
 
@@ -4526,11 +5198,18 @@ ightarrow$ v1.0.3</p>
       if (document.getElementById('webAuthUserInput')) document.getElementById('webAuthUserInput').value = '0';
       if (document.getElementById('webForceNewCheckbox')) document.getElementById('webForceNewCheckbox').checked = false;
       if (document.getElementById('webCdpPortInput')) document.getElementById('webCdpPortInput').value = '9222';
+      if (document.getElementById('provNameInput')) document.getElementById('provNameInput').value = '';
+      if (document.getElementById('provIdInput')) document.getElementById('provIdInput').value = '';
+      if (document.getElementById('provUrlInput')) document.getElementById('provUrlInput').value = '';
+      if (document.getElementById('provKeyInput')) document.getElementById('provKeyInput').value = '';
+      if (document.getElementById('provModelsInput')) document.getElementById('provModelsInput').value = '';
       switchAddTab(tab);
       document.getElementById('addAccountModal').classList.remove('hidden');
 
       if (tab === 'oauth') {
         initOAuthFlow(true);
+      } else if (tab === 'external') {
+        applyProviderPreset('ollama');
       }
     }
 
@@ -4539,6 +5218,64 @@ ightarrow$ v1.0.3</p>
     }
 
     async function submitAddAccountModal() {
+      if (currentAddTab === 'external') {
+        const id = document.getElementById('provIdInput').value.trim();
+        const name = document.getElementById('provNameInput').value.trim() || id;
+        const baseUrl = document.getElementById('provUrlInput').value.trim();
+        const apiKey = document.getElementById('provKeyInput').value.trim() || null;
+        const modelsStr = document.getElementById('provModelsInput').value.trim();
+        const proxyUrl = document.getElementById('addProxyUrlInput').value.trim() || null;
+
+        if (!id) {
+          alert('Please enter a Provider ID (e.g. "ollama", "openrouter", "deepseek").');
+          return;
+        }
+        if (!baseUrl) {
+          alert('Please enter a Base URL (e.g. "http://localhost:11434/v1").');
+          return;
+        }
+
+        const modelsList = modelsStr ? modelsStr.split(',').map(m => m.trim()).filter(Boolean).map(m => {
+          return { id: m, name: m, supports_thinking: m.includes('r1') || m.includes('reason') };
+        }) : [];
+
+        const btn = document.getElementById('submitAuthBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+
+        try {
+          const providerType = id.toLowerCase().includes('ollama') ? 'ollama' : 'openai_compatible';
+          const res = await fetch('/api/providers', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: id,
+              name: name,
+              provider_type: providerType,
+              base_url: baseUrl,
+              api_key: apiKey,
+              proxy_url: proxyUrl,
+              enabled: true,
+              models: modelsList
+            })
+          });
+          if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(errText);
+          }
+          alert(`Successfully configured external provider "${name}"!`);
+          closeAddAccountModal();
+          await loadAccounts();
+          await loadModels();
+        } catch (err) {
+          alert('Failed to save external provider: ' + err.message);
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fa-solid fa-check"></i> Add to Pool';
+        }
+        return;
+      }
+
       if (currentAddTab === 'web') {
         const name = document.getElementById('webNameInput').value.trim() || 'Gemini Web';
         const rawCookies = document.getElementById('webCookiesInput').value.trim();
@@ -5993,6 +6730,160 @@ ${data.stderr || data.stdout || data.error}`;
       document.body.removeChild(ta);
     }
 
+    async function loadSuiteStatus() {
+      // 1. Cache Summary
+      try {
+        const r = await fetch('/api/cache/summary');
+        if (r.ok) {
+          const d = await r.json();
+          const badge = document.getElementById('ideCacheBloatBadge');
+          if (badge) {
+            badge.textContent = d.total_formatted || '0 B';
+          }
+        }
+      } catch (e) {
+        console.debug('Failed to fetch cache summary', e);
+      }
+
+      // 2. Extension Status
+      try {
+        const r = await fetch('/api/ide/extension');
+        if (r.ok) {
+          const d = await r.json();
+          const badge = document.getElementById('ideExtensionBadge');
+          if (badge) {
+            if (d.installed) {
+              badge.textContent = 'Installed';
+              badge.className = 'text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-mono font-semibold';
+            } else {
+              badge.textContent = 'Not Installed';
+              badge.className = 'text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 font-mono';
+            }
+          }
+        }
+      } catch (e) {
+        console.debug('Failed to fetch extension status', e);
+      }
+
+      // 3. AutoGuard & Launcher Status
+      try {
+        const r = await fetch('/api/patch/autoguard');
+        if (r.ok) {
+          const d = await r.json();
+          const badge = document.getElementById('autoGuardStatusBadge');
+          if (badge) {
+            if (d.running) {
+              badge.textContent = 'Guarded';
+              badge.className = 'text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-mono font-semibold';
+            } else {
+              badge.textContent = 'Ready';
+              badge.className = 'text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 font-mono font-semibold';
+            }
+          }
+        }
+      } catch (e) {
+        console.debug('Failed to fetch autoguard status', e);
+      }
+    }
+
+    async function triggerCacheClean() {
+      const btn = document.getElementById('cacheCleanBtn');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-[10px]"></i><span>Purging...</span>';
+      }
+      try {
+        const r = await fetch('/api/cache/clean', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+        const d = await r.json();
+        if (d.success) {
+          showToast(`Cleaned ${d.freed_formatted || '0 B'} (${d.deleted_files || 0} files removed)!`, 'success');
+          loadSuiteStatus();
+        } else {
+          showToast('Failed to clean cache', 'error');
+        }
+      } catch (e) {
+        showToast('Error cleaning cache: ' + e.message, 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fa-solid fa-broom text-[10px]"></i><span>Purge Cache Now</span>';
+        }
+      }
+    }
+
+    async function triggerExtensionInstall() {
+      try {
+        const r = await fetch('/api/ide/extension/install', { method: 'POST' });
+        const d = await r.json();
+        if (d.success) {
+          showToast('Companion extension installed! Restart Antigravity IDE to view.', 'success');
+          loadSuiteStatus();
+        } else {
+          showToast(`Install failed: ${d.error}`, 'error');
+        }
+      } catch (e) {
+        showToast('Failed to install extension: ' + e.message, 'error');
+      }
+    }
+
+    async function triggerExtensionUninstall() {
+      try {
+        const r = await fetch('/api/ide/extension/uninstall', { method: 'POST' });
+        const d = await r.json();
+        if (d.success) {
+          showToast('Companion extension removed.', 'info');
+          loadSuiteStatus();
+        } else {
+          showToast(`Uninstall failed: ${d.error}`, 'error');
+        }
+      } catch (e) {
+        showToast('Failed to uninstall extension: ' + e.message, 'error');
+      }
+    }
+
+    async function triggerAutoGuardCheck() {
+      try {
+        const r = await fetch('/api/patch/autoguard/check', { method: 'POST' });
+        const d = await r.json();
+        if (d.repaired) {
+          showToast(`AutoGuard repaired patch: ${d.reason}`, 'success');
+        } else {
+          showToast(`AutoGuard check complete: ${d.status || 'healthy'}`, 'info');
+        }
+        loadSuiteStatus();
+      } catch (e) {
+        showToast('AutoGuard check failed: ' + e.message, 'error');
+      }
+    }
+
+    async function triggerLauncherInstall() {
+      try {
+        const r = await fetch('/api/patch/launcher/install', { method: 'POST' });
+        const d = await r.json();
+        if (d.success) {
+          showToast('Non-destructive desktop launcher override installed!', 'success');
+        } else {
+          showToast('Failed to install launcher', 'error');
+        }
+      } catch (e) {
+        showToast('Failed to install launcher: ' + e.message, 'error');
+      }
+    }
+
+    async function copyTunnelSnippet() {
+      try {
+        const r = await fetch('/api/tunnel/snippet');
+        if (r.ok) {
+          const d = await r.json();
+          copySnippetText(d.snippet, 'Copied Remote SSH Environment script to clipboard!');
+        } else {
+          showToast('Failed to generate snippet', 'error');
+        }
+      } catch (e) {
+        showToast('Failed: ' + e.message, 'error');
+      }
+    }
+
     // Init
     initTabFromHash();
     loadAccounts();
@@ -6004,6 +6895,8 @@ ${data.stderr || data.stdout || data.error}`;
     setInterval(updateCacheStats, 10000);
     checkAntigravityWebStatus();
     setInterval(checkAntigravityWebStatus, 15000);
+    loadSuiteStatus();
+    setInterval(loadSuiteStatus, 15000);
     initTrafficInspector();
   </script>
 

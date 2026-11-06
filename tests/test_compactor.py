@@ -369,5 +369,51 @@ class TestCompactConversationHistory(unittest.IsolatedAsyncioTestCase):
                 self.assertTrue(hasattr(m, "name"))
 
 
+class TestExplicitCompactDetection(unittest.TestCase):
+    def test_real_claude_compact_prompt_detected(self):
+        from agy_proxy.converters.common import is_explicit_compact_request
+
+        messages = [
+            {"role": "user", "content": "Help me build an app"},
+            {"role": "assistant", "content": "Sure, let's start with FastAPI"},
+            {
+                "role": "user",
+                "content": "Your task is to create a detailed summary of the conversation so far, paying close attention to user requests.",
+            },
+        ]
+        is_compact, compact_idx = is_explicit_compact_request(messages)
+        self.assertTrue(is_compact)
+        self.assertEqual(compact_idx, 2)
+
+    def test_post_compact_user_message_never_detected_as_compact(self):
+        from agy_proxy.converters.common import is_explicit_compact_request
+
+        post_compact_content = [
+            {"type": "text", "text": "<system-reminder>\nAttribution for git commits\n</system-reminder>"},
+            {"type": "text", "text": "<local-command-caveat>The command below was run directly in Claude Code, not sent to you as a request, and its output goes straight to the user.</local-command-caveat>"},
+            {"type": "text", "text": "<command-name>/compact</command-name>\n<command-message>compact</command-message>"},
+            {"type": "text", "text": "<local-command-stdout>Compacted (ctrl+o to see full summary)</local-command-stdout>"},
+            {"type": "text", "text": "подивися тут тестувальщик сказав якісь баг є ось це написав 'Печати не можу купити , не працюють.'"},
+        ]
+
+        messages = [
+            {"role": "user", "content": "Initial prompt"},
+            {"role": "assistant", "content": "Initial response"},
+            {"role": "user", "content": post_compact_content},
+        ]
+        is_compact, compact_idx = is_explicit_compact_request(messages)
+        self.assertFalse(is_compact)
+        self.assertEqual(compact_idx, -1)
+
+    def test_empty_or_non_user_messages_rejected(self):
+        from agy_proxy.converters.common import is_explicit_compact_request
+
+        self.assertEqual(is_explicit_compact_request([]), (False, -1))
+        self.assertEqual(
+            is_explicit_compact_request([{"role": "assistant", "content": "create a detailed summary of the conversation so far"}]),
+            (False, -1),
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

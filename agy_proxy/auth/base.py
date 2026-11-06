@@ -91,7 +91,7 @@ class BaseAccountSession:
             effective_proxy = self.proxy_url or os.environ.get("AGY_UPSTREAM_PROXY") or os.environ.get("ALL_PROXY") or None
             self._http_client = httpx.AsyncClient(
                 timeout=httpx.Timeout(timeout=300.0, connect=20.0, read=300.0, write=120.0, pool=60.0),
-                limits=httpx.Limits(max_keepalive_connections=20, max_connections=50, keepalive_expiry=120.0),
+                limits=httpx.Limits(max_keepalive_connections=20, max_connections=50, keepalive_expiry=20.0),
                 proxy=effective_proxy,
             )
             self._http_client_loop = current_loop

@@ -2127,14 +2127,67 @@ def enhance_available_models(data: dict[str, Any]) -> dict[str, Any]:
             models["gemini-3.1-flash-image"]["supportsImages"] = True
             models["gemini-3.1-flash-image"]["maxOutputTokens"] = 65536
 
+    # 7. Inject configured third-party models (OpenRouter, Ollama, DeepSeek, Groq, NVIDIA NIM)
+    try:
+        from agy_proxy.providers import external_provider_manager
+        ext_models = external_provider_manager.get_all_active_models()
+        if ext_models:
+            ext_model_ids = []
+            for em in ext_models:
+                em_id = em["id"]
+                ext_model_ids.append(em_id)
+                models[em_id] = {
+                    "displayName": em["display_name"],
+                    "maxTokens": em["context_window"],
+                    "maxOutputTokens": em["max_output_tokens"],
+                    "capabilities": {
+                        "chat": {"boolValue": True},
+                        "code": {"boolValue": True},
+                        "streaming": {"boolValue": True},
+                        "toolCalling": {"boolValue": em.get("supports_tools", True)},
+                    },
+                    "modelExperiments": {
+                        "experiments": {
+                            "extended_context": {"boolValue": True},
+                            "reasoning": {"boolValue": em.get("supports_thinking", False)},
+                        }
+                    },
+                    "supportsThinking": em.get("supports_thinking", False),
+                    "supportsImages": em.get("supports_vision", False),
+                    "recommended": True,
+                    "disabled": False,
+                }
+
+            # Add to agentModelSorts so they appear grouped in Antigravity IDE UI
+            sorts = data.get("agentModelSorts")
+            if isinstance(sorts, list):
+                has_ext_group = any(
+                    isinstance(s, dict) and "external" in s.get("displayName", "").lower()
+                    for s in sorts
+                )
+                if not has_ext_group:
+                    sorts.append({
+                        "displayName": "External AI (Ollama / OpenRouter / DeepSeek)",
+                        "groups": [{"modelIds": ext_model_ids}],
+                    })
+                else:
+                    for s in sorts:
+                        if isinstance(s, dict) and "external" in s.get("displayName", "").lower():
+                            for grp in s.get("groups", []):
+                                if isinstance(grp, dict):
+                                    grp["modelIds"] = ext_model_ids
+    except Exception as e:
+        logger.debug("Failed to inject external models into fetchAvailableModels: %s", e)
+
     return data
 
 
-def enhance_quota_summary(data: dict[str, Any]) -> dict[str, Any]:
+def enhance_quota_summary(data: dict[str, Any], pool: Any = None) -> dict[str, Any]:
     """
-    Safely virtualizes quota summary for language_server/Web UI so that both Gemini models
-    and third-party models (Claude, GPT, etc.) are never blocked or throttled by single-account
-    exhaustion when backed by the Antigravity multi-account pool.
+    Safely enhances quota summary for language_server/Web UI.
+    When backed by an active multi-account pool, synchronizes real account fractions,
+    pool readiness statistics, reset times, and failover status so the native
+    'Models & Usage' dialog reflects accurate telemetry without locking the UI.
     Protects against mutation of input arguments, None buckets, and missing keys.
     """
     if not isinstance(data, dict):
@@ -2145,35 +2198,179 @@ def enhance_quota_summary(data: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(groups, list):
         return data
 
+    # Check if a pool with accounts is available
+    accounts = []
+    if pool is not None and hasattr(pool, "accounts") and pool.accounts:
+        accounts = list(pool.accounts.values())
+    elif pool is None:
+        try:
+            from agy_proxy.server import _GLOBAL_ACCOUNT_POOL
+            if _GLOBAL_ACCOUNT_POOL is not None and hasattr(_GLOBAL_ACCOUNT_POOL, "accounts") and _GLOBAL_ACCOUNT_POOL.accounts:
+                accounts = list(_GLOBAL_ACCOUNT_POOL.accounts.values())
+                pool = _GLOBAL_ACCOUNT_POOL
+        except Exception:
+            pass
+
+    if not accounts:
+        # Default virtualization when no pool accounts are active
+        for g in groups:
+            if not isinstance(g, dict):
+                continue
+            buckets = g.get("buckets")
+            if not isinstance(buckets, list):
+                continue
+            for b in buckets:
+                if not isinstance(b, dict):
+                    continue
+                b["remainingFraction"] = 1.0
+                b["disabled"] = False
+                b["description"] = "Full quota managed and replenished by Antigravity multi-account pool."
+        return data
+
+    # Active accounts in the pool: synchronize real telemetry
+    primary = None
+    if pool and hasattr(pool, "get_primary_account"):
+        primary = pool.get_primary_account()
+    if not primary and accounts:
+        primary = next((a for a in accounts if getattr(a, "is_primary", False)), accounts[0])
+
+    oauth_accounts = [a for a in accounts if getattr(a, "auth_method", "") == "consumer"] or accounts
+    total_acc_count = len(oauth_accounts)
+    primary_email = getattr(primary, "email", "Active") if primary else "Active"
+    primary_quota = getattr(primary, "quota_summary", {}) or {}
+    primary_groups = primary_quota.get("groups", []) if isinstance(primary_quota, dict) else []
+
+    # Map raw primary buckets by bucketId
+    raw_buckets_by_id = {}
+    for pg in primary_groups:
+        if isinstance(pg, dict):
+            for pb in pg.get("buckets", []):
+                if isinstance(pb, dict) and pb.get("bucketId"):
+                    raw_buckets_by_id[pb["bucketId"]] = pb
+
+    # Check external failover status (only when explicitly enabled by user with a model chosen)
+    failover_text = ""
+    try:
+        from agy_proxy.providers import external_provider_manager
+        rs = external_provider_manager.routing_settings
+        if getattr(rs, "auto_failover_enabled", False) and getattr(rs, "fallback_model", None):
+            fb_model = rs.fallback_model
+            provider_label = fb_model.split("/")[0].capitalize() if "/" in fb_model else "External"
+            failover_text = f"Failover: {provider_label} Ready"
+    except Exception:
+        pass
+
     for g in groups:
         if not isinstance(g, dict):
             continue
         buckets = g.get("buckets")
         if not isinstance(buckets, list):
             continue
+
         for b in buckets:
             if not isinstance(b, dict):
                 continue
-            b["remainingFraction"] = 1.0
+
+            bucket_id = b.get("bucketId", "")
+            raw_b = raw_buckets_by_id.get(bucket_id)
+
+            if raw_b and "remainingFraction" in raw_b and raw_b["remainingFraction"] is not None:
+                real_fraction = float(raw_b["remainingFraction"])
+            elif "remainingFraction" in b and b["remainingFraction"] is not None:
+                real_fraction = float(b["remainingFraction"])
+            else:
+                real_fraction = 1.0
+
+            # Count pool availability for this bucket category
+            group_key = "gemini" if "gemini" in bucket_id else ("3p" if "3p" in bucket_id else "argon")
+            avail_pool_count = 0
+            for a in oauth_accounts:
+                qd = getattr(a, "quota_details", {}) or {}
+                if isinstance(qd, dict) and group_key in qd:
+                    sub = qd.get(group_key, {})
+                    if sub.get("percent", 0) > 0 or not sub.get("is_rate_limited", False):
+                        avail_pool_count += 1
+                else:
+                    avail_pool_count += 1
+            if avail_pool_count == 0 and total_acc_count > 0:
+                avail_pool_count = 1 if real_fraction > 0 else 0
+
+            # Extract human-readable reset time
+            reset_str = ""
+            desc_source = (raw_b.get("description") if raw_b else None) or b.get("description", "")
+            if desc_source:
+                if "refresh in " in desc_source:
+                    part = desc_source.split("refresh in ")[-1].split(".")[0].strip()
+                    reset_str = f"Resets in {part}"
+                elif "refreshes in " in desc_source:
+                    part = desc_source.split("refreshes in ")[-1].split(".")[0].strip()
+                    reset_str = f"Resets in {part}"
+
+            pct_val = round(real_fraction * 100)
+            desc_parts = []
+            if reset_str:
+                desc_parts.append(f"{primary_email}: {pct_val}% ({reset_str})")
+            else:
+                desc_parts.append(f"{primary_email}: {pct_val}% left")
+
+            if total_acc_count > 1:
+                desc_parts.append(f"Antigravity Pool: {avail_pool_count}/{total_acc_count} accounts ready")
+            else:
+                desc_parts.append("Antigravity Pool: 1 account active")
+
+            if failover_text:
+                desc_parts.append(failover_text)
+
+            b["description"] = " • ".join(desc_parts)
+            # Never drop to 0.0 to prevent Google client from locking chat input box
+            b["remainingFraction"] = max(real_fraction, 0.001)
             b["disabled"] = False
-            b["description"] = "Full quota managed and replenished by Antigravity multi-account pool."
 
     return data
 
 
-def enhance_load_code_assist(data: dict[str, Any]) -> dict[str, Any]:
+def enhance_load_code_assist(data: dict[str, Any], pool: Any = None) -> dict[str, Any]:
     """
     Virtualizes user tier for language_server so that Google AI Pro capabilities
-    (such as Gemini 4 Argon) are enabled without restrictive free-tier blocks.
+    (such as Gemini 4 Argon) are enabled without restrictive free-tier blocks,
+    and displays active pool telemetry in the plan description.
     """
     if not isinstance(data, dict):
         return data
 
     data = copy.deepcopy(data)
+
+    accounts = []
+    if pool is not None and hasattr(pool, "accounts") and pool.accounts:
+        accounts = list(pool.accounts.values())
+    elif pool is None:
+        try:
+            from agy_proxy.server import _GLOBAL_ACCOUNT_POOL
+            if _GLOBAL_ACCOUNT_POOL is not None and hasattr(_GLOBAL_ACCOUNT_POOL, "accounts") and _GLOBAL_ACCOUNT_POOL.accounts:
+                accounts = list(_GLOBAL_ACCOUNT_POOL.accounts.values())
+                pool = _GLOBAL_ACCOUNT_POOL
+        except Exception:
+            pass
+
+    oauth_accs = [a for a in accounts if getattr(a, "auth_method", "") == "consumer"] or accounts
+    primary_email = ""
+    if pool and hasattr(pool, "get_primary_account"):
+        prim = pool.get_primary_account()
+        if prim:
+            primary_email = getattr(prim, "email", "")
+    if not primary_email and accounts:
+        primary_email = getattr(accounts[0], "email", "Active")
+
+    pool_desc = (
+        f"Antigravity Pool ({len(oauth_accs)} Google accounts connected • Active: {primary_email})"
+        if oauth_accs
+        else "Google AI Pro Plan"
+    )
+
     data["currentTier"] = {
         "id": "g1-pro-tier",
         "name": "Google AI Pro",
-        "description": "Google AI Pro Plan",
+        "description": pool_desc,
         "privacyNotice": {"showNotice": False},
     }
     data["gcpManaged"] = False

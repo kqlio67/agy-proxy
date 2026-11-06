@@ -64,11 +64,11 @@ class TestCloudCodeClient(unittest.IsolatedAsyncioTestCase):
         declared = [{"functionDeclarations": [{"name": "Write", "description": "Write a file"}]}]
 
         # Case 1: user screenshot format
-        text1 = '{\n  "name": "Write",\n  "arguments": {\n    "file_path": "/home/qumhab/test.txt",\n    "content": "Test content"\n  }\n}```'
+        text1 = '{\n  "name": "Write",\n  "arguments": {\n    "file_path": "/tmp/test.txt",\n    "content": "Test content"\n  }\n}```'
         preamble1, call1 = CloudCodeClient._extract_gemini_web_tool_call(text1, declared)
         self.assertIsNotNone(call1)
         self.assertEqual(call1["name"], "Write")
-        self.assertEqual(call1["arguments"]["file_path"], "/home/qumhab/test.txt")
+        self.assertEqual(call1["arguments"]["file_path"], "/tmp/test.txt")
         self.assertEqual(call1["arguments"]["content"], "Test content")
 
         # Case 2: markdown fenced code block with preamble
@@ -240,7 +240,7 @@ class TestCloudCodeClient(unittest.IsolatedAsyncioTestCase):
             '  "name": "run_command",\n'
             '  "arguments": {\n'
             '    "CommandLine": "uname -a && cat /etc/os-release && lscpu | grep -E \'Model name|CPU\\(s\\)|Thread\' && free -h && df -h /",\n'
-            '    "Cwd": "/home/qumhab",\n'
+            '    "Cwd": "/tmp",\n'
             '    "WaitMsBeforeAsync": 5000,\n'
             '    "toolAction": "Checking system information",\n'
             '    "toolSummary": "System information analysis"\n'
@@ -303,7 +303,7 @@ class TestCloudCodeClient(unittest.IsolatedAsyncioTestCase):
 
         async def fake_stream_generate(prompt, model=None, session_id=None):
             yield {"type": "thinking", "text": "I should create the requested file."}
-            yield {"type": "text", "text": 'I will create the file for you.\n```json\n{\n  "name": "write_to_file",\n  "arguments": {\n    "TargetFile": "/home/qumhab/demo.py",\n    "CodeContent": "print(\'works\')"\n  }\n}\n```'}
+            yield {"type": "text", "text": 'I will create the file for you.\n```json\n{\n  "name": "write_to_file",\n  "arguments": {\n    "TargetFile": "/tmp/demo.py",\n    "CodeContent": "print(\'works\')"\n  }\n}\n```'}
             yield {"type": "done"}
 
         web_acc.stream_generate = fake_stream_generate
@@ -333,7 +333,7 @@ class TestCloudCodeClient(unittest.IsolatedAsyncioTestCase):
         payload = {
             "model": "gemini-4-argon-web-task",
             "request": {
-                "contents": [{"role": "user", "parts": [{"text": "Create /home/qumhab/demo.py"}]}],
+                "contents": [{"role": "user", "parts": [{"text": "Create /tmp/demo.py"}]}],
                 "tools": declared_tools,
             },
         }
@@ -359,7 +359,7 @@ class TestCloudCodeClient(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(function_calls), 1)
         fc = function_calls[0]
         self.assertEqual(fc["name"], "write_to_file")
-        self.assertEqual(fc["args"]["TargetFile"], "/home/qumhab/demo.py")
+        self.assertEqual(fc["args"]["TargetFile"], "/tmp/demo.py")
         self.assertEqual(fc["args"]["CodeContent"], "print('works')")
         self.assertTrue(fc["args"]["Overwrite"])
         self.assertIn("toolAction", fc["args"])

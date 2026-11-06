@@ -664,24 +664,43 @@ def handle_restore_codex():
         console.print("[dim]No active Antigravity Proxy settings found in ~/.codex/config.toml.[/dim]")
 
 
-def handle_setup_claude(port: int = 8000, model: str = "anthropic.gemini-3.8-flash-high", url: str | None = None):
-    """Configures Claude Code CLI to route through Antigravity Proxy with zero 'Not logged in' errors."""
+def handle_setup_claude(
+    port: int = 8000,
+    model: str = "anthropic.gemini-3.8-flash-high",
+    url: str | None = None,
+    direct: bool = False,
+):
+    """Configures Claude Code CLI to route through Antigravity Proxy or debloats for official Anthropic use."""
     from agy_proxy.claude_helper import setup_claude
-    res = setup_claude(port=port, model=model, proxy_url=url)
+    res = setup_claude(port=port, model=model, proxy_url=url, direct=direct)
     if res.get("ok"):
         backup_text = f"\n• [bold cyan]Backup Saved:[/bold cyan] [green]{res['backup_path']}[/green]" if res.get("backup_created") else ""
-        console.print(Panel(
-            f"[bold green]✓ Claude Code CLI Successfully Configured![/bold green]\n\n"
-            f"• [bold cyan]Settings File:[/bold cyan] [white]{res['settings_path']}[/white]\n"
-            f"• [bold cyan]Proxy Endpoint:[/bold cyan] [yellow]{res['proxy_url']}[/yellow]\n"
-            f"• [bold cyan]Default Model:[/bold cyan] [magenta]{res['model']}[/magenta]\n"
-            f"• [bold cyan]Authentication:[/bold cyan] [green]Logged In (oauth_token - background daemons enabled)[/green]"
-            f"{backup_text}\n\n"
-            f"[dim]Foreground sessions and all background agents will now automatically route through Antigravity Proxy.[/dim]\n"
-            f"[dim]To restore original settings anytime, run:[/dim] [bold yellow]agy-proxy restore-claude[/bold yellow]",
-            title="[bold white]Claude Code Integration[/bold white]",
-            border_style="green",
-        ))
+        if direct:
+            console.print(Panel(
+                f"[bold green]✓ Claude Code CLI Successfully Configured (Direct Official Mode)![/bold green]\n\n"
+                f"• [bold cyan]Settings File:[/bold cyan] [white]{res['settings_path']}[/white]\n"
+                f"• [bold cyan]Mode:[/bold cyan] [green]Direct Official Anthropic (No Proxy)[/green]\n"
+                f"• [bold cyan]Telemetry:[/bold cyan] [green]Blocked (DISABLE_TELEMETRY=1)[/green]\n"
+                f"• [bold cyan]Non-Essential Traffic:[/bold cyan] [green]Blocked (GrowthBook disabled)[/green]\n"
+                f"• [bold cyan]MCP Relist:[/bold cyan] [green]Optimized (unchanged relists skipped)[/green]"
+                f"{backup_text}\n\n"
+                f"[dim]To restore original settings anytime, run:[/dim] [bold yellow]agy-proxy restore-claude[/bold yellow]",
+                title="[bold white]Claude Code Integration (Direct Mode)[/bold white]",
+                border_style="green",
+            ))
+        else:
+            console.print(Panel(
+                f"[bold green]✓ Claude Code CLI Successfully Configured![/bold green]\n\n"
+                f"• [bold cyan]Settings File:[/bold cyan] [white]{res['settings_path']}[/white]\n"
+                f"• [bold cyan]Proxy Endpoint:[/bold cyan] [yellow]{res['proxy_url']}[/yellow]\n"
+                f"• [bold cyan]Default Model:[/bold cyan] [magenta]{res['model']}[/magenta]\n"
+                f"• [bold cyan]Authentication:[/bold cyan] [green]Logged In (oauth_token - background daemons enabled)[/green]"
+                f"{backup_text}\n\n"
+                f"[dim]Foreground sessions and all background agents will now automatically route through Antigravity Proxy.[/dim]\n"
+                f"[dim]To restore original settings anytime, run:[/dim] [bold yellow]agy-proxy restore-claude[/bold yellow]",
+                title="[bold white]Claude Code Integration[/bold white]",
+                border_style="green",
+            ))
     else:
         console.print(f"[bold red]✗ Failed to configure Claude Code:[/bold red] {res.get('error')}")
 
@@ -696,19 +715,120 @@ def handle_restore_claude():
         console.print(f"[bold red]✗ Failed to restore Claude Code settings:[/bold red] {res.get('error')}")
 
 
+def handle_patch_claude_command(args: argparse.Namespace) -> None:
+    """Manages patching and debloating of standalone Claude Code CLI."""
+    from agy_proxy.claude_helper import (
+        debloat_claude_json,
+        get_claude_patch_status,
+        patch_claude_binary,
+        restore_claude_binary,
+        setup_claude,
+    )
+
+    action = getattr(args, "action", "status")
+    target = getattr(args, "target", None)
+    direct = getattr(args, "direct", False)
+    do_restore = getattr(args, "restore", False) or action == "restore"
+    do_status = getattr(args, "status", False) or (action == "status" and not do_restore and not getattr(args, "apply", False))
+
+    if do_restore:
+        res = restore_claude_binary(target)
+        if res.get("ok"):
+            console.print(f"[bold green]✓ Successfully restored Claude Code binary from {res.get('backup')}[/bold green]")
+        else:
+            console.print(f"[bold red]✗ Failed to restore binary:[/bold red] {res.get('error')}")
+        return
+
+    if do_status and action != "apply":
+        st = get_claude_patch_status(target)
+        console.print(Panel("[bold cyan]Claude Code Standalone Patch Status[/bold cyan]", border_style="blue"))
+        if not st.get("found"):
+            console.print(f"  [red]Error:[/red] {st.get('error')}\n")
+            return
+        console.print(f"  • Binary:        [cyan]{st.get('binary')}[/cyan]")
+        p_str = "[bold green]Patched (Anti-copyright game restriction removed)[/bold green]" if st.get("is_patched") else "[yellow]Unpatched (Original restrictions active)[/yellow]"
+        console.print(f"  • Binary Patch:  {p_str}")
+        b_str = f"[green]Yes ({st.get('backup_path')})[/green]" if st.get("backup_exists") else "[dim]No[/dim]"
+        console.print(f"  • Backup Exists: {b_str}\n")
+        console.print("[dim]Commands:[/dim]")
+        console.print("  • agy-proxy patch-claude apply     [dim](removes restrictions & debloats tips)[/dim]")
+        console.print("  • agy-proxy patch-claude restore   [dim](restores original backup)[/dim]\n")
+        return
+
+    # Apply patch
+    if getattr(args, "debloat_only", False):
+        res_json = debloat_claude_json()
+        if res_json.get("ok"):
+            console.print("[bold green]✓ Successfully debloated ~/.claude.json (silenced tips, disabled auto-updates)[/bold green]")
+        else:
+            console.print(f"[bold yellow]Note:[/bold yellow] ~/.claude.json debloat: {res_json.get('error', res_json.get('reason'))}")
+        return
+
+    res_bin = patch_claude_binary(target)
+    if res_bin.get("ok"):
+        if res_bin.get("already_patched"):
+            console.print(f"[bold green]✓ Claude Code binary is already patched:[/bold green] {res_bin.get('binary')}")
+        else:
+            console.print(f"[bold green]✓ Successfully patched Claude Code binary:[/bold green] {res_bin.get('binary')}")
+            console.print(f"  [dim]Backup saved to: {res_bin.get('backup')}[/dim]")
+    else:
+        console.print(f"[bold red]✗ Binary patch skipped/failed:[/bold red] {res_bin.get('error')}")
+
+    # Also debloat ~/.claude.json
+    res_json = debloat_claude_json()
+    if res_json.get("ok"):
+        console.print("[bold green]✓ Successfully debloated ~/.claude.json (silenced tips, disabled auto-updates)[/bold green]")
+
+    if direct:
+        res_set = setup_claude(direct=True)
+        if res_set.get("ok"):
+            console.print("[bold green]✓ Configured ~/.claude/settings.json for direct official Anthropic use (telemetry blocked)[/bold green]")
+
+
 def handle_run_claude(
     port: int = 8000,
     model: str = "anthropic.gemini-3.8-flash-high",
     url: str | None = None,
     danger: bool = False,
+    extra_danger: bool = False,
+    no_mcp: bool = False,
+    mcp: str | None = None,
+    list_mcp: bool = False,
+    direct: bool = False,
     extra_args: list = None,
 ):
-    """Launches Claude Code CLI in ephemeral mode connected to Antigravity Proxy without permanent config changes."""
+    """Launches Claude Code CLI in ephemeral mode with proxy or direct official mode with zero permanent changes."""
     import json
     import shutil
     import subprocess
     import urllib.request
-    from agy_proxy.claude_helper import CLAUDE_RECOMMENDED_MODELS
+    from agy_proxy.claude_helper import (
+        CLAUDE_RECOMMENDED_MODELS,
+        create_selective_mcp_config,
+        get_installed_mcp_servers,
+    )
+
+    target_cwd = os.environ.get("AGY_CALLER_CWD") or os.getcwd()
+
+    # If --list-mcp or --mcp list requested, display available servers and exit
+    if list_mcp or (mcp and mcp.strip().lower() in ("list", "?")):
+        servers = get_installed_mcp_servers(target_cwd)
+        console.print(Panel("[bold cyan]Installed Claude Code MCP Servers[/bold cyan]", border_style="blue"))
+        if not servers:
+            console.print("  [dim yellow]No MCP servers found in ~/.claude.json or .mcp.json[/dim yellow]\n")
+        else:
+            for s_name, s_conf in servers.items():
+                cmd_str = s_conf.get("command", "")
+                args_list = s_conf.get("args", [])
+                full_cmd = f"{cmd_str} {' '.join(str(a) for a in args_list)}".strip()
+                console.print(f"  • [bold green]{s_name}[/bold green]: [dim]{full_cmd}[/dim]")
+            console.print("\n[bold]Usage with agy-proxy claude:[/bold]")
+            s_first = list(servers.keys())[0]
+            console.print(f"  • agy-proxy claude --mcp {s_first}")
+            if len(servers) > 1:
+                console.print(f"  • agy-proxy claude --mcp \"{','.join(list(servers.keys())[:2])}\"")
+            console.print("  • agy-proxy claude --no-mcp  [dim](or --mcp none to save tokens)[/dim]\n")
+        return
 
     claude_bin = shutil.which("claude")
     if not claude_bin:
@@ -724,9 +844,12 @@ def handle_run_claude(
     proxy_url = (url or os.environ.get("ANTHROPIC_BASE_URL") or f"http://127.0.0.1:{port}").rstrip("/")
 
     # Normalize model prefix if simple name provided
-    target_model = model
-    if not target_model.startswith("anthropic.") and not target_model.startswith("claude-"):
-        target_model = f"anthropic.{target_model}"
+    if direct:
+        target_model = model if model != "anthropic.gemini-3.8-flash-high" else "claude-sonnet-4-6"
+    else:
+        target_model = model
+        if not target_model.startswith("anthropic.") and not target_model.startswith("claude-"):
+            target_model = f"anthropic.{target_model}"
 
     # Build available models for Claude Code model picker
     available_models = [
@@ -738,34 +861,86 @@ def handle_run_claude(
         "claude-sonnet-4-6",
         "claude-opus-4-6-thinking",
     ]
-    try:
-        req = urllib.request.Request(f"{proxy_url}/api/claude_code/settings", headers={"User-Agent": "agy-proxy-cli"})
-        with urllib.request.urlopen(req, timeout=1.0) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            if isinstance(data, dict) and "availableModels" in data and data["availableModels"]:
-                available_models = data["availableModels"]
-    except Exception:
-        for m in CLAUDE_RECOMMENDED_MODELS:
-            pref = f"anthropic.{m}" if not m.startswith("anthropic.") and not m.startswith("claude-") else m
-            if pref not in available_models:
-                available_models.append(pref)
+    if not direct:
+        try:
+            req = urllib.request.Request(f"{proxy_url}/api/claude_code/settings", headers={"User-Agent": "agy-proxy-cli"})
+            with urllib.request.urlopen(req, timeout=1.0) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                if isinstance(data, dict) and "availableModels" in data and data["availableModels"]:
+                    available_models = data["availableModels"]
+        except Exception:
+            for m in CLAUDE_RECOMMENDED_MODELS:
+                pref = f"anthropic.{m}" if not m.startswith("anthropic.") and not m.startswith("claude-") else m
+                if pref not in available_models:
+                    available_models.append(pref)
 
-    settings_dict = {
-        "availableModels": available_models,
-        "autoUpdaterStatus": "disabled",
-    }
+    is_gemini = "gemini" in target_model.lower()
+    default_max_ctx = "1000000" if is_gemini else "200000"
+    default_compact = 800000 if is_gemini else 160000
+
+    model_settings = {}
+    for m in available_models:
+        m_compact = 800000 if "gemini" in m.lower() else 160000
+        model_settings[m] = {"autoCompactWindow": m_compact}
+
+    settings_dict = {}
+    if not direct:
+        settings_dict["availableModels"] = available_models
+        settings_dict["autoCompactWindow"] = default_compact
+        settings_dict["modelSettings"] = model_settings
+
     settings_json = json.dumps(settings_dict)
 
-    cmd = [
-        claude_bin,
-        "--settings", settings_json,
-    ]
+    # Process extra_args (strip leading '--' delimiter if user used it to pass arguments to claude)
+    forwarded_args = list(extra_args or [])
+    if forwarded_args and forwarded_args[0] == "--":
+        forwarded_args = forwarded_args[1:]
 
-    has_model_arg = False
-    has_danger_arg = False
-    if extra_args:
-        has_model_arg = any(arg == "--model" or arg.startswith("--model=") for arg in extra_args)
-        has_danger_arg = any(arg == "--dangerously-skip-permissions" for arg in extra_args)
+    has_extra_danger_arg = any(arg in ("--extra-danger", "--nuclear", "--unattended") for arg in forwarded_args)
+    if has_extra_danger_arg:
+        forwarded_args = [arg for arg in forwarded_args if arg not in ("--extra-danger", "--nuclear", "--unattended")]
+
+    has_strict_mcp = any(arg == "--strict-mcp-config" for arg in forwarded_args)
+    has_mcp_config = any(arg == "--mcp-config" or arg.startswith("--mcp-config=") for arg in forwarded_args)
+    has_model_arg = any(arg == "--model" or arg.startswith("--model=") for arg in forwarded_args)
+    has_danger_arg = any(arg == "--dangerously-skip-permissions" for arg in forwarded_args)
+    is_print_mode = any(arg in ("-p", "--print") or arg.startswith("-p=") or arg.startswith("--print=") for arg in forwarded_args)
+
+    temp_mcp_file = None
+    selective_matched = []
+    selective_missing = []
+    mcp_mode = None  # None, "all", "none", "selective"
+
+    if mcp:
+        mcp_clean = mcp.strip().lower()
+        if mcp_clean in ("none", "false", "0"):
+            mcp_mode = "none"
+        elif mcp_clean in ("all", "*"):
+            mcp_mode = "all"
+        else:
+            mcp_mode = "selective"
+            temp_mcp_file, selective_matched, selective_missing = create_selective_mcp_config(mcp, cwd=target_cwd)
+            if selective_missing:
+                all_installed = list(get_installed_mcp_servers(target_cwd).keys())
+                console.print(f"[bold yellow]Warning:[/bold yellow] MCP server(s) [bold]{', '.join(selective_missing)}[/bold] not found in ~/.claude.json or .mcp.json.")
+                if all_installed:
+                    console.print(f"[dim]Available MCP servers: {', '.join(all_installed)}[/dim]")
+    elif no_mcp or bool(os.environ.get("AGY_CLAUDE_NO_MCP")):
+        mcp_mode = "none"
+
+    cmd = [claude_bin]
+
+    # Add selective or strict MCP configuration before --settings to prevent Commander parsing ambiguity
+    if mcp_mode == "selective":
+        if temp_mcp_file and not has_mcp_config:
+            cmd.extend(["--strict-mcp-config", "--mcp-config", temp_mcp_file])
+        elif not has_strict_mcp:
+            cmd.append("--strict-mcp-config")
+    elif mcp_mode == "none":
+        if not has_strict_mcp:
+            cmd.append("--strict-mcp-config")
+
+    cmd.extend(["--settings", settings_json])
 
     if not has_model_arg and target_model:
         cmd.extend(["--model", target_model])
@@ -773,35 +948,71 @@ def handle_run_claude(
     if danger and not has_danger_arg:
         cmd.append("--dangerously-skip-permissions")
 
-    if extra_args:
-        cmd.extend(extra_args)
+    if forwarded_args:
+        cmd.extend(forwarded_args)
 
     env = dict(os.environ)
-    env.pop("ANTHROPIC_API_KEY", None)
-    env["ANTHROPIC_AUTH_TOKEN"] = "agy-proxy-token"
-    env["ANTHROPIC_BASE_URL"] = proxy_url
-    env["ANTHROPIC_MODEL"] = target_model
-    env["ANTHROPIC_SMALL_FAST_MODEL"] = target_model
+    if direct:
+        env.pop("ANTHROPIC_BASE_URL", None)
+    else:
+        env.pop("ANTHROPIC_API_KEY", None)
+        env["ANTHROPIC_AUTH_TOKEN"] = "agy-proxy-token"
+        env["ANTHROPIC_BASE_URL"] = proxy_url
+        env["ANTHROPIC_MODEL"] = target_model
+        env["ANTHROPIC_SMALL_FAST_MODEL"] = target_model
+        env["CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY"] = "1"
+        env["CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT"] = "1"
+        env["CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS"] = "1"
+
     env["DISABLE_TELEMETRY"] = "1"
     env["DISABLE_ERROR_REPORTING"] = "1"
     env["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] = "1"
-    env["CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY"] = "1"
-    env["CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT"] = "1"
-    env["CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS"] = "1"
+    env["CLAUDE_CODE_MCP_SKIP_UNCHANGED_RELIST"] = "1"
+    if extra_danger or has_extra_danger_arg or os.environ.get("CLAUDE_CODE_EVEN_MORE_DANGEROUSLY_SKIP_PERMISSIONS") == "1":
+        env["CLAUDE_CODE_EVEN_MORE_DANGEROUSLY_SKIP_PERMISSIONS"] = "1"
     if "CLAUDE_CODE_MAX_CONTEXT_TOKENS" not in env:
-        env["CLAUDE_CODE_MAX_CONTEXT_TOKENS"] = "200000"
+        env["CLAUDE_CODE_MAX_CONTEXT_TOKENS"] = default_max_ctx
+    if "CLAUDE_CODE_AUTO_COMPACT_WINDOW" not in env:
+        env["CLAUDE_CODE_AUTO_COMPACT_WINDOW"] = str(default_compact)
 
-    target_cwd = os.environ.get("AGY_CALLER_CWD") or os.getcwd()
-
-    console.print("[bold cyan]Launching Claude Code CLI (Ephemeral Mode - Zero Config Changes):[/bold cyan]")
-    console.print(f"  • Proxy URL: [bold green]{proxy_url}[/bold green]")
-    console.print(f"  • Model:     [bold green]{target_model}[/bold green]")
-    console.print(f"  • Directory: [dim]{target_cwd}[/dim]\n")
+    out_console = Console(stderr=True) if is_print_mode else console
+    if direct:
+        out_console.print("[bold cyan]Launching Claude Code CLI (Official Direct Mode - Debloated & Telemetry-Free):[/bold cyan]")
+        out_console.print("  • Endpoint:        [bold green]api.anthropic.com (Direct)[/bold green]")
+        out_console.print(f"  • Model:           [bold green]{target_model}[/bold green]")
+        out_console.print("  • Telemetry:       [bold green]Disabled[/bold green]")
+        out_console.print("  • Remote Nudges:   [bold green]Blocked (CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1)[/bold green]")
+    else:
+        out_console.print("[bold cyan]Launching Claude Code CLI (Ephemeral Mode - Zero Config Changes):[/bold cyan]")
+        out_console.print(f"  • Proxy URL:       [bold green]{proxy_url}[/bold green]")
+        out_console.print(f"  • Model:           [bold green]{target_model}[/bold green]")
+        out_console.print(f"  • Context Window:  [bold green]{default_max_ctx} tokens[/bold green]")
+        out_console.print(f"  • Auto-Compact At: [bold green]{default_compact} tokens[/bold green]")
+    if mcp_mode == "selective":
+        if selective_matched:
+            out_console.print(f"  • MCP Servers:     [bold green]Selective ({', '.join(selective_matched)})[/bold green]")
+        else:
+            out_console.print("  • MCP Servers:     [yellow]Disabled (no matching servers found)[/yellow]")
+    elif mcp_mode == "none" or has_strict_mcp:
+        out_console.print("  • MCP Servers:     [yellow]Disabled (--strict-mcp-config)[/yellow]")
+    else:
+        out_console.print("  • MCP Servers:     [dim]All enabled (~/.claude.json)[/dim]")
+    if extra_danger or has_extra_danger_arg:
+        out_console.print("  • Permissions:     [bold red]Nuclear / Full Unattended (--extra-danger, rm-prompts suppressed)[/bold red]")
+    elif danger or has_danger_arg:
+        out_console.print("  • Permissions:     [bold yellow]Auto-Approve (--dangerously-skip-permissions, rm-safety active)[/bold yellow]")
+    out_console.print(f"  • Directory:       [dim]{target_cwd}[/dim]\n")
 
     try:
         subprocess.run(cmd, env=env, cwd=target_cwd)
     except KeyboardInterrupt:
         pass
+    finally:
+        if temp_mcp_file and os.path.exists(temp_mcp_file):
+            try:
+                os.remove(temp_mcp_file)
+            except OSError:
+                pass
 
 
 def handle_run_codex(port: int = 8000, model: str = "gemini-3.8-flash-high", extra_args: list = None):
@@ -1057,7 +1268,7 @@ def handle_service_command(args: argparse.Namespace) -> None:
 
 
 def handle_patch_command(args: argparse.Namespace) -> None:
-    """Command for managing Antigravity language_server desktop patching."""
+    """Command for managing Antigravity language_server desktop patching, AutoGuard, and launcher."""
     from agy_proxy.patcher import LanguageServerPatcher
 
     action = getattr(args, "patch_action", None) or "status"
@@ -1141,6 +1352,375 @@ def handle_patch_command(args: argparse.Namespace) -> None:
             title="[bold white]Antigravity Language Server Desktop Patch Status[/bold white]",
             border_style="cyan",
         ))
+
+    elif action == "guard":
+        from agy_proxy.patcher import AutoGuard
+        guard = AutoGuard(target_path=target, proxy_url=proxy_url)
+        if getattr(args, "loop", False):
+            interval = getattr(args, "interval", 10)
+            console.print(f"[bold cyan]🛡️ Starting AutoGuard loop (interval: {interval}s)...[/bold cyan]")
+            import time
+            while True:
+                res = guard.check_and_repair()
+                if res.get("repaired"):
+                    console.print(f"[bold green]✓ AutoGuard repaired patch: {res.get('reason')}[/bold green]")
+                time.sleep(interval)
+        elif getattr(args, "start", False):
+            res = guard.start_daemon(interval_seconds=getattr(args, "interval", 10))
+            console.print(f"[bold green]{res.get('message')}[/bold green]")
+        elif getattr(args, "stop", False):
+            res = guard.stop_daemon()
+            console.print(f"[bold yellow]{res.get('message')}[/bold yellow]")
+        elif getattr(args, "status", False):
+            running, pid = guard.is_running()
+            st = f"[bold green]RUNNING[/bold green] (PID {pid})" if running else "[dim red]STOPPED[/dim red]"
+            console.print(f"AutoGuard daemon status: {st}")
+        else:
+            console.print("[cyan]Running AutoGuard inspection and repair check...[/cyan]")
+            res = guard.check_and_repair()
+            if res.get("repaired"):
+                console.print(f"[bold green]✓ Repaired: {res.get('reason')}[/bold green]")
+            else:
+                console.print(f"[bold green]✓ Everything healthy: {res.get('status', 'ok')}[/bold green]")
+
+    elif action == "launcher":
+        from agy_proxy.patcher import DesktopLauncher
+        launcher = DesktopLauncher(proxy_url=proxy_url)
+        if getattr(args, "install", False):
+            res = launcher.install()
+            console.print("[bold green]✓ Non-destructive launcher installed successfully![/bold green]")
+            console.print(f"  • Desktop File: {res.get('desktop_file')}")
+            console.print(f"  • CLI Wrapper:  {res.get('cli_wrapper')}")
+        elif getattr(args, "uninstall", False):
+            res = launcher.uninstall()
+            console.print(f"[bold yellow]✓ Removed: {', '.join(res.get('removed', []))}[/bold yellow]")
+        else:
+            st = launcher.status()
+            cli_st = "[bold green]INSTALLED[/bold green]" if st.get("cli_wrapper_installed") else "[dim]NOT INSTALLED[/dim]"
+            desk_st = "[bold green]INSTALLED[/bold green]" if st.get("desktop_file_installed") else "[dim]NOT INSTALLED[/dim]"
+            console.print(Panel(
+                f"[bold cyan]Desktop Launcher Override:[/bold cyan] {desk_st} ({st.get('desktop_file_path')})\n"
+                f"[bold cyan]CLI Wrapper (~/.local/bin):[/bold cyan] {cli_st} ({st.get('cli_wrapper_path')})\n"
+                f"[bold cyan]Proxy Route Target:[/bold cyan] {st.get('proxy_url')}",
+                title="[bold white]Non-Destructive Launcher Status[/bold white]",
+                border_style="cyan",
+            ))
+
+
+def handle_cache_command(args: argparse.Namespace) -> None:
+    """Handles cache inspection and deep cleaning for Antigravity IDE and agy-proxy."""
+    from agy_proxy.cleaner import cache_cleaner
+    action = getattr(args, "cache_action", "status") or "status"
+
+    if action in ("status", "summary", "list"):
+        summary = cache_cleaner.get_cache_summary()
+        table = Table(title="[bold white]Antigravity IDE & System Cache Bloat[/bold white]", box=None, padding=(0, 1), expand=True)
+        table.add_column("Category", style="bold cyan")
+        table.add_column("Path", style="dim")
+        table.add_column("Files", justify="right", style="yellow")
+        table.add_column("Size", justify="right", style="bold green")
+
+        for key, cat in summary.get("categories", {}).items():
+            label = key.replace("_", " ").title()
+            p = cat.get("path") or "[multiple paths]"
+            table.add_row(label, str(p), f"{cat.get('files', 0):,}", cat.get("formatted", "0 B"))
+
+        console.print(table)
+        console.print(f"\n[bold white]Total Cache Bloat:[/bold white] [bold red]{summary.get('total_formatted', '0 B')}[/bold red] across [yellow]{summary.get('total_files', 0):,}[/yellow] files.")
+        console.print("[dim]Run 'agy-proxy cache clean' to safely purge checkpoints, logs, and GPU/Shader bloat.[/dim]")
+
+    elif action == "clean":
+        category = getattr(args, "category", None)
+        categories = [category] if category else None
+        console.print("[cyan]🧹 Deep cleaning Antigravity cache...[/cyan]")
+        res = cache_cleaner.clean_cache(categories=categories)
+        if res.get("success"):
+            console.print("[bold green]✓ Cleaned successfully![/bold green]")
+            console.print(f"  • Space Freed: [bold green]{res.get('freed_formatted')}[/bold green]")
+            console.print(f"  • Files Removed: [yellow]{res.get('deleted_files')}[/yellow]")
+            console.print(f"  • Directories Purged: [yellow]{res.get('deleted_dirs')}[/yellow]")
+            if res.get("errors"):
+                for err in res["errors"]:
+                    console.print(f"  [dim yellow]⚠️ {err}[/dim yellow]")
+        else:
+            console.print(f"[bold red]❌ Failed to clean cache: {res.get('errors')}[/bold red]")
+
+
+def handle_ide_command(args: argparse.Namespace) -> None:
+    """Handles Antigravity IDE companion extension management."""
+    from agy_proxy.extension import get_extension_status, install_ide_extension, uninstall_ide_extension
+    action = getattr(args, "ide_action", "status") or "status"
+
+    if action == "status":
+        st = get_extension_status()
+        inst_badge = "[bold green]INSTALLED[/bold green]" if st.get("installed") else "[bold yellow]NOT INSTALLED[/bold yellow]"
+        dirs_str = "\n".join([f"  • {p}" for p in st.get("candidate_dirs", [])])
+        console.print(Panel(
+            f"[bold cyan]Companion Status:[/bold cyan] {inst_badge}\n"
+            f"[bold cyan]Installed Paths:[/bold cyan] {', '.join(st.get('installed_paths', [])) or 'None'}\n"
+            f"[bold cyan]Target Extension Dirs:[/bold cyan]\n{dirs_str}\n\n"
+            f"[dim]The companion extension adds real-time Quota % and Runway directly to the Antigravity status bar.[/dim]",
+            title="[bold white]Antigravity IDE Companion Extension Status[/bold white]",
+            border_style="cyan",
+        ))
+
+    elif action in ("install", "install-extension"):
+        console.print("[cyan]Installing agy-proxy Companion Extension into Antigravity IDE...[/cyan]")
+        res = install_ide_extension()
+        if res.get("success"):
+            console.print("[bold green]✓ Extension successfully installed![/bold green]")
+            for p in res.get("installed_to", []):
+                console.print(f"  • Installed to: [cyan]{p}[/cyan]")
+            console.print("[dim]Restart or reload Antigravity IDE to view the status-bar widget.[/dim]")
+        else:
+            console.print(f"[bold red]❌ Installation failed: {res.get('error')}[/bold red]")
+
+    elif action in ("uninstall", "uninstall-extension"):
+        console.print("[yellow]Uninstalling agy-proxy Companion Extension...[/yellow]")
+        res = uninstall_ide_extension()
+        if res.get("success"):
+            console.print(f"[bold green]✓ Removed from {len(res.get('removed_from', []))} directory(s).[/bold green]")
+        else:
+            console.print(f"[bold red]❌ Uninstallation failed: {res.get('error')}[/bold red]")
+
+
+def handle_tunnel_command(args: argparse.Namespace) -> None:
+    """Handles Remote SSH reverse tunneling commands."""
+    from agy_proxy.tunnel import tunnel_manager
+    action = getattr(args, "tunnel_action", "status") or "status"
+
+    if action == "status":
+        st = tunnel_manager.get_status()
+        tunnels = st.get("active_tunnels", {})
+        hosts = st.get("configured_hosts", [])
+        lines = [
+            f"[bold cyan]SSH Config File:[/bold cyan] {st.get('ssh_config_path')}",
+            f"[bold cyan]Configured RemoteForward Hosts:[/bold cyan] {', '.join(hosts) if hosts else 'None'}",
+            f"[bold cyan]Active Background Tunnels:[/bold cyan] {len(tunnels)} active",
+        ]
+        for target, info in tunnels.items():
+            lines.append(f"  • Target: [bold green]{target}[/bold green] (PID {info.get('pid')})")
+        console.print(Panel(
+            "\n".join(lines),
+            title="[bold white]Remote SSH Reverse Tunnel Status[/bold white]",
+            border_style="cyan",
+        ))
+
+    elif action in ("config", "configure"):
+        host = getattr(args, "host", None)
+        if not host:
+            console.print("[bold red]Please specify host or pattern (e.g. 'agy-proxy tunnel config dev-server')[/bold red]")
+            sys.exit(1)
+        r_port = getattr(args, "remote_port", 8000)
+        l_port = getattr(args, "local_port", 8000)
+        res = tunnel_manager.configure_ssh_host(host, remote_port=r_port, local_port=l_port)
+        if res.get("success"):
+            console.print(f"[bold green]✓ {res.get('message')}[/bold green]")
+            console.print(f"  Directive: [cyan]{res.get('directive')}[/cyan]")
+        else:
+            console.print(f"[bold red]❌ Failed: {res.get('error')}[/bold red]")
+
+    elif action in ("connect", "start"):
+        target = getattr(args, "target", None)
+        if not target:
+            console.print("[bold red]Please specify SSH target (e.g. 'agy-proxy tunnel connect user@server')[/bold red]")
+            sys.exit(1)
+        r_port = getattr(args, "remote_port", 8000)
+        l_port = getattr(args, "local_port", 8000)
+        res = tunnel_manager.start_tunnel(target, remote_port=r_port, local_port=l_port)
+        if res.get("success"):
+            console.print(f"[bold green]✓ {res.get('message')}[/bold green]")
+            console.print(f"  Forwarding: remote port {r_port} -> local proxy port {l_port}")
+        else:
+            console.print(f"[bold red]❌ Failed: {res.get('error')}[/bold red]")
+
+    elif action in ("stop", "disconnect"):
+        target = getattr(args, "target", None)
+        if not target:
+            console.print("[bold red]Please specify target to stop tunnel for[/bold red]")
+            sys.exit(1)
+        res = tunnel_manager.stop_tunnel(target)
+        if res.get("success"):
+            console.print(f"[bold green]✓ {res.get('message')}[/bold green]")
+        else:
+            console.print(f"[bold red]❌ {res.get('error')}[/bold red]")
+
+    elif action == "snippet":
+        port = getattr(args, "remote_port", 8000)
+        snippet = tunnel_manager.get_remote_setup_snippet(remote_port=port)
+        console.print(snippet)
+
+
+def handle_providers_command(args: argparse.Namespace) -> None:
+    """Handles external providers subcommands: list, add, test, discover, toggle, routing."""
+    from agy_proxy.providers import (
+        external_provider_manager,
+        ExternalProviderConfig,
+        DEFAULT_PROVIDER_PRESETS,
+    )
+    action = getattr(args, "provider_action", "list") or "list"
+
+    if action == "list":
+        table = Table(title="[bold white]Configured External LLM Providers[/bold white]", box=None, padding=(0, 1), expand=True)
+        table.add_column("Provider ID", style="bold cyan")
+        table.add_column("Name", style="bold white")
+        table.add_column("Type", style="yellow")
+        table.add_column("Base URL", style="blue")
+        table.add_column("Status", justify="center")
+        table.add_column("Active Models", justify="right", style="green")
+
+        for p_id, p in external_provider_manager.providers.items():
+            status_badge = "[bold green]ENABLED[/bold green]" if p.enabled else "[dim red]DISABLED[/dim red]"
+            active_m = len([m for m in p.models if m.enabled])
+            table.add_row(p.id, p.name, p.provider_type, p.base_url, status_badge, str(active_m))
+
+        console.print(table)
+        console.print()
+
+        active_models = external_provider_manager.get_all_active_models()
+        if active_models:
+            m_table = Table(title="[bold white]Registered External Models (Available in Antigravity IDE & API)[/bold white]", box=None, padding=(0, 1), expand=True)
+            m_table.add_column("Model Identifier", style="bold green")
+            m_table.add_column("Display Name", style="white")
+            m_table.add_column("Provider", style="cyan")
+            m_table.add_column("Context Window", justify="right", style="yellow")
+            m_table.add_column("Thinking", justify="center")
+            m_table.add_column("Fallback", justify="center")
+
+            for m in active_models:
+                m_table.add_row(
+                    m["id"],
+                    m["display_name"],
+                    m["provider_name"],
+                    f"{m['context_window']:,}",
+                    "✓" if m.get("supports_thinking") else "-",
+                    "✓" if m.get("is_fallback") else "-",
+                )
+            console.print(m_table)
+        else:
+            console.print("[dim yellow]No external models active. Enable a provider via 'agy-proxy providers toggle <id>'[/dim yellow]")
+
+        rs = external_provider_manager.routing_settings
+        fb_status = f"[bold green]ENABLED[/bold green] (Fallback to: [cyan]{rs.fallback_model or 'None'}[/cyan])" if rs.auto_failover_enabled else "[dim red]DISABLED[/dim red]"
+        console.print(f"\n[bold]Auto-Failover on 429 Quota Exhaustion:[/bold] {fb_status}")
+
+    elif action == "test":
+        target = getattr(args, "target", None)
+        if not target:
+            console.print("[bold red]Please specify provider ID to test (e.g. 'agy-proxy providers test ollama')[/bold red]")
+            sys.exit(1)
+        cfg = external_provider_manager.providers.get(target)
+        if not cfg:
+            console.print(f"[bold red]Provider '{target}' not found.[/bold red]")
+            sys.exit(1)
+
+        instance = external_provider_manager.get_provider_instance(target)
+        if not instance:
+            from agy_proxy.providers.manager import _create_provider_instance
+            instance = _create_provider_instance(cfg)
+
+        console.print(f"[cyan]Testing connection to [bold]{cfg.name}[/bold] ({cfg.base_url})...[/cyan]")
+        res = asyncio.run(instance.test_connection())
+        if res.get("ok"):
+            console.print(f"[bold green]✓ {res.get('message')}[/bold green]")
+        else:
+            console.print(f"[bold red]❌ {res.get('message')}[/bold red]")
+
+    elif action == "discover":
+        target = getattr(args, "target", "ollama") or "ollama"
+        cfg = external_provider_manager.providers.get(target)
+        if not cfg:
+            console.print(f"[bold red]Provider '{target}' not found.[/bold red]")
+            sys.exit(1)
+
+        instance = external_provider_manager.get_provider_instance(target)
+        if not instance:
+            from agy_proxy.providers.manager import _create_provider_instance
+            instance = _create_provider_instance(cfg)
+
+        console.print(f"[cyan]Discovering models from [bold]{cfg.name}[/bold]...[/cyan]")
+        discovered = asyncio.run(instance.discover_models())
+        if discovered:
+            existing_ids = {m.id for m in cfg.models}
+            added = 0
+            for d in discovered:
+                if d.id not in existing_ids:
+                    cfg.models.append(d)
+                    added += 1
+            external_provider_manager.save()
+            console.print(f"[bold green]✓ Discovered {len(discovered)} model(s), added {added} new model(s) to '{cfg.name}' catalog![/bold green]")
+            for d in discovered:
+                console.print(f"  • [bold white]{d.id}[/bold white] - {d.display_name}")
+        else:
+            console.print(f"[bold yellow]⚠️ No models discovered from '{cfg.name}'. Ensure the service is running and accessible.[/bold yellow]")
+
+    elif action == "toggle":
+        target = getattr(args, "target", None)
+        if not target:
+            console.print("[bold red]Please specify provider ID to toggle (e.g. 'agy-proxy providers toggle ollama')[/bold red]")
+            sys.exit(1)
+        success = external_provider_manager.toggle_provider(target)
+        if success:
+            st = "[bold green]ENABLED[/bold green]" if external_provider_manager.providers[target].enabled else "[dim red]DISABLED[/dim red]"
+            console.print(f"Provider [bold cyan]{target}[/bold cyan] is now {st}.")
+        else:
+            console.print(f"[bold red]Provider '{target}' not found.[/bold red]")
+
+    elif action == "add":
+        preset_key = getattr(args, "preset", None)
+        if preset_key and preset_key in DEFAULT_PROVIDER_PRESETS:
+            cfg_dict = dict(DEFAULT_PROVIDER_PRESETS[preset_key])
+            if getattr(args, "url", None):
+                cfg_dict["base_url"] = args.url
+            if getattr(args, "key", None):
+                cfg_dict["api_key"] = args.key
+            cfg_dict["enabled"] = True
+            cfg = ExternalProviderConfig(**cfg_dict)
+            external_provider_manager.add_or_update_provider(cfg)
+            console.print(f"[bold green]✓ Added provider from preset '{preset_key}':[/bold green] [cyan]{cfg.name}[/cyan] ({cfg.base_url})")
+        else:
+            pid = getattr(args, "id", None) or getattr(args, "target", None)
+            if not pid:
+                console.print("[bold red]Please specify provider ID or use --preset (ollama, openrouter, deepseek, groq, nvidia)[/bold red]")
+                sys.exit(1)
+            url = getattr(args, "url", None)
+            if not url:
+                console.print("[bold red]Please specify --url for the provider endpoint[/bold red]")
+                sys.exit(1)
+            cfg = ExternalProviderConfig(
+                id=pid,
+                name=getattr(args, "name", pid) or pid,
+                provider_type=getattr(args, "type", "openai_compatible") or "openai_compatible",
+                base_url=url,
+                api_key=getattr(args, "key", None),
+                enabled=True,
+            )
+            external_provider_manager.add_or_update_provider(cfg)
+            console.print(f"[bold green]✓ Added custom provider:[/bold green] [cyan]{cfg.name}[/cyan] ({cfg.base_url})")
+
+    elif action == "routing":
+        enable_failover = getattr(args, "enable_failover", None)
+        disable_failover = getattr(args, "disable_failover", False)
+        fallback_model = getattr(args, "fallback_model", None)
+
+        if disable_failover:
+            external_provider_manager.routing_settings.auto_failover_enabled = False
+            external_provider_manager.save()
+            console.print("[bold yellow]Auto-failover disabled.[/bold yellow]")
+        elif enable_failover:
+            external_provider_manager.routing_settings.auto_failover_enabled = True
+            if fallback_model:
+                external_provider_manager.routing_settings.fallback_model = fallback_model
+            external_provider_manager.save()
+            console.print(f"[bold green]Auto-failover enabled with fallback model:[/bold green] [cyan]{external_provider_manager.routing_settings.fallback_model}[/cyan]")
+        elif fallback_model:
+            external_provider_manager.routing_settings.fallback_model = fallback_model
+            external_provider_manager.save()
+            console.print(f"[bold green]Fallback model set to:[/bold green] [cyan]{fallback_model}[/cyan]")
+        else:
+            rs = external_provider_manager.routing_settings
+            console.print(f"[bold cyan]Auto-Failover Enabled:[/bold cyan] {rs.auto_failover_enabled}")
+            console.print(f"[bold cyan]Fallback Model:[/bold cyan] {rs.fallback_model or 'None'}")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -1254,6 +1834,7 @@ def build_parser() -> argparse.ArgumentParser:
     setup_claude_p.add_argument("--port", "-p", type=int, default=8000, help="Proxy server port (default: 8000)")
     setup_claude_p.add_argument("--url", type=str, default=None, help="Custom proxy base URL (e.g. http://127.0.0.1:8000)")
     setup_claude_p.add_argument("--model", "-m", type=str, default="anthropic.gemini-3.8-flash-high", help="Default model (default: anthropic.gemini-3.8-flash-high)")
+    setup_claude_p.add_argument("--direct", action="store_true", help="Configure Claude Code for direct official Anthropic API with telemetry disabled & debloated settings")
 
     # restore-claude subcommand (agy-proxy restore-claude)
     subparsers.add_parser(
@@ -1261,6 +1842,19 @@ def build_parser() -> argparse.ArgumentParser:
         aliases=["claude-restore"],
         help="Restore original Claude Code CLI settings.json from backup",
     )
+
+    # patch-claude subcommand (agy-proxy patch-claude [status|apply|restore|debloat])
+    claude_patch_p = subparsers.add_parser(
+        "patch-claude",
+        aliases=["claude-patch"],
+        help="Inspect, debloat, and patch Claude Code binary to remove hardcoded negative prompt restrictions and tips",
+    )
+    claude_patch_p.add_argument("action", nargs="?", default="status", choices=["status", "apply", "patch", "restore", "unpatch", "debloat"], help="Action to perform (default: status)")
+    claude_patch_p.add_argument("-t", "--target", "--bin", dest="target", default=None, help="Explicit path to claude binary or directory")
+    claude_patch_p.add_argument("--restore", action="store_true", help="Restore original claude binary from backup")
+    claude_patch_p.add_argument("--apply", action="store_true", help="Apply prompt restriction removal patch to claude binary")
+    claude_patch_p.add_argument("--debloat-only", action="store_true", help="Only apply ~/.claude.json debloating without modifying binary")
+    claude_patch_p.add_argument("--direct", action="store_true", help="Also configure ~/.claude/settings.json for direct official Anthropic use")
 
     # claude ephemeral runner (agy-proxy claude)
     claude_run_p = subparsers.add_parser(
@@ -1271,7 +1865,35 @@ def build_parser() -> argparse.ArgumentParser:
     claude_run_p.add_argument("--port", type=int, default=8000, help="Proxy server port (default: 8000)")
     claude_run_p.add_argument("--url", type=str, default=None, help="Custom proxy base URL (e.g. http://127.0.0.1:8000)")
     claude_run_p.add_argument("--model", "-m", type=str, default="anthropic.gemini-3.8-flash-high", help="Model to use (default: anthropic.gemini-3.8-flash-high)")
-    claude_run_p.add_argument("--danger", "--dangerously-skip-permissions", dest="danger", action="store_true", help="Auto-approve actions without permission prompts")
+    claude_run_p.add_argument(
+        "--direct",
+        "--official",
+        "--vanilla",
+        dest="direct",
+        action="store_true",
+        help="Launch Claude Code directly with official Anthropic API (bypassing agy-proxy) with telemetry disabled and remote nudges blocked",
+    )
+    claude_run_p.add_argument(
+        "--danger",
+        "--dangerously-skip-permissions",
+        "--bypass",
+        "--bypass-permissions",
+        "--yolo",
+        dest="danger",
+        action="store_true",
+        help="Auto-approve routine actions without permission prompts (preserves confirmation for destructive rm -rf commands)",
+    )
+    claude_run_p.add_argument(
+        "--extra-danger",
+        "--nuclear",
+        dest="extra_danger",
+        action="store_true",
+        help="Optional: suppress confirmation prompts even for destructive operations (rm -rf, git reset) via CLAUDE_CODE_EVEN_MORE_DANGEROUSLY_SKIP_PERMISSIONS",
+    )
+    claude_run_p.add_argument("--no-mcp", dest="no_mcp", action="store_true", help="Launch without loading external MCP servers from ~/.claude.json (saves ~90k tokens)")
+    claude_run_p.add_argument("--mcp", type=str, default=None, help="Selectively enable specific MCP servers by name (comma-separated, e.g. '--mcp rea' or '--mcp fast-browser,rea', 'none' to disable, 'all' for all)")
+    claude_run_p.add_argument("--list-mcp", action="store_true", help="List installed MCP servers and exit")
+    claude_run_p.epilog = "Note: All unrecognized options, flags, prompts, and subcommands (e.g. -p, -c, --resume, --verbose, mcp, agents) are passed directly to Claude Code CLI."
 
     # setup-codex subcommand (agy-proxy setup-codex)
     setup_codex_p = subparsers.add_parser(
@@ -1387,6 +2009,19 @@ def build_parser() -> argparse.ArgumentParser:
     p_re.add_argument("-f", "--file", "--path", "--ls-path", dest="ls_path", default=None, help="Path to language_server binary or directory")
     p_re.add_argument("-e", "--editor", default=None, help="Path to editor installation directory")
 
+    p_guard = patch_sub.add_parser("guard", help="Auto-Guard daemon preventing patch decay from IDE updates")
+    p_guard.add_argument("--loop", action="store_true", help="Run in continuous monitoring loop")
+    p_guard.add_argument("--interval", type=int, default=10, help="Check interval in seconds (default: 10)")
+    p_guard.add_argument("--check", action="store_true", help="One-shot check and repair")
+    p_guard.add_argument("--status", action="store_true", help="Show Auto-Guard daemon status")
+    p_guard.add_argument("--start", action="store_true", help="Start background daemon")
+    p_guard.add_argument("--stop", action="store_true", help="Stop background daemon")
+
+    p_launch = patch_sub.add_parser("launcher", help="Non-destructive desktop launcher override")
+    p_launch.add_argument("--install", action="store_true", help="Install desktop launcher and CLI wrapper")
+    p_launch.add_argument("--uninstall", action="store_true", help="Remove desktop launcher and CLI wrapper")
+    p_launch.add_argument("--status", action="store_true", help="Show launcher status")
+
     # config subcommand (agy-proxy config [get|set|list|reset])
     config_parser = subparsers.add_parser("config", help="Manage persistent user configuration (e.g. language_server and editor paths)")
     config_sub = config_parser.add_subparsers(dest="config_action", help="Config action")
@@ -1416,6 +2051,71 @@ def build_parser() -> argparse.ArgumentParser:
     service_sub.add_parser("start", help="Start background service")
     service_sub.add_parser("stop", help="Stop background service")
     service_sub.add_parser("restart", help="Restart background service")
+
+    # providers subcommand (agy-proxy providers [list|add|test|discover|toggle|routing])
+    prov_parser = subparsers.add_parser(
+        "providers",
+        aliases=["provider"],
+        help="Manage external LLM providers (OpenRouter, Ollama, DeepSeek, Groq, NVIDIA NIM)",
+    )
+    prov_sub = prov_parser.add_subparsers(dest="provider_action", help="Provider action")
+    prov_sub.add_parser("list", help="List all external providers and active models")
+
+    p_add = prov_sub.add_parser("add", help="Add or update an external provider")
+    p_add.add_argument("target", nargs="?", default=None, help="Provider ID or preset name")
+    p_add.add_argument("--preset", choices=["ollama", "openrouter", "deepseek", "groq", "nvidia"], help="Use 1-click preset configuration")
+    p_add.add_argument("--url", help="API base URL")
+    p_add.add_argument("--key", help="API key")
+    p_add.add_argument("--name", help="Display name")
+    p_add.add_argument("--type", default="openai_compatible", help="Provider type")
+
+    p_test = prov_sub.add_parser("test", help="Test provider connectivity and measure latency")
+    p_test.add_argument("target", help="Provider ID to test (e.g. ollama, openrouter)")
+
+    p_disc = prov_sub.add_parser("discover", help="Auto-discover models from Ollama or OpenRouter")
+    p_disc.add_argument("target", nargs="?", default="ollama", help="Provider ID (default: ollama)")
+
+    p_tog = prov_sub.add_parser("toggle", help="Enable or disable an external provider")
+    p_tog.add_argument("target", help="Provider ID to toggle")
+
+    p_rout = prov_sub.add_parser("routing", help="View or set auto-failover routing settings")
+    p_rout.add_argument("--enable-failover", action="store_true", help="Enable auto-failover on Google 429 quota limits")
+    p_rout.add_argument("--disable-failover", action="store_true", help="Disable auto-failover")
+    p_rout.add_argument("--fallback-model", help="Fallback model identifier (e.g. 'ollama/qwen2.5-coder:latest')")
+
+    # cache subcommand
+    cache_parser = subparsers.add_parser("cache", help="Inspect and deep clean Antigravity IDE and brain cache bloat")
+    cache_sub = cache_parser.add_subparsers(dest="cache_action", help="Cache action")
+    cache_sub.add_parser("status", aliases=["summary", "list"], help="Show cache bloat summary")
+    c_clean = cache_sub.add_parser("clean", help="Deep purge checkpoints, logs, and GPU/Shader cache")
+    c_clean.add_argument("--category", choices=["brain", "presence", "daemon", "crashes", "electron_cache"], help="Clean only specified category")
+
+    # ide subcommand
+    ide_parser = subparsers.add_parser("ide", help="Manage Antigravity IDE companion extension and status bar widget")
+    ide_sub = ide_parser.add_subparsers(dest="ide_action", help="IDE action")
+    ide_sub.add_parser("status", help="Show companion extension installation status")
+    ide_sub.add_parser("install-extension", aliases=["install"], help="Install companion extension into Antigravity IDE")
+    ide_sub.add_parser("uninstall-extension", aliases=["uninstall"], help="Remove companion extension from Antigravity IDE")
+
+    # tunnel subcommand
+    tunnel_parser = subparsers.add_parser("tunnel", aliases=["ssh"], help="Remote SSH reverse tunneling for isolated servers")
+    tunnel_sub = tunnel_parser.add_subparsers(dest="tunnel_action", help="Tunnel action")
+    tunnel_sub.add_parser("status", help="Show active reverse SSH tunnels and configured hosts")
+    t_cfg = tunnel_sub.add_parser("config", help="Configure RemoteForward in ~/.ssh/config")
+    t_cfg.add_argument("host", help="Host name or pattern in ~/.ssh/config")
+    t_cfg.add_argument("--remote-port", type=int, default=8000, help="Remote forward port (default: 8000)")
+    t_cfg.add_argument("--local-port", type=int, default=8000, help="Local proxy port (default: 8000)")
+
+    t_conn = tunnel_sub.add_parser("connect", aliases=["start"], help="Start background reverse SSH tunnel")
+    t_conn.add_argument("target", help="SSH destination (e.g. user@remote-host)")
+    t_conn.add_argument("--remote-port", type=int, default=8000, help="Remote forward port (default: 8000)")
+    t_conn.add_argument("--local-port", type=int, default=8000, help="Local proxy port (default: 8000)")
+
+    t_stop = tunnel_sub.add_parser("stop", help="Stop background reverse SSH tunnel")
+    t_stop.add_argument("target", help="SSH destination to stop tunnel for")
+
+    t_snip = tunnel_sub.add_parser("snippet", help="Print remote environment setup script (no root required)")
+    t_snip.add_argument("--remote-port", type=int, default=8000, help="Remote forward port (default: 8000)")
 
     # Server arguments
     parser.add_argument(
@@ -1648,10 +2348,14 @@ def main():
             port=getattr(args, "port", 8000),
             model=getattr(args, "model", "anthropic.gemini-3.8-flash-high"),
             url=getattr(args, "url", None),
+            direct=getattr(args, "direct", False),
         )
         return
     elif args.subcommand in ("restore-claude", "claude-restore"):
         handle_restore_claude()
+        return
+    elif args.subcommand in ("patch-claude", "claude-patch"):
+        handle_patch_claude_command(args)
         return
     elif args.subcommand in ("claude", "run-claude"):
         handle_run_claude(
@@ -1659,6 +2363,11 @@ def main():
             model=getattr(args, "model", "anthropic.gemini-3.8-flash-high"),
             url=getattr(args, "url", None),
             danger=getattr(args, "danger", False),
+            extra_danger=getattr(args, "extra_danger", False),
+            no_mcp=getattr(args, "no_mcp", False),
+            mcp=getattr(args, "mcp", None),
+            list_mcp=getattr(args, "list_mcp", False),
+            direct=getattr(args, "direct", False),
             extra_args=getattr(args, "claude_args", []),
         )
         return
@@ -1686,6 +2395,18 @@ def main():
         return
     elif args.subcommand in ("patch", "ide-patch"):
         handle_patch_command(args)
+        return
+    elif args.subcommand in ("providers", "provider"):
+        handle_providers_command(args)
+        return
+    elif args.subcommand in ("cache", "cleaner"):
+        handle_cache_command(args)
+        return
+    elif args.subcommand in ("ide", "extension"):
+        handle_ide_command(args)
+        return
+    elif args.subcommand in ("tunnel", "ssh"):
+        handle_tunnel_command(args)
         return
     elif args.subcommand in ("web", "antigravity-web", "web-mode"):
         from agy_proxy.web_launcher import launch_antigravity_web, get_web_status, download_language_server, detect_platform_key

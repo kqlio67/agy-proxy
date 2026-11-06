@@ -2256,7 +2256,7 @@ class TestGeminiWebSession(unittest.TestCase):
         # 4. Compare directly against HAR files if available on system
         from pathlib import Path
         import urllib.parse
-        argon_har_path = Path("/home/qumhab/tmp_gemini/trafic/gemini.google.com-spark-argon.har")
+        argon_har_path = Path("~/.config/agy-proxy/traffic/gemini.google.com-spark-argon.har")
         if argon_har_path.exists():
             with open(argon_har_path, "r", encoding="utf-8") as f:
                 har_data = json.load(f)
@@ -2945,6 +2945,41 @@ class TestOAuthFlowRedirectUri(unittest.TestCase):
                                     self.assertEqual(captured_post_data["code_verifier"], "frag_verifier")
 
         asyncio.run(run_test())
+
+    def test_primary_routing_sticky_failover_no_ping_pong(self):
+        """
+        Verifies that when primary account is unavailable/unsupported, secondary failover
+        remains sticky on the chosen account rather than ping-ponging on every turn.
+        """
+        pool = AccountPool()
+        acc_primary = AntigravityOAuthSession(account_id="acc_primary", email="primary@gmail.com", is_primary=True, enabled=True)
+        acc_sec1 = AntigravityOAuthSession(account_id="acc_sec1", email="sec1@gmail.com", is_primary=False, enabled=True)
+        acc_sec2 = AntigravityOAuthSession(account_id="acc_sec2", email="sec2@gmail.com", is_primary=False, enabled=True)
+
+        pool.accounts = {
+            "acc_primary": acc_primary,
+            "acc_sec1": acc_sec1,
+            "acc_sec2": acc_sec2,
+        }
+
+        # Suppose primary account does not support claude-sonnet-4-6
+        acc_primary.unsupported_models.add("claude-sonnet-4-6")
+
+        chosen_accounts = []
+        for _ in range(6):
+            cands = pool.get_candidate_accounts(model="claude-sonnet-4-6")
+            chosen = cands[0]
+            chosen_accounts.append(chosen.account_id)
+            chosen.last_used_timestamp = time.time()
+            chosen.total_requests += 1
+
+        # All 6 requests must stay on sec1, never alternating with sec2
+        self.assertEqual(chosen_accounts, ["acc_sec1"] * 6)
+
+        # Now simulate sec1 hitting 429 rate limit
+        acc_sec1.rate_limited_models["claude-sonnet-4-6"] = time.time() + 3600
+        failover_cands = pool.get_candidate_accounts(model="claude-sonnet-4-6")
+        self.assertEqual(failover_cands[0].account_id, "acc_sec2")
 
 
 if __name__ == "__main__":

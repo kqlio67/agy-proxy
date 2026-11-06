@@ -17,10 +17,13 @@ import httpx
 from agy_proxy.auth import AccountPool, AuthManager, CLOUDCODE_BASE_URL
 from agy_proxy.cache import google_context_cache, session_affinity
 from agy_proxy.converter import (
+    DEFAULT_SAFETY_SETTINGS,
     DEFAULT_THOUGHT_SIGNATURE,
     _extract_message_text,
     anthropic_to_cloudcode_payload,
+    clean_system_prompt_text,
     create_openai_chunk,
+    is_explicit_compact_request,
     openai_to_cloudcode_payload,
     parse_gemini_sse_candidate,
     sanitize_gemini_contents_thought_signatures,
@@ -1041,9 +1044,13 @@ class CloudCodeClient:
                             raise
                         err_name = type(e).__name__
                         err_msg = f"{err_name}: {e}" if str(e) else err_name
-                        if attempt == 0 and len(candidates) == 1:
-                            logger.warning("[%s] Network/Timeout error (%s). Retrying once...", acc.email, err_msg)
-                            await asyncio.sleep(0.5)
+                        if attempt == 0:
+                            logger.info("[%s] Transient connection/network error (%s). Resetting client and retrying once...", acc.email, err_msg)
+                            try:
+                                await acc.close(force=True)
+                            except Exception:
+                                pass
+                            await asyncio.sleep(0.3)
                             continue
                         logger.warning("[%s] Network/Timeout error (%s). Failing over to next account...", acc.email, err_msg)
                         last_error = e
@@ -1640,19 +1647,7 @@ class CloudCodeClient:
             return
 
         # 0. Check if this is an explicit /compact command from Claude Code
-        is_explicit_compact = False
-        compact_idx = -1
-        for i in range(len(req.messages) - 1, max(-1, len(req.messages) - 6), -1):
-            txt = _extract_message_text(req.messages[i]).lower()
-            if (
-                "create a detailed summary of the conversation so far" in txt
-                or "your task is to create a detailed summary of the conversation" in txt
-                or ("/compact" in txt and "summary" in txt)
-            ):
-                is_explicit_compact = True
-                compact_idx = i
-                break
-
+        is_explicit_compact, compact_idx = is_explicit_compact_request(req.messages)
         if is_explicit_compact:
             compact_targets = req.messages[:compact_idx] if compact_idx > 0 else req.messages
             logger.info("[Claude Code] [Compact] Executing summarization on %d messages via %s", len(compact_targets), compactor_settings.model)
@@ -1954,19 +1949,7 @@ class CloudCodeClient:
             return search_resp
 
         # 0. Check if this is an explicit /compact command from Claude Code
-        is_explicit_compact = False
-        compact_idx = -1
-        for i in range(len(req.messages) - 1, max(-1, len(req.messages) - 6), -1):
-            txt = _extract_message_text(req.messages[i]).lower()
-            if (
-                "create a detailed summary of the conversation so far" in txt
-                or "your task is to create a detailed summary of the conversation" in txt
-                or ("/compact" in txt and "summary" in txt)
-            ):
-                is_explicit_compact = True
-                compact_idx = i
-                break
-
+        is_explicit_compact, compact_idx = is_explicit_compact_request(req.messages)
         if is_explicit_compact:
             compact_targets = req.messages[:compact_idx] if compact_idx > 0 else req.messages
             logger.info("[Claude Code] [Compact] Executing summarization on %d messages via %s", len(compact_targets), compactor_settings.model)
@@ -2129,6 +2112,14 @@ class CloudCodeClient:
             sanitized_req = dict(raw_payload)
             if "contents" in sanitized_req:
                 sanitized_req["contents"] = sanitize_gemini_contents_thought_signatures(sanitized_req["contents"])
+            if "systemInstruction" in sanitized_req:
+                si = sanitized_req["systemInstruction"]
+                if isinstance(si, dict) and "parts" in si and isinstance(si["parts"], list):
+                    for part in si["parts"]:
+                        if isinstance(part, dict) and "text" in part and isinstance(part["text"], str):
+                            part["text"] = clean_system_prompt_text(part["text"])
+            if "safetySettings" not in sanitized_req:
+                sanitized_req["safetySettings"] = list(DEFAULT_SAFETY_SETTINGS)
             return {
                 "project": project_id,
                 "requestId": f"native/{uuid.uuid4()}",

@@ -755,6 +755,17 @@ PROXY_CATALOG_MODELS: dict[str, dict[str, Any]] = {
 }
 
 
+def is_external_model(model_name: Any) -> bool:
+    """Checks whether the requested model is routed to an external LLM provider."""
+    if not model_name or not isinstance(model_name, str):
+        return False
+    try:
+        from agy_proxy.providers import external_provider_manager
+        return external_provider_manager.is_external_model(model_name)
+    except Exception:
+        return False
+
+
 def normalize_model_name(model_name: Any) -> str:
     """Normalizes any requested model name, placeholder, or enum to an Antigravity backend model identifier."""
     if model_name is None:
@@ -765,6 +776,10 @@ def normalize_model_name(model_name: Any) -> str:
     cleaned = raw
     if not cleaned:
         return DEFAULT_MODEL
+
+    # Retain external models without coercing to Google Antigravity endpoints
+    if is_external_model(raw):
+        return raw
 
     if cleaned in REVERSE_PLACEHOLDER_MAP:
         return REVERSE_PLACEHOLDER_MAP[cleaned]
@@ -781,6 +796,9 @@ def normalize_model_name(model_name: Any) -> str:
 
     if cleaned in REVERSE_PLACEHOLDER_MAP:
         return REVERSE_PLACEHOLDER_MAP[cleaned]
+
+    if is_external_model(cleaned):
+        return cleaned
 
     if cleaned in MODEL_ALIASES:
         return MODEL_ALIASES[cleaned]

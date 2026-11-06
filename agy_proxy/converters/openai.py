@@ -2,6 +2,7 @@
 OpenAI Chat Completions API -> Google CloudCode Gemini API conversion.
 """
 
+import copy
 import json
 import logging
 import time
@@ -10,6 +11,7 @@ from typing import Any
 
 from agy_proxy.converters.common import (
     DEFAULT_MODEL,
+    DEFAULT_SAFETY_SETTINGS,
     DEFAULT_THOUGHT_SIGNATURE,
     _apply_thinking_config,
     _extract_media_from_url,
@@ -19,6 +21,7 @@ from agy_proxy.converters.common import (
     ensure_tool_pairing_integrity,
     extract_aspect_ratio,
     get_thought_signature,
+    is_explicit_compact_request,
     normalize_model_name,
     sanitize_gemini_schema,
     to_dict,
@@ -242,6 +245,7 @@ def openai_to_cloudcode_payload(
     inner_request: dict[str, Any] = {
         "contents": ensure_tool_pairing_integrity(contents),
         "generationConfig": generation_config,
+        "safetySettings": copy.deepcopy(DEFAULT_SAFETY_SETTINGS),
     }
 
     if system_parts:
@@ -311,16 +315,9 @@ def openai_to_cloudcode_payload(
     is_title_gen = _is_title_generation(sys_text, req.messages)
     is_checkpoint_or_compact = False
     if not is_title_gen:
-        for m in req.messages[-4:]:
-            c_text = _extract_message_text(m)
-            c_lower = c_text.lower()
-            if (
-                "create a detailed summary of the conversation so far" in c_lower
-                or "your task is to create a detailed summary of the conversation" in c_lower
-                or ("/compact" in c_lower and "summary" in c_lower)
-            ):
-                is_checkpoint_or_compact = True
-                break
+        is_compact, _ = is_explicit_compact_request(req.messages)
+        if is_compact:
+            is_checkpoint_or_compact = True
 
     if is_title_gen:
         backend_model = "gemini-3.5-flash-lite"

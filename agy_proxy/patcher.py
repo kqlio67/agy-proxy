@@ -764,3 +764,240 @@ def restart_language_server(target_path: Optional[str | Path] = None) -> List[in
     patcher = LanguageServerPatcher(target_path=target_path)
     ls_file, real_file = patcher.resolve_target()
     return patcher.kill_running_instances(real_file if real_file and real_file.exists() else ls_file)
+
+
+# ==============================================================================
+# AutoGuard & Non-Destructive Desktop Launcher
+# ==============================================================================
+
+class AutoGuard:
+    """
+    Auto-Guard supervisor for Antigravity Language Server.
+    Prevents patch decay caused by automatic background IDE updates:
+    - Inspects binary state.
+    - If Google Antigravity updates and replaces language_server with an unpatched binary,
+      AutoGuard detects it, backs up the newly updated binary, and seamlessly re-applies the wrapper.
+    - Provides background daemon loop or on-demand check/repair.
+    """
+    PID_FILE = Path(tempfile.gettempdir()) / "agy_autoguard.pid"
+    LOG_FILE = Path(tempfile.gettempdir()) / "agy_autoguard.log"
+
+    def __init__(
+        self,
+        target_path: Optional[str | Path] = None,
+        proxy_url: str = DEFAULT_PROXY_URL,
+    ):
+        self.patcher = LanguageServerPatcher(target_path=target_path, proxy_url=proxy_url)
+
+    def check_and_repair(self, force: bool = False) -> Dict[str, Any]:
+        """
+        Inspects the binary. If language_server was overwritten by an official IDE update,
+        it atomically updates the backup binary and re-wraps it.
+        """
+        ls_file, real_file = self.patcher.resolve_target()
+        if not ls_file or not real_file:
+            return {"repaired": False, "reason": "binary_not_found"}
+
+        # If already wrapped, healthy
+        if ls_file.is_file() and is_wrapper_script(ls_file):
+            return {"repaired": False, "status": "already_wrapped", "ls_file": str(ls_file)}
+
+        # If real_file exists but ls_file is NOT a wrapper script,
+        # an IDE update has overwritten the wrapper with a fresh real binary!
+        if real_file.is_file() and ls_file.is_file() and not is_wrapper_script(ls_file):
+            logger.warning("[AutoGuard] Official Antigravity update detected! Overwriting backup with new binary and re-wrapping...")
+            try:
+                bin_dir = ls_file.parent
+                if os.access(bin_dir, os.W_OK) and os.access(ls_file, os.W_OK):
+                    shutil.copy2(str(ls_file), str(real_file))
+                else:
+                    run_privileged_cmd(["cp", "-f", str(ls_file), str(real_file)])
+            except Exception as e:
+                return {"repaired": False, "error": f"Failed to backup updated binary: {e}"}
+
+            res = self.patcher.install(force=True)
+            return {
+                "repaired": res.get("success", False),
+                "reason": "ide_update_detected_and_rewrapped",
+                "details": res,
+            }
+
+        if force and ls_file.is_file():
+            res = self.patcher.install(force=True)
+            return {"repaired": res.get("success", False), "reason": "force_applied", "details": res}
+
+        return {"repaired": False, "status": "no_action_needed"}
+
+    def is_running(self) -> Tuple[bool, Optional[int]]:
+        """Checks whether the AutoGuard background process is running."""
+        if not self.PID_FILE.exists():
+            return False, None
+        try:
+            pid = int(self.PID_FILE.read_text().strip())
+            os.kill(pid, 0)
+            return True, pid
+        except (ValueError, OSError):
+            try:
+                self.PID_FILE.unlink(missing_ok=True)
+            except Exception:
+                pass
+            return False, None
+
+    def start_daemon(self, interval_seconds: int = 10) -> Dict[str, Any]:
+        """Starts AutoGuard background loop as a detached daemon process."""
+        running, pid = self.is_running()
+        if running:
+            return {"success": True, "message": f"AutoGuard already running (PID {pid})", "pid": pid}
+
+        cmd = [
+            sys.executable,
+            "-m", "agy_proxy.cli",
+            "patch", "guard", "--loop",
+            "--interval", str(interval_seconds),
+        ]
+        with open(self.LOG_FILE, "a") as log_f:
+            proc = subprocess.Popen(
+                cmd,
+                stdout=log_f,
+                stderr=log_f,
+                start_new_session=True,
+            )
+        self.PID_FILE.write_text(str(proc.pid))
+        return {"success": True, "message": f"AutoGuard daemon started (PID {proc.pid})", "pid": proc.pid}
+
+    def stop_daemon(self) -> Dict[str, Any]:
+        """Stops the AutoGuard background daemon."""
+        running, pid = self.is_running()
+        if not running or not pid:
+            return {"success": True, "message": "AutoGuard daemon is not running"}
+
+        try:
+            os.kill(pid, 15)
+        except OSError:
+            pass
+        try:
+            self.PID_FILE.unlink(missing_ok=True)
+        except Exception:
+            pass
+        return {"success": True, "message": f"AutoGuard daemon stopped (PID {pid})"}
+
+
+class DesktopLauncher:
+    """
+    Non-destructive launcher wrapper.
+    Instead of modifying the language_server binary in /opt/Antigravity,
+    this creates user-level desktop overrides (~/.local/share/applications/antigravity.desktop)
+    and CLI wrappers (~/.local/bin/antigravity) that inject proxy environment variables:
+    CLOUD_CODE_URL, USER_INFO_OVERRIDE_URL, ANTIGRAVITY_VSCODE_HOST.
+    Zero binary modification, 100% immune to official Antigravity IDE updates.
+    """
+    def __init__(self, proxy_url: str = DEFAULT_PROXY_URL):
+        self.proxy_url = proxy_url.rstrip("/")
+
+    @staticmethod
+    def get_desktop_file_path() -> Path:
+        return Path.home() / ".local" / "share" / "applications" / "antigravity.desktop"
+
+    @staticmethod
+    def get_cli_wrapper_path() -> Path:
+        return Path.home() / ".local" / "bin" / "antigravity"
+
+    def install(self) -> Dict[str, Any]:
+        """Installs the desktop launcher override and ~/.local/bin/antigravity wrapper."""
+        results: Dict[str, Any] = {}
+
+        orig_bin = "/opt/Antigravity/antigravity"
+        which_antigravity = shutil.which("antigravity")
+        cli_path = self.get_cli_wrapper_path()
+        if which_antigravity and Path(which_antigravity).resolve() != cli_path.resolve():
+            orig_bin = which_antigravity
+
+        # 1. CLI wrapper
+        cli_path.parent.mkdir(parents=True, exist_ok=True)
+        cli_content = f"""#!/usr/bin/env bash
+# Antigravity Non-Destructive Proxy Launcher (generated by agy-proxy)
+export CLOUD_CODE_URL="{self.proxy_url}"
+export USER_INFO_OVERRIDE_URL="{self.proxy_url}/oauth2/v2/userinfo"
+export ANTIGRAVITY_VSCODE_HOST=1
+exec "{orig_bin}" "$@"
+"""
+        cli_path.write_text(cli_content)
+        cli_path.chmod(0o755)
+        results["cli_wrapper"] = str(cli_path)
+
+        # 2. Desktop file
+        desktop_path = self.get_desktop_file_path()
+        desktop_path.parent.mkdir(parents=True, exist_ok=True)
+        desktop_content = f"""[Desktop Entry]
+Name=Antigravity (agy-proxy)
+Comment=Experience liftoff with agy-proxy non-destructive routing
+Exec=env CLOUD_CODE_URL={self.proxy_url} USER_INFO_OVERRIDE_URL={self.proxy_url}/oauth2/v2/userinfo ANTIGRAVITY_VSCODE_HOST=1 {orig_bin} %U
+Icon=antigravity
+Type=Application
+StartupNotify=true
+StartupWMClass=Antigravity
+Categories=Development;IDE;
+MimeType=application/x-antigravity-workspace;x-scheme-handler/antigravity;
+"""
+        desktop_path.write_text(desktop_content)
+        results["desktop_file"] = str(desktop_path)
+        results["success"] = True
+        return results
+
+    def uninstall(self) -> Dict[str, Any]:
+        """Removes the desktop launcher override and ~/.local/bin/antigravity wrapper."""
+        removed = []
+        cli_path = self.get_cli_wrapper_path()
+        if cli_path.exists():
+            cli_path.unlink()
+            removed.append(str(cli_path))
+
+        desktop_path = self.get_desktop_file_path()
+        if desktop_path.exists():
+            desktop_path.unlink()
+            removed.append(str(desktop_path))
+
+        return {"success": True, "removed": removed}
+
+    def status(self) -> Dict[str, Any]:
+        cli_path = self.get_cli_wrapper_path()
+        desktop_path = self.get_desktop_file_path()
+        return {
+            "cli_wrapper_installed": cli_path.exists(),
+            "cli_wrapper_path": str(cli_path),
+            "desktop_file_installed": desktop_path.exists(),
+            "desktop_file_path": str(desktop_path),
+            "proxy_url": self.proxy_url,
+        }
+
+
+class WindowsDllProxy:
+    """
+    Windows support helper for non-destructive proxying (inspired by yuaotian/antigravity-proxy).
+    Provides PowerShell launcher generation and version.dll hook guidance.
+    """
+    @staticmethod
+    def get_candidate_paths() -> List[Path]:
+        candidates = []
+        localappdata = os.environ.get("LOCALAPPDATA")
+        if localappdata:
+            candidates.append(Path(localappdata) / "Programs" / "Antigravity")
+        programfiles = os.environ.get("ProgramFiles")
+        if programfiles:
+            candidates.append(Path(programfiles) / "Antigravity")
+        return candidates
+
+    @staticmethod
+    def generate_powershell_launcher(proxy_url: str = DEFAULT_PROXY_URL) -> str:
+        return f"""# Antigravity Non-Destructive Windows Launcher (agy-proxy)
+$env:CLOUD_CODE_URL = "{proxy_url}"
+$env:USER_INFO_OVERRIDE_URL = "{proxy_url}/oauth2/v2/userinfo"
+$env:ANTIGRAVITY_VSCODE_HOST = "1"
+$antigravityExe = "$env:LOCALAPPDATA\\Programs\\Antigravity\\Antigravity.exe"
+if (Test-Path $antigravityExe) {{
+    Start-Process $antigravityExe -ArgumentList $args
+}} else {{
+    Write-Error "Antigravity.exe not found at $antigravityExe"
+}}
+"""
+

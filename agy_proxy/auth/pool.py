@@ -1361,12 +1361,12 @@ class AccountPool:
         ):
             preferred = [a for a in available if a.account_id == preferred_account_id]
             rest = [a for a in available if a.account_id != preferred_account_id]
+            account_order = {acc_id: i for i, acc_id in enumerate(self.accounts.keys())}
             if self.routing_strategy == "primary":
                 rest.sort(key=lambda a: (
                     0 if (is_web and getattr(a, "auth_method", "") == "gemini_web") else (0 if getattr(a, "is_primary", False) else 1),
                     auth_priority.get(getattr(a, "auth_method", ""), 99),
-                    a.last_used_timestamp,
-                    a.total_requests,
+                    account_order.get(a.account_id, 999),
                 ))
             else:
                 rest.sort(key=lambda a: (
@@ -1400,12 +1400,13 @@ class AccountPool:
             ))
             return available
 
-        # Default "primary" mode: Sort by primary account first, then auth priority (OAuth -> API key -> Web), least recently used, and lowest total requests
+        # Default "primary" mode: Sort by primary account first, then auth priority (OAuth -> API key -> Web),
+        # and stable pool order so secondary failover remains sticky to one account instead of ping-ponging across accounts.
+        account_order = {acc_id: i for i, acc_id in enumerate(self.accounts.keys())}
         available.sort(key=lambda a: (
             0 if (is_web and getattr(a, "auth_method", "") == "gemini_web") else (0 if getattr(a, "is_primary", False) else 1),
             auth_priority.get(getattr(a, "auth_method", ""), 99),
-            a.last_used_timestamp,
-            a.total_requests,
+            account_order.get(a.account_id, 999),
         ))
         return available
 

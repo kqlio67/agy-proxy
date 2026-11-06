@@ -6,12 +6,16 @@ Fetches latest release info from GitHub Releases with caching and timeout safety
 import logging
 import subprocess
 import time
+from pathlib import Path
 from typing import Any
 import httpx
 
 from agy_proxy import __version__ as CURRENT_VERSION
 
 logger = logging.getLogger("agy_proxy.updater")
+
+PACKAGE_ROOT = Path(__file__).resolve().parent
+REPO_ROOT = PACKAGE_ROOT.parent
 
 GITHUB_REPO = "kqlio67/agy-proxy"
 RELEASES_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
@@ -22,10 +26,14 @@ CHECK_INTERVAL_SECONDS = 3600  # 1 hour cache
 
 
 def parse_simple_version(v_str: str):
-    """Fallback simple semver parser without requiring external packaging library."""
-    import re
-    parts = re.findall(r"\d+", str(v_str))
-    return tuple(map(int, parts)) if parts else (0,)
+    """Robust semver parser using packaging.version if available, with regex fallback."""
+    try:
+        from packaging.version import parse as packaging_parse
+        return packaging_parse(str(v_str).lstrip("v").strip())
+    except Exception:
+        import re
+        parts = re.findall(r"\d+", str(v_str))
+        return tuple(map(int, parts)) if parts else (0,)
 
 
 def get_cached_update_info() -> dict[str, Any] | None:
@@ -61,15 +69,19 @@ async def check_for_updates(force: bool = False, timeout: float = 1.5) -> dict[s
         "is_git_repo": False,
     }
 
-    # Check if local directory is a git repository
+    # Check if agy-proxy directory is a git repository
     try:
-        git_check = subprocess.run(
-            ["git", "rev-parse", "--is-inside-work-tree"],
-            capture_output=True,
-            text=True,
-            timeout=0.8,
-        )
-        result["is_git_repo"] = git_check.returncode == 0
+        if (REPO_ROOT / ".git").exists():
+            result["is_git_repo"] = True
+        else:
+            git_check = subprocess.run(
+                ["git", "rev-parse", "--is-inside-work-tree"],
+                cwd=str(REPO_ROOT),
+                capture_output=True,
+                text=True,
+                timeout=0.8,
+            )
+            result["is_git_repo"] = git_check.returncode == 0
     except Exception:
         result["is_git_repo"] = False
 
@@ -113,22 +125,26 @@ async def check_for_updates(force: bool = False, timeout: float = 1.5) -> dict[s
     return result
 
 
-async def trigger_git_pull() -> dict[str, Any]:
-    """Executes git pull to update local repository."""
+async def trigger_git_pull(repo_dir: Path | None = None) -> dict[str, Any]:
+    """Executes git pull to update the agy-proxy local repository."""
+    target_dir = repo_dir or REPO_ROOT
     try:
         proc = subprocess.run(
             ["git", "pull", "--ff-only"],
+            cwd=str(target_dir),
             capture_output=True,
             text=True,
             timeout=30.0,
         )
+        output = proc.stdout.strip() if proc.returncode == 0 else proc.stderr.strip()
         return {
             "success": proc.returncode == 0,
             "stdout": proc.stdout.strip(),
             "stderr": proc.stderr.strip(),
+            "output": output,
         }
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": str(e), "output": str(e)}
 
 
 async def perform_self_update() -> dict[str, Any]:
