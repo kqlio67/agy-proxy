@@ -1956,7 +1956,7 @@ def build_parser() -> argparse.ArgumentParser:
     web_parser.add_argument("--debug", "--verbose", "-v", dest="verbose", action="store_true", help="Show raw language_server debug output in console (default: hidden, logged to file)")
     web_parser.add_argument("--direct", "--no-proxy", "-D", action="store_true", help="Bypass agy-proxy and connect directly to official Google backend")
     web_parser.add_argument("--restart", "-r", action="store_true", help="Force restart Antigravity Web even if already running")
-    web_parser.add_argument("--ide-version", type=str, default="2.28.2", help="Reported IDE version (default: 2.28.2)")
+    web_parser.add_argument("--ide-version", type=str, default="2.29.0", help="Reported IDE version (default: 2.29.0)")
     web_parser.add_argument("--patched", "-P", action="store_true", help="Launch with feature-patched Web UI bundle (unlocks Web Terminal, custom models, and UI enhancements)")
     web_parser.add_argument("--force-patch", "-f", "--force", action="store_true", help="Force re-extraction and re-patching of the Web UI bundle")
     web_parser.add_argument("--bundle-dir", "-d", type=str, default=None, help="Target directory for extracted & patched bundle (default: ~/.config/agy-proxy/web_ui)")
@@ -2447,7 +2447,7 @@ def main():
             ls_path=getattr(args, "ls_path", None),
             editor_path=getattr(args, "editor", None),
             detach=getattr(args, "detach", False),
-            ide_version=getattr(args, "ide_version", "2.28.2"),
+            ide_version=getattr(args, "ide_version", "2.29.0"),
             verbose=getattr(args, "verbose", False),
             direct=getattr(args, "direct", False),
             restart=getattr(args, "restart", False),

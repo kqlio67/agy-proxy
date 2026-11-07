@@ -306,10 +306,10 @@ def test_enhance_list_experiments_input_immutability():
 
 
 def test_v2_26_0_updates():
-    """Verify v2.28.2 User-Agent, experiment IDs, and experimental flags."""
+    """Verify v2.29.0 User-Agent, experiment IDs, and experimental flags."""
     from agy_proxy.auth.constants import USER_AGENT
-    assert "2.28.2" in USER_AGENT
-    assert "cl=1009437749" in USER_AGENT
+    assert "2.29.0" in USER_AGENT
+    assert "cl=1006921819" in USER_AGENT
 
     payload = get_default_experiments_payload()
     exp_ids = payload["experimentIds"]
@@ -572,8 +572,11 @@ def test_default_experiments_catalog_completeness():
     with open(DEFAULT_EXPERIMENTS_FILE, "r", encoding="utf-8") as f:
         raw_data = json.load(f)
 
-    assert len(raw_data["flags"]) == 525
+    assert len(raw_data["flags"]) == 529
     raw_flag_names = {f["name"] for f in raw_data["flags"]}
+    assert "enable-voice-remote" in raw_flag_names
+    assert "scheduled-tasks-v2" in raw_flag_names
+    assert "enable-notebook-rendering" in raw_flag_names
     assert "ReturnAdminControls__enable_for_cli" not in raw_flag_names
     assert "enable-swarm" not in raw_flag_names
     assert 106712040 in raw_data["experimentIds"]
@@ -803,6 +806,55 @@ def test_enhance_quota_summary_pool_sync():
     code_assist = enhance_load_code_assist({}, pool=mock_pool)
     assert "dev1@gmail.com" in code_assist["currentTier"]["description"]
     assert "2 Google accounts connected" in code_assist["currentTier"]["description"]
+
+
+def test_v2_29_0_flags_and_categories():
+    """Verify Antigravity v2.29.0 categories, Voice Mode, Remote Agents, and Notebook flags."""
+    from agy_proxy.experiments import (
+        EXPERIMENT_CATEGORIES,
+        CURATED_SAFE_FLAGS,
+        enhance_list_experiments,
+        enhance_available_models,
+    )
+
+    # Categories
+    assert "voice" in EXPERIMENT_CATEGORIES
+    assert "remote_agents" in EXPERIMENT_CATEGORIES
+    assert "automations" in EXPERIMENT_CATEGORIES
+
+    # Curated safe flags
+    v2_29_flags = [
+        "enable-notebook-rendering",
+        "scheduled-tasks-v2",
+        "enable-voice-relay",
+        "enable-voice-remote",
+        "enable-voice-remote-control",
+        "enable-remote-control-audio-transcription",
+        "enable-remote-ai",
+        "enable-enterprise-remote-ai",
+        "remote-control-setting-enabled",
+        "antigravity-browser-history",
+        "enable-fill-conversation-layout",
+    ]
+    for flag in v2_29_flags:
+        assert flag in CURATED_SAFE_FLAGS
+        assert CURATED_SAFE_FLAGS[flag]["value"] is True
+
+    # Check enhance_list_experiments activates them
+    mock_upstream = {"experimentIds": [], "flags": []}
+    enhanced = enhance_list_experiments(mock_upstream, config_override={"enabled": True, "mode": "curated", "custom_overrides": {}})
+    flags_dict = {f["name"]: f.get("boolValue") for f in enhanced["flags"]}
+
+    for flag in v2_29_flags:
+        assert flags_dict.get(flag) is True, f"Expected {flag} to be True in enhanced experiments"
+
+    # Check enhance_available_models exposes claude-haiku-4-5
+    models_res = enhance_available_models({"models": {}})
+    models_dict = models_res["models"]
+    assert "claude-haiku-4-5" in models_dict
+    assert "claude-haiku-4-5-thinking" in models_dict
+    assert models_dict["claude-haiku-4-5"]["capabilities"]["chat"]["boolValue"] is True
+
 
 
 

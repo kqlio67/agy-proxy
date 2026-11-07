@@ -166,7 +166,8 @@ class TestE2EAllEndpoints(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data.get("role"), "assistant")
         self.assertIn("content", data)
         self.assertGreater(len(data["content"]), 0)
-        text = data["content"][0].get("text", "")
+        text_blocks = [b.get("text", "") for b in data.get("content", []) if b.get("type") == "text"]
+        text = " ".join(text_blocks) if text_blocks else (data["content"][0].get("text", "") or data["content"][0].get("thinking", ""))
         self.assertTrue(bool(text.strip()))
 
     async def test_08_anthropic_messages_streaming(self):

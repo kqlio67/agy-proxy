@@ -77,6 +77,9 @@ EXPERIMENT_CATEGORIES = {
     "rag_context": "RAG, Codebase Awareness & Large Context Windows",
     "tools_plugins": "Tools, Customizations, Skills & Sidecars",
     "sdlc_models": "SDLC Model Connections & Generation Enhancements",
+    "voice": "Gemini Live Voice Mode & Realtime Audio Streaming",
+    "remote_agents": "Remote Agents & Cloud Workspaces",
+    "automations": "Automations & Scheduled Tasks v2",
 }
 
 CURATED_SAFE_FLAGS: dict[str, dict[str, Any]] = {
@@ -1367,6 +1370,63 @@ CURATED_SAFE_FLAGS: dict[str, dict[str, Any]] = {
         "category": "agents",
         "desc": "v2.28.2 Flag: Pins fastpush remote agent revision for consistent remote agent sessions",
     },
+
+    # --- v2.29.0 Experimental Flags ---
+    "enable-notebook-rendering": {
+        "value": True,
+        "category": "ui_editor",
+        "desc": "v2.29.0 Flag: Enables native Jupyter notebook (.ipynb) rendering and cell execution viewer",
+    },
+    "scheduled-tasks-v2": {
+        "value": True,
+        "category": "automations",
+        "desc": "v2.29.0 Flag: Enables redesigned Automations v2 (Scheduled, Always on, and Paused tasks)",
+    },
+    "enable-voice-relay": {
+        "value": True,
+        "category": "voice",
+        "desc": "v2.29.0 Flag: Enables Voice mode relay powered by Gemini Live bidirectional streaming",
+    },
+    "enable-voice-remote": {
+        "value": True,
+        "category": "voice",
+        "desc": "v2.29.0 Flag: Enables voice mode for cloud and remote conversation sessions",
+    },
+    "enable-voice-remote-control": {
+        "value": True,
+        "category": "voice",
+        "desc": "v2.29.0 Flag: Enables hands-free voice control and task dispatching to agents",
+    },
+    "enable-remote-control-audio-transcription": {
+        "value": True,
+        "category": "voice",
+        "desc": "v2.29.0 Flag: Real-time speech-to-text audio transcription streaming",
+    },
+    "enable-remote-ai": {
+        "value": True,
+        "category": "remote_agents",
+        "desc": "v2.29.0 Flag: Enables Remote Agents running conversations in cloud workspaces",
+    },
+    "enable-enterprise-remote-ai": {
+        "value": True,
+        "category": "remote_agents",
+        "desc": "v2.29.0 Flag: Enables enterprise-grade cloud workspaces and persistent environments",
+    },
+    "remote-control-setting-enabled": {
+        "value": True,
+        "category": "remote_agents",
+        "desc": "v2.29.0 Flag: Enables remote agent configuration and settings panel in UI",
+    },
+    "antigravity-browser-history": {
+        "value": True,
+        "category": "ui_editor",
+        "desc": "v2.29.0 Flag: Suggests matching pages from browsing history and search in address bar",
+    },
+    "enable-fill-conversation-layout": {
+        "value": True,
+        "category": "ui_editor",
+        "desc": "v2.29.0 Flag: Expands conversations to full width of center pane in Appearance settings",
+    },
 }
 
 # Optimized non-bool flag overrides
@@ -2031,6 +2091,16 @@ def enhance_available_models(data: dict[str, Any]) -> dict[str, Any]:
         m26_entry = copy.deepcopy(models["claude-opus-4-6-thinking"])
         m26_entry["model"] = "MODEL_PLACEHOLDER_M26"
         models["MODEL_PLACEHOLDER_M26"] = m26_entry
+
+    # claude-haiku-4-5 <-> MODEL_CLAUDE_4_5_HAIKU
+    if "MODEL_CLAUDE_4_5_HAIKU" in models and "claude-haiku-4-5" not in models:
+        m_haiku = copy.deepcopy(models["MODEL_CLAUDE_4_5_HAIKU"])
+        m_haiku["model"] = "MODEL_CLAUDE_4_5_HAIKU"
+        models["claude-haiku-4-5"] = m_haiku
+    elif "claude-haiku-4-5" in models and "MODEL_CLAUDE_4_5_HAIKU" not in models:
+        m_haiku = copy.deepcopy(models["claude-haiku-4-5"])
+        m_haiku["model"] = "MODEL_CLAUDE_4_5_HAIKU"
+        models["MODEL_CLAUDE_4_5_HAIKU"] = m_haiku
 
     # 4. Ensure all proxy catalog models are exposed with placeholder mappings
     try:

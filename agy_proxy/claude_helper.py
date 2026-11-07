@@ -92,9 +92,24 @@ CLAUDE_RECOMMENDED_MODELS: dict[str, dict[str, str]] = {
         "description": "Standard alias mapping to Claude Sonnet 4.6",
         "effortLevel": "medium",
     },
+    "claude-haiku-4-5": {
+        "displayName": "Claude 4.5 Haiku",
+        "description": "Anthropic Claude 4.5 Haiku ultra-fast lightweight model (Antigravity 3P)",
+        "effortLevel": "low",
+    },
+    "claude-haiku-4-5-thinking": {
+        "displayName": "Claude 4.5 Haiku (Thinking)",
+        "description": "Anthropic Claude 4.5 Haiku with hybrid reasoning (Antigravity 3P)",
+        "effortLevel": "medium",
+    },
+    "claude-4-5-haiku": {
+        "displayName": "Claude 4.5 Haiku",
+        "description": "Anthropic Claude 4.5 Haiku model alias",
+        "effortLevel": "low",
+    },
     "claude-3-5-haiku": {
         "displayName": "Claude 3.5 Haiku",
-        "description": "Ultra fast lightweight model alias",
+        "description": "Ultra fast lightweight model alias mapping to Claude 4.5 Haiku",
         "effortLevel": "low",
     },
 

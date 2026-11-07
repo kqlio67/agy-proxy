@@ -45,7 +45,14 @@ class TestModelNormalization(unittest.TestCase):
         self.assertEqual(normalize_model_name("claude-3-5-sonnet-latest"), "claude-sonnet-4-6")
         self.assertEqual(normalize_model_name("claude-3-opus"), "claude-opus-4-6-thinking")
         self.assertEqual(normalize_model_name("claude-3-opus-latest"), "claude-opus-4-6-thinking")
-        self.assertEqual(normalize_model_name("claude-3-5-haiku-latest"), "gemini-3.1-flash-lite")
+        self.assertEqual(normalize_model_name("claude-3-5-haiku-latest"), "claude-haiku-4-5")
+        self.assertEqual(normalize_model_name("claude-3-5-haiku"), "claude-haiku-4-5")
+        self.assertEqual(normalize_model_name("claude-4-5-haiku"), "claude-haiku-4-5")
+        self.assertEqual(normalize_model_name("claude-haiku-4-5"), "claude-haiku-4-5")
+        self.assertEqual(normalize_model_name("claude-haiku-4-5-thinking"), "claude-haiku-4-5-thinking")
+        self.assertEqual(normalize_model_name("gemini-riftrunner"), "gemini-riftrunner")
+        self.assertEqual(normalize_model_name("riftrunner"), "gemini-riftrunner")
+        self.assertEqual(normalize_model_name("gemini-infinityjet"), "gemini-infinityjet")
         self.assertEqual(normalize_model_name("claude-sonnet-4.6"), "claude-sonnet-4-6")
         self.assertEqual(normalize_model_name("claude-opus-4.6"), "claude-opus-4-6-thinking")
         self.assertEqual(normalize_model_name("gpt-4o"), "gemini-3.8-flash-high")
@@ -401,6 +408,43 @@ class TestSchemas(unittest.TestCase):
         self.assertEqual(resp.object, "list")
         self.assertEqual(len(resp.data), 2)
         self.assertEqual(resp.data[0].id, "gemini-3.7-flash-high")
+
+
+    def test_v2_29_0_models_and_codenames(self):
+        from agy_proxy.models import is_claude_4_5_model, is_claude_4_6_model, is_claude_5_5_model
+
+        # Claude 4.5 Haiku verification
+        self.assertTrue(is_claude_4_5_model("claude-haiku-4-5"))
+        self.assertTrue(is_claude_4_5_model("claude-4-5-haiku"))
+        self.assertTrue(is_claude_4_5_model("claude-3-5-haiku"))
+        self.assertFalse(is_claude_4_5_model("claude-sonnet-4-6"))
+        self.assertFalse(is_claude_4_6_model("claude-haiku-4-5"))
+        self.assertFalse(is_claude_5_5_model("claude-haiku-4-5"))
+
+        # Model normalization and aliases
+        self.assertEqual(normalize_model_name("claude-4-5-haiku"), "claude-haiku-4-5")
+        self.assertEqual(normalize_model_name("claude-4.5-haiku-thinking"), "claude-haiku-4-5-thinking")
+        self.assertEqual(normalize_model_name("claude-3-5-haiku"), "claude-haiku-4-5")
+        self.assertEqual(normalize_model_name("claude-haiku"), "claude-haiku-4-5")
+
+        # Protobuf enum resolution (cortex.proto v2.29.0)
+        self.assertEqual(normalize_model_name("340"), "claude-haiku-4-5")
+        self.assertEqual(normalize_model_name("341"), "claude-haiku-4-5-thinking")
+        self.assertEqual(normalize_model_name(340), "claude-haiku-4-5")
+        self.assertEqual(normalize_model_name(341), "claude-haiku-4-5-thinking")
+
+        # Codenames normalization
+        self.assertEqual(normalize_model_name("348"), "gemini-riftrunner")
+        self.assertEqual(normalize_model_name("350"), "gemini-infinityjet")
+        self.assertEqual(normalize_model_name("349"), "jarvis-v4s")
+        self.assertEqual(normalize_model_name("riftrunner"), "gemini-riftrunner")
+        self.assertEqual(normalize_model_name("infinityjet"), "gemini-infinityjet")
+        self.assertEqual(normalize_model_name("jarvis-v4s"), "jarvis-v4s")
+
+        # 3P classification
+        self.assertTrue(is_3p_model("claude-haiku-4-5"))
+        self.assertFalse(is_3p_model("gemini-riftrunner"))
+        self.assertFalse(is_3p_model("gemini-infinityjet"))
 
 
 if __name__ == "__main__":

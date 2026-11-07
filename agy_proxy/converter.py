@@ -26,6 +26,7 @@ from agy_proxy.converters.common import (
     sanitize_gemini_contents_thought_signatures,
     sanitize_gemini_schema,
     save_thought_signature,
+    should_clean_text,
     to_dict,
 )
 from agy_proxy.converters.openai import openai_to_cloudcode_payload
@@ -67,6 +68,7 @@ __all__ = [
     "sanitize_gemini_contents_thought_signatures",
     "sanitize_gemini_schema",
     "save_thought_signature",
+    "should_clean_text",
     "to_dict",
     "cloudcode_to_openai_chat",
     "CloudCodeSSETranslator",

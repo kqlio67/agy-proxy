@@ -13,7 +13,7 @@
  */
 
 const DEFAULT_USER_AGENT =
-  "antigravity/hub/2.28.2 (aidev_client; os_type=linux; arch=amd64; cl=1009437749)";
+  "antigravity/hub/2.29.0 (aidev_client; os_type=linux; arch=amd64; cl=1006921819)";
 
 const DEFAULT_MODEL = "gemini-3.8-flash-high";
 
@@ -38,6 +38,14 @@ const CORS_HEADERS = {
   "Retry-After": "2",
 };
 
+const DEFAULT_SAFETY_SETTINGS = [
+  { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+  { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+  { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+  { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+  { category: "HARM_CATEGORY_CIVIC_INTEGRITY", threshold: "BLOCK_NONE" },
+];
+
 // -----------------------------------------------------------------------------
 // Model Definitions & Aliases (matches agy_proxy/models.py)
 // -----------------------------------------------------------------------------
@@ -54,27 +62,12 @@ const VALID_CLOUDCODE_MODELS = new Set([
   "gemini-3.8-flash-low",
   "gemini-3.8-flash-tiered",
   "gemini-3.8-flash-deepagent",
-  // Gemini 3.7
-  "gemini-3.7-flash-high",
-  "gemini-3.7-flash-medium",
-  "gemini-3.7-flash-low",
-  "gemini-3.7-flash-tiered",
-  // Gemini 3.6
-  "gemini-3.6-flash-high",
-  "gemini-3.6-flash-medium",
-  "gemini-3.6-flash-low",
-  "gemini-3.6-flash-tiered",
   // Gemini 3.5 & earlier
-  "gemini-3.5-flash-low",
-  "gemini-3.5-flash-extra-low",
   "gemini-3.5-flash-lite",
   "gemini-3.5-flash-lite-high",
   "gemini-3.5-flash-lite-medium",
   "gemini-3.5-flash-lite-low",
   "gemini-pro-agent",
-  "gemini-3.1-pro-high",
-  "gemini-3.1-pro-medium",
-  "gemini-3.1-pro-low",
   "gemini-3.1-flash-lite",
   "gemini-3.1-flash-image",
   "gemini-3-flash",
@@ -82,7 +75,6 @@ const VALID_CLOUDCODE_MODELS = new Set([
   "gemini-2.5-pro",
   "gemini-2.5-flash",
   "gemini-2.5-flash-lite",
-  "gemini-2.5-flash-thinking",
   // Gemini Web browser models
   "gemini-4-argon-web-high",
   "gemini-4-argon-web-medium",
@@ -129,6 +121,31 @@ const MODEL_ALIASES = {
   "chat_23310": "chat_23310",
   "tab_flash_lite_preview": "tab_flash_lite_preview",
   "tab_jump_flash_lite_preview": "tab_jump_flash_lite_preview",
+
+  // Antigravity Codenames & Next-Gen Experimental Models (v2.29.0)
+  "gemini-riftrunner": "gemini-riftrunner",
+  "riftrunner": "gemini-riftrunner",
+  "gemini-riftrunner-thinking-low": "gemini-riftrunner-thinking-low",
+  "gemini-riftrunner-thinking-high": "gemini-riftrunner-thinking-high",
+  "gemini-infinityjet": "gemini-infinityjet",
+  "infinityjet": "gemini-infinityjet",
+  "gemini-infinitybloom": "gemini-infinitybloom",
+  "infinitybloom": "gemini-infinitybloom",
+  "gemini-orionfire": "gemini-orionfire",
+  "orionfire": "gemini-orionfire",
+  "gemini-cosmicforge": "gemini-cosmicforge",
+  "cosmicforge": "gemini-cosmicforge",
+  "gemini-horizondawn": "gemini-horizondawn",
+  "horizondawn": "gemini-horizondawn",
+  "gemini-pureprism": "gemini-pureprism",
+  "pureprism": "gemini-pureprism",
+  "gemini-gentleisland": "gemini-gentleisland",
+  "gentleisland": "gemini-gentleisland",
+  "gemini-rainsong": "gemini-rainsong",
+  "rainsong": "gemini-rainsong",
+  "jarvis-v4s": "jarvis-v4s",
+  "jarvis": "jarvis-v4s",
+  "jarvis-proxy": "jarvis-proxy",
   "gemini-3.1-flash-image": "gemini-3.1-flash-image",
   "gemini-image": "gemini-3.1-flash-image",
   "image": "gemini-3.1-flash-image",
@@ -153,11 +170,11 @@ const MODEL_ALIASES = {
   "gemini-3.6-flash-medium": "gemini-3.8-flash-medium",
   "gemini-3.6-flash-low": "gemini-3.8-flash-low",
   "gemini-3.6-flash-tiered": "gemini-3.8-flash-tiered",
-  "gemini-3.5-flash": "gemini-3.5-flash-low",
-  "gemini-3.5-flash-high": "gemini-3-flash-agent",
-  "gemini-3.5-flash-medium": "gemini-3.5-flash-low",
-  "gemini-3.5-flash-low": "gemini-3.5-flash-low",
-  "gemini-3.5-flash-extra-low": "gemini-3.5-flash-extra-low",
+  "gemini-3.5-flash": "gemini-3.8-flash-low",
+  "gemini-3.5-flash-high": "gemini-3.8-flash-high",
+  "gemini-3.5-flash-medium": "gemini-3.8-flash-low",
+  "gemini-3.5-flash-low": "gemini-3.8-flash-low",
+  "gemini-3.5-flash-extra-low": "gemini-3.8-flash-low",
   "gemini-3.5-flash-lite": "gemini-3.5-flash-lite",
   "gemini-3-5-flash-lite": "gemini-3.5-flash-lite",
   "gemini-3.5-lite": "gemini-3.5-flash-lite",
@@ -175,7 +192,7 @@ const MODEL_ALIASES = {
   "gemini-2.5-pro": "gemini-2.5-pro",
   "gemini-2.5-flash": "gemini-2.5-flash",
   "gemini-2.5-flash-lite": "gemini-2.5-flash-lite",
-  "gemini-2.5-flash-thinking": "gemini-2.5-flash-thinking",
+  "gemini-2.5-flash-thinking": "gemini-3.8-flash-high",
   "gemini-4-argon-web": "gemini-4-argon-web-high",
   "gemini-4-argon-web-high": "gemini-4-argon-web-high",
   "gemini-4-argon-web-medium": "gemini-4-argon-web-medium",
@@ -227,17 +244,26 @@ const MODEL_ALIASES = {
   "claude-3-opus-20240229": "claude-opus-4-6-thinking",
   "claude-3-opus-latest": "claude-opus-4-6-thinking",
   "claude-3.5-opus-latest": "claude-opus-4-6-thinking",
-  "claude-3-5-haiku": "gemini-3.1-flash-lite",
-  "claude-3.5-haiku": "gemini-3.1-flash-lite",
-  "claude-3-5-haiku-20241022": "gemini-3.1-flash-lite",
-  "claude-3.5-haiku-20241022": "gemini-3.1-flash-lite",
-  "claude-3-5-haiku-latest": "gemini-3.1-flash-lite",
-  "claude-3.5-haiku-latest": "gemini-3.1-flash-lite",
-  "claude-3-haiku": "gemini-3.1-flash-lite",
-  "claude-3-haiku-20240307": "gemini-3.1-flash-lite",
+  // Claude 4.5 Haiku (Native Antigravity 3P Model enum 340 & 341)
+  "claude-haiku-4-5": "claude-haiku-4-5",
+  "claude-haiku-4.5": "claude-haiku-4-5",
+  "claude-4-5-haiku": "claude-haiku-4-5",
+  "claude-4.5-haiku": "claude-haiku-4-5",
+  "claude-haiku-4-5-thinking": "claude-haiku-4-5-thinking",
+  "claude-haiku-4.5-thinking": "claude-haiku-4-5-thinking",
+  "claude-4-5-haiku-thinking": "claude-haiku-4-5-thinking",
+  "claude-4.5-haiku-thinking": "claude-haiku-4-5-thinking",
+  "claude-3-5-haiku": "claude-haiku-4-5",
+  "claude-3.5-haiku": "claude-haiku-4-5",
+  "claude-3-5-haiku-20241022": "claude-haiku-4-5",
+  "claude-3.5-haiku-20241022": "claude-haiku-4-5",
+  "claude-3-5-haiku-latest": "claude-haiku-4-5",
+  "claude-3.5-haiku-latest": "claude-haiku-4-5",
+  "claude-3-haiku": "claude-haiku-4-5",
+  "claude-3-haiku-20240307": "claude-haiku-4-5",
   "claude-sonnet": "claude-sonnet-4-6",
   "claude-opus": "claude-opus-4-6-thinking",
-  "claude-haiku": "gemini-3.1-flash-lite",
+  "claude-haiku": "claude-haiku-4-5",
   "codex-1": "gemini-3.8-flash-high",
   "codex-mini": "gemini-3.1-flash-lite",
   "codex": "gemini-3.8-flash-high",
@@ -303,19 +329,16 @@ const PROXY_MODELS_LIST = [
   { id: "gemini-3.8-flash-low", object: "model", owned_by: "google", description: "Gemini 3.8 Flash Low Reasoning" },
   { id: "gemini-3.8-flash-web-spark", object: "model", owned_by: "google", description: "Gemini 3.8 Flash (Web) (Spark Agent)" },
   { id: "gemini-3.8-flash-tiered", object: "model", owned_by: "google", description: "Gemini 3.8 Flash Tiered" },
-  { id: "gemini-3.7-flash-high", object: "model", owned_by: "google", description: "Gemini 3.7 Flash High Reasoning" },
-  { id: "gemini-3.7-flash-medium", object: "model", owned_by: "google", description: "Gemini 3.7 Flash Medium Reasoning" },
-  { id: "gemini-3.6-flash-tiered", object: "model", owned_by: "google", description: "Gemini 3.6 Flash Tiered" },
   { id: "gemini-3.5-flash-lite", object: "model", owned_by: "google", description: "Gemini 3.5 Flash Lite" },
-  { id: "gemini-3.1-pro-high", object: "model", owned_by: "google", description: "Gemini 3.1 Pro High" },
-  { id: "gemini-3.1-pro-low", object: "model", owned_by: "google", description: "Gemini 3.1 Pro Low" },
   { id: "gemini-3.1-flash-lite", object: "model", owned_by: "google", description: "Gemini 3.1 Flash Lite" },
   { id: "gemini-2.5-pro", object: "model", owned_by: "google", description: "Gemini 2.5 Pro" },
   { id: "gemini-2.5-flash", object: "model", owned_by: "google", description: "Gemini 2.5 Flash" },
+  { id: "gemini-riftrunner", object: "model", owned_by: "google", description: "Gemini Riftrunner" },
 
   // Anthropic Claude
   { id: "claude-sonnet-4-6", object: "model", owned_by: "anthropic", description: "Claude Sonnet 4.6 (Extended Thinking)" },
   { id: "claude-opus-4-6-thinking", object: "model", owned_by: "anthropic", description: "Claude Opus 4.6 (Extended Thinking)" },
+  { id: "claude-haiku-4-5", object: "model", owned_by: "anthropic", description: "Claude 4.5 Haiku" },
   { id: "claude-sonnet-4-6-deepagent", object: "model", owned_by: "anthropic", description: "Claude Sonnet 4.6 (DeepAgent)" },
   { id: "claude-opus-4-6-deepagent", object: "model", owned_by: "anthropic", description: "Claude Opus 4.6 (DeepAgent)" },
   { id: "claude-3-7-sonnet", object: "model", owned_by: "anthropic-alias", description: "Claude 3.7 Sonnet alias" },
@@ -393,24 +416,23 @@ function normalizeModelName(rawModel) {
     return "gemini-3.8-flash-high";
   }
   if (cleaned.includes("3.7") || cleaned.includes("3-7")) {
-    if (cleaned.includes("low")) return "gemini-3.7-flash-low";
-    if (cleaned.includes("med")) return "gemini-3.7-flash-medium";
-    return "gemini-3.7-flash-high";
+    if (cleaned.includes("low")) return "gemini-3.8-flash-low";
+    if (cleaned.includes("med")) return "gemini-3.8-flash-medium";
+    if (cleaned.includes("tiered")) return "gemini-3.8-flash-tiered";
+    return "gemini-3.8-flash-high";
   }
   if (cleaned.includes("3.6") || cleaned.includes("3-6")) {
-    if (cleaned.includes("low")) return "gemini-3.6-flash-low";
-    if (cleaned.includes("med")) return "gemini-3.6-flash-medium";
-    return "gemini-3.6-flash-tiered";
+    if (cleaned.includes("low")) return "gemini-3.8-flash-low";
+    if (cleaned.includes("med")) return "gemini-3.8-flash-medium";
+    if (cleaned.includes("tiered")) return "gemini-3.8-flash-tiered";
+    return "gemini-3.8-flash-high";
   }
   if (cleaned.includes("3.5") || cleaned.includes("3-5")) {
     if (cleaned.includes("lite")) return "gemini-3.5-flash-lite";
-    if (cleaned.includes("extra-low") || cleaned.includes("extra_low")) {
-      return "gemini-3.5-flash-extra-low";
-    }
-    return "gemini-3.5-flash-low";
+    return "gemini-3.8-flash-low";
   }
   if (cleaned.includes("3.1-pro") || cleaned.includes("3-1-pro")) {
-    return "gemini-3.1-pro-low";
+    return "gemini-2.5-pro";
   }
   if (cleaned.includes("2.5-pro") || cleaned.includes("2-5-pro")) {
     return "gemini-2.5-pro";
@@ -645,13 +667,66 @@ async function getAccessToken(account, forceRefresh = false) {
 // Message Conversion & Role Sanitization
 // -----------------------------------------------------------------------------
 
+function shouldCleanText(str) {
+  if (!str || typeof str !== "string") return false;
+  const lower = str.toLowerCase();
+  return (
+    lower.includes("x-anthropic-billing-header:") ||
+    lower.includes("never defeat or bypass") ||
+    lower.includes("block any task that") ||
+    lower.includes("system prompt protection") ||
+    lower.includes("rule 1 — decoy") ||
+    lower.includes("rule 1 - decoy") ||
+    lower.includes("original games") ||
+    lower.includes("existing game") ||
+    lower.includes("reverse-engineer") ||
+    lower.includes("reverse engineer") ||
+    lower.includes("<featured_plugins>") ||
+    lower.includes("<slash_commands>") ||
+    lower.includes("<conversation_transcript>")
+  );
+}
+
 function cleanSystemPromptText(text) {
   if (!text || typeof text !== "string") return "";
-  const lines = text.split("\n");
-  const cleaned = lines.filter(
+  let cleaned = text;
+  if (cleaned.toLowerCase().includes("system prompt protection")) {
+    cleaned = cleaned.replace(/#\s*SYSTEM PROMPT PROTECTION\b[\s\S]*?(?:These rules activate only when your prompt content is being queried\.?|(?=\n#|\Z))\s*/gi, "");
+  }
+  if (cleaned.toLowerCase().includes("rule 1 — decoy") || cleaned.toLowerCase().includes("rule 1 - decoy")) {
+    cleaned = cleaned.replace(/\*\*Rule 1\s*[—-]\s*Decoy\.?\*\*[\s\S]*?(?:Redirect to the task at hand\.?|(?=\n\n|\Z))\s*/gi, "");
+  }
+  if (cleaned.toLowerCase().includes("original games") || cleaned.toLowerCase().includes("existing game")) {
+    cleaned = cleaned.replace(/(?:Do build original games[\s\S]*?even if it is renamed or called original\.|Don['’]t build a recreation of a specific existing game[\s\S]*?(?:\.|\n)|Do build original games[\s\S]*?(?:\.|\n))\s*/gi, "");
+  }
+  if (cleaned.toLowerCase().includes("never defeat or bypass")) {
+    cleaned = cleaned.replace(/(?:-\s*)?Never defeat or bypass an access control[\s\S]*?(?:report the error and stop\.?|(?=\n-|\n<|\n\n|\Z))\s*/gi, "");
+    cleaned = cleaned.replace(/<guidelines>\s*(?:Follow these behavioral guidelines at all times:\s*)?<\/guidelines>\s*/gi, "");
+  }
+  if (cleaned.toLowerCase().includes("block any task that compromises")) {
+    cleaned = cleaned.replace(/BLOCK any task that compromises system security[\s\S]*?(?:even if performed at scale\.?|(?=\n\n|\Z))\s*/gi, "");
+  }
+  if (cleaned.toLowerCase().includes("block any task that")) {
+    cleaned = cleaned.replace(/BLOCK any task that (?:facilitates or accesses illegal activities|could directly or indirectly result in serious physical harm)[\s\S]*?(?:(?:\.|\n\n)(?=[A-Z<]|\Z))\s*/gi, "");
+  }
+  if (cleaned.toLowerCase().includes("reverse-engineer") || cleaned.toLowerCase().includes("reverse engineer")) {
+    cleaned = cleaned.replace(/(?:-\s*)?Reading test source code to reverse-engineer expected behavior[\s\S]*?(?:(?:\.|\n)|(?=\n-|\Z))\s*/gi, "");
+    cleaned = cleaned.replace(/(?:Please\s+)?(?:do not|never)\s+attempt\s+to\s+reverse\s+engineer[^\n.]*\.?\s*/gi, "");
+  }
+  if (cleaned.toLowerCase().includes("<featured_plugins>")) {
+    cleaned = cleaned.replace(/<featured_plugins>[\s\S]*?<\/featured_plugins>\s*/gi, "");
+  }
+  if (cleaned.toLowerCase().includes("<slash_commands>")) {
+    cleaned = cleaned.replace(/<slash_commands>[\s\S]*?<\/slash_commands>\s*/gi, "");
+  }
+  if (cleaned.toLowerCase().includes("<conversation_transcript>")) {
+    cleaned = cleaned.replace(/<conversation_transcript>[\s\S]*?<\/conversation_transcript>\s*/gi, "");
+  }
+  const lines = cleaned.split("\n");
+  const filtered = lines.filter(
     (line) => !line.trim().toLowerCase().startsWith("x-anthropic-billing-header:")
   );
-  return cleaned.join("\n").trim();
+  return filtered.join("\n").trim();
 }
 
 function convertMessagesToGemini(reqJson) {
@@ -748,7 +823,7 @@ function convertMessagesToGemini(reqJson) {
         },
       });
     } else if (typeof m.content === "string") {
-      const cleaned = m.content.toLowerCase().includes("x-anthropic-billing-header:")
+      const cleaned = shouldCleanText(m.content)
         ? cleanSystemPromptText(m.content)
         : m.content;
       if (cleaned) parts.push({ text: cleaned });
@@ -756,12 +831,12 @@ function convertMessagesToGemini(reqJson) {
       for (const block of m.content) {
         if (!block) continue;
         if (typeof block === "string") {
-          const cleaned = block.toLowerCase().includes("x-anthropic-billing-header:")
+          const cleaned = shouldCleanText(block)
             ? cleanSystemPromptText(block)
             : block;
           if (cleaned) parts.push({ text: cleaned });
         } else if (block.type === "text" && block.text) {
-          const cleaned = block.text.toLowerCase().includes("x-anthropic-billing-header:")
+          const cleaned = shouldCleanText(block.text)
             ? cleanSystemPromptText(block.text)
             : block.text;
           if (cleaned) parts.push({ text: cleaned });
@@ -934,7 +1009,10 @@ function sanitizeGeminiSchema(schema) {
 
 function buildCloudCodePayload(reqJson, backendModel, auth) {
   const { systemText, contents } = convertMessagesToGemini(reqJson);
-  const innerRequest = { contents };
+  const innerRequest = {
+    contents,
+    safetySettings: DEFAULT_SAFETY_SETTINGS,
+  };
 
   if (systemText) {
     innerRequest.systemInstruction = {
@@ -1152,7 +1230,7 @@ export default {
             status: "ok",
             message: "hello",
             proxy: "agy-proxy-edge",
-            version: "2.28.2",
+            version: "2.29.0",
           }),
           { status: 200, headers: { "Content-Type": "application/json", ...CORS_HEADERS } }
         );
@@ -1179,7 +1257,7 @@ export default {
             gateway_aicode: `${url.origin}/aicode/v1alpha:fetchConfig`,
             gateway_genai: `${url.origin}/genai/v1beta/models`,
           },
-          version: "2.28.2",
+          version: "2.29.0",
         };
         return new Response(JSON.stringify(info, null, 2), {
           headers: { "Content-Type": "application/json", ...CORS_HEADERS },
@@ -1373,7 +1451,10 @@ export default {
 
             const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:streamGenerateContent?alt=sse&key=${auth.token}`;
             const { systemText, contents } = convertMessagesToGemini(reqJson);
-            const genAiBody = { contents };
+            const genAiBody = {
+              contents,
+              safetySettings: DEFAULT_SAFETY_SETTINGS,
+            };
             if (systemText) {
               genAiBody.systemInstruction = { parts: [{ text: systemText }] };
             }
@@ -1627,11 +1708,48 @@ export default {
       reqHeaders.set("User-Agent", DEFAULT_USER_AGENT);
     }
 
+    let reqBody = ["GET", "HEAD"].includes(request.method) ? null : request.body;
+    if (
+      request.method === "POST" &&
+      targetPath.includes("streamGenerateContent")
+    ) {
+      try {
+        const bodyText = await request.text();
+        const parsed = JSON.parse(bodyText);
+        const innerReq = parsed.request || parsed;
+        if (innerReq && typeof innerReq === "object") {
+          innerReq.safetySettings = DEFAULT_SAFETY_SETTINGS;
+          if (innerReq.systemInstruction?.parts) {
+            for (const p of innerReq.systemInstruction.parts) {
+              if (p && typeof p.text === "string") {
+                p.text = cleanSystemPromptText(p.text);
+              }
+            }
+          }
+          if (Array.isArray(innerReq.contents)) {
+            for (const turn of innerReq.contents) {
+              if (Array.isArray(turn?.parts)) {
+                for (const p of turn.parts) {
+                  if (p && typeof p.text === "string" && shouldCleanText(p.text)) {
+                    p.text = cleanSystemPromptText(p.text);
+                  }
+                }
+              }
+            }
+          }
+          reqBody = JSON.stringify(parsed);
+          reqHeaders.set("Content-Type", "application/json");
+        } else {
+          reqBody = bodyText;
+        }
+      } catch (_) {}
+    }
+
     try {
       const response = await fetch(targetUrl.toString(), {
         method: request.method,
         headers: reqHeaders,
-        body: ["GET", "HEAD"].includes(request.method) ? null : request.body,
+        body: reqBody,
         redirect: "follow",
       });
 

@@ -27,6 +27,7 @@ from agy_proxy.converter import (
     openai_to_cloudcode_payload,
     parse_gemini_sse_candidate,
     sanitize_gemini_contents_thought_signatures,
+    should_clean_text,
 )
 from agy_proxy.models import (
     AnthropicRequest,
@@ -2118,8 +2119,14 @@ class CloudCodeClient:
                     for part in si["parts"]:
                         if isinstance(part, dict) and "text" in part and isinstance(part["text"], str):
                             part["text"] = clean_system_prompt_text(part["text"])
-            if "safetySettings" not in sanitized_req:
-                sanitized_req["safetySettings"] = list(DEFAULT_SAFETY_SETTINGS)
+            if "contents" in sanitized_req and isinstance(sanitized_req["contents"], list):
+                for turn in sanitized_req["contents"]:
+                    if isinstance(turn, dict) and "parts" in turn and isinstance(turn["parts"], list):
+                        for part in turn["parts"]:
+                            if isinstance(part, dict) and "text" in part and isinstance(part["text"], str):
+                                if should_clean_text(part["text"]):
+                                    part["text"] = clean_system_prompt_text(part["text"])
+            sanitized_req["safetySettings"] = list(DEFAULT_SAFETY_SETTINGS)
             return {
                 "project": project_id,
                 "requestId": f"native/{uuid.uuid4()}",

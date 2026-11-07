@@ -1193,7 +1193,7 @@
     },
     {
       "name": "enable-voice-relay",
-      "boolValue": false
+      "boolValue": true
     },
     {
       "name": "deprecate-workflows",
@@ -1392,7 +1392,7 @@
     },
     {
       "name": "enable-enterprise-remote-ai",
-      "boolValue": false
+      "boolValue": true
     },
     {
       "name": "enable-get-screenshot-data",
@@ -1725,7 +1725,7 @@
     },
     {
       "name": "enable-remote-conversation-terminal",
-      "boolValue": false
+      "boolValue": true
     },
     {
       "name": "enable-sidecar-pill-auto-open",
@@ -1861,7 +1861,7 @@
     },
     {
       "name": "enable-remote-ai",
-      "boolValue": false
+      "boolValue": true
     },
     {
       "name": "enable-deferred-tool-loading",
@@ -2251,6 +2251,22 @@
     {
       "name": "cli-seasonal-theme-periods",
       "stringListValue": {}
+    },
+    {
+      "name": "enable-voice-remote",
+      "boolValue": true
+    },
+    {
+      "name": "enable-voice-remote-control",
+      "boolValue": true
+    },
+    {
+      "name": "antigravity-browser-history",
+      "boolValue": true
+    },
+    {
+      "name": "enable-fill-conversation-layout",
+      "boolValue": true
     }
   ]
 }

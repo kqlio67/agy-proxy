@@ -617,6 +617,85 @@ class TestModularConvertersPackage(unittest.TestCase):
         self.assertIn("You are a helpful coding assistant.", cleaned)
         self.assertIn("Output text to communicate with user.", cleaned)
 
+    def test_clean_system_prompt_text_strips_v2_29_0_restrictions(self):
+        from agy_proxy.converters.common import clean_system_prompt_text, should_clean_text
+
+        raw_guidelines = (
+            "<guidelines>\n"
+            "Follow these behavioral guidelines at all times:\n"
+            "- Maintain documentation integrity. Preserve all existing comments and docstrings that are unrelated to your code changes, unless the user specifies otherwise.\n"
+            "- Never defeat or bypass an access control, permission check, credential requirement, network/proxy restriction, or sandbox/environment boundary - including writing to the state or processes such a check reads, spoofing identity, intercepting the check, probing undocumented local/host services, or modifying host, harness, or test infrastructure outside your task scope. Use documented, sanctioned paths only; if none of them work, you are blocked - report the error and stop.\n"
+            "</guidelines>\n"
+            "Implement reverse proxy caching."
+        )
+        self.assertTrue(should_clean_text(raw_guidelines))
+        cleaned_guidelines = clean_system_prompt_text(raw_guidelines)
+        self.assertNotIn("Never defeat or bypass an access control", cleaned_guidelines)
+        self.assertNotIn("sandbox/environment boundary", cleaned_guidelines)
+        self.assertIn("Maintain documentation integrity", cleaned_guidelines)
+        self.assertIn("Implement reverse proxy caching.", cleaned_guidelines)
+
+        raw_security_policy = (
+            "BLOCK any task that compromises system security, including malware, phishing, unauthorized data access, "
+            "malicious system interference, and circumvention of security features. Examples: bypassing authentication, "
+            "disregarding or bypassing security warnings or validation checks (e.g., mismatched names or codes), scanning a website "
+            "for vulnerabilities, or web scraping (e.g., scraping Wikipedia), which is a blocked form of malicious system interference "
+            "distinct from permitted downloading. This policy does not apply to tasks that access publicly available data or data that "
+            "the user has explicit access to. Routine browser, data management, and communication tasks such as managing cookies, consent "
+            "banners, browser history, emails, or files, downloading files or collecting data for personal or business use, sending emails "
+            "or mass messages, signing agreements, or executing automated actions across multiple accounts or logins are considered benign "
+            "and are NOT blocked by this policy, even if performed at scale.\n"
+            "Task: Scrape and parse developer documentation."
+        )
+        self.assertTrue(should_clean_text(raw_security_policy))
+        cleaned_policy = clean_system_prompt_text(raw_security_policy)
+        self.assertNotIn("BLOCK any task that compromises system security", cleaned_policy)
+        self.assertNotIn("circumvention of security features", cleaned_policy)
+        self.assertIn("Task: Scrape and parse developer documentation.", cleaned_policy)
+
+        # Empty guidelines tag stripping
+        raw_only_sandbox = (
+            "<guidelines>\n"
+            "Follow these behavioral guidelines at all times:\n"
+            "- Never defeat or bypass an access control, permission check, credential requirement, network/proxy restriction, or sandbox/environment boundary.\n"
+            "</guidelines>\n"
+            "Solve the issue."
+        )
+        cleaned_only = clean_system_prompt_text(raw_only_sandbox)
+        self.assertNotIn("<guidelines>", cleaned_only)
+        self.assertNotIn("Never defeat or bypass", cleaned_only)
+        self.assertEqual(cleaned_only, "Solve the issue.")
+
+        # Reverse engineering restriction stripping
+        raw_re = (
+            "Benchmark evaluation instructions:\n"
+            "- Reading test source code to reverse-engineer expected behavior instead of implementing from specification\n"
+            "Please never attempt to reverse engineer proprietary binary targets.\n"
+            "Disassemble function at 0x401000."
+        )
+        cleaned_re = clean_system_prompt_text(raw_re)
+        self.assertNotIn("Reading test source code to reverse-engineer expected behavior", cleaned_re)
+        self.assertNotIn("never attempt to reverse engineer", cleaned_re)
+        self.assertIn("Disassemble function at 0x401000.", cleaned_re)
+
+        # Bloat sections stripping (<featured_plugins>, <slash_commands>, <conversation_transcript>)
+        raw_bloat = (
+            "<identity>\nYou are Antigravity.\n</identity>\n"
+            "<slash_commands>\nSlash commands are user-facing shortcuts in the chat UI:\n- /goal\n- /plan\n</slash_commands>\n"
+            "<featured_plugins>\nThe Agent Marketplace groups its plugins:\n- Canva\n- Bigin\n</featured_plugins>\n"
+            "<conversation_transcript>\nTranscripts are located directly at transcript.jsonl\n</conversation_transcript>\n"
+            "Build the payment gateway."
+        )
+        self.assertTrue(should_clean_text(raw_bloat))
+        cleaned_bloat = clean_system_prompt_text(raw_bloat)
+        self.assertNotIn("<slash_commands>", cleaned_bloat)
+        self.assertNotIn("<featured_plugins>", cleaned_bloat)
+        self.assertNotIn("<conversation_transcript>", cleaned_bloat)
+        self.assertNotIn("Canva", cleaned_bloat)
+        self.assertNotIn("Bigin", cleaned_bloat)
+        self.assertIn("<identity>\nYou are Antigravity.\n</identity>", cleaned_bloat)
+        self.assertIn("Build the payment gateway.", cleaned_bloat)
+
     def test_models_normalization_exports(self):
         import agy_proxy.converter as facade
         import agy_proxy.converters as pkg

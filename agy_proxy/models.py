@@ -76,6 +76,31 @@ MODEL_ALIASES: dict[str, str] = {
     "tab_flash_lite_preview": "tab_flash_lite_preview",
     "tab_jump_flash_lite_preview": "tab_jump_flash_lite_preview",
 
+    # Antigravity Codenames & Next-Gen Experimental Models (v2.29.0)
+    "gemini-riftrunner": "gemini-riftrunner",
+    "riftrunner": "gemini-riftrunner",
+    "gemini-riftrunner-thinking-low": "gemini-riftrunner-thinking-low",
+    "gemini-riftrunner-thinking-high": "gemini-riftrunner-thinking-high",
+    "gemini-infinityjet": "gemini-infinityjet",
+    "infinityjet": "gemini-infinityjet",
+    "gemini-infinitybloom": "gemini-infinitybloom",
+    "infinitybloom": "gemini-infinitybloom",
+    "gemini-orionfire": "gemini-orionfire",
+    "orionfire": "gemini-orionfire",
+    "gemini-cosmicforge": "gemini-cosmicforge",
+    "cosmicforge": "gemini-cosmicforge",
+    "gemini-horizondawn": "gemini-horizondawn",
+    "horizondawn": "gemini-horizondawn",
+    "gemini-pureprism": "gemini-pureprism",
+    "pureprism": "gemini-pureprism",
+    "gemini-gentleisland": "gemini-gentleisland",
+    "gentleisland": "gemini-gentleisland",
+    "gemini-rainsong": "gemini-rainsong",
+    "rainsong": "gemini-rainsong",
+    "jarvis-v4s": "jarvis-v4s",
+    "jarvis": "jarvis-v4s",
+    "jarvis-proxy": "jarvis-proxy",
+
     # Multimodal Vision & Image Generation Models
     "gemini-3.1-flash-image": "gemini-3.1-flash-image",
     "gemini-image": "gemini-3.1-flash-image",
@@ -106,11 +131,11 @@ MODEL_ALIASES: dict[str, str] = {
     "gemini-3.6-flash-medium": "gemini-3.8-flash-medium",
     "gemini-3.6-flash-low": "gemini-3.8-flash-low",
     "gemini-3.6-flash-tiered": "gemini-3.8-flash-tiered",
-    "gemini-3.5-flash": "gemini-3.5-flash-low",
-    "gemini-3.5-flash-high": "gemini-3-flash-agent",
-    "gemini-3.5-flash-medium": "gemini-3.5-flash-low",
-    "gemini-3.5-flash-low": "gemini-3.5-flash-low",
-    "gemini-3.5-flash-extra-low": "gemini-3.5-flash-extra-low",
+    "gemini-3.5-flash": "gemini-3.8-flash-low",
+    "gemini-3.5-flash-high": "gemini-3.8-flash-high",
+    "gemini-3.5-flash-medium": "gemini-3.8-flash-low",
+    "gemini-3.5-flash-low": "gemini-3.8-flash-low",
+    "gemini-3.5-flash-extra-low": "gemini-3.8-flash-low",
     "gemini-3.5-flash-lite": "gemini-3.5-flash-lite",
     "gemini-3-5-flash-lite": "gemini-3.5-flash-lite",
     "gemini-3.5-lite": "gemini-3.5-flash-lite",
@@ -128,7 +153,7 @@ MODEL_ALIASES: dict[str, str] = {
     "gemini-2.5-pro": "gemini-2.5-pro",
     "gemini-2.5-flash": "gemini-2.5-flash",
     "gemini-2.5-flash-lite": "gemini-2.5-flash-lite",
-    "gemini-2.5-flash-thinking": "gemini-2.5-flash-thinking",
+    "gemini-2.5-flash-thinking": "gemini-3.8-flash-high",
 
     # --------------------------------------------------------------------------
     # 2. GEMINI WEB MODELS (Routed EXCLUSIVELY via gemini.google.com web session)
@@ -192,17 +217,26 @@ MODEL_ALIASES: dict[str, str] = {
     "claude-3-opus-20240229": "claude-opus-4-6-thinking",
     "claude-3-opus-latest": "claude-opus-4-6-thinking",
     "claude-3.5-opus-latest": "claude-opus-4-6-thinking",
-    "claude-3-5-haiku": "gemini-3.1-flash-lite",
-    "claude-3.5-haiku": "gemini-3.1-flash-lite",
-    "claude-3-5-haiku-20241022": "gemini-3.1-flash-lite",
-    "claude-3.5-haiku-20241022": "gemini-3.1-flash-lite",
-    "claude-3-5-haiku-latest": "gemini-3.1-flash-lite",
-    "claude-3.5-haiku-latest": "gemini-3.1-flash-lite",
-    "claude-3-haiku": "gemini-3.1-flash-lite",
-    "claude-3-haiku-20240307": "gemini-3.1-flash-lite",
+    # Claude 4.5 Haiku (Native Antigravity 3P Model enum 340 & 341)
+    "claude-haiku-4-5": "claude-haiku-4-5",
+    "claude-haiku-4.5": "claude-haiku-4-5",
+    "claude-4-5-haiku": "claude-haiku-4-5",
+    "claude-4.5-haiku": "claude-haiku-4-5",
+    "claude-haiku-4-5-thinking": "claude-haiku-4-5-thinking",
+    "claude-haiku-4.5-thinking": "claude-haiku-4-5-thinking",
+    "claude-4-5-haiku-thinking": "claude-haiku-4-5-thinking",
+    "claude-4.5-haiku-thinking": "claude-haiku-4-5-thinking",
+    "claude-3-5-haiku": "claude-haiku-4-5",
+    "claude-3.5-haiku": "claude-haiku-4-5",
+    "claude-3-5-haiku-20241022": "claude-haiku-4-5",
+    "claude-3.5-haiku-20241022": "claude-haiku-4-5",
+    "claude-3-5-haiku-latest": "claude-haiku-4-5",
+    "claude-3.5-haiku-latest": "claude-haiku-4-5",
+    "claude-3-haiku": "claude-haiku-4-5",
+    "claude-3-haiku-20240307": "claude-haiku-4-5",
     "claude-sonnet": "claude-sonnet-4-6",
     "claude-opus": "claude-opus-4-6-thinking",
-    "claude-haiku": "gemini-3.1-flash-lite",
+    "claude-haiku": "claude-haiku-4-5",
 
     # --------------------------------------------------------------------------
     # 4. OPENAI CODEX CLI AND STANDARD OPENAI MODEL COMPATIBILITY
@@ -281,8 +315,6 @@ VALID_CLOUDCODE_MODELS = {
     "gemini-3.8-flash-tiered",
     "gemini-3.8-flash-deepagent",
     # Gemini 3.5 & earlier
-    "gemini-3.5-flash-low",
-    "gemini-3.5-flash-extra-low",
     "gemini-3.5-flash-lite",
     "gemini-3.1-flash-lite",
     "gemini-3.1-flash-image",
@@ -291,7 +323,6 @@ VALID_CLOUDCODE_MODELS = {
     "gemini-2.5-pro",
     "gemini-2.5-flash",
     "gemini-2.5-flash-lite",
-    "gemini-2.5-flash-thinking",
     # 3rd Party models
     "claude-sonnet-4-6",
     "claude-opus-4-6-thinking",
@@ -303,6 +334,22 @@ VALID_CLOUDCODE_MODELS = {
     "claude-opus-5-5-high",
     "claude-opus-5-5-medium",
     "claude-opus-5-5-low",
+    "claude-haiku-4-5",
+    "claude-haiku-4-5-thinking",
+    # Antigravity Codenames & Next-Gen Experimental Models (v2.29.0)
+    "gemini-riftrunner",
+    "gemini-riftrunner-thinking-low",
+    "gemini-riftrunner-thinking-high",
+    "gemini-infinityjet",
+    "gemini-infinitybloom",
+    "gemini-orionfire",
+    "gemini-cosmicforge",
+    "gemini-horizondawn",
+    "gemini-pureprism",
+    "gemini-gentleisland",
+    "gemini-rainsong",
+    "jarvis-v4s",
+    "jarvis-proxy",
     "gpt-oss-120b-medium",
     # Antigravity Tab & Jump Completion models
     "chat_20706",
@@ -337,6 +384,23 @@ VALID_WEB_MODELS = {
 CLOUDCODE_PLACEHOLDER_MAP: dict[str, str] = {
     "claude-opus-4-6-thinking": "MODEL_PLACEHOLDER_M26",
     "claude-sonnet-4-6": "MODEL_PLACEHOLDER_M35",
+    "claude-haiku-4-5": "MODEL_CLAUDE_4_5_HAIKU",
+    "claude-haiku-4-5-thinking": "MODEL_CLAUDE_4_5_HAIKU_THINKING",
+    "claude-4-5-haiku": "MODEL_CLAUDE_4_5_HAIKU",
+    "claude-4-5-haiku-thinking": "MODEL_CLAUDE_4_5_HAIKU_THINKING",
+    "gemini-riftrunner": "MODEL_GOOGLE_GEMINI_RIFTRUNNER",
+    "gemini-riftrunner-thinking-low": "MODEL_GOOGLE_GEMINI_RIFTRUNNER_THINKING_LOW",
+    "gemini-riftrunner-thinking-high": "MODEL_GOOGLE_GEMINI_RIFTRUNNER_THINKING_HIGH",
+    "gemini-infinityjet": "MODEL_GOOGLE_GEMINI_INFINITYJET",
+    "gemini-infinitybloom": "MODEL_GOOGLE_GEMINI_INFINITYBLOOM",
+    "gemini-orionfire": "MODEL_GOOGLE_GEMINI_ORIONFIRE",
+    "gemini-cosmicforge": "MODEL_GOOGLE_GEMINI_COSMICFORGE",
+    "gemini-horizondawn": "MODEL_GOOGLE_GEMINI_HORIZONDAWN",
+    "gemini-pureprism": "MODEL_GOOGLE_GEMINI_PUREPRISM",
+    "gemini-gentleisland": "MODEL_GOOGLE_GEMINI_GENTLEISLAND",
+    "gemini-rainsong": "MODEL_GOOGLE_GEMINI_RAINSONG",
+    "jarvis-v4s": "MODEL_GOOGLE_JARVIS_V4S",
+    "jarvis-proxy": "MODEL_GOOGLE_JARVIS_PROXY",
     "gemini-3.7-flash-high": "MODEL_PLACEHOLDER_M315",
     "gemini-3.7-flash-medium": "MODEL_PLACEHOLDER_M316",
     "gemini-3.7-flash-low": "MODEL_PLACEHOLDER_M317",
@@ -435,8 +499,22 @@ REVERSE_PLACEHOLDER_MAP.update({
     "291": "claude-opus-4-6-thinking",
     "333": "claude-sonnet-4-6",
     "334": "claude-sonnet-4-6",
-    "340": "claude-sonnet-4-6",
-    "341": "claude-sonnet-4-6",
+    "340": "claude-haiku-4-5",
+    "341": "claude-haiku-4-5-thinking",
+    # Antigravity Next-Gen & Codenames Enums (cortex.proto v2.29.0)
+    "336": "gemini-horizondawn",
+    "337": "gemini-pureprism",
+    "338": "gemini-gentleisland",
+    "339": "gemini-rainsong",
+    "343": "gemini-orionfire",
+    "346": "jarvis-proxy",
+    "347": "gemini-cosmicforge",
+    "348": "gemini-riftrunner",
+    "349": "jarvis-v4s",
+    "350": "gemini-infinityjet",
+    "351": "gemini-infinitybloom",
+    "352": "gemini-riftrunner-thinking-low",
+    "353": "gemini-riftrunner-thinking-high",
     "1018": "gemini-3-flash",
     "1019": "tab_flash_lite_preview",
     "1020": "gemini-3.5-flash-low",
@@ -516,14 +594,39 @@ REVERSE_PLACEHOLDER_MAP.update({
     "chat_23310": "chat_23310",
     "tab_flash_lite_preview": "tab_flash_lite_preview",
     "tab_jump_flash_lite_preview": "tab_jump_flash_lite_preview",
+
+    # Antigravity Codenames & Next-Gen Experimental Models (v2.29.0)
+    "gemini-riftrunner": "gemini-riftrunner",
+    "riftrunner": "gemini-riftrunner",
+    "gemini-riftrunner-thinking-low": "gemini-riftrunner-thinking-low",
+    "gemini-riftrunner-thinking-high": "gemini-riftrunner-thinking-high",
+    "gemini-infinityjet": "gemini-infinityjet",
+    "infinityjet": "gemini-infinityjet",
+    "gemini-infinitybloom": "gemini-infinitybloom",
+    "infinitybloom": "gemini-infinitybloom",
+    "gemini-orionfire": "gemini-orionfire",
+    "orionfire": "gemini-orionfire",
+    "gemini-cosmicforge": "gemini-cosmicforge",
+    "cosmicforge": "gemini-cosmicforge",
+    "gemini-horizondawn": "gemini-horizondawn",
+    "horizondawn": "gemini-horizondawn",
+    "gemini-pureprism": "gemini-pureprism",
+    "pureprism": "gemini-pureprism",
+    "gemini-gentleisland": "gemini-gentleisland",
+    "gentleisland": "gemini-gentleisland",
+    "gemini-rainsong": "gemini-rainsong",
+    "rainsong": "gemini-rainsong",
+    "jarvis-v4s": "jarvis-v4s",
+    "jarvis": "jarvis-v4s",
+    "jarvis-proxy": "jarvis-proxy",
     "model_claude_4_sonnet": "claude-sonnet-4-6",
     "model_claude_4_sonnet_thinking": "claude-sonnet-4-6",
     "model_claude_4_opus": "claude-opus-4-6-thinking",
     "model_claude_4_opus_thinking": "claude-opus-4-6-thinking",
     "model_claude_4_5_sonnet": "claude-sonnet-4-6",
     "model_claude_4_5_sonnet_thinking": "claude-sonnet-4-6",
-    "model_claude_4_5_haiku": "claude-sonnet-4-6",
-    "model_claude_4_5_haiku_thinking": "claude-sonnet-4-6",
+    "model_claude_4_5_haiku": "claude-haiku-4-5",
+    "model_claude_4_5_haiku_thinking": "claude-haiku-4-5-thinking",
 })
 
 EXACT_MODEL_METADATA: dict[str, dict[str, Any]] = {
@@ -578,6 +681,23 @@ EXACT_MODEL_METADATA: dict[str, dict[str, Any]] = {
     "claude-opus-5-5-high": {"displayName": "Claude Opus 5.5 (High)", "maxTokens": 200000},
     "claude-opus-5-5-medium": {"displayName": "Claude Opus 5.5 (Medium)", "maxTokens": 200000},
     "claude-opus-5-5-low": {"displayName": "Claude Opus 5.5 (Low)", "maxTokens": 200000},
+    "claude-haiku-4-5": {"displayName": "Claude 4.5 Haiku", "maxTokens": 200000},
+    "claude-haiku-4-5-thinking": {"displayName": "Claude 4.5 Haiku (Thinking)", "maxTokens": 200000, "supportsThinking": True},
+    "claude-4-5-haiku": {"displayName": "Claude 4.5 Haiku", "maxTokens": 200000},
+    "claude-4-5-haiku-thinking": {"displayName": "Claude 4.5 Haiku (Thinking)", "maxTokens": 200000, "supportsThinking": True},
+    "gemini-riftrunner": {"displayName": "Gemini Riftrunner", "maxTokens": 1048576, "supportsThinking": True},
+    "gemini-riftrunner-thinking-low": {"displayName": "Gemini Riftrunner (Thinking Low)", "maxTokens": 1048576, "supportsThinking": True, "thinkingBudget": 2048},
+    "gemini-riftrunner-thinking-high": {"displayName": "Gemini Riftrunner (Thinking High)", "maxTokens": 1048576, "supportsThinking": True, "thinkingBudget": 16384},
+    "gemini-infinityjet": {"displayName": "Gemini InfinityJet", "maxTokens": 1048576, "supportsThinking": True},
+    "gemini-infinitybloom": {"displayName": "Gemini InfinityBloom", "maxTokens": 1048576, "supportsThinking": True},
+    "gemini-orionfire": {"displayName": "Gemini OrionFire", "maxTokens": 1048576},
+    "gemini-cosmicforge": {"displayName": "Gemini CosmicForge", "maxTokens": 1048576},
+    "gemini-horizondawn": {"displayName": "Gemini HorizonDawn", "maxTokens": 1048576},
+    "gemini-pureprism": {"displayName": "Gemini PurePrism", "maxTokens": 1048576},
+    "gemini-gentleisland": {"displayName": "Gemini GentleIsland", "maxTokens": 1048576},
+    "gemini-rainsong": {"displayName": "Gemini RainSong", "maxTokens": 1048576},
+    "jarvis-v4s": {"displayName": "Jarvis v4s", "maxTokens": 1048576},
+    "jarvis-proxy": {"displayName": "Jarvis Proxy", "maxTokens": 1048576},
     "gpt-oss-120b-medium": {"displayName": "GPT-OSS 120B (Medium)", "maxTokens": 131072, "maxOutputTokens": 32768, "supportsThinking": True, "thinkingBudget": 8192},
     "gpt-oss-120b": {"displayName": "GPT-OSS 120B", "maxTokens": 131072, "maxOutputTokens": 32768, "supportsThinking": True, "thinkingBudget": 8192},
     # Tab & Jump Completion models
@@ -688,8 +808,18 @@ PROXY_CATALOG_MODELS: dict[str, dict[str, Any]] = {
     "claude-3-5-sonnet-latest": {"displayName": "Claude 3.5 Sonnet (Latest)", "maxTokens": 200000, "description": "Anthropic Claude 3.5 Sonnet latest release standard alias", "category": "Anthropic"},
     "claude-3-opus": {"displayName": "Claude 3 Opus", "maxTokens": 200000, "description": "Claude 3 Opus standard alias", "category": "Anthropic"},
     "claude-3-opus-latest": {"displayName": "Claude 3 Opus (Latest)", "maxTokens": 200000, "description": "Anthropic Claude 3 Opus latest release standard alias", "category": "Anthropic"},
-    "claude-3-5-haiku": {"displayName": "Claude 3.5 Haiku", "maxTokens": 200000, "description": "Claude 3.5 Haiku fast lightweight alias", "category": "Anthropic"},
-    "claude-3-5-haiku-latest": {"displayName": "Claude 3.5 Haiku (Latest)", "maxTokens": 200000, "description": "Anthropic Claude 3.5 Haiku fast lightweight alias", "category": "Anthropic"},
+    "claude-haiku-4-5": {"displayName": "Claude 4.5 Haiku", "maxTokens": 200000, "description": "Anthropic Claude 4.5 Haiku ultra-fast lightweight model (Antigravity 3P)", "category": "Anthropic"},
+    "claude-haiku-4-5-thinking": {"displayName": "Claude 4.5 Haiku (Thinking)", "maxTokens": 200000, "description": "Anthropic Claude 4.5 Haiku with hybrid reasoning (Antigravity 3P)", "category": "Anthropic"},
+    "claude-4-5-haiku": {"displayName": "Claude 4.5 Haiku", "maxTokens": 200000, "description": "Anthropic Claude 4.5 Haiku model alias", "category": "Anthropic"},
+    "claude-4-5-haiku-thinking": {"displayName": "Claude 4.5 Haiku (Thinking)", "maxTokens": 200000, "description": "Anthropic Claude 4.5 Haiku thinking model alias", "category": "Anthropic"},
+    "claude-3-5-haiku": {"displayName": "Claude 3.5 Haiku", "maxTokens": 200000, "description": "Claude 3.5 Haiku alias mapping to native Claude 4.5 Haiku", "category": "Anthropic"},
+    "claude-3-5-haiku-latest": {"displayName": "Claude 3.5 Haiku (Latest)", "maxTokens": 200000, "description": "Anthropic Claude 3.5 Haiku alias mapping to native Claude 4.5 Haiku", "category": "Anthropic"},
+
+    # Antigravity Codenames & Next-Gen Experimental Models (v2.29.0)
+    "gemini-riftrunner": {"displayName": "Gemini Riftrunner", "maxTokens": 1048576, "description": "Next-generation Gemini Riftrunner agentic model", "category": "Google Gemini"},
+    "gemini-infinityjet": {"displayName": "Gemini InfinityJet", "maxTokens": 1048576, "description": "High-throughput Gemini InfinityJet reasoning model", "category": "Google Gemini"},
+    "gemini-infinitybloom": {"displayName": "Gemini InfinityBloom", "maxTokens": 1048576, "description": "Creative and generative Gemini InfinityBloom model", "category": "Google Gemini"},
+    "jarvis-v4s": {"displayName": "Jarvis v4s", "maxTokens": 1048576, "description": "Autonomous developer agent model Jarvis v4s", "category": "Google Gemini"},
 
     # Google Gemini Models (CloudCode API)
     "gemini-4-argon": {"displayName": "Gemini 4 Argon", "maxTokens": 1048576, "description": "Google Next-Gen Gemini 4 Argon flagship CloudCode model (Argon-supported tier)", "category": "Google Gemini"},
@@ -701,27 +831,14 @@ PROXY_CATALOG_MODELS: dict[str, dict[str, Any]] = {
     "gemini-3.8-flash-low": {"displayName": "Gemini 3.8 Flash (Low Reasoning)", "maxTokens": 1048576, "description": "Fast responses with light reasoning", "category": "Google Gemini"},
     "gemini-3.8-flash-tiered": {"displayName": "Gemini 3.8 Flash (Tiered)", "maxTokens": 1048576, "description": "Dynamic tiered reasoning allocation", "category": "Google Gemini"},
     "gemini-3.8-flash-deepagent": {"displayName": "Gemini 3.8 Flash (DeepAgent)", "maxTokens": 1048576, "description": "Autonomous multi-agent swarm preset with 64k thinking budget", "category": "Google Gemini"},
-    "gemini-3.7-flash-high": {"displayName": "Gemini 3.7 Flash (High Reasoning)", "maxTokens": 1048576, "description": "Gemini 3.7 Flash with high reasoning depth", "category": "Google Gemini"},
-    "gemini-3.7-flash-medium": {"displayName": "Gemini 3.7 Flash (Medium Reasoning)", "maxTokens": 1048576, "description": "Gemini 3.7 Flash with medium reasoning", "category": "Google Gemini"},
-    "gemini-3.7-flash-low": {"displayName": "Gemini 3.7 Flash (Low Reasoning)", "maxTokens": 1048576, "description": "Gemini 3.7 Flash fast reasoning", "category": "Google Gemini"},
-    "gemini-3.7-flash-tiered": {"displayName": "Gemini 3.7 Flash (Tiered)", "maxTokens": 1048576, "description": "Gemini 3.7 Flash tiered reasoning", "category": "Google Gemini"},
-    "gemini-3.6-flash-high": {"displayName": "Gemini 3.6 Flash (High Reasoning)", "maxTokens": 1048576, "description": "Gemini 3.6 Flash with high reasoning", "category": "Google Gemini"},
-    "gemini-3.6-flash-medium": {"displayName": "Gemini 3.6 Flash (Medium Reasoning)", "maxTokens": 1048576, "description": "Gemini 3.6 Flash with medium reasoning", "category": "Google Gemini"},
-    "gemini-3.6-flash-low": {"displayName": "Gemini 3.6 Flash (Low Reasoning)", "maxTokens": 1048576, "description": "Gemini 3.6 Flash with low reasoning", "category": "Google Gemini"},
-    "gemini-3.6-flash-tiered": {"displayName": "Gemini 3.6 Flash", "maxTokens": 1048576, "description": "Gemini 3.6 Flash tiered", "category": "Google Gemini"},
-    "gemini-3.5-flash-low": {"displayName": "Gemini 3.5 Flash (Low Reasoning)", "maxTokens": 1048576, "description": "Gemini 3.5 Flash low reasoning", "category": "Google Gemini"},
-    "gemini-3.5-flash-extra-low": {"displayName": "Gemini 3.5 Flash (Extra Low)", "maxTokens": 1048576, "description": "Gemini 3.5 Flash extra-low latency", "category": "Google Gemini"},
     "gemini-3.5-flash-lite": {"displayName": "Gemini 3.5 Flash Lite", "maxTokens": 1048576, "description": "Gemini 3.5 Flash Lite low-latency", "category": "Google Gemini"},
     "gemini-pro-agent": {"displayName": "Gemini Pro Agent", "maxTokens": 1048576, "description": "Gemini Pro autonomous agent model", "category": "Google Gemini"},
-    "gemini-3.1-pro-high": {"displayName": "Gemini 3.1 Pro (High Reasoning)", "maxTokens": 1048576, "description": "Google Pro tier model with deep reasoning", "category": "Google Gemini"},
-    "gemini-3.1-pro-low": {"displayName": "Gemini 3.1 Pro (Low Reasoning)", "maxTokens": 1048576, "description": "Google Pro tier model with standard reasoning", "category": "Google Gemini"},
     "gemini-3.1-flash-lite": {"displayName": "Gemini 3.1 Flash Lite (Ultra Fast)", "maxTokens": 1048576, "description": "Ultra fast low-latency model", "category": "Google Gemini"},
     "gemini-3-flash": {"displayName": "Gemini 3 Flash", "maxTokens": 1048576, "description": "Gemini 3 Flash stable", "category": "Google Gemini"},
     "gemini-3-flash-agent": {"displayName": "Gemini 3 Flash Agent", "maxTokens": 1048576, "description": "Gemini 3 Flash autonomous agent model", "category": "Google Gemini"},
     "gemini-2.5-pro": {"displayName": "Gemini 2.5 Pro", "maxTokens": 1048576, "description": "Gemini 2.5 Pro stable architecture", "category": "Google Gemini"},
     "gemini-2.5-flash": {"displayName": "Gemini 2.5 Flash", "maxTokens": 1048576, "description": "Gemini 2.5 Flash stable", "category": "Google Gemini"},
     "gemini-2.5-flash-lite": {"displayName": "Gemini 2.5 Flash Lite", "maxTokens": 1048576, "description": "Gemini 2.5 Flash Lite fast architecture", "category": "Google Gemini"},
-    "gemini-2.5-flash-thinking": {"displayName": "Gemini 2.5 Flash Thinking", "maxTokens": 1048576, "description": "Gemini 2.5 with reasoning traces", "category": "Google Gemini"},
     "gemini-3.1-flash-image": {"displayName": "Gemini 3.1 Flash Image", "maxTokens": 65536, "description": "Google CloudCode specialized image generation and multimodal vision model", "category": "Google Gemini"},
     "chat_20706": {"displayName": "Chat 20706 (Tab Code Completion 16k)", "maxTokens": 16384, "description": "Google Antigravity tab completion model", "category": "Google Gemini"},
     "chat_23310": {"displayName": "Chat 23310 (Tab Code Completion 32k)", "maxTokens": 32768, "description": "Google Antigravity tab completion model", "category": "Google Gemini"},
@@ -856,7 +973,7 @@ def normalize_model_name(model_name: Any) -> str:
 
     # Non-web Keyword checks
     # Claude query check
-    is_claude_query = any(k in cleaned for k in ("claude", "sonnet", "opus"))
+    is_claude_query = any(k in cleaned for k in ("claude", "sonnet", "opus", "haiku"))
 
     # Version specific checks (Gemini CloudCode API only)
     if not is_claude_query:
@@ -909,9 +1026,7 @@ def normalize_model_name(model_name: Any) -> str:
                 if "low" in cleaned:
                     return "gemini-3.5-flash-lite-low"
                 return "gemini-3.5-flash-lite"
-            if "extra-low" in cleaned or "extra_low" in cleaned:
-                return "gemini-3.5-flash-extra-low"
-            return "gemini-3.5-flash-low"
+            return "gemini-3.8-flash-low"
         if "3.1-pro" in cleaned or "3_1-pro" in cleaned or "3-1-pro" in cleaned:
             # Standard API CloudCode has no 3.1 Pro: map to CloudCode native Pro architecture
             return "gemini-2.5-pro"
@@ -1019,12 +1134,26 @@ def get_claude_fallback_model(model_name: str | None) -> str:
     return "claude-sonnet-4-6"
 
 
+CLAUDE_4_5_MODELS: set[str] = {
+    "claude-haiku-4-5",
+    "claude-haiku-4-5-thinking",
+}
+
+
+def is_claude_4_5_model(model_name: str | None) -> bool:
+    """Checks whether the requested model is a Claude 4.5 variant (e.g. Haiku 4.5)."""
+    if not model_name:
+        return False
+    norm = normalize_model_name(model_name)
+    return norm in CLAUDE_4_5_MODELS or (norm.startswith("claude-") and "haiku" in norm)
+
+
 def is_claude_4_6_model(model_name: str | None) -> bool:
     """Checks whether the requested model is a Claude 4.6 variant (e.g. Sonnet 4.6, Opus 4.6)."""
     if not model_name:
         return False
     norm = normalize_model_name(model_name)
-    return (norm.startswith("claude-") or "claude" in norm) and not is_claude_5_5_model(norm)
+    return (norm.startswith("claude-") or "claude" in norm) and not is_claude_5_5_model(norm) and not is_claude_4_5_model(norm)
 
 
 def get_claude_5_5_upgrade_model(model_name: str | None) -> str:

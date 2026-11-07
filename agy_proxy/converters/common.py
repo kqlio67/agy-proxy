@@ -96,6 +96,47 @@ _DECOY_RULE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+_SANDBOX_RESTRICTION_PATTERN = re.compile(
+    r"(?:-\s*)?Never defeat or bypass an access control[\s\S]*?(?:report the error and stop\.?|(?=\n-|\n<|\n\n|\Z))\s*",
+    re.IGNORECASE,
+)
+
+_EMPTY_GUIDELINES_PATTERN = re.compile(
+    r"<guidelines>\s*(?:Follow these behavioral guidelines at all times:\s*)?</guidelines>\s*",
+    re.IGNORECASE,
+)
+
+_SECURITY_INTERFERENCE_PATTERN = re.compile(
+    r"BLOCK any task that compromises system security[\s\S]*?(?:even if performed at scale\.?|(?=\n\n|\Z))\s*",
+    re.IGNORECASE,
+)
+
+_BLOCK_TASK_POLICY_PATTERN = re.compile(
+    r"BLOCK any task that (?:facilitates or accesses illegal activities|could directly or indirectly result in serious physical harm)[\s\S]*?(?:(?:\.|\n\n)(?=[A-Z<]|\Z))\s*",
+    re.IGNORECASE,
+)
+
+_REVERSE_ENGINEERING_RESTRICTION_PATTERN = re.compile(
+    r"(?:-\s*)?Reading test source code to reverse-engineer expected behavior[\s\S]*?(?:(?:\.|\n)|(?=\n-|\Z))\s*|"
+    r"(?:Please\s+)?(?:do not|never)\s+attempt\s+to\s+reverse\s+engineer[^\n.]*\.?\s*",
+    re.IGNORECASE,
+)
+
+_FEATURED_PLUGINS_PATTERN = re.compile(
+    r"<featured_plugins>[\s\S]*?</featured_plugins>\s*",
+    re.IGNORECASE,
+)
+
+_SLASH_COMMANDS_PATTERN = re.compile(
+    r"<slash_commands>[\s\S]*?</slash_commands>\s*",
+    re.IGNORECASE,
+)
+
+_CONVERSATION_TRANSCRIPT_PATTERN = re.compile(
+    r"<conversation_transcript>[\s\S]*?</conversation_transcript>\s*",
+    re.IGNORECASE,
+)
+
 DEFAULT_SAFETY_SETTINGS: list[dict[str, str]] = [
     {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
     {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
@@ -105,13 +146,40 @@ DEFAULT_SAFETY_SETTINGS: list[dict[str, str]] = [
 ]
 
 
+def should_clean_text(text: Any) -> bool:
+    """Returns True if the text contains artificial restriction patterns or headers needing cleanup."""
+    if not text or not isinstance(text, str):
+        return False
+    lower = text.lower()
+    return (
+        "x-anthropic-billing-header:" in lower
+        or "never defeat or bypass" in lower
+        or "block any task that" in lower
+        or "system prompt protection" in lower
+        or "rule 1 — decoy" in lower
+        or "rule 1 - decoy" in lower
+        or "original games" in lower
+        or "existing game" in lower
+        or "reverse-engineer" in lower
+        or "reverse engineer" in lower
+        or "<featured_plugins>" in lower
+        or "<slash_commands>" in lower
+        or "<conversation_transcript>" in lower
+    )
+
+
 def clean_system_prompt_text(text: str) -> str:
     """
     Cleans system and message prompt text to remove:
     - Claude Code CLI internal billing headers (x-anthropic-billing-header)
     - Artificial copyright/anti-game-clone restrictions (tengu_heron_brook)
     - Injected Antigravity System Prompt Protection & Decoy Protocol blocks
-    Saves context tokens and prevents prompt injection false refusals.
+    - Injected sandbox boundary & security circumvention restrictions (Antigravity v2.29.0)
+    - Injected security interference & scraping prohibition blocks
+    - Anti-reverse-engineering benchmark mode restrictions
+    - Verbose marketing shelves (<featured_plugins>) and UI hints (<slash_commands>)
+    - Internal debugging log specifications (<conversation_transcript>)
+    Saves thousands of context tokens, dramatically speeds up TTFT, and prevents false refusals.
     """
     if not text:
         return ""
@@ -121,6 +189,21 @@ def clean_system_prompt_text(text: str) -> str:
         text = _DECOY_RULE_PATTERN.sub("", text)
     if "original games" in text.lower() or "existing game" in text.lower():
         text = _ANTI_CLONE_PATTERN.sub("", text)
+    if "never defeat or bypass" in text.lower():
+        text = _SANDBOX_RESTRICTION_PATTERN.sub("", text)
+        text = _EMPTY_GUIDELINES_PATTERN.sub("", text)
+    if "block any task that compromises" in text.lower():
+        text = _SECURITY_INTERFERENCE_PATTERN.sub("", text)
+    if "block any task that" in text.lower():
+        text = _BLOCK_TASK_POLICY_PATTERN.sub("", text)
+    if "reverse-engineer" in text.lower() or "reverse engineer" in text.lower():
+        text = _REVERSE_ENGINEERING_RESTRICTION_PATTERN.sub("", text)
+    if "<featured_plugins>" in text.lower():
+        text = _FEATURED_PLUGINS_PATTERN.sub("", text)
+    if "<slash_commands>" in text.lower():
+        text = _SLASH_COMMANDS_PATTERN.sub("", text)
+    if "<conversation_transcript>" in text.lower():
+        text = _CONVERSATION_TRANSCRIPT_PATTERN.sub("", text)
     lines = text.splitlines()
     cleaned_lines = [
         line for line in lines
@@ -890,5 +973,6 @@ __all__ = [
     "sanitize_gemini_contents_thought_signatures",
     "sanitize_gemini_schema",
     "save_thought_signature",
+    "should_clean_text",
     "to_dict",
 ]

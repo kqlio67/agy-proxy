@@ -4776,7 +4776,7 @@ def create_app(
                             if inner_k not in candidate_body["request"]:
                                 candidate_body["request"][inner_k] = val
 
-                    # Clean systemInstruction to save context and eliminate decoy/refusal boilerplate
+                    # Clean systemInstruction and contents to save context and eliminate decoy/refusal boilerplate
                     if "systemInstruction" in candidate_body["request"]:
                         si = candidate_body["request"]["systemInstruction"]
                         if isinstance(si, dict) and "parts" in si and isinstance(si["parts"], list):
@@ -4784,6 +4784,15 @@ def create_app(
                             for part in si["parts"]:
                                 if isinstance(part, dict) and "text" in part and isinstance(part["text"], str):
                                     part["text"] = clean_system_prompt_text(part["text"])
+
+                    if "contents" in candidate_body["request"] and isinstance(candidate_body["request"]["contents"], list):
+                        from agy_proxy.converters.common import clean_system_prompt_text, should_clean_text
+                        for turn in candidate_body["request"]["contents"]:
+                            if isinstance(turn, dict) and "parts" in turn and isinstance(turn["parts"], list):
+                                for part in turn["parts"]:
+                                    if isinstance(part, dict) and "text" in part and isinstance(part["text"], str):
+                                        if should_clean_text(part["text"]):
+                                            part["text"] = clean_system_prompt_text(part["text"])
 
                     # Apply permissive safety settings to prevent false refusals on coding/debugging tasks
                     candidate_body["request"]["safetySettings"] = [

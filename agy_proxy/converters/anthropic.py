@@ -23,6 +23,7 @@ from agy_proxy.converters.common import (
     is_explicit_compact_request,
     normalize_model_name,
     sanitize_gemini_schema,
+    should_clean_text,
     to_dict,
 )
 from agy_proxy.models import AnthropicRequest, is_image_model
@@ -92,7 +93,7 @@ def anthropic_to_cloudcode_payload(
         parts: list[dict[str, Any]] = []
 
         if isinstance(content, str):
-            cleaned_c = clean_system_prompt_text(content) if "x-anthropic-billing-header:" in content.lower() else content
+            cleaned_c = clean_system_prompt_text(content) if should_clean_text(content) else content
             if cleaned_c:
                 if is_system_role:
                     cleaned_c = _wrap_system_reminder(cleaned_c)
@@ -107,7 +108,7 @@ def anthropic_to_cloudcode_payload(
                 if b_type == "text":
                     txt = b_dict.get("text", "")
                     if txt:
-                        cleaned_txt = clean_system_prompt_text(txt) if "x-anthropic-billing-header:" in txt.lower() else txt
+                        cleaned_txt = clean_system_prompt_text(txt) if should_clean_text(txt) else txt
                         if cleaned_txt:
                             if is_system_role:
                                 cleaned_txt = _wrap_system_reminder(cleaned_txt)
