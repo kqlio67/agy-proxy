@@ -67,6 +67,7 @@ MODEL_ALIASES: dict[str, str] = {
     "gemini-3.8-flash-low": "gemini-3.8-flash-low",
     "gemini-3.8-flash-tiered": "gemini-3.8-flash-tiered",
     "gemini-3.8-flash-n": "gemini-3.8-flash-high",
+    "gemini-3.8-flash-control": "gemini-3.8-flash-high",
     "gemini-3.8": "gemini-3.8-flash-high",
     "gemini-3-8": "gemini-3.8-flash-high",
     "gemini-3.8-flash-preview": "gemini-3.8-flash-high",
@@ -641,6 +642,7 @@ EXACT_MODEL_METADATA: dict[str, dict[str, Any]] = {
     "gemini-3.8-flash-low": {"displayName": "Gemini 3.8 Flash (Low)", "maxTokens": 1048576},
     "gemini-3.8-flash-tiered": {"displayName": "Gemini 3.8 Flash (Tiered)", "maxTokens": 1048576},
     "gemini-3.8-flash-n": {"displayName": "Gemini 3.8 Flash (High)", "maxTokens": 1048576},
+    "gemini-3.8-flash-control": {"displayName": "Gemini 3.8 Flash (Control Serving Version)", "maxTokens": 1048576},
     "gemini-3.8-flash-deepagent": {"displayName": "Gemini 3.8 Flash DeepAgent (Autonomous Swarm, 64k Reasoning)", "maxTokens": 1048576},
     # Gemini 3.7
     "gemini-3.7-flash": {"displayName": "Gemini 3.7 Flash", "maxTokens": 1048576},
