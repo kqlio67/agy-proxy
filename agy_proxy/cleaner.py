@@ -40,6 +40,10 @@ class AntigravityCacheCleaner:
         """Returns the primary Antigravity brain directory."""
         return self.home / ".gemini" / "antigravity" / "brain"
 
+    def get_conversations_dir(self) -> Path:
+        """Returns the Antigravity conversation database directory."""
+        return self.home / ".gemini" / "antigravity" / "conversations"
+
     def get_gemini_dirs(self) -> dict[str, Path]:
         """Returns map of Gemini/Antigravity state directories."""
         base = self.home / ".gemini" / "antigravity"
@@ -51,6 +55,7 @@ class AntigravityCacheCleaner:
             "annotations": base / "annotations",
             "sidecar_data": base / "sidecar_data",
             "cache": base / "cache",
+            "conversations": base / "conversations",
         }
 
     def get_electron_cache_dirs(self) -> list[Path]:
@@ -213,6 +218,12 @@ class AntigravityCacheCleaner:
                 except Exception as e:
                     errors.append(f"Failed to access {cache_dir}: {e}")
 
+        # 4. Clean Conversations directory if explicitly requested
+        if categories and "conversations" in categories:
+            res_conv = self.clean_stale_conversations(older_than_days=max(0.1, older_than_hours / 24.0) if older_than_hours > 0 else 14.0)
+            freed_bytes += res_conv["freed_bytes"]
+            deleted_files += res_conv["deleted_files"]
+
         logger.info(
             "Cache cleaned: %s freed, %d files removed across %d directories",
             _format_size(freed_bytes),
@@ -228,6 +239,48 @@ class AntigravityCacheCleaner:
             "deleted_dirs": deleted_dirs,
             "errors": errors,
         }
+
+    def clean_stale_conversations(self, older_than_days: float = 14.0) -> dict[str, Any]:
+        """Cleans inactive conversation database files (.db) older than specified days and vacuums summaries."""
+        conv_dir = self.get_conversations_dir()
+        freed_bytes = 0
+        deleted_files = 0
+        now = time.time()
+        cutoff = now - (older_than_days * 86400)
+        if conv_dir.is_dir():
+            for db_file in conv_dir.glob("*.db"):
+                if self.current_conversation_id and self.current_conversation_id in db_file.name:
+                    continue
+                try:
+                    if db_file.stat().st_mtime < cutoff:
+                        sz = db_file.stat().st_size
+                        db_file.unlink(missing_ok=True)
+                        freed_bytes += sz
+                        deleted_files += 1
+                except Exception:
+                    pass
+
+        self.vacuum_summaries_db()
+
+        return {
+            "deleted_files": deleted_files,
+            "freed_bytes": freed_bytes,
+            "freed_formatted": _format_size(freed_bytes),
+        }
+
+    def vacuum_summaries_db(self) -> bool:
+        """Executes SQLite VACUUM on conversation_summaries.db to compact indexes."""
+        sum_db = self.home / ".gemini" / "antigravity" / "conversation_summaries.db"
+        if sum_db.is_file():
+            try:
+                import sqlite3
+                conn = sqlite3.connect(str(sum_db))
+                conn.execute("VACUUM")
+                conn.close()
+                return True
+            except Exception:
+                return False
+        return False
 
     def _dir_stats(self, p: Path) -> tuple[int, int]:
         """Calculates total size in bytes and file count within a directory."""

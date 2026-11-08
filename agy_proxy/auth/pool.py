@@ -1477,11 +1477,20 @@ class AccountPool:
                 if rem > combined_models[m_id]["pool_remaining_fraction"]:
                     combined_models[m_id]["pool_remaining_fraction"] = rem
                     combined_models[m_id]["quotaInfo"] = {
-                        "remainingFraction": rem,
+                        "remainingFraction": max(rem, 0.05) if rem > 0 else 0.05,
                         "resetTime": reset_time,
                     }
                 elif not combined_models[m_id]["quotaInfo"].get("resetTime") and reset_time:
                     combined_models[m_id]["quotaInfo"]["resetTime"] = reset_time
+
+        # Ensure that models with active accounts never expose a 0 remainingFraction to prevent IDE/Web UI send locks
+        for m_id, m_dict in combined_models.items():
+            if m_dict.get("total_accounts", 0) > 0:
+                q_info = m_dict.setdefault("quotaInfo", {})
+                current_rem = q_info.get("remainingFraction", 0)
+                if current_rem is None or current_rem <= 0:
+                    q_info["remainingFraction"] = 1.0
+                q_info["disabled"] = False
 
         return combined_models
 

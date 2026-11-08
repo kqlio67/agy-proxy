@@ -749,4 +749,61 @@ def test_patch_web_bundle_deepagent_flags(tmp_path):
     assert '"enable-swarm": true' in patched_html
 
 
+def test_patch_web_bundle_quota_and_auth_safeguards(tmp_path):
+    from agy_proxy.web_launcher import patch_web_bundle
+
+    bundle = tmp_path / "web_bundle"
+    bundle.mkdir()
+    js_content = (
+        "const dummy=1;\n"
+        "var IVb=(a,b,c,d,f)=>(f=BZ(a,b,c,d,f))?{code:'MODEL_QUOTA_LIMIT_EXCEEDED'}:{code:void 0};\n"
+        'else h!=="signedOut"&&h!=="validatingLogin"&&SD(a,!1)\n'
+        'function OMc(a){console.error(`[ProtoRegistry] Unknown type: ${a}. Demoting to Empty message to prevent crash.`);return Jba}\n'
+        'catch(f){c(),console.warn("Failed to send developer Mendel flag overrides to the language server",f)}\n'
+        'this.completionPromise||(this.completionPromise=(new Promise((c,d)=>{this.doResolve=c;this.doReject=d})).then(\n'
+    )
+    (bundle / "main.js").write_text(js_content, encoding="utf-8")
+    (bundle / "index.html").write_text("<html><head></head><body></body></html>", encoding="utf-8")
+
+    success = patch_web_bundle(bundle)
+    assert success is True
+
+    patched_js = (bundle / "main.js").read_text(encoding="utf-8")
+    assert "var IVb=()=>({code:void 0});" in patched_js
+    assert "guarded from forced signout" in patched_js
+    assert "function OMc(a){return Jba}" in patched_js
+    assert "catch(f){c(),a.appliedKey=d}" in patched_js
+    assert "name===\\\"Canceled\\\"" in patched_js or 'name==="Canceled"' in patched_js
+
+
+def test_extract_auth_urls_from_log_offset(tmp_path):
+    from agy_proxy.web_launcher import extract_auth_urls_from_log
+
+    log_file = tmp_path / "server.log"
+    # Write historical log with an old auth URL
+    old_content = (
+        "Server starting up...\n"
+        "ANTIGRAVITY_OPEN_URL: https://accounts.google.com/o/oauth2/auth?state=old_token_1\n"
+        "Server running on port 44741\n"
+    )
+    log_file.write_text(old_content, encoding="utf-8")
+    initial_offset = log_file.stat().st_size
+
+    # From initial offset, no new URLs should be found
+    urls, next_offset = extract_auth_urls_from_log(log_file, start_offset=initial_offset)
+    assert urls == []
+    assert next_offset == initial_offset
+
+    # Now append a brand new log line with a new auth URL
+    with open(log_file, "a", encoding="utf-8") as f:
+        f.write("ANTIGRAVITY_OPEN_URL: https://accounts.google.com/o/oauth2/auth?state=new_token_2\n")
+
+    urls, final_offset = extract_auth_urls_from_log(log_file, start_offset=next_offset)
+    assert len(urls) == 1
+    assert "state=new_token_2" in urls[0]
+    assert final_offset > next_offset
+
+
+
+
 

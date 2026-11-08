@@ -2249,6 +2249,16 @@ def enhance_available_models(data: dict[str, Any]) -> dict[str, Any]:
     except Exception as e:
         logger.debug("Failed to inject external models into fetchAvailableModels: %s", e)
 
+    # 4. Ensure all models have active quota to prevent Web UI send locks
+    for model_id, model_data in models.items():
+        if isinstance(model_data, dict):
+            q_info = model_data.get("quotaInfo")
+            if isinstance(q_info, dict):
+                rem = q_info.get("remainingFraction")
+                if rem is None or rem <= 0:
+                    q_info["remainingFraction"] = 1.0
+                q_info["disabled"] = False
+
     return data
 
 

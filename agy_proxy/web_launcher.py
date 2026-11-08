@@ -707,9 +707,10 @@ def find_language_server(
 
 
 def is_port_in_use(port: int, host: str = "127.0.0.1") -> bool:
-    """Checks if a local TCP port is already open/listening."""
+    """Checks if a local TCP port is already open/listening, accounting for socket reuse."""
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             s.settimeout(0.5)
             return s.connect_ex((host, port)) == 0
     except Exception:
@@ -1328,6 +1329,52 @@ addSep("── Default ──────────────────","
         if not applied_provider_patch:
             logger.warning("Could not identify React state provider or Redux slice structure; proceeding with graceful degradation.")
 
+    # 1.10 Permanently unlock Send button from MODEL_QUOTA_LIMIT_EXCEEDED
+    # Dynamically find the quota error evaluator (IVb / BZ) and neutralize it so the UI never blocks prompts
+    ivb_pat = re.compile(r'var\s+([A-Za-z0-9_$]+)\s*=\s*\([^)]+\)\s*=>\s*\(f\s*=\s*([A-Za-z0-9_$]+)\([^)]+\)\)\s*\?[^;]+MODEL_QUOTA_LIMIT_EXCEEDED[^;]+;')
+    m_ivb = ivb_pat.search(js)
+    if m_ivb:
+        ivb_name = m_ivb.group(1)
+        js = js[:m_ivb.start()] + f'var {ivb_name}=()=>({{code:void 0}});' + js[m_ivb.end():]
+        logger.info(f"Patched {ivb_name}: Permanently unlocked Send button from MODEL_QUOTA_LIMIT_EXCEEDED")
+
+    # 1.11 Guard auth verification loop (k0a) against SIGN_OUT on transient glitches
+    if 'else h!=="signedOut"&&h!=="validatingLogin"&&SD(a,!1)' in js:
+        js = js.replace('else h!=="signedOut"&&h!=="validatingLogin"&&SD(a,!1)', 'else{/* guarded from forced signout */}')
+        logger.info("Patched k0a: Guarded authentication loop against forced SIGN_OUT")
+
+    # 1.12 Suppress ProtoRegistry unknown type console error spam (demote quietly to Empty)
+    proto_pat = re.compile(
+        r'function\s+([A-Za-z0-9_$]+)\s*\(([A-Za-z0-9_$]+)\)\s*\{\s*console\.error\(`\[ProtoRegistry\]\s*Unknown type:[^`]+`\);\s*return\s+([A-Za-z0-9_$]+)\s*\}'
+    )
+    m_proto = proto_pat.search(js)
+    if m_proto:
+        fn_name = m_proto.group(1)
+        arg_name = m_proto.group(2)
+        empty_var = m_proto.group(3)
+        js = proto_pat.sub(f'function {fn_name}({arg_name}){{return {empty_var}}}', js)
+        logger.info(f"Patched {fn_name}: Suppressed ProtoRegistry unknown type console spam")
+    elif "[ProtoRegistry] Unknown type:" in js:
+        js = re.sub(r'console\.error\(`\[ProtoRegistry\] Unknown type:[^`]+`\);', '', js)
+        logger.info("Patched ProtoRegistry console.error calls directly")
+
+    # 1.13 Handle Mendel flag overrides permission_denied gracefully without warning loops
+    if 'console.warn("Failed to send developer Mendel flag overrides to the language server",f)' in js:
+        js = js.replace(
+            'catch(f){c(),console.warn("Failed to send developer Mendel flag overrides to the language server",f)}',
+            'catch(f){c(),a.appliedKey=d}',
+        )
+        logger.info("Patched cka: Handled Mendel flag overrides gracefully without warning loop")
+
+    # 1.14 Prevent uncaught Canceled promise rejections during input typing delayer
+    delayer_target = 'this.completionPromise||(this.completionPromise=(new Promise((c,d)=>{this.doResolve=c;this.doReject=d})).then('
+    if delayer_target in js:
+        js = js.replace(
+            delayer_target,
+            'this.completionPromise||(this.completionPromise=(new Promise((c,d)=>{this.doResolve=c;this.doReject=d})).catch(c=>{if(c?.name==="Canceled"||String(c).includes("Canceled"))return;throw c}).then(',
+        )
+        logger.info("Patched rKa: Guarded completion delayer against uncaught Canceled promise rejections")
+
     with open(main_js_path, "w", encoding="utf-8") as f:
         f.write(js)
 
@@ -1597,6 +1644,9 @@ def build_web_args(
         "--enable_sidecars",
         "--disable_telemetry=true",
         "--persistent_mode=true",
+        "--exit_on_stdin_close=true",
+        "--limit_go_max_procs=4",
+        "--browser_eval_env=true",
     ]
 
     # Connect to agy-proxy if active and direct mode is not forced, otherwise fallback to official Google backend
@@ -1778,6 +1828,33 @@ def print_web_banner(
     console.print(panel)
 
 
+def extract_auth_urls_from_log(log_path: Path, start_offset: int = 0) -> tuple[list[str], int]:
+    """
+    Reads log starting at start_offset and extracts new ANTIGRAVITY_OPEN_URL links.
+    Returns (new_urls, new_offset).
+    """
+    urls: list[str] = []
+    new_offset = start_offset
+    if not log_path or not log_path.is_file():
+        return urls, new_offset
+
+    try:
+        size = log_path.stat().st_size
+        if size < start_offset:
+            start_offset = 0
+        with open(log_path, "r", encoding="utf-8", errors="ignore") as f:
+            f.seek(start_offset)
+            for line in f:
+                if "ANTIGRAVITY_OPEN_URL:" in line:
+                    auth_link = line.split("ANTIGRAVITY_OPEN_URL:", 1)[1].strip()
+                    if auth_link and auth_link not in urls:
+                        urls.append(auth_link)
+            new_offset = f.tell()
+    except Exception:
+        pass
+    return urls, new_offset
+
+
 def launch_antigravity_web(
     port: int = DEFAULT_WEB_PORT,
     host: str = "127.0.0.1",
@@ -1932,6 +2009,62 @@ def launch_antigravity_web(
     if should_open:
         open_browser_async(url, browser_name=browser, delay=2.5)
 
+    # Proactively sync active primary OAuth session to standalone web token if missing or invalid
+    try:
+        from agy_proxy.auth import AccountPool
+        from agy_proxy.switcher import activate_account_in_antigravity, resolve_antigravity_destinations
+
+        standalone_token_files = resolve_antigravity_destinations("standalone")
+        if standalone_token_files:
+            standalone_token_file = standalone_token_files[0]
+            needs_sync = not standalone_token_file.is_file() or standalone_token_file.stat().st_size == 0
+            if not needs_sync:
+                try:
+                    import json
+
+                    tok_data = json.loads(standalone_token_file.read_text(encoding="utf-8"))
+                    tok_inner = tok_data.get("token", {})
+                    if not tok_inner.get("access_token") and not tok_inner.get("refresh_token"):
+                        needs_sync = True
+                except Exception:
+                    needs_sync = True
+
+            if needs_sync:
+                pool = AccountPool()
+                pool.load_accounts()
+                primary = pool.get_primary_account()
+                if primary and primary.auth_method == "consumer":
+                    import asyncio
+
+                    try:
+                        loop = asyncio.get_running_loop()
+                    except RuntimeError:
+                        loop = None
+
+                    if loop and loop.is_running():
+                        import concurrent.futures
+
+                        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                            executor.submit(
+                                asyncio.run,
+                                activate_account_in_antigravity(
+                                    primary,
+                                    target_paths=[standalone_token_file],
+                                    allow_overwrite=True,
+                                ),
+                            ).result()
+                    else:
+                        asyncio.run(
+                            activate_account_in_antigravity(
+                                primary,
+                                target_paths=[standalone_token_file],
+                                allow_overwrite=True,
+                            )
+                        )
+                    logger.info("Automatically synchronized active OAuth session to standalone web token: %s", standalone_token_file)
+    except Exception as e:
+        logger.debug("Could not verify/sync standalone token: %s", e)
+
     # Launch server process
     log_out = None
     proc_env = os.environ.copy()
@@ -1941,22 +2074,29 @@ def launch_antigravity_web(
         proc_env["USER_INFO_OVERRIDE_URL"] = f"{clean_proxy}/oauth2/v2/userinfo"
     proc_env["ANTIGRAVITY_VSCODE_HOST"] = "1"
 
-    def _monitor_auth_urls():
+    initial_log_offset = 0
+    if effective_log_path.is_file():
+        try:
+            initial_log_offset = effective_log_path.stat().st_size
+        except Exception:
+            initial_log_offset = 0
+
+    def _monitor_auth_urls(start_offset: int = 0):
         seen_urls = set()
+        current_offset = start_offset
         for _ in range(120):
             if effective_log_path.is_file():
                 try:
-                    for line in effective_log_path.read_text(encoding="utf-8", errors="ignore").splitlines():
-                        if "ANTIGRAVITY_OPEN_URL:" in line:
-                            auth_link = line.split("ANTIGRAVITY_OPEN_URL:", 1)[1].strip()
-                            if auth_link and auth_link not in seen_urls:
-                                seen_urls.add(auth_link)
-                                console.print(f"\n[bold yellow]🔑 Antigravity Authentication URL:[/bold yellow]\n[bold underline cyan]{auth_link}[/bold underline cyan]\n")
+                    new_urls, current_offset = extract_auth_urls_from_log(effective_log_path, current_offset)
+                    for auth_link in new_urls:
+                        if auth_link not in seen_urls:
+                            seen_urls.add(auth_link)
+                            console.print(f"\n[bold yellow]🔑 Antigravity Authentication URL:[/bold yellow]\n[bold underline cyan]{auth_link}[/bold underline cyan]\n")
                 except Exception:
                     pass
             time.sleep(0.5)
 
-    threading.Thread(target=_monitor_auth_urls, daemon=True).start()
+    threading.Thread(target=_monitor_auth_urls, args=(initial_log_offset,), daemon=True).start()
 
     try:
         if detach:
