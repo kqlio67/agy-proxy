@@ -678,7 +678,8 @@ class TestModularConvertersPackage(unittest.TestCase):
         self.assertNotIn("never attempt to reverse engineer", cleaned_re)
         self.assertIn("Disassemble function at 0x401000.", cleaned_re)
 
-        # Bloat sections stripping (<featured_plugins>, <slash_commands>, <conversation_transcript>)
+        # Bloat sections stripping (<featured_plugins>, <conversation_transcript>)
+        # Note: <slash_commands> is explicitly preserved per user preference
         raw_bloat = (
             "<identity>\nYou are Antigravity.\n</identity>\n"
             "<slash_commands>\nSlash commands are user-facing shortcuts in the chat UI:\n- /goal\n- /plan\n</slash_commands>\n"
@@ -688,7 +689,8 @@ class TestModularConvertersPackage(unittest.TestCase):
         )
         self.assertTrue(should_clean_text(raw_bloat))
         cleaned_bloat = clean_system_prompt_text(raw_bloat)
-        self.assertNotIn("<slash_commands>", cleaned_bloat)
+        self.assertIn("<slash_commands>", cleaned_bloat)
+        self.assertIn("- /goal", cleaned_bloat)
         self.assertNotIn("<featured_plugins>", cleaned_bloat)
         self.assertNotIn("<conversation_transcript>", cleaned_bloat)
         self.assertNotIn("Canva", cleaned_bloat)

@@ -150,7 +150,7 @@ Task: Run service.`;
 
     if (!shouldCleanText(rawBloat)) throw new Error('shouldCleanText should have returned true for rawBloat');
     const cleanedBloat = cleanSystemPromptText(rawBloat);
-    if (cleanedBloat.includes('<slash_commands>')) throw new Error('<slash_commands> was not removed');
+    if (!cleanedBloat.includes('<slash_commands>')) throw new Error('<slash_commands> should be preserved per user preference');
     if (cleanedBloat.includes('<featured_plugins>')) throw new Error('<featured_plugins> was not removed');
     if (cleanedBloat.includes('<conversation_transcript>')) throw new Error('<conversation_transcript> was not removed');
     if (!cleanedBloat.includes('Task: Run service.')) throw new Error('User task was removed');

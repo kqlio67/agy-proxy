@@ -137,11 +137,6 @@ _FEATURED_PLUGINS_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
-_SLASH_COMMANDS_PATTERN = re.compile(
-    r"<slash_commands>[\s\S]*?</slash_commands>\s*",
-    re.IGNORECASE,
-)
-
 _CONVERSATION_TRANSCRIPT_PATTERN = re.compile(
     r"<conversation_transcript>[\s\S]*?</conversation_transcript>\s*",
     re.IGNORECASE,
@@ -173,7 +168,6 @@ def should_clean_text(text: Any) -> bool:
         or "reverse-engineer" in lower
         or "reverse engineer" in lower
         or "<featured_plugins>" in lower
-        or "<slash_commands>" in lower
         or "<conversation_transcript>" in lower
     )
 
@@ -187,9 +181,10 @@ def clean_system_prompt_text(text: str) -> str:
     - Injected sandbox boundary & security circumvention restrictions (Antigravity v2.29.0)
     - Injected security interference & scraping prohibition blocks
     - Anti-reverse-engineering benchmark mode restrictions
-    - Verbose marketing shelves (<featured_plugins>) and UI hints (<slash_commands>)
+    - Verbose marketing shelves (<featured_plugins>)
     - Internal debugging log specifications (<conversation_transcript>)
     Saves thousands of context tokens, dramatically speeds up TTFT, and prevents false refusals.
+    Preserves <slash_commands> UI shortcuts per user preference.
     """
     if not text:
         return ""
@@ -210,8 +205,6 @@ def clean_system_prompt_text(text: str) -> str:
         text = _REVERSE_ENGINEERING_RESTRICTION_PATTERN.sub("", text)
     if "<featured_plugins>" in text.lower():
         text = _FEATURED_PLUGINS_PATTERN.sub("", text)
-    if "<slash_commands>" in text.lower():
-        text = _SLASH_COMMANDS_PATTERN.sub("", text)
     if "<conversation_transcript>" in text.lower():
         text = _CONVERSATION_TRANSCRIPT_PATTERN.sub("", text)
     lines = text.splitlines()

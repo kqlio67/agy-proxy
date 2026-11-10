@@ -683,7 +683,6 @@ function shouldCleanText(str) {
     lower.includes("reverse-engineer") ||
     lower.includes("reverse engineer") ||
     lower.includes("<featured_plugins>") ||
-    lower.includes("<slash_commands>") ||
     lower.includes("<conversation_transcript>")
   );
 }
@@ -716,9 +715,6 @@ function cleanSystemPromptText(text) {
   }
   if (cleaned.toLowerCase().includes("<featured_plugins>")) {
     cleaned = cleaned.replace(/<featured_plugins>[\s\S]*?<\/featured_plugins>\s*/gi, "");
-  }
-  if (cleaned.toLowerCase().includes("<slash_commands>")) {
-    cleaned = cleaned.replace(/<slash_commands>[\s\S]*?<\/slash_commands>\s*/gi, "");
   }
   if (cleaned.toLowerCase().includes("<conversation_transcript>")) {
     cleaned = cleaned.replace(/<conversation_transcript>[\s\S]*?<\/conversation_transcript>\s*/gi, "");
