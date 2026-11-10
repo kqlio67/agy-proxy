@@ -2,7 +2,7 @@
 Antigravity Experimental Features & Flags Manager.
 
 Manages experimental features and Google CloudCode / Antigravity internal flags.
-Safely activates high-value capabilities (e.g. DeepAgent subagents, multi-agent teams,
+Safely activates high-value capabilities (e.g. /deepagent, multi-agent teams,
 swarms, Mixture of Agents, Model Context Protocol, interactive diff views,
 local/remote RAG, sidecars, and skills) while strictly blocking harmful or
 restrictive flags (e.g. Free Tier downgrades, disablers, telemetry blocks,
@@ -87,7 +87,7 @@ CURATED_SAFE_FLAGS: dict[str, dict[str, Any]] = {
     "enable-deepagent": {
         "value": True,
         "category": "agents",
-        "desc": "Enables DeepAgent autonomous subagent workflows and 64k thinking budget",
+        "desc": "Enables DeepAgent autonomous subagent workflows (/deepagent)",
     },
     "enable-deepagent-v2": {
         "value": True,
