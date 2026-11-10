@@ -158,7 +158,7 @@ class TestServerRoutes(unittest.IsolatedAsyncioTestCase):
 
         # Real backend models should be present
         self.assertIn("gemini-3.8-flash-high", model_ids)
-        self.assertIn("anthropic.claude-sonnet-4-6", model_ids)
+        self.assertIn("anthropic.claude-sonnet-5-5-high", model_ids)
         self.assertIn("gpt-oss-120b-medium", model_ids)
 
         # Available proxy models should also be advertised for ClaudeDev & OpenAI clients
@@ -167,8 +167,7 @@ class TestServerRoutes(unittest.IsolatedAsyncioTestCase):
         self.assertIn("o1", model_ids)
         self.assertIn("o3-mini", model_ids)
         self.assertIn("deepseek-r1", model_ids)
-        self.assertIn("claude-sonnet-4-6", model_ids)
-        self.assertIn("anthropic.claude-sonnet-4-6", model_ids)
+        self.assertIn("claude-sonnet-5-5-high", model_ids)
         self.assertIn("gemini-4-argon-web-spark", model_ids)
 
         # Non-existent / fake models should NOT be advertised in /v1/models
@@ -187,8 +186,6 @@ class TestServerRoutes(unittest.IsolatedAsyncioTestCase):
 
         # Real exact models should be present
         self.assertIn("gemini-3.8-flash-high", models)
-        self.assertIn("claude-sonnet-4-6", models)
-        self.assertIn("claude-opus-4-6-thinking", models)
         self.assertIn("claude-sonnet-5-5-high", models)
         self.assertIn("claude-opus-5-5-high", models)
         self.assertIn("gpt-oss-120b-medium", models)

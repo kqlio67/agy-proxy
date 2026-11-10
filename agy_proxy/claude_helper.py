@@ -57,59 +57,19 @@ CLAUDE_RECOMMENDED_MODELS: dict[str, dict[str, str]] = {
         "description": "Anthropic Claude Opus 5.5 high-capability reasoning model",
         "effortLevel": "high",
     },
-    "claude-mythos-preview": {
-        "displayName": "Claude Mythos Preview",
-        "description": "Anthropic Claude Mythos next-generation preview model",
-        "effortLevel": "high",
-    },
-    "claude-sonnet-4-6": {
-        "displayName": "Claude Sonnet 4.6 (Thinking)",
-        "description": "Anthropic flagship hybrid model with extended thinking (Default 3P)",
-        "effortLevel": "high",
-    },
-    "claude-sonnet-4-6-deepagent": {
-        "displayName": "Claude Sonnet 4.6 (DeepAgent)",
-        "description": "Anthropic Claude Sonnet 4.6 autonomous agent preset with 64k thinking budget",
-        "effortLevel": "high",
-    },
-    "claude-opus-4-6-thinking": {
-        "displayName": "Claude Opus 4.6 (Thinking)",
-        "description": "Anthropic high-capability reasoning model with thinking",
-        "effortLevel": "high",
-    },
-    "claude-opus-4-6-deepagent": {
-        "displayName": "Claude Opus 4.6 (DeepAgent)",
-        "description": "Anthropic Claude Opus 4.6 autonomous agent preset with 64k thinking budget",
-        "effortLevel": "high",
-    },
     "claude-3-7-sonnet": {
         "displayName": "Claude 3.7 Sonnet",
-        "description": "Standard alias mapping to Claude Sonnet 4.6 with hybrid reasoning",
+        "description": "Standard alias mapping to Claude Sonnet 5.5 High with hybrid reasoning",
         "effortLevel": "high",
     },
     "claude-3-5-sonnet": {
         "displayName": "Claude 3.5 Sonnet",
-        "description": "Standard alias mapping to Claude Sonnet 4.6",
+        "description": "Standard alias mapping to Claude Sonnet 5.5 High",
         "effortLevel": "medium",
-    },
-    "claude-haiku-4-5": {
-        "displayName": "Claude 4.5 Haiku",
-        "description": "Anthropic Claude 4.5 Haiku ultra-fast lightweight model (Antigravity 3P)",
-        "effortLevel": "low",
-    },
-    "claude-haiku-4-5-thinking": {
-        "displayName": "Claude 4.5 Haiku (Thinking)",
-        "description": "Anthropic Claude 4.5 Haiku with hybrid reasoning (Antigravity 3P)",
-        "effortLevel": "medium",
-    },
-    "claude-4-5-haiku": {
-        "displayName": "Claude 4.5 Haiku",
-        "description": "Anthropic Claude 4.5 Haiku model alias",
-        "effortLevel": "low",
     },
     "claude-3-5-haiku": {
         "displayName": "Claude 3.5 Haiku",
-        "description": "Ultra fast lightweight model alias mapping to Claude 4.5 Haiku",
+        "description": "Ultra fast lightweight model alias mapping to Claude Sonnet 5.5 Low",
         "effortLevel": "low",
     },
 
@@ -367,7 +327,7 @@ def setup_claude(
             data["model"] = model
     else:
         # Proxy routing mode
-        small_model = "gemini-2.5-flash" if is_gemini else "claude-3-5-haiku"
+        small_model = "gemini-2.5-flash" if is_gemini else "claude-sonnet-5-5-low"
         data["env"].update({
             "ANTHROPIC_AUTH_TOKEN": "agy-proxy-token",
             "ANTHROPIC_API_KEY": "",
@@ -375,8 +335,8 @@ def setup_claude(
             "ANTHROPIC_MODEL": model,
             "CLAUDE_CODE_SUBAGENT_MODEL": model,
             "ANTHROPIC_DEFAULT_HAIKU_MODEL": small_model,
-            "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-4-6",
-            "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-6-thinking",
+            "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-5-5-high",
+            "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-5-5-high",
             "DISABLE_TELEMETRY": "1",
             "DISABLE_ERROR_REPORTING": "1",
             "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",

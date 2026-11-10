@@ -2071,37 +2071,6 @@ def enhance_available_models(data: dict[str, Any]) -> dict[str, Any]:
                                     deduped.append(mid)
                             grp["modelIds"] = deduped
 
-    # Ensure bidirectional catalog redirection for Claude 3P models:
-    # claude-sonnet-4-6 <-> MODEL_PLACEHOLDER_M35
-    # claude-opus-4-6-thinking <-> MODEL_PLACEHOLDER_M26
-    if "MODEL_PLACEHOLDER_M35" in models and "claude-sonnet-4-6" not in models:
-        m35_entry = copy.deepcopy(models["MODEL_PLACEHOLDER_M35"])
-        m35_entry["model"] = "MODEL_PLACEHOLDER_M35"
-        models["claude-sonnet-4-6"] = m35_entry
-    elif "claude-sonnet-4-6" in models and "MODEL_PLACEHOLDER_M35" not in models:
-        m35_entry = copy.deepcopy(models["claude-sonnet-4-6"])
-        m35_entry["model"] = "MODEL_PLACEHOLDER_M35"
-        models["MODEL_PLACEHOLDER_M35"] = m35_entry
-
-    if "MODEL_PLACEHOLDER_M26" in models and "claude-opus-4-6-thinking" not in models:
-        m26_entry = copy.deepcopy(models["MODEL_PLACEHOLDER_M26"])
-        m26_entry["model"] = "MODEL_PLACEHOLDER_M26"
-        models["claude-opus-4-6-thinking"] = m26_entry
-    elif "claude-opus-4-6-thinking" in models and "MODEL_PLACEHOLDER_M26" not in models:
-        m26_entry = copy.deepcopy(models["claude-opus-4-6-thinking"])
-        m26_entry["model"] = "MODEL_PLACEHOLDER_M26"
-        models["MODEL_PLACEHOLDER_M26"] = m26_entry
-
-    # claude-haiku-4-5 <-> MODEL_CLAUDE_4_5_HAIKU
-    if "MODEL_CLAUDE_4_5_HAIKU" in models and "claude-haiku-4-5" not in models:
-        m_haiku = copy.deepcopy(models["MODEL_CLAUDE_4_5_HAIKU"])
-        m_haiku["model"] = "MODEL_CLAUDE_4_5_HAIKU"
-        models["claude-haiku-4-5"] = m_haiku
-    elif "claude-haiku-4-5" in models and "MODEL_CLAUDE_4_5_HAIKU" not in models:
-        m_haiku = copy.deepcopy(models["claude-haiku-4-5"])
-        m_haiku["model"] = "MODEL_CLAUDE_4_5_HAIKU"
-        models["MODEL_CLAUDE_4_5_HAIKU"] = m_haiku
-
     # 4. Ensure all proxy catalog models are exposed with placeholder mappings
     try:
         from agy_proxy.models import VALID_CLOUDCODE_MODELS, PROXY_CATALOG_MODELS, CLOUDCODE_PLACEHOLDER_MAP

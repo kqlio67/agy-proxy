@@ -845,7 +845,7 @@ def handle_run_claude(
 
     # Normalize model prefix if simple name provided
     if direct:
-        target_model = model if model != "anthropic.gemini-3.8-flash-high" else "claude-sonnet-4-6"
+        target_model = model if model != "anthropic.gemini-3.8-flash-high" else "claude-sonnet-5-5-high"
     else:
         target_model = model
         if not target_model.startswith("anthropic.") and not target_model.startswith("claude-"):
@@ -855,11 +855,14 @@ def handle_run_claude(
     available_models = [
         "anthropic.gemini-3.8-flash-high",
         "anthropic.gemini-3.8-flash",
-        "anthropic.gemini-3.8-pro",
         "anthropic.gemini-2.5-flash",
         "anthropic.gemini-2.5-pro",
-        "claude-sonnet-4-6",
-        "claude-opus-4-6-thinking",
+        "claude-sonnet-5-5-high",
+        "claude-sonnet-5-5-medium",
+        "claude-sonnet-5-5-low",
+        "claude-opus-5-5-high",
+        "claude-opus-5-5-medium",
+        "claude-opus-5-5-low",
     ]
     if not direct:
         try:

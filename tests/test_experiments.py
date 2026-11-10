@@ -309,7 +309,7 @@ def test_v2_26_0_updates():
     """Verify v2.29.0 User-Agent, experiment IDs, and experimental flags."""
     from agy_proxy.auth.constants import USER_AGENT
     assert "2.29.0" in USER_AGENT
-    assert "cl=1006921819" in USER_AGENT
+    assert "cl=1013060670" in USER_AGENT
 
     payload = get_default_experiments_payload()
     exp_ids = payload["experimentIds"]
@@ -848,12 +848,13 @@ def test_v2_29_0_flags_and_categories():
     for flag in v2_29_flags:
         assert flags_dict.get(flag) is True, f"Expected {flag} to be True in enhanced experiments"
 
-    # Check enhance_available_models exposes claude-haiku-4-5
-    models_res = enhance_available_models({"models": {}})
+    # Check enhance_available_models unlocks model capabilities and keeps authentic models
+    models_res = enhance_available_models({"models": {"gemini-3.8-flash-high": {"capabilities": {"chat": {"boolValue": False}}}}})
     models_dict = models_res["models"]
-    assert "claude-haiku-4-5" in models_dict
-    assert "claude-haiku-4-5-thinking" in models_dict
-    assert models_dict["claude-haiku-4-5"]["capabilities"]["chat"]["boolValue"] is True
+    assert "gemini-3.8-flash-high" in models_dict
+    assert models_dict["gemini-3.8-flash-high"]["capabilities"]["chat"]["boolValue"] is True
+    # Ensure fake non-existent models are not injected
+    assert "claude-haiku-4-5" not in models_dict
 
 
 

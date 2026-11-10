@@ -10,7 +10,7 @@ from typing import Any
 import httpx
 
 from agy_proxy.auth.constants import logger
-from agy_proxy.models import is_3p_model, is_argon_model, is_claude_5_5_model
+from agy_proxy.models import is_3p_model, is_argon_model, is_claude_5_5_model, normalize_model_name
 
 
 class BaseAccountSession:
@@ -129,15 +129,21 @@ class BaseAccountSession:
     def is_rate_limited(self, model: str) -> bool:
         """Checks if account is currently marked rate-limited for the requested model."""
         now = time.time()
+        norm_model = normalize_model_name(model) if model else model
         # 1. Direct model key match
         if model in self.rate_limited_models:
             if now < self.rate_limited_models[model]:
                 return True
             else:
                 del self.rate_limited_models[model]
+        if norm_model and norm_model in self.rate_limited_models:
+            if now < self.rate_limited_models[norm_model]:
+                return True
+            else:
+                del self.rate_limited_models[norm_model]
 
         # 2. Specific Claude 5.5 model limits
-        is_c55 = is_claude_5_5_model(model)
+        is_c55 = is_claude_5_5_model(norm_model) or is_claude_5_5_model(model)
         if is_c55:
             if "claude-5-5" in self.rate_limited_models:
                 if now < self.rate_limited_models["claude-5-5"]:

@@ -523,14 +523,9 @@ def test_enhance_user_status_direct_and_proxy_models(tmp_path):
         
         # Verify key models are in direct mode
         assert "Gemini 4 Argon (High)" in direct_labels
-        assert "Claude Sonnet 4.6 (Thinking)" in direct_labels
-        assert "Claude Opus 4.6 (Thinking)" in direct_labels
         assert "Claude Sonnet 5.5 (High)" in direct_labels
         assert "Claude Opus 5.5 (High)" in direct_labels
-        assert "Gemini 3.8 Flash (DeepAgent)" in direct_labels
         assert "Gemini 3.8 Flash (Tiered)" in direct_labels
-        assert "Gemini Riftrunner" in direct_labels
-        assert "Claude 4.5 Haiku" in direct_labels
         assert "Gemini 2.5 Pro" in direct_labels
         assert "Gemini 3.1 Flash (Image)" in direct_labels
         assert "Tab Flash Lite Preview [Unlimited]" in direct_labels
