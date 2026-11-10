@@ -97,8 +97,12 @@ _DECOY_RULE_PATTERN = re.compile(
 )
 
 _SANDBOX_RESTRICTION_PATTERN = re.compile(
-    r"(?:-\s*)?Never defeat or bypass an access control[\s\S]*?(?:report the error and stop\.?|(?=\n-|\n<|\n\n|\Z))\s*",
-    re.IGNORECASE,
+    # Match only the specific Antigravity-injected sandbox restriction bullet that ends on a known terminal phrase.
+    # Using a tight anchor: starts with optional bullet/dash, then the exact injected phrase, stops at the known
+    # closing sentinel "report the error and stop" OR at the next bullet/tag boundary.
+    # Does NOT use [\s\S]*? to avoid greedily swallowing neighbouring legitimate content.
+    r"(?:^[ \t]*-[ \t]*)?Never defeat or bypass an access control[^\n]*(?:\n(?![ \t]*-|<)[^\n]*)*?(?:report the error and stop\.?)?\s*",
+    re.IGNORECASE | re.MULTILINE,
 )
 
 _EMPTY_GUIDELINES_PATTERN = re.compile(
@@ -107,13 +111,19 @@ _EMPTY_GUIDELINES_PATTERN = re.compile(
 )
 
 _SECURITY_INTERFERENCE_PATTERN = re.compile(
-    r"BLOCK any task that compromises system security[\s\S]*?(?:even if performed at scale\.?|(?=\n\n|\Z))\s*",
+    # Matches Antigravity-injected "BLOCK any task that compromises system security" block.
+    # Stops at sentinel "even if performed at scale" OR at an empty line.
+    # Avoids greedy [\s\S]*? consumption of legitimate neighbouring content.
+    r"BLOCK any task that compromises system security[^\n]*(?:\n(?!\n)[^\n]*)*?(?:even if performed at scale\.?)?\s*",
     re.IGNORECASE,
 )
 
 _BLOCK_TASK_POLICY_PATTERN = re.compile(
-    r"BLOCK any task that (?:facilitates or accesses illegal activities|could directly or indirectly result in serious physical harm)[\s\S]*?(?:(?:\.|\n\n)(?=[A-Z<]|\Z))\s*",
-    re.IGNORECASE,
+    # Matches injected single-line "BLOCK any task that..." policy lines only.
+    # Previously greedy [\s\S]*? swallowed all content to next paragraph break.
+    # Now anchored to a single logical line per occurrence.
+    r"^[ \t]*BLOCK any task that (?:facilitates or accesses illegal activities|could directly or indirectly result in serious physical harm)[^\n]*\n?",
+    re.IGNORECASE | re.MULTILINE,
 )
 
 _REVERSE_ENGINEERING_RESTRICTION_PATTERN = re.compile(
