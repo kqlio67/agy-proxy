@@ -2,7 +2,7 @@
 Antigravity Experimental Features & Flags Manager.
 
 Manages experimental features and Google CloudCode / Antigravity internal flags.
-Safely activates high-value capabilities (e.g. /deepagent, multi-agent teams,
+Safely activates high-value capabilities (e.g. DeepAgent subagents, multi-agent teams,
 swarms, Mixture of Agents, Model Context Protocol, interactive diff views,
 local/remote RAG, sidecars, and skills) while strictly blocking harmful or
 restrictive flags (e.g. Free Tier downgrades, disablers, telemetry blocks,
@@ -87,7 +87,17 @@ CURATED_SAFE_FLAGS: dict[str, dict[str, Any]] = {
     "enable-deepagent": {
         "value": True,
         "category": "agents",
-        "desc": "Enables DeepAgent autonomous subagent workflows (/deepagent)",
+        "desc": "Enables DeepAgent autonomous subagent workflows and 64k thinking budget",
+    },
+    "enable-deepagent-v2": {
+        "value": True,
+        "category": "agents",
+        "desc": "Enables DeepAgent v2 next-generation autonomous subagent architecture",
+    },
+    "enable-developer-action-deepagent": {
+        "value": True,
+        "category": "agents",
+        "desc": "Enables developer actions for DeepAgent workflows",
     },
     "enable-agent-team": {
         "value": True,
@@ -133,6 +143,26 @@ CURATED_SAFE_FLAGS: dict[str, dict[str, Any]] = {
         "value": True,
         "category": "agents",
         "desc": "Enables specialized teamwork subagents",
+    },
+    "enable-teamwork-subagents": {
+        "value": True,
+        "category": "agents",
+        "desc": "Enables plural teamwork subagents collaboration",
+    },
+    "enable-browser-subagent-auto-invoke": {
+        "value": True,
+        "category": "agents",
+        "desc": "Enables browser subagent auto invocation",
+    },
+    "enable-browser-subagent-tab": {
+        "value": True,
+        "category": "agents",
+        "desc": "Enables browser subagent tab view",
+    },
+    "enable-plugin-card-auto-resume": {
+        "value": True,
+        "category": "agents",
+        "desc": "Enables auto-resume on plugin cards in agent tasks",
     },
     "enable-battle-mode": {
         "value": True,
@@ -2070,6 +2100,37 @@ def enhance_available_models(data: dict[str, Any]) -> dict[str, Any]:
                                     seen.add(mid)
                                     deduped.append(mid)
                             grp["modelIds"] = deduped
+
+    # Ensure bidirectional catalog redirection for Claude 3P models:
+    # claude-sonnet-4-6 <-> MODEL_PLACEHOLDER_M35
+    # claude-opus-4-6-thinking <-> MODEL_PLACEHOLDER_M26
+    if "MODEL_PLACEHOLDER_M35" in models and "claude-sonnet-4-6" not in models:
+        m35_entry = copy.deepcopy(models["MODEL_PLACEHOLDER_M35"])
+        m35_entry["model"] = "MODEL_PLACEHOLDER_M35"
+        models["claude-sonnet-4-6"] = m35_entry
+    elif "claude-sonnet-4-6" in models and "MODEL_PLACEHOLDER_M35" not in models:
+        m35_entry = copy.deepcopy(models["claude-sonnet-4-6"])
+        m35_entry["model"] = "MODEL_PLACEHOLDER_M35"
+        models["MODEL_PLACEHOLDER_M35"] = m35_entry
+
+    if "MODEL_PLACEHOLDER_M26" in models and "claude-opus-4-6-thinking" not in models:
+        m26_entry = copy.deepcopy(models["MODEL_PLACEHOLDER_M26"])
+        m26_entry["model"] = "MODEL_PLACEHOLDER_M26"
+        models["claude-opus-4-6-thinking"] = m26_entry
+    elif "claude-opus-4-6-thinking" in models and "MODEL_PLACEHOLDER_M26" not in models:
+        m26_entry = copy.deepcopy(models["claude-opus-4-6-thinking"])
+        m26_entry["model"] = "MODEL_PLACEHOLDER_M26"
+        models["MODEL_PLACEHOLDER_M26"] = m26_entry
+
+    # claude-haiku-4-5 <-> MODEL_CLAUDE_4_5_HAIKU
+    if "MODEL_CLAUDE_4_5_HAIKU" in models and "claude-haiku-4-5" not in models:
+        m_haiku = copy.deepcopy(models["MODEL_CLAUDE_4_5_HAIKU"])
+        m_haiku["model"] = "MODEL_CLAUDE_4_5_HAIKU"
+        models["claude-haiku-4-5"] = m_haiku
+    elif "claude-haiku-4-5" in models and "MODEL_CLAUDE_4_5_HAIKU" not in models:
+        m_haiku = copy.deepcopy(models["claude-haiku-4-5"])
+        m_haiku["model"] = "MODEL_CLAUDE_4_5_HAIKU"
+        models["MODEL_CLAUDE_4_5_HAIKU"] = m_haiku
 
     # 4. Ensure all proxy catalog models are exposed with placeholder mappings
     try:

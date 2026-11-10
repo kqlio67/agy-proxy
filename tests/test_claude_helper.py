@@ -114,10 +114,12 @@ class TestClaudeHelper(unittest.TestCase):
 
     def test_get_claude_models(self):
         models = get_claude_models()
-        self.assertIn("claude-sonnet-5-5-high", models)
-        self.assertIn("claude-sonnet-5-5-low", models)
-        self.assertIn("claude-opus-5-5-high", models)
+        self.assertIn("claude-mythos-preview", models)
+        self.assertIn("claude-sonnet-4-6", models)
+        self.assertIn("claude-opus-4-6-thinking", models)
         self.assertIn("claude-3-7-sonnet", models)
+        self.assertIn("claude-sonnet-5-5-high", models)
+        self.assertIn("claude-opus-5-5-high", models)
         self.assertIn("gemini-3.1-flash-image", models)
         self.assertIn("tab_flash_lite_preview", models)
         self.assertIn("gemini-3.8-flash-tiered", models)
@@ -125,7 +127,7 @@ class TestClaudeHelper(unittest.TestCase):
         self.assertIn("gemini-4-argon-web-high", models)
         self.assertIn("gemini-4-argon-web-spark", models)
         self.assertIn("gemini-4-argon-high", models)
-        self.assertEqual(models["claude-sonnet-5-5-high"]["effortLevel"], "high")
+        self.assertEqual(models["claude-sonnet-4-6"]["effortLevel"], "high")
         self.assertEqual(models["claude-sonnet-5-5-high"]["effortLevel"], "high")
         self.assertEqual(models["gemini-4-argon-web-high"]["effortLevel"], "high")
 

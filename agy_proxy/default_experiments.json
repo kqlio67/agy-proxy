@@ -1308,7 +1308,15 @@
     },
     {
       "name": "enable-deepagent",
-      "boolValue": false
+      "boolValue": true
+    },
+    {
+      "name": "enable-deepagent-v2",
+      "boolValue": true
+    },
+    {
+      "name": "enable-developer-action-deepagent",
+      "boolValue": true
     },
     {
       "name": "enable-notebook-rendering",

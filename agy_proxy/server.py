@@ -164,12 +164,10 @@ def _get_default_passthrough_response(action_key: str) -> dict[str, Any]:
             "gemini-3.6-flash-high",
             "gemini-3.6-flash-medium",
             "gemini-3.6-flash-low",
-            "claude-sonnet-5-5-high",
-            "claude-sonnet-5-5-medium",
-            "claude-sonnet-5-5-low",
-            "claude-opus-5-5-high",
-            "claude-opus-5-5-medium",
-            "claude-opus-5-5-low",
+            "gemini-pro-agent",
+            "gemini-3.1-pro-low",
+            "claude-sonnet-4-6",
+            "claude-opus-4-6-thinking",
             "gpt-oss-120b-medium",
         ]
         return {
@@ -3569,12 +3567,9 @@ def create_app(
             "anthropic.gemini-4-argon-low",
             "anthropic.gemini-3.8-flash-high",
             "anthropic.gemini-3.8-flash",
-            "claude-sonnet-5-5-high",
-            "claude-sonnet-5-5-medium",
-            "claude-sonnet-5-5-low",
-            "claude-opus-5-5-high",
-            "claude-opus-5-5-medium",
-            "claude-opus-5-5-low",
+            "anthropic.gemini-4-argon-web-high",
+            "claude-sonnet-4-6",
+            "claude-opus-4-6-thinking",
         ]
         if pool and getattr(pool, "accounts", None):
             all_m = set()
@@ -4696,10 +4691,10 @@ def create_app(
                 if is_deepagent_model(target_m):
                     target_m_lower = target_m.lower()
                     if "opus" in target_m_lower:
-                        target_m = "claude-opus-5-5-high"
+                        target_m = "claude-opus-4-6-thinking"
                         logger.info("[%s] Routing Claude Opus DeepAgent (%s) -> %s (64k reasoning)", acc_label, req_model, target_m)
                     elif "claude" in target_m_lower:
-                        target_m = "claude-sonnet-5-5-high"
+                        target_m = "claude-sonnet-4-6"
                         logger.info("[%s] Routing Claude Sonnet DeepAgent (%s) -> %s (64k reasoning)", acc_label, req_model, target_m)
                     else:
                         target_m = "gemini-3.8-flash-high"
@@ -4835,14 +4830,14 @@ def create_app(
                             if isinstance(tb, (int, float)) and tb > 0 and (mo is None or mo <= tb):
                                 gen_cfg["maxOutputTokens"] = max((mo or 0) + tb, tb + 1536)
 
-                    if target_m in ("claude-sonnet-5-5-high", "claude-sonnet-5-5-medium", "claude-sonnet-5-5-low", "claude-sonnet-4-6", "claude-sonnet-4-6-deepagent", "MODEL_PLACEHOLDER_M405", "MODEL_PLACEHOLDER_M35", "MODEL_PLACEHOLDER_M527"):
+                    if target_m in ("claude-sonnet-4-6", "claude-sonnet-4-6-deepagent", "MODEL_PLACEHOLDER_M35", "MODEL_PLACEHOLDER_M527"):
                         labels = candidate_body["request"].setdefault("labels", {})
-                        labels.setdefault("model_enum", "MODEL_PLACEHOLDER_M405")
+                        labels.setdefault("model_enum", "MODEL_PLACEHOLDER_M35")
                         labels.setdefault("used_claude", "true")
                         labels.setdefault("used_non_gemini_model", "true")
-                    elif target_m in ("claude-opus-5-5-high", "claude-opus-5-5-medium", "claude-opus-5-5-low", "claude-opus-4-6-thinking", "claude-opus-4-6-deepagent", "MODEL_PLACEHOLDER_M402", "MODEL_PLACEHOLDER_M26", "MODEL_PLACEHOLDER_M528"):
+                    elif target_m in ("claude-opus-4-6-thinking", "claude-opus-4-6-deepagent", "MODEL_PLACEHOLDER_M26", "MODEL_PLACEHOLDER_M528"):
                         labels = candidate_body["request"].setdefault("labels", {})
-                        labels.setdefault("model_enum", "MODEL_PLACEHOLDER_M402")
+                        labels.setdefault("model_enum", "MODEL_PLACEHOLDER_M26")
                         labels.setdefault("used_claude", "true")
                         labels.setdefault("used_non_gemini_model", "true")
 

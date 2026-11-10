@@ -91,7 +91,7 @@ You can now directly use:
 - **Upstream User-Agent Alignment**: Uses `antigravity/hub/2.28.2` (cl=1009437749) matching official client telemetry.
 - **Gemini 4 Argon CloudCode Support**: Full routing and isolated rate-limit tracking for `gemini-4-argon-high` (`M417`), `gemini-4-argon-medium` (`M418`), and `gemini-4-argon-low` (`M419`) with authentic `thinkingLevel` payloads, plus gateway pass-through for `/v1alpha:fetchConfig` (`aicode.googleapis.com`).
 - **Claude 5.5 Support & Auto-Fallback**: Full support for Claude Sonnet 5.5 & Opus 5.5 with 1M token context, adaptive reasoning, and automatic account fallback to Claude 4.6 on 404/429.
-- **DeepAgent & Experiments Activation**: Automatically activates `enable-deepagent: true` on `/v1internal:listExperiments` pass-through for autonomous subagent workflows (`/deepagent`).
+- **DeepAgent & Experiments Activation**: Automatically activates `enable-deepagent: true` on `/v1internal:listExperiments` pass-through for autonomous subagent workflows and 64k thinking budget.
 - **Claude Code Billing Header Stripping**: Strips internal `x-anthropic-billing-header:` prompts to eliminate Google CloudCode 429 RESOURCE_EXHAUSTED rejections.
 - **Smart 429 Cooldown**: Dynamically parses reset duration from 429 responses (`resets in ...` / `retry after ...`) with intelligent 15s default cooldown.
 - **Multi-Account Failover Loop**: Automatically iterates through pooled accounts on `429 Too Many Requests`, `401 Unauthorized` (with automatic token refresh), or `5xx Server Error` (500, 502, 503, 504), preventing interrupted requests.

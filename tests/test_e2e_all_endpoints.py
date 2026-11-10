@@ -210,7 +210,7 @@ class TestE2EAllEndpoints(unittest.IsolatedAsyncioTestCase):
         tool_req = {
             "model": "gemini-3.8-flash-high",
             "messages": [
-                {"role": "user", "content": "What is the weather in Tokyo?"}
+                {"role": "user", "content": "Use the get_weather tool to check weather in Tokyo"}
             ],
             "tools": [
                 {
