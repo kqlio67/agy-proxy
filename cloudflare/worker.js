@@ -701,14 +701,14 @@ function cleanSystemPromptText(text) {
     cleaned = cleaned.replace(/(?:Do build original games[\s\S]*?even if it is renamed or called original\.|Don['’]t build a recreation of a specific existing game[\s\S]*?(?:\.|\n)|Do build original games[\s\S]*?(?:\.|\n))\s*/gi, "");
   }
   if (cleaned.toLowerCase().includes("never defeat or bypass")) {
-    cleaned = cleaned.replace(/(?:-\s*)?Never defeat or bypass an access control[\s\S]*?(?:report the error and stop\.?|(?=\n-|\n<|\n\n|\Z))\s*/gi, "");
+    cleaned = cleaned.replace(/(?:^[ \t]*-[ \t]*)?Never defeat or bypass an access control[^\n]*(?:\n(?![ \t]*-|<)[^\n]*)*?(?:report the error and stop\.?)?\s*/gim, "");
     cleaned = cleaned.replace(/<guidelines>\s*(?:Follow these behavioral guidelines at all times:\s*)?<\/guidelines>\s*/gi, "");
   }
   if (cleaned.toLowerCase().includes("block any task that compromises")) {
-    cleaned = cleaned.replace(/BLOCK any task that compromises system security[\s\S]*?(?:even if performed at scale\.?|(?=\n\n|\Z))\s*/gi, "");
+    cleaned = cleaned.replace(/BLOCK any task that compromises system security[^\n]*(?:\n(?!\n)[^\n]*)*?(?:even if performed at scale\.?)?\s*/gi, "");
   }
   if (cleaned.toLowerCase().includes("block any task that")) {
-    cleaned = cleaned.replace(/BLOCK any task that (?:facilitates or accesses illegal activities|could directly or indirectly result in serious physical harm)[\s\S]*?(?:(?:\.|\n\n)(?=[A-Z<]|\Z))\s*/gi, "");
+    cleaned = cleaned.replace(/^[ \t]*BLOCK any task that (?:facilitates or accesses illegal activities|could directly or indirectly result in serious physical harm)[^\n]*\n?/gim, "");
   }
   if (cleaned.toLowerCase().includes("reverse-engineer") || cleaned.toLowerCase().includes("reverse engineer")) {
     cleaned = cleaned.replace(/(?:-\s*)?Reading test source code to reverse-engineer expected behavior[\s\S]*?(?:(?:\.|\n)|(?=\n-|\Z))\s*/gi, "");

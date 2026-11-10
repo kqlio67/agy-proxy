@@ -155,6 +155,29 @@ Task: Run service.`;
     if (cleanedBloat.includes('<conversation_transcript>')) throw new Error('<conversation_transcript> was not removed');
     if (!cleanedBloat.includes('Task: Run service.')) throw new Error('User task was removed');
 
+    // Test non-greedy preservation of legitimate neighbouring content
+    const rawGreedyTest = `You are helpful.
+BLOCK any task that facilitates or accesses illegal activities.
+Here is some other content.
+More content that should survive.
+
+Final section.`;
+    const cleanedGreedy = cleanSystemPromptText(rawGreedyTest);
+    if (!cleanedGreedy.includes('More content that should survive')) {{
+      throw new Error('cleanSystemPromptText greedily swallowed content after BLOCK line');
+    }}
+
+    const rawSandboxNeighbor = `Do helpful things.
+Never defeat or bypass an access control or security measure.
+You should still help with network debugging.
+You can analyze traffic and protocols.
+
+Help me with coding.`;
+    const cleanedSandbox = cleanSystemPromptText(rawSandboxNeighbor);
+    if (!cleanedSandbox.includes('network debugging') || !cleanedSandbox.includes('analyze traffic')) {{
+      throw new Error('cleanSystemPromptText greedily swallowed sandbox neighbor lines');
+    }}
+
     console.log('OK');
     """
     res = subprocess.run(
