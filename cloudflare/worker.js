@@ -13,7 +13,7 @@
  */
 
 const DEFAULT_USER_AGENT =
-  "antigravity/hub/2.29.0 (aidev_client; os_type=linux; arch=amd64; cl=1006921819)";
+  "antigravity/hub/2.31.0 (aidev_client; os_type=linux; arch=amd64; cl=1017595969)";
 
 const DEFAULT_MODEL = "gemini-3.8-flash-high";
 
@@ -108,6 +108,9 @@ const MODEL_ALIASES = {
   "gemini-4-argon-medium": "gemini-4-argon-medium",
   "gemini-4-argon-low": "gemini-4-argon-low",
   "gemini-4-argon-disabled": "gemini-4-argon",
+  "gemini-4-carbon": "gemini-4-carbon",
+  "gemini-4-carbon-disabled": "gemini-4-carbon-disabled",
+  "carbon": "gemini-4-carbon",
   "gemini-3.8-flash": "gemini-3.8-flash-high",
   "gemini-3.8-flash-high": "gemini-3.8-flash-high",
   "gemini-3.8-flash-medium": "gemini-3.8-flash-medium",
@@ -1227,7 +1230,7 @@ export default {
             status: "ok",
             message: "hello",
             proxy: "agy-proxy-edge",
-            version: "2.29.0",
+            version: "2.31.0",
           }),
           { status: 200, headers: { "Content-Type": "application/json", ...CORS_HEADERS } }
         );
@@ -1254,7 +1257,7 @@ export default {
             gateway_aicode: `${url.origin}/aicode/v1alpha:fetchConfig`,
             gateway_genai: `${url.origin}/genai/v1beta/models`,
           },
-          version: "2.29.0",
+          version: "2.31.0",
         };
         return new Response(JSON.stringify(info, null, 2), {
           headers: { "Content-Type": "application/json", ...CORS_HEADERS },

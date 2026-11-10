@@ -446,6 +446,24 @@ class TestSchemas(unittest.TestCase):
         self.assertFalse(is_3p_model("gemini-riftrunner"))
         self.assertFalse(is_3p_model("gemini-infinityjet"))
 
+    def test_v2_31_0_models_and_carbon(self):
+        from agy_proxy.models import is_argon_model, resolve_cloudcode_argon_model
+
+        # Gemini 4 Carbon normalization
+        self.assertEqual(normalize_model_name("gemini-4-carbon"), "gemini-4-carbon")
+        self.assertEqual(normalize_model_name("gemini-4-carbon-disabled"), "gemini-4-carbon-disabled")
+        self.assertEqual(normalize_model_name("carbon"), "gemini-4-carbon")
+        self.assertEqual(normalize_model_name("MODEL_PLACEHOLDER_M670"), "gemini-4-carbon")
+        self.assertEqual(normalize_model_name("1670"), "gemini-4-carbon")
+        self.assertEqual(normalize_model_name(1670), "gemini-4-carbon")
+
+        # Carbon classification under Argon family
+        self.assertTrue(is_argon_model("gemini-4-carbon"))
+        self.assertTrue(is_argon_model("gemini-4-carbon-disabled"))
+        self.assertEqual(resolve_cloudcode_argon_model("gemini-4-carbon"), "gemini-4-carbon-disabled")
+        self.assertEqual(resolve_cloudcode_argon_model("gemini-4-carbon-disabled"), "gemini-4-carbon-disabled")
+        self.assertEqual(resolve_cloudcode_argon_model("gemini-4-argon"), "gemini-4-argon-high")
+
 
 if __name__ == "__main__":
     unittest.main()

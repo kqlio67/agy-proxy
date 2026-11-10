@@ -60,6 +60,11 @@ MODEL_ALIASES: dict[str, str] = {
     "gemini-4-argon-low": "gemini-4-argon-low",
     "gemini-4-argon-disabled": "gemini-4-argon",
 
+    # Gemini 4 Carbon (Next-Gen v2.31.0 CloudCode model)
+    "gemini-4-carbon": "gemini-4-carbon",
+    "gemini-4-carbon-disabled": "gemini-4-carbon-disabled",
+    "carbon": "gemini-4-carbon",
+
     # Gemini 3.8 Aliases (Latest default)
     "gemini-3.8-flash": "gemini-3.8-flash-high",
     "gemini-3.8-flash-high": "gemini-3.8-flash-high",
@@ -309,6 +314,8 @@ VALID_CLOUDCODE_MODELS = {
     "gemini-4-argon-high",
     "gemini-4-argon-medium",
     "gemini-4-argon-low",
+    "gemini-4-carbon",
+    "gemini-4-carbon-disabled",
     # Gemini 3.8
     "gemini-3.8-flash-high",
     "gemini-3.8-flash-medium",
@@ -414,6 +421,8 @@ CLOUDCODE_PLACEHOLDER_MAP: dict[str, str] = {
     "gemini-4-argon-medium": "MODEL_PLACEHOLDER_M418",
     "gemini-4-argon-low": "MODEL_PLACEHOLDER_M419",
     "gemini-4-argon-disabled": "MODEL_PLACEHOLDER_M421",
+    "gemini-4-carbon": "MODEL_PLACEHOLDER_M670",
+    "gemini-4-carbon-disabled": "MODEL_PLACEHOLDER_M670",
     "gpt-oss-120b-medium": "MODEL_PLACEHOLDER_M410",
     # Official Authentic CloudCode Enums from Antigravity Hub v2.28.2 / cl=1009437749
     "claude-opus-5-5-low": "MODEL_PLACEHOLDER_M400",
@@ -546,6 +555,8 @@ REVERSE_PLACEHOLDER_MAP.update({
     "model_placeholder_m421": "gemini-4-argon",
     "model_placeholder_m422": "gemini-4-argon-medium",
     "model_placeholder_m423": "gemini-4-argon-low",
+    "model_placeholder_m670": "gemini-4-carbon",
+    "1670": "gemini-4-carbon",
     # Legacy synthetic mappings for backward compatibility
     "model_placeholder_m515": "claude-sonnet-5-5-high",
     "model_placeholder_m516": "claude-sonnet-5-5-medium",
@@ -636,6 +647,9 @@ EXACT_MODEL_METADATA: dict[str, dict[str, Any]] = {
     "gemini-4-argon-high": {"displayName": "Gemini 4 Argon (High)", "maxTokens": 1048576, "maxOutputTokens": 65536, "supportsImages": True, "supportsVideo": True, "supportsThinking": True, "thinkingBudget": -1, "thinkingLevel": 3},
     "gemini-4-argon-medium": {"displayName": "Gemini 4 Argon (Medium)", "maxTokens": 1048576, "maxOutputTokens": 65536, "supportsImages": True, "supportsVideo": True, "supportsThinking": True, "thinkingBudget": -1, "thinkingLevel": 2},
     "gemini-4-argon-low": {"displayName": "Gemini 4 Argon (Low)", "maxTokens": 1048576, "maxOutputTokens": 65536, "supportsImages": True, "supportsVideo": True, "supportsThinking": True, "thinkingBudget": -1, "thinkingLevel": 1},
+    # Gemini 4 Carbon (Next-Gen v2.31.0 CloudCode model)
+    "gemini-4-carbon": {"displayName": "Gemini 4 Carbon", "maxTokens": 1048576, "maxOutputTokens": 65536, "supportsImages": True, "supportsVideo": True, "supportsThinking": True, "thinkingBudget": -1, "thinkingLevel": 3},
+    "gemini-4-carbon-disabled": {"displayName": "Gemini 4 Carbon", "maxTokens": 1048576, "maxOutputTokens": 65536, "supportsImages": True, "supportsVideo": True, "supportsThinking": True, "thinkingBudget": -1, "thinkingLevel": 3},
     # Gemini 3.8 Flagship
     "gemini-3.8-flash-high": {"displayName": "Gemini 3.8 Flash (High)", "maxTokens": 1048576},
     "gemini-3.8-flash-medium": {"displayName": "Gemini 3.8 Flash (Medium)", "maxTokens": 1048576},
@@ -824,6 +838,8 @@ PROXY_CATALOG_MODELS: dict[str, dict[str, Any]] = {
     "jarvis-v4s": {"displayName": "Jarvis v4s", "maxTokens": 1048576, "description": "Autonomous developer agent model Jarvis v4s", "category": "Google Gemini"},
 
     # Google Gemini Models (CloudCode API)
+    "gemini-4-carbon": {"displayName": "Gemini 4 Carbon", "maxTokens": 1048576, "description": "Google Next-Gen Gemini 4 Carbon CloudCode model", "category": "Google Gemini"},
+    "gemini-4-carbon-disabled": {"displayName": "Gemini 4 Carbon (Disabled)", "maxTokens": 1048576, "description": "Google Next-Gen Gemini 4 Carbon CloudCode model", "category": "Google Gemini"},
     "gemini-4-argon": {"displayName": "Gemini 4 Argon", "maxTokens": 1048576, "description": "Google Next-Gen Gemini 4 Argon flagship CloudCode model (Argon-supported tier)", "category": "Google Gemini"},
     "gemini-4-argon-high": {"displayName": "Gemini 4 Argon (High)", "maxTokens": 1048576, "description": "Gemini 4 Argon with deep reasoning (Argon-supported tier)", "category": "Google Gemini"},
     "gemini-4-argon-medium": {"displayName": "Gemini 4 Argon (Medium)", "maxTokens": 1048576, "description": "Gemini 4 Argon with balanced reasoning (Argon-supported tier)", "category": "Google Gemini"},
@@ -947,6 +963,8 @@ def normalize_model_name(model_name: Any) -> str:
             if "3.8" in cleaned or ("flash" in cleaned and "lite" not in cleaned):
                 return "gemini-3.8-flash-web-task"
             return "gemini-4-argon-web-task"
+        if "carbon" in cleaned:
+            return "gemini-4-carbon"
         if "argon" in cleaned:
             if "low" in cleaned:
                 return "gemini-4-argon-web-low"
@@ -989,6 +1007,8 @@ def normalize_model_name(model_name: Any) -> str:
             if "3.8" in cleaned or ("flash" in cleaned and "lite" not in cleaned):
                 return "gemini-3.8-flash-high"
             return "gemini-4-argon-high"
+        if "carbon" in cleaned:
+            return "gemini-4-carbon"
         if "argon" in cleaned:
             if "low" in cleaned:
                 return "gemini-4-argon-low"
@@ -1176,6 +1196,8 @@ ARGON_MODELS: set[str] = {
     "gemini-4-argon-high",
     "gemini-4-argon-medium",
     "gemini-4-argon-low",
+    "gemini-4-carbon",
+    "gemini-4-carbon-disabled",
     "gemini-4-argon-web-high",
     "gemini-4-argon-web-medium",
     "gemini-4-argon-web-low",
@@ -1184,17 +1206,19 @@ ARGON_MODELS: set[str] = {
 
 
 def is_argon_model(model_name: str | None) -> bool:
-    """Checks whether the requested model is a Gemini 4 Argon variant."""
+    """Checks whether the requested model is a Gemini 4 Argon or Carbon variant."""
     if not model_name:
         return False
     norm = normalize_model_name(model_name)
-    return "argon" in norm
+    return "argon" in norm or "carbon" in norm
 
 
 def resolve_cloudcode_argon_model(model_name: str) -> str:
-    """Maps bare 'gemini-4-argon' (or '-disabled') to 'gemini-4-argon-high' for upstream CloudCode requests."""
+    """Maps bare 'gemini-4-argon' (or '-disabled') to 'gemini-4-argon-high', and carbon to 'gemini-4-carbon-disabled'."""
     if model_name in ("gemini-4-argon", "gemini-4-argon-disabled"):
         return "gemini-4-argon-high"
+    if model_name in ("gemini-4-carbon", "gemini-4-carbon-disabled"):
+        return "gemini-4-carbon-disabled"
     return model_name
 
 

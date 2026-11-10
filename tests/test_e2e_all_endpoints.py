@@ -229,6 +229,7 @@ class TestE2EAllEndpoints(unittest.IsolatedAsyncioTestCase):
                 }
             ],
             "max_tokens": 150,
+            "tool_choice": "required",
             "stream": False,
         }
         r = await self.client.post("/v1/chat/completions", json=tool_req)

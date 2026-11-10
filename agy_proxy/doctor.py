@@ -312,6 +312,19 @@ async def run_doctor(host: str = "127.0.0.1", port: int = 8000, cloudflare_url: 
             is_patched = Path(str(ls_bin) + ".real").is_file()
             patch_info = " [dim](Patched -> Proxy)[/dim]" if is_patched else " [dim](Native/Direct)[/dim]"
             web_table.add_row("Language Server Binary", "[bold green]✅ Found[/bold green]", f"{ls_bin}{patch_info}")
+
+            # Check webm_encoder status
+            encoder_cand = ls_bin.parent / "webm_encoder"
+            if encoder_cand.is_file():
+                try:
+                    with open(encoder_cand, "rb") as ef:
+                        enc_bytes = ef.read(4096)
+                    if b"/usr/grte/v5/lib64" in enc_bytes:
+                        web_table.add_row("WebM Encoder Binary", "[bold yellow]⚠️ Unpatched GRTE[/bold yellow]", f"{encoder_cand} (Run web launcher to auto-patch)")
+                    else:
+                        web_table.add_row("WebM Encoder Binary", "[bold green]✅ Ready[/bold green]", f"{encoder_cand} (Standard glibc)")
+                except Exception:
+                    web_table.add_row("WebM Encoder Binary", "[dim]Present[/dim]", str(encoder_cand))
         else:
             web_table.add_row("Language Server Binary", "[bold yellow]⚠️ Not Detected[/bold yellow]", "Specify via `agy-proxy config set ls-path <PATH>` or ANTIGRAVITY_LS_PATH")
 

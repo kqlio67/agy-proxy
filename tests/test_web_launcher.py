@@ -804,6 +804,52 @@ def test_extract_auth_urls_from_log_offset(tmp_path):
     assert final_offset > next_offset
 
 
+def test_patch_webm_encoder(tmp_path):
+    from agy_proxy.web_launcher import patch_webm_encoder
+
+    # Create dummy webm_encoder with Google GRTE interpreter string
+    test_bin = tmp_path / "webm_encoder"
+    old_interp = b"/usr/grte/v5/lib64/ld-linux-x86-64.so.2\x00"
+    content = b"\x7fELF" + b"A" * 100 + old_interp + b"B" * 100
+    test_bin.write_bytes(content)
+
+    assert patch_webm_encoder(test_bin) is True
+    patched = test_bin.read_bytes()
+    assert b"/lib64/ld-linux-x86-64.so.2\x00" in patched
+    assert b"/usr/grte/v5" not in patched
+    assert len(patched) == len(content)
+
+    # Calling again should return False (already patched)
+    assert patch_webm_encoder(test_bin) is False
+
+
+def test_patch_web_bundle_v2_31_0_mic_and_carbon(tmp_path):
+    from agy_proxy.web_launcher import patch_web_bundle
+
+    bundle = tmp_path / "v2_31_bundle"
+    bundle.mkdir()
+
+    raw_js = (
+        'var tk=a=>a.modelOrAlias?{label:a.label,value:1}; '
+        'kz({channelCount:1,echoCancellation:!0,noiseSuppression:!0},l); '
+        'function gMa({children:a,userStatus:b}){return .Provider,{value:g},a)}'
+    )
+    (bundle / "main.js").write_text(raw_js, encoding="utf-8")
+    (bundle / "index.html").write_text("<html><head></head><body></body></html>", encoding="utf-8")
+
+    assert patch_web_bundle(bundle) is True
+
+    patched_js = (bundle / "main.js").read_text(encoding="utf-8")
+    # Verify carbon model mapping injected
+    assert '"gemini-4-carbon":1670' in patched_js
+    # Verify mic enhancement injected
+    assert 'autoGainControl:!0,googEchoCancellation:!0' in patched_js
+
+    patched_html = (bundle / "index.html").read_text(encoding="utf-8")
+    assert '"enable-swarm-overview": true' in patched_html
+    assert '"enable-citc-workspace-hygiene-rule": true' in patched_html
+
+
 
 
 

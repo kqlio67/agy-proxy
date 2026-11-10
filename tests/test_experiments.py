@@ -306,10 +306,10 @@ def test_enhance_list_experiments_input_immutability():
 
 
 def test_v2_26_0_updates():
-    """Verify v2.29.0 User-Agent, experiment IDs, and experimental flags."""
+    """Verify v2.29.0 & v2.31.0 User-Agent, experiment IDs, and experimental flags."""
     from agy_proxy.auth.constants import USER_AGENT
-    assert "2.29.0" in USER_AGENT
-    assert any(cl in USER_AGENT for cl in ("1006921819", "1013060670"))
+    assert any(v in USER_AGENT for v in ("2.29.0", "2.31.0"))
+    assert any(cl in USER_AGENT for cl in ("1006921819", "1013060670", "1017595969"))
 
     payload = get_default_experiments_payload()
     exp_ids = payload["experimentIds"]
@@ -321,6 +321,10 @@ def test_v2_26_0_updates():
     assert 106761937 in exp_ids
     assert 106793467 in exp_ids
     assert 106863974 in exp_ids
+    # v2.31.0 Experiment IDs
+    assert 106986919 in exp_ids
+    assert 106828998 in exp_ids
+    assert 107036252 in exp_ids
 
     flags_dict = {f["name"]: f.get("boolValue") for f in payload["flags"] if "name" in f}
     assert flags_dict.get("enable-remote-terminal-predictive-echo") is True

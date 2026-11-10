@@ -45,14 +45,14 @@ console = Console()
 DEFAULT_WEB_PORT = 44741
 DEFAULT_PROXY_PORT = 8000
 DEFAULT_PROXY_URL = f"http://127.0.0.1:{DEFAULT_PROXY_PORT}"
-DEFAULT_IDE_VERSION = "2.29.0"
+DEFAULT_IDE_VERSION = "2.31.0"
 DEFAULT_BUNDLE_DIR = Path.home() / ".config" / "agy-proxy" / "web_ui"
 DEFAULT_BIN_DIR = Path.home() / ".config" / "agy-proxy" / "bin"
 
 # ─── Auto-download URLs for the Antigravity Hub standalone binary ────────────
 #   Platform key → (download_url, archive_type)
 #   archive_type: "tar.gz" → extract language_server from tar; "exe" → copy directly
-_BUILD_TAG = "2.29.0-5723181030440960"
+_BUILD_TAG = "2.31.0-6379060755038208"
 _BASE_URL = f"https://storage.googleapis.com/antigravity-public/antigravity-hub/{_BUILD_TAG}"
 RELEASES_API_URL = "https://antigravity-hub-auto-updater-974169037036.us-central1.run.app/releases"
 
@@ -301,12 +301,69 @@ def _find_7z() -> Optional[str]:
     return None
 
 
+def patch_webm_encoder(binary_path: Optional[Path | str] = None) -> bool:
+    """
+    Checks if resources/bin/webm_encoder (or candidate binary) exists and patches
+    Google's internal GRTE dynamic loader interpreter (/usr/grte/v5/lib64/ld-linux-x86-64.so.2)
+    to standard Linux interpreter (/lib64/ld-linux-x86-64.so.2).
+    This fixes 'cannot execute: required file not found' on generic Linux distros.
+    """
+    candidates: list[Path] = []
+    if binary_path:
+        p = Path(binary_path)
+        candidates.append(p if p.name == "webm_encoder" else p / "webm_encoder")
+        if p.is_file():
+            candidates.append(p.parent / "webm_encoder")
+            candidates.append(p.parent.parent / "resources" / "bin" / "webm_encoder")
+
+    # Also search common paths
+    candidates.extend([
+        DEFAULT_BIN_DIR / "webm_encoder",
+        Path.home() / "Antigravity" / "Antigravity-x64" / "resources" / "bin" / "webm_encoder",
+        Path("/opt/Antigravity/resources/bin/webm_encoder"),
+        Path("/opt/antigravity/resources/bin/webm_encoder"),
+    ])
+
+    old_interp = b"/usr/grte/v5/lib64/ld-linux-x86-64.so.2\x00"
+    new_interp = b"/lib64/ld-linux-x86-64.so.2\x00"
+
+    patched_any = False
+    seen = set()
+    for cand in candidates:
+        try:
+            cand = cand.resolve()
+            if cand in seen or not cand.is_file():
+                continue
+            seen.add(cand)
+
+            with open(cand, "rb") as f:
+                data = bytearray(f.read())
+
+            idx = data.find(old_interp)
+            if idx != -1:
+                replacement = new_interp + b"\x00" * (len(old_interp) - len(new_interp))
+                data[idx : idx + len(old_interp)] = replacement
+                with open(cand, "wb") as f:
+                    f.write(data)
+                try:
+                    os.chmod(cand, 0o755)
+                except Exception:
+                    pass
+                logger.info(f"Successfully patched webm_encoder GRTE interpreter to standard glibc: {cand}")
+                patched_any = True
+        except Exception as e:
+            logger.debug(f"Failed to inspect/patch webm_encoder at {cand}: {e}")
+
+    return patched_any
+
+
 def _extract_language_server_from_tar(archive_path: Path, dest_dir: Path) -> Optional[Path]:
     """
     Extracts the language_server binary from a .tar.gz archive produced by the
     Antigravity Hub release pipeline.
     Searches for files matching KNOWN_BIN_NAMES inside the archive.
     """
+    dest_file: Optional[Path] = None
     try:
         with tarfile.open(archive_path, "r:gz") as tar:
             for member in tar.getmembers():
@@ -317,16 +374,24 @@ def _extract_language_server_from_tar(archive_path: Path, dest_dir: Path) -> Opt
                     dest_dir.mkdir(parents=True, exist_ok=True)
                     dest_file = dest_dir / "language_server"
                     f_in = tar.extractfile(member)
-                    if f_in is None:
-                        continue
-                    with open(dest_file, "wb") as f_out:
-                        shutil.copyfileobj(f_in, f_out)
-                    os.chmod(dest_file, 0o755)
-                    logger.info(f"Extracted language_server → {dest_file}")
-                    return dest_file
+                    if f_in is not None:
+                        with open(dest_file, "wb") as f_out:
+                            shutil.copyfileobj(f_in, f_out)
+                        os.chmod(dest_file, 0o755)
+                        logger.info(f"Extracted language_server → {dest_file}")
+                elif clean_bname == "webm_encoder":
+                    dest_dir.mkdir(parents=True, exist_ok=True)
+                    encoder_file = dest_dir / "webm_encoder"
+                    f_in = tar.extractfile(member)
+                    if f_in is not None:
+                        with open(encoder_file, "wb") as f_out:
+                            shutil.copyfileobj(f_in, f_out)
+                        os.chmod(encoder_file, 0o755)
+                        patch_webm_encoder(encoder_file)
+                        logger.info(f"Extracted and patched webm_encoder → {encoder_file}")
     except Exception as e:
         logger.warning(f"Failed to extract language_server from tar: {e}")
-    return None
+    return dest_file
 
 
 def _extract_language_server_from_dmg(archive_path: Path, dest_dir: Path) -> Optional[Path]:
@@ -1105,6 +1170,7 @@ def patch_web_bundle(bundle_dir: Path) -> bool:
     # 1.8 Inject Model Enum Map, __enhanceUserStatus and state provider (dynamic structural matching + static fallback)
     if "_agyEnhanced" not in js or "_sep_ordered_v16" not in js or "agy.selectedModelLabel" not in js:
         enhancer_common = '''var MODEL_ENUM_MAP={
+"gemini-4-carbon":1670,"gemini-4-carbon-disabled":1670,"Gemini 4 Carbon":1670,
 "gemini-4-argon":1417,"gemini-4-argon-high":1417,"gemini-4-argon-medium":1418,"gemini-4-argon-low":1419,"gemini-4-argon-disabled":1417,
 "Gemini 4 Argon":1417,"Gemini 4 Argon (High)":1417,"Gemini 4 Argon (Medium)":1418,"Gemini 4 Argon (Low)":1419,
 "gemini-3.8-flash-high":1318,"gemini-3.8-flash-medium":1319,"gemini-3.8-flash-low":1320,"gemini-3.8-flash-tiered":1322,"gemini-3.8-flash-deepagent":1522,
@@ -1149,7 +1215,7 @@ def patch_web_bundle(bundle_dir: Path) -> bool:
 "tab_flash_lite_preview":1019,"tab_jump_flash_lite_preview":1028,
 "Tab Flash Lite Preview [Unlimited]":1019,"Tab Jump Prediction [Unlimited]":1028
 };
-var __enhanceUserStatus=function(b){if(!b||!b.cascadeModelConfigData||b._agyEnhanced)return b;try{var isProxyActive=false;try{if(typeof window!=="undefined"&&window.__AGY_PROXY_ACTIVE__!==undefined){isProxyActive=Boolean(window.__AGY_PROXY_ACTIVE__)}else if(typeof localStorage!=="undefined"&&localStorage.getItem("agy.proxyActive")!==null){isProxyActive=localStorage.getItem("agy.proxyActive")==="true"}}catch(e){}var d=b.cascadeModelConfigData,origConfigs=d.clientModelConfigs||[],origSorts=d.clientModelSorts||[],newConfigs=origConfigs.map(m=>{var c=Object.assign({},m);if(c.tagTitle==="Notice"||c.tagTitle==="Unavailable"||(c.tagDescription&&(c.tagDescription.includes("no longer")||c.tagDescription.includes("removed")||c.tagDescription.includes("retired")))){delete c.tagTitle;delete c.tagDescription};if(c.modelId==="gemini-4-argon-disabled"||c.label==="Gemini 4 Argon"||c.label==="gemini-4-argon"){c.label="Gemini 4 Argon (High)";c.modelId="gemini-4-argon-high";c.value=1417};c.disabled=!1;if(!c.quotaInfo||c.quotaInfo.remainingFraction<=0||c.quotaInfo.resetTime){c.quotaInfo={remainingFraction:1}};delete c.betaWarningMessage;return c}),existingLabels=new Set(newConfigs.map(m=>m.label)),template=newConfigs.find(m=>!m.disabled)||newConfigs[0]||{},cleanTemplate=Object.assign({},template);delete cleanTemplate.quotaInfo;delete cleanTemplate.tagTitle;delete cleanTemplate.tagDescription;delete cleanTemplate.modelAlias;delete cleanTemplate.betaWarningMessage;var newSorts=JSON.parse(JSON.stringify(origSorts)),recGroup=newSorts.find(s=>s.name&&s.name.toLowerCase()==="recommended")?.groups?.[0];!recGroup&&newSorts.length>0&&newSorts[0].groups&&(recGroup=newSorts[0].groups[0]);var defaultModels=[{label:"Gemini 3.8 Flash (High)",alias:"gemini-3.8-flash-high"},{label:"Gemini 3.8 Flash (Medium)",alias:"gemini-3.8-flash-medium"},{label:"Gemini 3.8 Flash (Low)",alias:"gemini-3.8-flash-low"},{label:"Claude Sonnet 4.6 (Thinking)",alias:"claude-sonnet-4-6"},{label:"Claude Opus 4.6 (Thinking)",alias:"claude-opus-4-6-thinking"},{label:"Claude 4.5 Haiku",alias:"claude-haiku-4-5"},{label:"GPT-OSS 120B (Medium)",alias:"gpt-oss-120b-medium"},{label:"Gemini 4 Argon (High)",alias:"gemini-4-argon-high"},{label:"Gemini 4 Argon (Medium)",alias:"gemini-4-argon-medium"},{label:"Gemini 4 Argon (Low)",alias:"gemini-4-argon-low"}],webModels=[{label:"Gemini 4 Argon (Web) (High)",alias:"gemini-4-argon-web-high"},{label:"Gemini 4 Argon (Web) (Medium)",alias:"gemini-4-argon-web-medium"},{label:"Gemini 4 Argon (Web) (Low)",alias:"gemini-4-argon-web-low"},{label:"Gemini 4 Argon (Web) (Agent)",alias:"gemini-4-argon-web-task"},{label:"Gemini 4 Argon (Web) (Spark Agent)",alias:"gemini-4-argon-web-spark"},{label:"Gemini 3.8 Flash (Web) (High)",alias:"gemini-3.8-flash-web-high"},{label:"Gemini 3.8 Flash (Web) (Medium)",alias:"gemini-3.8-flash-web-medium"},{label:"Gemini 3.8 Flash (Web) (Low)",alias:"gemini-3.8-flash-web-low"},{label:"Gemini 3.8 Flash (Web) (Agent)",alias:"gemini-3.8-flash-web-task"},{label:"Gemini 3.8 Flash (Web) (Spark Agent)",alias:"gemini-3.8-flash-web-spark"},{label:"Gemini 3.1 Pro (Web) (High)",alias:"gemini-3.1-pro-web-high"},{label:"Gemini 3.1 Pro (Web) (Medium)",alias:"gemini-3.1-pro-web-medium"},{label:"Gemini 3.1 Pro (Web) (Low)",alias:"gemini-3.1-pro-web-low"},{label:"Gemini 3.5 Flash-Lite (Web) (High)",alias:"gemini-3.5-flash-lite-web-high"},{label:"Gemini 3.5 Flash-Lite (Web) (Medium)",alias:"gemini-3.5-flash-lite-web-medium"},{label:"Gemini 3.5 Flash-Lite (Web) (Low)",alias:"gemini-3.5-flash-lite-web-low"}],agyModels=[{label:"Claude Sonnet 5.5 (High)",alias:"claude-sonnet-5-5-high"},{label:"Claude Sonnet 5.5 (Medium)",alias:"claude-sonnet-5-5-medium"},{label:"Claude Sonnet 5.5 (Low)",alias:"claude-sonnet-5-5-low"},{label:"Claude Opus 5.5 (High)",alias:"claude-opus-5-5-high"},{label:"Claude Opus 5.5 (Medium)",alias:"claude-opus-5-5-medium"},{label:"Claude Opus 5.5 (Low)",alias:"claude-opus-5-5-low"},{label:"Claude 4.5 Haiku (Thinking)",alias:"claude-haiku-4-5-thinking"},{label:"Claude Sonnet 4.6 (DeepAgent)",alias:"claude-sonnet-4-6-deepagent"},{label:"Claude Opus 4.6 (DeepAgent)",alias:"claude-opus-4-6-deepagent"},{label:"Gemini Riftrunner",alias:"gemini-riftrunner"},{label:"Gemini InfinityJet",alias:"gemini-infinityjet"},{label:"Gemini InfinityBloom",alias:"gemini-infinitybloom"},{label:"Gemini 3.8 Flash (Tiered)",alias:"gemini-3.8-flash-tiered"},{label:"Gemini 3.8 Flash (DeepAgent)",alias:"gemini-3.8-flash-deepagent"},{label:"Gemini 3.5 Flash Lite",alias:"gemini-3.5-flash-lite"},{label:"Gemini 3.5 Flash-Lite (High)",alias:"gemini-3.5-flash-lite-high"},{label:"Gemini 3.5 Flash-Lite (Medium)",alias:"gemini-3.5-flash-lite-medium"},{label:"Gemini 3.5 Flash-Lite (Low)",alias:"gemini-3.5-flash-lite-low"},{label:"Gemini Pro Agent",alias:"gemini-pro-agent"},{label:"Gemini 3.1 Flash Lite",alias:"gemini-3.1-flash-lite"},{label:"Gemini 3 Flash",alias:"gemini-3-flash"},{label:"Gemini 2.5 Pro",alias:"gemini-2.5-pro"},{label:"Gemini 2.5 Flash",alias:"gemini-2.5-flash"},{label:"Gemini 2.5 Flash Lite",alias:"gemini-2.5-flash-lite"},{label:"Gemini 2.5 Flash (Thinking)",alias:"gemini-2.5-flash-thinking"}],tabModels=[{label:"Tab Flash Lite Preview [Unlimited]",alias:"tab_flash_lite_preview"},{label:"Tab Jump Prediction [Unlimited]",alias:"tab_jump_flash_lite_preview"}],imageModels=[{label:"Gemini 3.1 Flash (Image)",alias:"gemini-3.1-flash-image"}];var addSep=function(secLabel,secId){if(!existingLabels.has(secLabel)){var sepEntry=Object.assign({},cleanTemplate,{label:secLabel,disabled:!0,isRecommended:!1,modelId:secId,modelOrAlias:{"$typeName":"exa.codeium_common_pb.ModelOrAlias",choice:{case:"alias",value:secId}},supportedMimeTypes:{}});delete sepEntry.tagTitle;delete sepEntry.tagDescription;delete sepEntry.quotaInfo;delete sepEntry.betaWarningMessage;newConfigs.push(sepEntry);existingLabels.add(secLabel)}};var addModels=function(items){for(var item of items){if(!existingLabels.has(item.label)){var enumVal=MODEL_ENUM_MAP[item.alias]||MODEL_ENUM_MAP[item.label]||1500;var isImg=item.alias.includes("image")||item.alias.includes("claude")||item.alias.includes("gemini")||item.alias.includes("gpt");var mimes=isImg?Object.assign({},(cleanTemplate.supportedMimeTypes||{}),{"image/jpeg":!0,"image/png":!0,"image/webp":!0,"image/heic":!0,"image/heif":!0,"image/gif":!0}):{};var entry=Object.assign({},cleanTemplate,{label:item.label,disabled:!1,isRecommended:!0,modelId:item.alias,value:enumVal,modelOrAlias:{"$typeName":"exa.codeium_common_pb.ModelOrAlias",choice:{case:"model",value:enumVal}},supportedMimeTypes:mimes,quotaInfo:{remainingFraction:1}});delete entry.modelAlias;delete entry.tagTitle;delete entry.tagDescription;delete entry.betaWarningMessage;newConfigs.push(entry);existingLabels.add(item.label)}}};var extModels=(typeof window!=="undefined"&&Array.isArray(window.__AGY_EXTERNAL_MODELS__))?window.__AGY_EXTERNAL_MODELS__:[];
+var __enhanceUserStatus=function(b){if(!b||!b.cascadeModelConfigData||b._agyEnhanced)return b;try{var isProxyActive=false;try{if(typeof window!=="undefined"&&window.__AGY_PROXY_ACTIVE__!==undefined){isProxyActive=Boolean(window.__AGY_PROXY_ACTIVE__)}else if(typeof localStorage!=="undefined"&&localStorage.getItem("agy.proxyActive")!==null){isProxyActive=localStorage.getItem("agy.proxyActive")==="true"}}catch(e){}var d=b.cascadeModelConfigData,origConfigs=d.clientModelConfigs||[],origSorts=d.clientModelSorts||[],newConfigs=origConfigs.map(m=>{var c=Object.assign({},m);if(c.tagTitle==="Notice"||c.tagTitle==="Unavailable"||(c.tagDescription&&(c.tagDescription.includes("no longer")||c.tagDescription.includes("removed")||c.tagDescription.includes("retired")))){delete c.tagTitle;delete c.tagDescription};if(c.modelId==="gemini-4-argon-disabled"||c.label==="Gemini 4 Argon"||c.label==="gemini-4-argon"){c.label="Gemini 4 Argon (High)";c.modelId="gemini-4-argon-high";c.value=1417};c.disabled=!1;if(!c.quotaInfo||c.quotaInfo.remainingFraction<=0||c.quotaInfo.resetTime){c.quotaInfo={remainingFraction:1}};delete c.betaWarningMessage;return c}),existingLabels=new Set(newConfigs.map(m=>m.label)),template=newConfigs.find(m=>!m.disabled)||newConfigs[0]||{},cleanTemplate=Object.assign({},template);delete cleanTemplate.quotaInfo;delete cleanTemplate.tagTitle;delete cleanTemplate.tagDescription;delete cleanTemplate.modelAlias;delete cleanTemplate.betaWarningMessage;var newSorts=JSON.parse(JSON.stringify(origSorts)),recGroup=newSorts.find(s=>s.name&&s.name.toLowerCase()==="recommended")?.groups?.[0];!recGroup&&newSorts.length>0&&newSorts[0].groups&&(recGroup=newSorts[0].groups[0]);var defaultModels=[{label:"Gemini 3.8 Flash (High)",alias:"gemini-3.8-flash-high"},{label:"Gemini 3.8 Flash (Medium)",alias:"gemini-3.8-flash-medium"},{label:"Gemini 3.8 Flash (Low)",alias:"gemini-3.8-flash-low"},{label:"Claude Sonnet 4.6 (Thinking)",alias:"claude-sonnet-4-6"},{label:"Claude Opus 4.6 (Thinking)",alias:"claude-opus-4-6-thinking"},{label:"Claude 4.5 Haiku",alias:"claude-haiku-4-5"},{label:"GPT-OSS 120B (Medium)",alias:"gpt-oss-120b-medium"},{label:"Gemini 4 Argon (High)",alias:"gemini-4-argon-high"},{label:"Gemini 4 Argon (Medium)",alias:"gemini-4-argon-medium"},{label:"Gemini 4 Argon (Low)",alias:"gemini-4-argon-low"},{label:"Gemini 4 Carbon",alias:"gemini-4-carbon"}],webModels=[{label:"Gemini 4 Argon (Web) (High)",alias:"gemini-4-argon-web-high"},{label:"Gemini 4 Argon (Web) (Medium)",alias:"gemini-4-argon-web-medium"},{label:"Gemini 4 Argon (Web) (Low)",alias:"gemini-4-argon-web-low"},{label:"Gemini 4 Argon (Web) (Agent)",alias:"gemini-4-argon-web-task"},{label:"Gemini 4 Argon (Web) (Spark Agent)",alias:"gemini-4-argon-web-spark"},{label:"Gemini 3.8 Flash (Web) (High)",alias:"gemini-3.8-flash-web-high"},{label:"Gemini 3.8 Flash (Web) (Medium)",alias:"gemini-3.8-flash-web-medium"},{label:"Gemini 3.8 Flash (Web) (Low)",alias:"gemini-3.8-flash-web-low"},{label:"Gemini 3.8 Flash (Web) (Agent)",alias:"gemini-3.8-flash-web-task"},{label:"Gemini 3.8 Flash (Web) (Spark Agent)",alias:"gemini-3.8-flash-web-spark"},{label:"Gemini 3.1 Pro (Web) (High)",alias:"gemini-3.1-pro-web-high"},{label:"Gemini 3.1 Pro (Web) (Medium)",alias:"gemini-3.1-pro-web-medium"},{label:"Gemini 3.1 Pro (Web) (Low)",alias:"gemini-3.1-pro-web-low"},{label:"Gemini 3.5 Flash-Lite (Web) (High)",alias:"gemini-3.5-flash-lite-web-high"},{label:"Gemini 3.5 Flash-Lite (Web) (Medium)",alias:"gemini-3.5-flash-lite-web-medium"},{label:"Gemini 3.5 Flash-Lite (Web) (Low)",alias:"gemini-3.5-flash-lite-web-low"}],agyModels=[{label:"Claude Sonnet 5.5 (High)",alias:"claude-sonnet-5-5-high"},{label:"Claude Sonnet 5.5 (Medium)",alias:"claude-sonnet-5-5-medium"},{label:"Claude Sonnet 5.5 (Low)",alias:"claude-sonnet-5-5-low"},{label:"Claude Opus 5.5 (High)",alias:"claude-opus-5-5-high"},{label:"Claude Opus 5.5 (Medium)",alias:"claude-opus-5-5-medium"},{label:"Claude Opus 5.5 (Low)",alias:"claude-opus-5-5-low"},{label:"Claude 4.5 Haiku (Thinking)",alias:"claude-haiku-4-5-thinking"},{label:"Claude Sonnet 4.6 (DeepAgent)",alias:"claude-sonnet-4-6-deepagent"},{label:"Claude Opus 4.6 (DeepAgent)",alias:"claude-opus-4-6-deepagent"},{label:"Gemini Riftrunner",alias:"gemini-riftrunner"},{label:"Gemini InfinityJet",alias:"gemini-infinityjet"},{label:"Gemini InfinityBloom",alias:"gemini-infinitybloom"},{label:"Gemini 3.8 Flash (Tiered)",alias:"gemini-3.8-flash-tiered"},{label:"Gemini 3.8 Flash (DeepAgent)",alias:"gemini-3.8-flash-deepagent"},{label:"Gemini 3.5 Flash Lite",alias:"gemini-3.5-flash-lite"},{label:"Gemini 3.5 Flash-Lite (High)",alias:"gemini-3.5-flash-lite-high"},{label:"Gemini 3.5 Flash-Lite (Medium)",alias:"gemini-3.5-flash-lite-medium"},{label:"Gemini 3.5 Flash-Lite (Low)",alias:"gemini-3.5-flash-lite-low"},{label:"Gemini Pro Agent",alias:"gemini-pro-agent"},{label:"Gemini 3.1 Flash Lite",alias:"gemini-3.1-flash-lite"},{label:"Gemini 3 Flash",alias:"gemini-3-flash"},{label:"Gemini 2.5 Pro",alias:"gemini-2.5-pro"},{label:"Gemini 2.5 Flash",alias:"gemini-2.5-flash"},{label:"Gemini 2.5 Flash Lite",alias:"gemini-2.5-flash-lite"},{label:"Gemini 2.5 Flash (Thinking)",alias:"gemini-2.5-flash-thinking"}],tabModels=[{label:"Tab Flash Lite Preview [Unlimited]",alias:"tab_flash_lite_preview"},{label:"Tab Jump Prediction [Unlimited]",alias:"tab_jump_flash_lite_preview"}],imageModels=[{label:"Gemini 3.1 Flash (Image)",alias:"gemini-3.1-flash-image"}];var addSep=function(secLabel,secId){if(!existingLabels.has(secLabel)){var sepEntry=Object.assign({},cleanTemplate,{label:secLabel,disabled:!0,isRecommended:!1,modelId:secId,modelOrAlias:{"$typeName":"exa.codeium_common_pb.ModelOrAlias",choice:{case:"alias",value:secId}},supportedMimeTypes:{}});delete sepEntry.tagTitle;delete sepEntry.tagDescription;delete sepEntry.quotaInfo;delete sepEntry.betaWarningMessage;newConfigs.push(sepEntry);existingLabels.add(secLabel)}};var addModels=function(items){for(var item of items){if(!existingLabels.has(item.label)){var enumVal=MODEL_ENUM_MAP[item.alias]||MODEL_ENUM_MAP[item.label]||1500;var isImg=item.alias.includes("image")||item.alias.includes("claude")||item.alias.includes("gemini")||item.alias.includes("gpt");var mimes=isImg?Object.assign({},(cleanTemplate.supportedMimeTypes||{}),{"image/jpeg":!0,"image/png":!0,"image/webp":!0,"image/heic":!0,"image/heif":!0,"image/gif":!0}):{};var entry=Object.assign({},cleanTemplate,{label:item.label,disabled:!1,isRecommended:!0,modelId:item.alias,value:enumVal,modelOrAlias:{"$typeName":"exa.codeium_common_pb.ModelOrAlias",choice:{case:"model",value:enumVal}},supportedMimeTypes:mimes,quotaInfo:{remainingFraction:1}});delete entry.modelAlias;delete entry.tagTitle;delete entry.tagDescription;delete entry.betaWarningMessage;newConfigs.push(entry);existingLabels.add(item.label)}}};var extModels=(typeof window!=="undefined"&&Array.isArray(window.__AGY_EXTERNAL_MODELS__))?window.__AGY_EXTERNAL_MODELS__:[];
 addSep("── Default ──────────────────","sep_default");addModels(defaultModels);if(isProxyActive){addSep("── Web ──────────────────","sep_web");addModels(webModels)};if(extModels.length>0){addSep("── External AI ──────────────","sep_ext");addModels(extModels)};addSep("── Antigravity ───────────","sep_agy");addModels(agyModels);addSep("── Fast Completion (Unlimited) ───","sep_tab");addModels(tabModels);addSep("── Image Generation ─────────","sep_img");addModels(imageModels);if(recGroup){var ordered=[];ordered.push("── Default ──────────────────");var defaultBaseLabels=["Gemini 3.8 Flash (High)","Claude Sonnet 4.6 (Thinking)","Claude Opus 4.6 (Thinking)","Claude 4.5 Haiku",existingLabels.has("GPT-OSS 120B (Medium)")?"GPT-OSS 120B (Medium)":"GPT-OSS 120B","Gemini 4 Argon (High)"];defaultBaseLabels.forEach(lbl=>{if(existingLabels.has(lbl)&&!ordered.includes(lbl)){ordered.push(lbl)}});if(isProxyActive){ordered.push("── Web ──────────────────");webModels.forEach(m=>{!ordered.includes(m.label)&&ordered.push(m.label)})};if(extModels.length>0){ordered.push("── External AI ──────────────");extModels.forEach(m=>{!ordered.includes(m.label)&&ordered.push(m.label)})};ordered.push("── Antigravity ───────────");agyModels.forEach(m=>{!ordered.includes(m.label)&&ordered.push(m.label)});ordered.push("── Fast Completion (Unlimited) ───");tabModels.forEach(m=>{!ordered.includes(m.label)&&ordered.push(m.label)});ordered.push("── Image Generation ─────────");imageModels.forEach(m=>{!ordered.includes(m.label)&&ordered.push(m.label)});recGroup.modelLabels=ordered}return Object.assign({},b,{_agyEnhanced:!0,_sep_ordered_v16:!0,_proxyActive:isProxyActive,cascadeModelConfigData:Object.assign({},d,{clientModelConfigs:newConfigs,clientModelSorts:newSorts})})}catch(err){console.error("[AGY-Proxy] enhanceUserStatus failed:",err);return b}};
 '''
         # Dynamic structural matching for React State Provider
@@ -1375,6 +1441,13 @@ addSep("── Default ──────────────────","
         )
         logger.info("Patched rKa: Guarded completion delayer against uncaught Canceled promise rejections")
 
+    # 1.15 Enhance Microphone Audio Capture (noise cancellation, AGC, echo cancellation)
+    old_mic_target = 'kz({channelCount:1,echoCancellation:!0,noiseSuppression:!0},l)'
+    new_mic_target = 'kz({channelCount:1,echoCancellation:!0,noiseSuppression:!0,autoGainControl:!0,googEchoCancellation:!0,googAutoGainControl:!0,googNoiseSuppression:!0,googHighpassFilter:!0},l)'
+    if old_mic_target in js:
+        js = js.replace(old_mic_target, new_mic_target)
+        logger.info("Enhanced microphone capture: enabled AGC, highpass filter, and Google noise cancellation constraints")
+
     with open(main_js_path, "w", encoding="utf-8") as f:
         f.write(js)
 
@@ -1411,6 +1484,20 @@ addSep("── Default ──────────────────","
           "enable-native-swarm": true,
           "enable-swarm-monitor": true,
           "enable-swarm-narrator": true,
+          "enable-swarm-overview": true,
+          "enable-swarm-graph-tab": true,
+          "enable-citc-workspace-hygiene-rule": true,
+          "enable-auto-permission-preset": true,
+          "enable-aux-pane-redesign": true,
+          "enable-conversation-scoped-permissions": true,
+          "enable-list-plugin-accounts-tool": true,
+          "enable-notifications-settings": true,
+          "enable-permissions-selector": true,
+          "enable-project-4k": true,
+          "enable-role-onboarding": true,
+          "remote-control-setting-enabled": true,
+          "remote-control-webrtc-mesh": true,
+          "enable-browser-subagent-v2": true,
           "enable-browser-subagent-auto-invoke": true,
           "enable-browser-subagent-tab": true,
           "enable-plugin-card-auto-resume": true,
@@ -1889,6 +1976,7 @@ def launch_antigravity_web(
 
     # Set ANTIGRAVITY_HARNESS_PATH so Python SDK and tools can find the running harness
     os.environ["ANTIGRAVITY_HARNESS_PATH"] = str(resolved_ls)
+    patch_webm_encoder(resolved_ls)
 
     # Prepare log path
     effective_log_path = Path(log_path) if log_path else Path.home() / ".config" / "Antigravity" / "logs" / "language_server.log"

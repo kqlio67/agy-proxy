@@ -1457,6 +1457,72 @@ CURATED_SAFE_FLAGS: dict[str, dict[str, Any]] = {
         "category": "ui_editor",
         "desc": "v2.29.0 Flag: Expands conversations to full width of center pane in Appearance settings",
     },
+    # --- Antigravity Hub v2.31.0 New Features ---
+    "enable-swarm-overview": {
+        "value": True,
+        "category": "agents",
+        "desc": "v2.31.0 Flag: Enables full swarm overview panel and member management",
+    },
+    "enable-swarm-graph-tab": {
+        "value": True,
+        "category": "agents",
+        "desc": "v2.31.0 Flag: Enables visual topology graph tab for multi-agent swarms",
+    },
+    "enable-citc-workspace-hygiene-rule": {
+        "value": True,
+        "category": "remote_agents",
+        "desc": "v2.31.0 Flag: Enables CitC cloud workspace hygiene rules",
+    },
+    "enable-auto-permission-preset": {
+        "value": True,
+        "category": "agents",
+        "desc": "v2.31.0 Flag: Enables automated permission preset for autonomous execution",
+    },
+    "enable-aux-pane-redesign": {
+        "value": True,
+        "category": "ui_editor",
+        "desc": "v2.31.0 Flag: Enables redesigned auxiliary side pane",
+    },
+    "enable-conversation-scoped-permissions": {
+        "value": True,
+        "category": "agents",
+        "desc": "v2.31.0 Flag: Enables per-conversation scoped permission gates",
+    },
+    "enable-list-plugin-accounts-tool": {
+        "value": True,
+        "category": "tools_plugins",
+        "desc": "v2.31.0 Flag: Enables plugin accounts listing tool",
+    },
+    "enable-notifications-settings": {
+        "value": True,
+        "category": "ui_editor",
+        "desc": "v2.31.0 Flag: Enables system notifications settings panel",
+    },
+    "enable-permissions-selector": {
+        "value": True,
+        "category": "ui_editor",
+        "desc": "v2.31.0 Flag: Enables granular permission preset selector in UI",
+    },
+    "enable-project-4k": {
+        "value": True,
+        "category": "ui_editor",
+        "desc": "v2.31.0 Flag: Enables Project 4K workspace modes (Knowledge Work vs Software Engineering)",
+    },
+    "enable-role-onboarding": {
+        "value": True,
+        "category": "ui_editor",
+        "desc": "v2.31.0 Flag: Enables role onboarding personas (Engineering, Data, Science, Design)",
+    },
+    "remote-control-webrtc-mesh": {
+        "value": True,
+        "category": "remote_agents",
+        "desc": "v2.31.0 Flag: Enables peer-to-peer WebRTC mesh for remote control",
+    },
+    "enable-browser-subagent-v2": {
+        "value": True,
+        "category": "agents",
+        "desc": "v2.31.0 Flag: Enables browser subagent v2 architecture",
+    },
 }
 
 # Optimized non-bool flag overrides
@@ -1776,6 +1842,8 @@ CURATED_EXPERIMENT_IDS: list[int] = [
     106826239, 106826316, 106827293, 106827294, 106828852, 106828853, 106828854,
     106833630, 106848320, 106863826, 106863827, 106865004, 106865006, 106908755,
     106913264, 106927140, 106937777,
+    # v2.31.0 Experiment IDs (Swarm Mode, Battle Mode, Remote Control Mesh, Next-Gen Architectures)
+    106986919, 106828998, 1714256, 106898384, 107036252, 106806117, 106931179, 107033208,
 ]
 
 
