@@ -51,11 +51,13 @@ const DEFAULT_SAFETY_SETTINGS = [
 // -----------------------------------------------------------------------------
 
 const VALID_CLOUDCODE_MODELS = new Set([
-  // Gemini 4 Argon
+  // Gemini 4 Argon & Carbon
   "gemini-4-argon",
   "gemini-4-argon-high",
   "gemini-4-argon-medium",
   "gemini-4-argon-low",
+  "gemini-4-carbon",
+  "gemini-4-carbon-disabled",
   // Gemini 3.8
   "gemini-3.8-flash-high",
   "gemini-3.8-flash-medium",
@@ -320,7 +322,9 @@ const MODEL_ALIASES = {
 };
 
 const PROXY_MODELS_LIST = [
-  // Flagship Gemini 4 Argon
+  // Flagship Gemini 4 Carbon & Argon
+  { id: "gemini-4-carbon", object: "model", owned_by: "google", description: "Google Next-Gen Gemini 4 Carbon CloudCode model" },
+  { id: "gemini-4-carbon-disabled", object: "model", owned_by: "google", description: "Google Next-Gen Gemini 4 Carbon CloudCode model" },
   { id: "gemini-4-argon", object: "model", owned_by: "google", description: "Google Gemini 4 Argon (Web Flagship)" },
   { id: "gemini-4-argon-high", object: "model", owned_by: "google", description: "Gemini 4 Argon High (Web Thinking)" },
   { id: "gemini-4-argon-medium", object: "model", owned_by: "google", description: "Gemini 4 Argon Medium (Web Thinking)" },
@@ -473,7 +477,7 @@ const tokenCache = new Map();
 const rateLimitMap = new Map();
 
 function isAccountRateLimited(acc, model) {
-  const isArgon = model.includes("argon");
+  const isArgon = model.includes("argon") || model.includes("carbon");
   const is3p = !isArgon && (model.includes("claude") || model.includes("gpt-oss"));
   const group = isArgon ? "argon" : (is3p ? "3p" : "gemini");
   const key = `${acc.account_id || acc.email || "acc"}:${group}`;
@@ -509,12 +513,12 @@ function isModelSupported(acc, model) {
     }
     return true;
   }
-  const isArgon = norm.includes("argon");
+  const isArgon = norm.includes("argon") || norm.includes("carbon");
   if (isArgon) {
     if (acc.auth_method === "api_key" || acc.api_key) return false;
     if (acc.auth_method === "gemini_web") return true;
     if (availList.length > 0) {
-      const argonKeys = [norm, "gemini-4-argon-high", "gemini-4-argon-medium", "gemini-4-argon-low", "gemini-4-argon"];
+      const argonKeys = [norm, "gemini-4-carbon", "gemini-4-carbon-disabled", "gemini-4-argon-high", "gemini-4-argon-medium", "gemini-4-argon-low", "gemini-4-argon"];
       for (const k of argonKeys) {
         if (availList.includes(k)) {
           if (!Array.isArray(avail) && typeof avail === "object" && avail[k] && avail[k].disabled) {
@@ -526,7 +530,7 @@ function isModelSupported(acc, model) {
       return false;
     }
     const qsGroups = acc.quota_summary && Array.isArray(acc.quota_summary.groups) ? acc.quota_summary.groups : [];
-    if (qsGroups.some(g => String(g.displayName || "").toLowerCase().includes("argon") || (Array.isArray(g.buckets) && g.buckets.some(b => String(b.bucketId || "").toLowerCase().includes("argon"))))) {
+    if (qsGroups.some(g => String(g.displayName || "").toLowerCase().includes("argon") || String(g.displayName || "").toLowerCase().includes("carbon") || (Array.isArray(g.buckets) && g.buckets.some(b => String(b.bucketId || "").toLowerCase().includes("argon") || String(b.bucketId || "").toLowerCase().includes("carbon"))))) {
       return true;
     }
     return false;
@@ -554,7 +558,7 @@ function parseResetDuration(text) {
 }
 
 function markAccountRateLimited(acc, model, durationMs = 15000) {
-  const isArgon = model.includes("argon");
+  const isArgon = model.includes("argon") || model.includes("carbon");
   const is3p = !isArgon && (model.includes("claude") || model.includes("gpt-oss"));
   const group = isArgon ? "argon" : (is3p ? "3p" : "gemini");
   const key = `${acc.account_id || acc.email || "acc"}:${group}`;
@@ -1024,6 +1028,8 @@ function buildCloudCodePayload(reqJson, backendModel, auth) {
   let targetBackendModel = backendModel;
   if (backendModel === "gemini-4-argon" || backendModel === "gemini-4-argon-disabled") {
     targetBackendModel = "gemini-4-argon-high";
+  } else if (backendModel === "gemini-4-carbon" || backendModel === "gemini-4-carbon-disabled") {
+    targetBackendModel = "gemini-4-carbon-disabled";
   } else if (backendModel === "gemini-3.8-flash-deepagent" || backendModel === "gemini-deepagent") {
     targetBackendModel = "gemini-3.8-flash-high";
   } else if (
@@ -1065,7 +1071,7 @@ function buildCloudCodePayload(reqJson, backendModel, auth) {
     }
   }
 
-  if (targetBackendModel.includes("argon")) {
+  if (targetBackendModel.includes("argon") || targetBackendModel.includes("carbon")) {
     if (thinkingConfig.includeThoughts !== false && thinkingConfig.thinkingBudget !== 0) {
       if (thinkingConfig.thinkingBudget === -1) {
         delete thinkingConfig.thinkingBudget;
@@ -1410,7 +1416,7 @@ export default {
         } else if (backendModel.includes("claude")) {
           const upModel = backendModel.includes("opus") ? "claude-opus-5-5-high" : "claude-sonnet-5-5-high";
           candidates = accounts.filter((a) => isModelSupported(a, upModel) && !isAccountRateLimited(a, upModel));
-        } else if (backendModel.includes("argon")) {
+        } else if (backendModel.includes("argon") || backendModel.includes("carbon")) {
           const fbModel = (backendModel.includes("task") || backendModel.includes("spark"))
             ? "gemini-3.8-flash-task"
             : backendModel.includes("low")
@@ -1580,7 +1586,7 @@ export default {
                 }
               }
 
-              if ((gRes.status === 404 || gRes.status === 400 || gRes.status === 429) && isLastCandidate && backendModel.includes("argon")) {
+              if ((gRes.status === 404 || gRes.status === 400 || gRes.status === 429) && isLastCandidate && (backendModel.includes("argon") || backendModel.includes("carbon"))) {
                 const fbModel = (backendModel.includes("task") || backendModel.includes("spark"))
                   ? "gemini-3.8-flash-task"
                   : backendModel.includes("low")
@@ -1763,13 +1769,49 @@ export default {
           const expData = await response.json();
           if (expData && typeof expData === "object") {
             const flags = Array.isArray(expData.flags) ? expData.flags : [];
-            const deepFlags = ["enable-deepagent", "enable-deepagent-v2", "enable-developer-action-deepagent", "enable-subagent-hub"];
+            const deepFlags = [
+              "enable-deepagent",
+              "enable-deepagent-v2",
+              "enable-developer-action-deepagent",
+              "enable-subagent-hub",
+              "jetski-generative-ui-prompt",
+              "enable-customization-kind-flow",
+              "enable-advanced-builtin-workflow",
+              "enable-swarm-raw-tab",
+              "native-swarm-channels-local",
+              "enable-browser-subagent-webmcp",
+              "enable-browser-element-picker",
+              "enable-agent-omnitrace",
+              "enable-review",
+              "enable-side-question-rework",
+              "enable-thumbs-down-reroll",
+              "enable-help-slash-command",
+              "enable-enhanced-file-viewer",
+              "show_memory_operation_diffs",
+              "configure-artifact-width",
+              "cortex-snapshot-recording",
+              "cortex-snapshot-revert",
+              "enable-composer-connectors",
+            ];
             for (const df of deepFlags) {
               const f = flags.find((item) => item && item.name === df);
               if (f) {
                 f.boolValue = true;
               } else {
                 flags.push({ name: df, boolValue: true });
+              }
+            }
+            const nonBoolOpts = [
+              { name: "deepagent-arm", stringValue: "treatment" },
+              { name: "deepagent_effort", intValue: "3" },
+              { name: "default_subagent_interaction_timeout_seconds", intValue: "180" },
+            ];
+            for (const opt of nonBoolOpts) {
+              const f = flags.find((item) => item && item.name === opt.name);
+              if (f) {
+                Object.assign(f, opt);
+              } else {
+                flags.push(opt);
               }
             }
             expData.flags = flags;

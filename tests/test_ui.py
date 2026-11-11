@@ -153,5 +153,24 @@ class TestDashboardTemplate(unittest.TestCase):
         self.assertIn("OK", proc.stdout)
 
 
+    def test_dashboard_contains_v231_models(self):
+        html = get_dashboard_html()
+        self.assertIn("gemini-4-carbon", html)
+        self.assertIn("gemini-4-argon", html)
+        self.assertIn("gemini-3.8-flash-deepagent", html)
+        self.assertIn("claude-sonnet-5-5-high", html)
+        self.assertIn("claude-opus-5-5-high", html)
+        self.assertIn("claude-haiku-4-5", html)
+
+    def test_dashboard_settings_routing_and_web_mode(self):
+        html = get_dashboard_html()
+        self.assertIn("Account Pool Routing & Load Balancing", html)
+        self.assertIn("Balanced (LRU)", html)
+        self.assertIn("setRoutingStrategy('balanced')", html)
+        self.assertIn("Antigravity Web Mode (Browser-Based IDE)", html)
+        self.assertIn("updateRoutingStrategyUI", html)
+
+
 if __name__ == "__main__":
     unittest.main()
+

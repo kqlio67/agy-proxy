@@ -868,6 +868,31 @@ def test_patch_web_bundle_v2_31_0_mic_and_carbon(tmp_path):
     assert '"enable-citc-workspace-hygiene-rule": true' in patched_html
 
 
+def test_patch_web_bundle_arbitrary_var_and_carbon_base(tmp_path):
+    """Verifies that patch_web_bundle handles arbitrary minified var names (qa) and includes Carbon in defaultBaseLabels."""
+    from agy_proxy.web_launcher import patch_web_bundle
+
+    bundle = tmp_path / "qa_bundle"
+    bundle.mkdir()
+
+    raw_js = (
+        'kz({channelCount:1,echoCancellation:!0,noiseSuppression:!0},l); '
+        'k=(0,B.useMemo)(()=>{var qa=[...(P.data??[]),...(O.data??[]),...(Q.data??[])];D&&c&&F.sideQuestion&&qa.unshift({$typeName:"exa.cortex_pb.WorkflowSpec",name:"btw",description:"Ask a quick question without interrupting the main conversation.",path:"btw",content:""});return qa},[P.data,O.data,Q.data,D,c,F.sideQuestion]); '
+        'function gMa({children:a,userStatus:b}){return .Provider,{value:g},a)}'
+    )
+    (bundle / "main.js").write_text(raw_js, encoding="utf-8")
+    (bundle / "index.html").write_text("<html><head></head><body></body></html>", encoding="utf-8")
+
+    assert patch_web_bundle(bundle) is True
+
+    patched_js = (bundle / "main.js").read_text(encoding="utf-8")
+    assert '__AGY_CACHED_SLASH_COMMANDS__' in patched_js
+    assert 'daItem.name="deepagent"' in patched_js
+    assert '<deepagent_effort>' in patched_js
+    assert 'D&&c&&F.sideQuestion&&qa.unshift' in patched_js
+    assert '"Gemini 4 Carbon"' in patched_js
+
+
 def test_real_main_js_syntax_if_present():
     import shutil
     import subprocess

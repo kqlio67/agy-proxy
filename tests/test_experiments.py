@@ -860,6 +860,48 @@ def test_v2_29_0_flags_and_categories():
     assert models_dict["claude-haiku-4-5"]["capabilities"]["chat"]["boolValue"] is True
 
 
+def test_v2_31_0_flags_and_capabilities():
+    """Verify Antigravity v2.31.0 experimental flags and capabilities unlock."""
+    from agy_proxy.experiments import CURATED_SAFE_FLAGS, enhance_list_experiments
+
+    v2_31_flags = [
+        "jetski-generative-ui-prompt",
+        "enable-customization-kind-flow",
+        "enable-advanced-builtin-workflow",
+        "enable-swarm-raw-tab",
+        "native-swarm-channels-local",
+        "enable-browser-subagent-webmcp",
+        "enable-browser-element-picker",
+        "enable-agent-omnitrace",
+        "enable-review",
+        "enable-side-question-rework",
+        "enable-thumbs-down-reroll",
+        "enable-help-slash-command",
+        "enable-enhanced-file-viewer",
+        "show_memory_operation_diffs",
+        "configure-artifact-width",
+        "cortex-snapshot-recording",
+        "cortex-snapshot-revert",
+        "enable-composer-connectors",
+    ]
+    for flag in v2_31_flags:
+        assert flag in CURATED_SAFE_FLAGS, f"Expected {flag} in CURATED_SAFE_FLAGS"
+        assert CURATED_SAFE_FLAGS[flag]["value"] is True
+
+    enhanced = enhance_list_experiments(
+        {"experimentIds": [], "flags": []},
+        config_override={"enabled": True, "mode": "curated", "custom_overrides": {}},
+    )
+    flags_dict = {f["name"]: f.get("boolValue") for f in enhanced["flags"]}
+    for flag in v2_31_flags:
+        assert flags_dict.get(flag) is True, f"Expected {flag} to be True in enhanced experiments"
+
+    fmap = {f["name"]: f for f in enhanced["flags"]}
+    assert fmap["deepagent-arm"]["stringValue"] == "treatment"
+    assert fmap["deepagent_effort"]["intValue"] == "3"
+
+
+
 
 
 

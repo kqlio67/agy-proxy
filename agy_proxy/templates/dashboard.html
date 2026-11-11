@@ -630,17 +630,24 @@
             <div>
               <label class="block text-xs font-medium text-slate-400 mb-1">Target Model</label>
               <select id="modelSelect" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 transition font-mono">
+                <option value="gemini-4-carbon">gemini-4-carbon (Flagship · 1M Context)</option>
+                <option value="gemini-4-argon">gemini-4-argon (Flagship Thinking)</option>
+                <option value="gemini-4-argon-high">gemini-4-argon-high (Thinking High)</option>
                 <option value="gemini-3.8-flash-high" selected>gemini-3.8-flash-high (Thinking)</option>
                 <option value="gemini-3.8-flash-medium">gemini-3.8-flash-medium</option>
                 <option value="gemini-3.8-flash-low">gemini-3.8-flash-low</option>
                 <option value="gemini-3.8-flash-tiered">gemini-3.8-flash-tiered (1M Context)</option>
+                <option value="gemini-3.8-flash-deepagent">gemini-3.8-flash-deepagent (Deep Work)</option>
                 <option value="gemini-3.7-flash-high">gemini-3.7-flash-high (Thinking)</option>
                 <option value="gemini-3.1-pro">gemini-3.1-pro (Web Thinking)</option>
-                <option value="gemini-4-argon">gemini-4-argon (Flagship)</option>
                 <option value="gemini-3-pro">gemini-3-pro (Web Deep Reasoning)</option>
                 <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite (Zero Thinking)</option>
-                <option value="claude-sonnet-4-6">claude-sonnet-4-6 (Anthropic Protocol)</option>
-                <option value="claude-opus-4-6-thinking">claude-opus-4-6-thinking</option>
+                <option value="claude-sonnet-4-6">claude-sonnet-4-6 (Thinking)</option>
+                <option value="claude-opus-4-6-thinking">claude-opus-4-6-thinking (Deep Reasoning)</option>
+                <option value="claude-sonnet-4-6-deepagent">claude-sonnet-4-6-deepagent (Deep Work)</option>
+                <option value="claude-sonnet-5-5-high">claude-sonnet-5-5-high</option>
+                <option value="claude-opus-5-5-high">claude-opus-5-5-high</option>
+                <option value="claude-haiku-4-5">claude-haiku-4-5</option>
                 <option value="gemini-2.5-pro">gemini-2.5-pro</option>
                 <option value="gpt-oss-120b-medium">gpt-oss-120b-medium</option>
               </select>
@@ -1298,8 +1305,116 @@ https://your-tunnel.trycloudflare.com/v1</pre>
     </div>
   </div> <!-- End #tabContent-integrations -->
 
-  <!-- TAB 5: SETTINGS -->
+  <!-- TAB 6: SETTINGS -->
   <div id="tabContent-settings" class="hidden space-y-6">
+
+    <!-- 1. Gateway Routing Strategy & Load Balancing -->
+    <div class="p-6 rounded-2xl bg-dark-card border border-dark-border space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
+        <div>
+          <h2 class="text-base font-bold text-white flex items-center">
+            <i class="fa-solid fa-route mr-2 text-indigo-400"></i> Account Pool Routing & Load Balancing
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">Control how API and IDE requests are distributed across active accounts in your pool.</p>
+        </div>
+        <span id="settingsCurrentStratBadge" class="text-xs font-mono font-semibold px-2.5 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Primary</span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+        <!-- Strategy 1: Primary Priority -->
+        <div id="stratCard-primary" onclick="setRoutingStrategy('primary')" class="p-4 rounded-xl bg-slate-900 border border-slate-800 hover:border-indigo-500/60 transition cursor-pointer space-y-2 flex flex-col justify-between group">
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-white text-xs flex items-center gap-1.5">
+                <i class="fa-solid fa-star text-amber-400 text-xs"></i>
+                <span>Primary Priority</span>
+              </span>
+              <span class="strat-radio w-3.5 h-3.5 rounded-full border border-slate-600 flex items-center justify-center"></span>
+            </div>
+            <p class="text-[11px] text-slate-400 leading-relaxed">Routes all traffic to the designated Primary account. Transparently fails over to secondary pool accounts only if 429 quota exhaustion occurs.</p>
+          </div>
+          <div class="text-[10px] text-indigo-400/80 font-mono pt-1">Best for: stable session history</div>
+        </div>
+
+        <!-- Strategy 2: Round-Robin -->
+        <div id="stratCard-round_robin" onclick="setRoutingStrategy('round_robin')" class="p-4 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500/60 transition cursor-pointer space-y-2 flex flex-col justify-between group">
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-white text-xs flex items-center gap-1.5">
+                <i class="fa-solid fa-arrows-rotate text-emerald-400 text-xs"></i>
+                <span>Round-Robin Rotation</span>
+              </span>
+              <span class="strat-radio w-3.5 h-3.5 rounded-full border border-slate-600 flex items-center justify-center"></span>
+            </div>
+            <p class="text-[11px] text-slate-400 leading-relaxed">Evenly rotates each incoming request across all enabled accounts in round-robin sequence. Maximizes concurrent throughput and prevents single-account quota burn.</p>
+          </div>
+          <div class="text-[10px] text-emerald-400/80 font-mono pt-1">Best for: heavy team / multi-client usage</div>
+        </div>
+
+        <!-- Strategy 3: Balanced LRU -->
+        <div id="stratCard-balanced" onclick="setRoutingStrategy('balanced')" class="p-4 rounded-xl bg-slate-900 border border-slate-800 hover:border-cyan-500/60 transition cursor-pointer space-y-2 flex flex-col justify-between group">
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-white text-xs flex items-center gap-1.5">
+                <i class="fa-solid fa-scale-balanced text-cyan-400 text-xs"></i>
+                <span>Balanced (Least Used)</span>
+              </span>
+              <span class="strat-radio w-3.5 h-3.5 rounded-full border border-slate-600 flex items-center justify-center"></span>
+            </div>
+            <p class="text-[11px] text-slate-400 leading-relaxed">Routes traffic dynamically to the account with the lowest total request count and oldest last-used timestamp. Balances load adaptively over rolling quota windows.</p>
+          </div>
+          <div class="text-[10px] text-cyan-400/80 font-mono pt-1">Best for: preserving rolling 5h reset buffers</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Antigravity Web Mode Management -->
+    <div class="p-6 rounded-2xl bg-dark-card border border-dark-border space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-3">
+        <div>
+          <h2 class="text-base font-bold text-white flex items-center">
+            <i class="fa-solid fa-globe mr-2 text-cyan-400"></i> Antigravity Web Mode (Browser-Based IDE)
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">Runs Antigravity language_server in standalone HTTPS Web mode, bypassing the heavy Electron GUI.</p>
+        </div>
+        <div id="settingsWebStatusBadge" class="flex items-center space-x-2">
+          <span class="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-mono font-medium bg-slate-800 text-slate-400 border border-slate-700">
+            <span class="w-2 h-2 rounded-full bg-slate-500" id="settingsWebDot"></span>
+            <span id="settingsWebStatusText">Checking...</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs pt-1">
+        <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+          <div class="text-[10px] font-mono text-slate-400 uppercase">Web UI URL</div>
+          <div class="font-mono text-cyan-300 font-semibold truncate" id="settingsWebUrl">https://127.0.0.1:44741/</div>
+        </div>
+        <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+          <div class="text-[10px] font-mono text-slate-400 uppercase">Process ID (PID)</div>
+          <div class="font-mono text-slate-200 font-semibold" id="settingsWebPid">Stopped</div>
+        </div>
+        <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+          <div class="text-[10px] font-mono text-slate-400 uppercase">Memory Footprint</div>
+          <div class="font-mono text-emerald-400 font-semibold" id="settingsWebRam">~1,600 MB RAM Saved</div>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2.5 pt-2">
+        <button onclick="triggerWebLaunch(false)" class="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold flex items-center space-x-2 transition shadow">
+          <i class="fa-solid fa-play text-xs"></i>
+          <span>Start Web Mode</span>
+        </button>
+        <button onclick="triggerWebLaunch(true)" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center space-x-2 transition">
+          <i class="fa-solid fa-rotate text-xs"></i>
+          <span>Restart Web Mode</span>
+        </button>
+        <a id="settingsWebOpenBtn" href="https://127.0.0.1:44741/" target="_blank" rel="noopener noreferrer" class="px-4 py-2 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 text-xs font-semibold flex items-center space-x-2 transition">
+          <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
+          <span>Open in Browser</span>
+        </a>
+      </div>
+    </div>
 
     
     <!-- Process Control Panel -->
@@ -2274,25 +2389,63 @@ ightarrow$ v1.0.3</p>
         const btn = document.getElementById('antigravityWebNavBtn');
         const cardStatus = document.getElementById('webModeLiveStatus');
 
+        // Settings tab elements
+        const sDot = document.getElementById('settingsWebDot');
+        const sText = document.getElementById('settingsWebStatusText');
+        const sUrl = document.getElementById('settingsWebUrl');
+        const sPid = document.getElementById('settingsWebPid');
+        const sRam = document.getElementById('settingsWebRam');
+        const sOpenBtn = document.getElementById('settingsWebOpenBtn');
+
         if (data.status === 'running') {
+          const webUrl = data.url || 'https://127.0.0.1:44741/';
           if (dot) dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0';
           if (btn) {
-            btn.title = `Antigravity Web is RUNNING on ${data.url} (PID: ${data.pid || 'N/A'}, ~${data.estimated_ram_saved_mb || 1600}MB RAM saved)`;
-            btn.classList.remove('bg-cyan-600/20', 'text-cyan-300', 'border-cyan-500/40');
+            btn.href = webUrl;
+            btn.onclick = null;
+            btn.title = `Antigravity Web is RUNNING on ${webUrl} (PID: ${data.pid || 'N/A'}, ~${data.estimated_ram_saved_mb || 1600}MB RAM saved)`;
+            btn.classList.remove('bg-cyan-600/20', 'text-cyan-300', 'border-cyan-500/40', 'opacity-70');
             btn.classList.add('bg-emerald-600/20', 'text-emerald-300', 'border-emerald-500/40');
           }
           if (cardStatus) {
-            cardStatus.innerHTML = `<span class="text-emerald-400 flex items-center space-x-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span><span>Online (${data.url})</span></span>`;
+            cardStatus.innerHTML = `<span class="text-emerald-400 flex items-center space-x-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span><span>Online (${webUrl})</span></span>`;
+          }
+          if (sDot) sDot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+          if (sText) {
+            sText.innerText = 'Online (Running)';
+            sText.className = 'text-emerald-400 font-bold';
+          }
+          if (sUrl) sUrl.innerText = webUrl;
+          if (sPid) sPid.innerText = data.pid ? `PID ${data.pid}` : 'Active';
+          if (sRam) sRam.innerText = `~${data.estimated_ram_saved_mb || 1600} MB RAM Saved`;
+          if (sOpenBtn) {
+            sOpenBtn.href = webUrl;
+            sOpenBtn.classList.remove('pointer-events-none', 'opacity-50');
           }
         } else {
           if (dot) dot.className = 'w-2 h-2 rounded-full bg-slate-500 shrink-0';
           if (btn) {
-            btn.title = `Antigravity Web is stopped. Run 'agy-proxy web' to launch in browser mode.`;
+            btn.removeAttribute('href');
+            btn.title = `Antigravity Web is stopped. Click to launch browser mode.`;
             btn.classList.remove('bg-emerald-600/20', 'text-emerald-300', 'border-emerald-500/40');
             btn.classList.add('bg-cyan-600/20', 'text-cyan-300', 'border-cyan-500/40');
+            btn.onclick = (e) => {
+              e.preventDefault();
+              triggerWebLaunch(false);
+            };
           }
           if (cardStatus) {
             cardStatus.innerHTML = `<span class="text-slate-400">Offline (Launch via 'agy-proxy web')</span>`;
+          }
+          if (sDot) sDot.className = 'w-2 h-2 rounded-full bg-slate-500';
+          if (sText) {
+            sText.innerText = 'Offline (Stopped)';
+            sText.className = 'text-slate-400';
+          }
+          if (sPid) sPid.innerText = 'Stopped';
+          if (sOpenBtn) {
+            sOpenBtn.removeAttribute('href');
+            sOpenBtn.classList.add('pointer-events-none', 'opacity-50');
           }
         }
       } catch (e) {}
@@ -2684,6 +2837,31 @@ ightarrow$ v1.0.3</p>
 
     let currentRoutingStrategy = 'primary';
 
+    function updateRoutingStrategyUI(strat) {
+      currentRoutingStrategy = strat || 'primary';
+      const badge = document.getElementById('settingsCurrentStratBadge');
+      if (badge) {
+        badge.innerText = strat === 'round_robin' ? 'Round-Robin' : (strat === 'balanced' ? 'Balanced (LRU)' : 'Primary');
+        badge.className = `text-xs font-mono font-semibold px-2.5 py-1 rounded-full ${
+          strat === 'round_robin' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+          (strat === 'balanced' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30')
+        }`;
+      }
+      ['primary', 'round_robin', 'balanced'].forEach(s => {
+        const card = document.getElementById(`stratCard-${s}`);
+        if (card) {
+          const isSel = s === currentRoutingStrategy;
+          card.className = `p-4 rounded-xl bg-slate-900 border transition cursor-pointer space-y-2 flex flex-col justify-between group ${
+            isSel ? 'border-indigo-500 shadow-md ring-1 ring-indigo-500/30' : 'border-slate-800 hover:border-slate-700'
+          }`;
+          const radio = card.querySelector('.strat-radio');
+          if (radio) {
+            radio.innerHTML = isSel ? '<span class="w-2 h-2 rounded-full bg-indigo-400"></span>' : '';
+          }
+        }
+      });
+    }
+
     async function setRoutingStrategy(strat) {
       try {
         const res = await fetch('/api/routing/strategy', {
@@ -2694,7 +2872,9 @@ ightarrow$ v1.0.3</p>
         if (res.ok) {
           const data = await res.json();
           currentRoutingStrategy = data.strategy;
-          showToast(`Routing strategy set to: ${data.strategy === 'round_robin' ? 'Round-Robin (Rotation)' : 'Primary Priority'}`);
+          updateRoutingStrategyUI(currentRoutingStrategy);
+          const stratName = data.strategy === 'round_robin' ? 'Round-Robin (Rotation)' : (data.strategy === 'balanced' ? 'Balanced (LRU / Least Used)' : 'Primary Priority');
+          showToast(`Routing strategy set to: ${stratName}`, 'success');
           await loadAccounts(true);
         }
       } catch (err) {
@@ -2715,6 +2895,7 @@ ightarrow$ v1.0.3</p>
         ]);
         const data = await res.json();
         currentRoutingStrategy = data.routing_strategy || 'primary';
+        updateRoutingStrategyUI(currentRoutingStrategy);
         rawAccountsData = data.accounts || [];
         if (cliRes && cliRes.ok) {
           const cliData = await cliRes.json();
@@ -2861,6 +3042,10 @@ ightarrow$ v1.0.3</p>
                 <button onclick="setRoutingStrategy('round_robin')" class="px-2.5 py-1 rounded-md font-medium text-xs transition flex items-center space-x-1 ${currentRoutingStrategy === 'round_robin' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}" title="Rotate requests across all active pool accounts in round-robin fashion">
                   <i class="fa-solid fa-rotate text-[10px]"></i>
                   <span>Round-Robin</span>
+                </button>
+                <button onclick="setRoutingStrategy('balanced')" class="px-2.5 py-1 rounded-md font-medium text-xs transition flex items-center space-x-1 ${currentRoutingStrategy === 'balanced' ? 'bg-cyan-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}" title="Balanced / Least Recently Used (Spreads load across accounts with lowest request count)">
+                  <i class="fa-solid fa-scale-balanced text-[10px]"></i>
+                  <span>Balanced</span>
                 </button>
               </div>
               <span class="text-xs font-mono px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-slate-300">
@@ -3222,8 +3407,14 @@ ightarrow$ v1.0.3</p>
           const getAvgQuota = (acc) => {
             if (acc.auth_method === 'api_key' || acc.auth_method === 'gemini_web') return 100;
             const q = acc.quota_details || {};
-            const g = q.gemini ? Math.round(q.gemini.percent ?? (q.gemini.fraction * 100)) : 100;
-            const c = (q['3p'] || q.claude) ? Math.round((q['3p']||q.claude).percent ?? ((q['3p']||q.claude).fraction * 100)) : 100;
+            const gQ = q.gemini || {};
+            const cQ = q['3p'] || q.claude || {};
+            const g5h = gQ['5h'] != null ? Math.round(gQ['5h'].percent ?? (gQ['5h'].fraction * 100)) : (gQ.percent ?? 100);
+            const gWk = gQ['weekly'] != null ? Math.round(gQ['weekly'].percent ?? (gQ['weekly'].fraction * 100)) : (gQ.percent ?? 100);
+            const c5h = cQ['5h'] != null ? Math.round(cQ['5h'].percent ?? (cQ['5h'].fraction * 100)) : (cQ.percent ?? 100);
+            const cWk = cQ['weekly'] != null ? Math.round(cQ['weekly'].percent ?? (cQ['weekly'].fraction * 100)) : (cQ.percent ?? 100);
+            const g = Math.min(g5h, gWk);
+            const c = Math.min(c5h, cWk);
             return (g + c) / 2;
           };
           const diff = getAvgQuota(b) - getAvgQuota(a);
@@ -3630,7 +3821,7 @@ ightarrow$ v1.0.3</p>
       const name = document.getElementById('provNameInput')?.value?.trim() || id;
       const key = document.getElementById('provKeyInput')?.value?.trim() || null;
       if (!url) {
-        alert('Please enter Base URL first.');
+        showToast('Please enter Base URL first.', 'error');
         return;
       }
       const btn = document.getElementById('btnDiscoverModal');
@@ -3657,12 +3848,12 @@ ightarrow$ v1.0.3</p>
           const mList = data.models.map(m => m.id).join(', ');
           const inputEl = document.getElementById('provModelsInput');
           if (inputEl) inputEl.value = mList;
-          alert(`Discovered ${data.models.length} model(s): ` + data.models.map(m => m.id).slice(0, 5).join(', '));
+          showToast(`Discovered ${data.models.length} model(s): ` + data.models.map(m => m.id).slice(0, 5).join(', '), 'success');
         } else {
-          alert('No models found at ' + url);
+          showToast('No models found at ' + url, 'info');
         }
       } catch (err) {
-        alert('Failed to discover models: ' + err.message);
+        showToast('Failed to discover models: ' + err.message, 'error');
       } finally {
         if (btn) btn.innerHTML = oldHtml;
       }
@@ -4565,9 +4756,14 @@ ightarrow$ v1.0.3</p>
 
     function openRenameModal(accountId, currentName) {
       currentRenameAccountId = accountId;
+      const acc = (rawAccountsData || []).find(a => a.account_id === accountId);
       const inp = document.getElementById('renameInput');
+      const proxyInp = document.getElementById('renameProxyUrlInput');
       if (inp) {
-        inp.value = currentName;
+        inp.value = currentName || (acc ? (acc.name || acc.email) : '');
+      }
+      if (proxyInp) {
+        proxyInp.value = (acc && acc.proxy_url) ? acc.proxy_url : '';
       }
       document.getElementById('renameModal')?.classList.remove('hidden');
       setTimeout(() => {
@@ -4585,21 +4781,23 @@ ightarrow$ v1.0.3</p>
       if (!currentRenameAccountId) return;
       const newName = document.getElementById('renameInput')?.value?.trim();
       if (!newName) return;
+      const proxyUrlVal = document.getElementById('renameProxyUrlInput')?.value?.trim();
 
       try {
-        const res = await fetch(`/api/accounts/${currentRenameAccountId}/rename`, {
+        const res = await fetch(`/api/accounts/${encodeURIComponent(currentRenameAccountId)}/rename`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: newName, proxy_url: document.getElementById("renameProxyUrlInput").value.trim() || undefined })
+          body: JSON.stringify({ name: newName, proxy_url: proxyUrlVal || '' })
         });
         if (res.ok) {
           closeRenameModal();
+          showToast(`Account renamed to "${newName}"`, 'success');
           await loadAccounts();
         } else {
-          alert('Failed to rename account');
+          showToast('Failed to rename account', 'error');
         }
       } catch (err) {
-        console.error('Rename error:', err);
+        showToast('Rename error: ' + err.message, 'error');
       }
     }
 
@@ -4733,6 +4931,7 @@ ightarrow$ v1.0.3</p>
     ];
 
     const ANTIGRAVITY_MODELS = [
+      { id: 'gemini-4-carbon', name: 'gemini-4-carbon (Flagship · 1M Context)' },
       { id: 'gemini-4-argon', name: 'gemini-4-argon (Flagship)' },
       { id: 'gemini-4-argon-high', name: 'gemini-4-argon-high (Thinking High)' },
       { id: 'gemini-4-argon-medium', name: 'gemini-4-argon-medium' },
@@ -4741,6 +4940,7 @@ ightarrow$ v1.0.3</p>
       { id: 'gemini-3.8-flash-medium', name: 'gemini-3.8-flash-medium' },
       { id: 'gemini-3.8-flash-low', name: 'gemini-3.8-flash-low' },
       { id: 'gemini-3.8-flash-tiered', name: 'gemini-3.8-flash-tiered (Tiered)' },
+      { id: 'gemini-3.8-flash-deepagent', name: 'gemini-3.8-flash-deepagent (Deep Work)' },
       { id: 'gemini-3.7-flash-high', name: 'gemini-3.7-flash-high (Thinking)' },
       { id: 'gemini-3.7-flash-medium', name: 'gemini-3.7-flash-medium' },
       { id: 'gemini-3.7-flash-low', name: 'gemini-3.7-flash-low' },
@@ -4752,6 +4952,9 @@ ightarrow$ v1.0.3</p>
       { id: 'gemini-3.5-flash-low', name: 'gemini-3.5-flash-low' },
       { id: 'gemini-3.5-flash-extra-low', name: 'gemini-3.5-flash-extra-low' },
       { id: 'gemini-3.5-flash-lite', name: 'gemini-3.5-flash-lite' },
+      { id: 'gemini-3.5-flash-lite-high', name: 'gemini-3.5-flash-lite-high' },
+      { id: 'gemini-3.5-flash-lite-medium', name: 'gemini-3.5-flash-lite-medium' },
+      { id: 'gemini-3.5-flash-lite-low', name: 'gemini-3.5-flash-lite-low' },
       { id: 'gemini-pro-agent', name: 'gemini-pro-agent (Agentic)' },
       { id: 'gemini-3.1-pro-high', name: 'gemini-3.1-pro-high (Deep Reasoning)' },
       { id: 'gemini-3.1-pro-low', name: 'gemini-3.1-pro-low' },
@@ -4765,6 +4968,19 @@ ightarrow$ v1.0.3</p>
       { id: 'gemini-2.5-flash-thinking', name: 'gemini-2.5-flash-thinking' },
       { id: 'claude-sonnet-4-6', name: 'claude-sonnet-4-6 (Thinking)' },
       { id: 'claude-opus-4-6-thinking', name: 'claude-opus-4-6-thinking (Deep Reasoning)' },
+      { id: 'claude-sonnet-4-6-deepagent', name: 'claude-sonnet-4-6-deepagent (Deep Work)' },
+      { id: 'claude-opus-4-6-deepagent', name: 'claude-opus-4-6-deepagent (Deep Work)' },
+      { id: 'claude-sonnet-5-5-high', name: 'claude-sonnet-5-5-high' },
+      { id: 'claude-sonnet-5-5-medium', name: 'claude-sonnet-5-5-medium' },
+      { id: 'claude-sonnet-5-5-low', name: 'claude-sonnet-5-5-low' },
+      { id: 'claude-opus-5-5-high', name: 'claude-opus-5-5-high' },
+      { id: 'claude-opus-5-5-medium', name: 'claude-opus-5-5-medium' },
+      { id: 'claude-opus-5-5-low', name: 'claude-opus-5-5-low' },
+      { id: 'claude-haiku-4-5', name: 'claude-haiku-4-5' },
+      { id: 'claude-haiku-4-5-thinking', name: 'claude-haiku-4-5-thinking' },
+      { id: 'gemini-riftrunner', name: 'gemini-riftrunner (Autonomous)' },
+      { id: 'gemini-infinityjet', name: 'gemini-infinityjet (High Speed)' },
+      { id: 'gemini-infinitybloom', name: 'gemini-infinitybloom (Creative)' },
       { id: 'gpt-oss-120b-medium', name: 'gpt-oss-120b-medium' },
     ];
 
@@ -5227,11 +5443,11 @@ ightarrow$ v1.0.3</p>
         const proxyUrl = document.getElementById('addProxyUrlInput').value.trim() || null;
 
         if (!id) {
-          alert('Please enter a Provider ID (e.g. "ollama", "openrouter", "deepseek").');
+          showToast('Please enter a Provider ID (e.g. "ollama", "openrouter", "deepseek").', 'error');
           return;
         }
         if (!baseUrl) {
-          alert('Please enter a Base URL (e.g. "http://localhost:11434/v1").');
+          showToast('Please enter a Base URL (e.g. "http://localhost:11434/v1").', 'error');
           return;
         }
 
@@ -5263,12 +5479,12 @@ ightarrow$ v1.0.3</p>
             const errText = await res.text();
             throw new Error(errText);
           }
-          alert(`Successfully configured external provider "${name}"!`);
+          showToast(`Successfully configured external provider "${name}"!`, 'success');
           closeAddAccountModal();
           await loadAccounts();
           await loadModels();
         } catch (err) {
-          alert('Failed to save external provider: ' + err.message);
+          showToast('Failed to save external provider: ' + err.message, 'error');
         } finally {
           btn.disabled = false;
           btn.innerHTML = '<i class="fa-solid fa-check"></i> Add to Pool';
@@ -5305,12 +5521,12 @@ ightarrow$ v1.0.3</p>
             throw new Error(errText);
           }
           const data = await res.json();
-          alert(data.message || 'Gemini Web session added to pool!');
+          showToast(data.message || 'Gemini Web session added to pool!', 'success');
           closeAddAccountModal();
           await loadAccounts();
           await loadModels();
         } catch (err) {
-          alert('Failed to add Gemini Web session: ' + err.message);
+          showToast('Failed to add Gemini Web session: ' + err.message, 'error');
         } finally {
           btn.disabled = false;
           btn.innerHTML = '<i class="fa-solid fa-check"></i> Add to Pool';
@@ -5322,7 +5538,7 @@ ightarrow$ v1.0.3</p>
         const apiKey = document.getElementById('apiKeyValueInput').value.trim();
         const label = document.getElementById('apiKeyLabelInput').value.trim() || 'Gemini API Key';
         if (!apiKey) {
-          alert('Please enter your Gemini API Key.');
+          showToast('Please enter your Gemini API Key.', 'error');
           return;
         }
 
@@ -5341,12 +5557,12 @@ ightarrow$ v1.0.3</p>
             throw new Error(errText);
           }
           const data = await res.json();
-          alert('Successfully added API Key: ' + (data.name || data.email));
+          showToast('Successfully added API Key: ' + (data.name || data.email), 'success');
           closeAddAccountModal();
           await loadAccounts();
           await loadModels();
         } catch (err) {
-          alert('Failed to add API key: ' + err.message);
+          showToast('Failed to add API key: ' + err.message, 'error');
         } finally {
           btn.disabled = false;
           btn.innerHTML = '<i class="fa-solid fa-check"></i> Add to Pool';
@@ -5357,7 +5573,7 @@ ightarrow$ v1.0.3</p>
       // OAuth flow
       const rawCodeOrUrl = document.getElementById('authCodeInput').value.trim();
       if (!rawCodeOrUrl) {
-        alert('Please paste the authorization code or redirect URL.');
+        showToast('Please paste the authorization code or redirect URL.', 'error');
         return;
       }
 
@@ -5399,16 +5615,16 @@ ightarrow$ v1.0.3</p>
           throw new Error(msg);
         }
         const data = await res.json();
-        alert('Successfully added Google Account: ' + (data.email || data.account_id));
+        showToast('Successfully added Google Account: ' + (data.email || data.account_id), 'success');
         closeAddAccountModal();
         await loadAccounts();
         await loadModels();
       } catch (err) {
         let displayErr = err.message;
         if (displayErr.includes('invalid_grant')) {
-          displayErr = 'Invalid or expired authorization grant (invalid_grant).\nGoogle authorization codes can only be used once and expire quickly.\nPlease click "Refresh Link", sign in again, and paste the new callback URL.';
+          displayErr = 'Invalid or expired authorization grant (invalid_grant). Google authorization codes can only be used once and expire quickly. Please click "Refresh Link", sign in again, and paste the new callback URL.';
         }
-        alert('Failed to add account: ' + displayErr);
+        showToast('Failed to add account: ' + displayErr, 'error');
       } finally {
         btn.disabled = false;
         btn.innerHTML = '<i class="fa-solid fa-check"></i> Add to Pool';
@@ -5420,7 +5636,7 @@ ightarrow$ v1.0.3</p>
       const body = document.getElementById('testModalBody');
       const pgBtn = document.getElementById('testModalPlaygroundBtn');
       if (!modal || !body) {
-        alert('Diagnostic modal element not found');
+        showToast('Diagnostic modal element not found', 'error');
         return;
       }
 
@@ -5563,22 +5779,22 @@ ightarrow$ v1.0.3</p>
 
     async function refreshWebCookies(accountId) {
       try {
-        const res = await fetch(`/api/accounts/${accountId}/gemini-web/refresh-cookies`, { method: 'POST' });
+        const res = await fetch(`/api/accounts/${encodeURIComponent(accountId)}/gemini-web/refresh-cookies`, { method: 'POST' });
         const data = await res.json();
         if (data.status === 'ok') {
-          alert(`✅ Cookies refreshed via CDP! Found ${data.cookies_count || 0} cookies. AT Token: ${data.has_at_token ? 'Active' : 'Ready'}`);
+          showToast(`Cookies refreshed via CDP! Found ${data.cookies_count || 0} cookies. AT Token: ${data.has_at_token ? 'Active' : 'Ready'}`, 'success');
         } else {
-          alert(`⚠️ Could not extract cookies from CDP at port ${data.cdp_port || 9222}.\nEnsure Chrome/Helium is running with --remote-debugging-port=${data.cdp_port || 9222} and logged in to gemini.google.com.`);
+          showToast(`Could not extract cookies from CDP at port ${data.cdp_port || 9222}. Ensure Chrome is running with --remote-debugging-port=${data.cdp_port || 9222}.`, 'error');
         }
         await loadAccounts();
       } catch (err) {
-        alert('Error syncing CDP cookies: ' + (err.message || err));
+        showToast('Error syncing CDP cookies: ' + (err.message || err), 'error');
       }
     }
 
     async function toggleAccount(accId, newState) {
       try {
-        const res = await fetch(`/api/accounts/${accId}/toggle`, {
+        const res = await fetch(`/api/accounts/${encodeURIComponent(accId)}/toggle`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ enabled: newState })
@@ -5617,7 +5833,7 @@ ightarrow$ v1.0.3</p>
         showToast('Session stats reset to 0 / standby', 'info');
         await loadAccounts();
       } catch (err) {
-        alert('Reset stats failed: ' + (err.message || err));
+        showToast('Reset stats failed: ' + (err.message || err), 'error');
       }
     }
 
@@ -5630,17 +5846,22 @@ ightarrow$ v1.0.3</p>
         showToast('All session stats reset to 0 / standby', 'info');
         await loadAccounts();
       } catch (err) {
-        alert('Reset stats failed: ' + (err.message || err));
+        showToast('Reset stats failed: ' + (err.message || err), 'error');
       }
     }
 
     async function deleteAccount(accId) {
       if (!confirm('Remove this account from the pool?')) return;
       try {
-        await fetch(`/api/accounts/${accId}`, { method: 'DELETE' });
+        const res = await fetch(`/api/accounts/${encodeURIComponent(accId)}`, { method: 'DELETE' });
+        if (res.ok) {
+          showToast('Account removed from pool', 'success');
+        } else {
+          showToast('Failed to remove account', 'error');
+        }
         await loadAccounts();
       } catch (e) {
-        alert('Failed to remove account: ' + e);
+        showToast('Failed to remove account: ' + e.message, 'error');
       }
     }
 
@@ -5651,8 +5872,9 @@ ightarrow$ v1.0.3</p>
         await fetch('/api/accounts/refresh_all', { method: 'POST' });
         await loadAccounts();
         await loadModels();
+        showToast('All accounts and models refreshed', 'success');
       } catch (err) {
-        alert('Refresh failed: ' + err);
+        showToast('Refresh failed: ' + err.message, 'error');
       } finally {
         icon.classList.remove('fa-spin');
       }

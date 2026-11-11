@@ -58,3 +58,36 @@ def test_patch_and_launcher_endpoints(client):
     res_guard = client.get("/api/patch/autoguard")
     assert res_guard.status_code == 200
     assert "running" in res_guard.json()
+
+
+def test_refresh_quota_endpoint(tmp_path):
+    from unittest.mock import AsyncMock
+    from agy_proxy.auth import AccountSession, AccountPool
+    pool = AccountPool(
+        accounts_file=tmp_path / "accounts.json",
+        api_keys_file=tmp_path / "api_keys.json",
+        web_sessions_file=tmp_path / "web_sessions.json",
+    )
+    acc = AccountSession(
+        account_id="test_acc_refresh",
+        email="test_refresh@gmail.com",
+        access_token="tok",
+        refresh_token="ref",
+    )
+    acc.fetch_quota = AsyncMock()
+    pool.accounts[acc.account_id] = acc
+    app = create_app(account_pool=pool)
+    tc = TestClient(app)
+
+    res_404 = tc.post("/api/accounts/non_existent_acc/refresh-quota")
+    assert res_404.status_code == 404
+
+    res_ok = tc.post(f"/api/accounts/{acc.account_id}/refresh-quota")
+    assert res_ok.status_code == 200
+    data = res_ok.json()
+    assert data["account_id"] == "test_acc_refresh"
+    assert data["refreshed"] is True
+    acc.fetch_quota.assert_called_once()
+
+
+

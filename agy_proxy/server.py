@@ -1869,6 +1869,32 @@ def create_app(
             "quota_display": format_agy_quota_display(acc),
         }
 
+    @app.post("/api/accounts/{account_id}/refresh-quota")
+    async def refresh_account_quota_endpoint(account_id: str):
+        """Forces an immediate refresh of an account's quota."""
+        unquoted_id = urllib.parse.unquote(account_id).strip()
+        acc = pool.get_account(unquoted_id) or pool.get_account(account_id)
+        if not acc:
+            raise HTTPException(status_code=404, detail="Account not found.")
+        try:
+            if hasattr(acc, "fetch_quota"):
+                await acc.fetch_quota()
+            elif hasattr(pool, "fetch_account_quota"):
+                await pool.fetch_account_quota(acc)
+            try:
+                pool.save_accounts()
+            except Exception:
+                pass
+        except Exception as e:
+            logger.warning("Error refreshing quota for account %s: %s", acc.account_id, e)
+        from agy_proxy.switcher import format_agy_quota_display
+        return {
+            "account_id": acc.account_id,
+            "email": acc.email,
+            "quota_display": format_agy_quota_display(acc),
+            "refreshed": True,
+        }
+
     @app.get("/api/accounts/cli-active")
     async def get_cli_active_account():
         """Reads the AGY CLI and IDE token files and returns which pool accounts are currently active in each."""

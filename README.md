@@ -83,6 +83,10 @@ agy-proxy web --patched -k -o
 # Headless server setup (download official binary without Electron):
 agy-proxy web --download-server
 ```
+
+> [!TIP]
+> **`/deepagent` Slash Command & Persistent Shortcuts**: The patched web bundle injects the `/deepagent` slash command in chat, escalating tasks into deep reasoning mode with multi-pass verification and evidence-based rigor (`<deepagent_effort>`), while caching slash commands in localStorage against network dropouts.
+
 👉 *Detailed guide: [Antigravity Web Mode & Patched Hub](docs/web_mode.md)*
 
 ### 2. 🤖 Claude Code CLI (Proxy or Direct Vanilla)
@@ -155,9 +159,10 @@ Configure your clients using any of these supported model identifiers:
 
 | Model ID | Provider Family | Context Window | Best For |
 | :--- | :--- | :--- | :--- |
+| `gemini-4-carbon` / `carbon` | Gemini 4 Carbon | 1,048,576 tokens | Google Next-Gen v2.31.0 CloudCode model with deep reasoning. |
+| `gemini-4-argon` / `gemini-4-argon-high` | Gemini 4 Argon | 1,048,576 tokens | Next-gen flagship reasoning model (auto-unlocked). |
 | `gemini-3.8-flash-high` | Gemini 3.8 | 1,048,576 tokens | Ultra-fast coding, agentic workflows, low latency. |
 | `gemini-3.8-flash-deepagent` | Gemini 3.8 | 1,048,576 tokens | Autonomous multi-agent coding preset with high reasoning effort. |
-| `gemini-4-argon` / `gemini-4-argon-high` | Gemini 4 Argon | 1,048,576 tokens | Next-gen flagship reasoning model (auto-unlocked). |
 | `gemini-3.1-pro-high` | Gemini 3.1 | 1,048,576 tokens | Large refactors, high-precision architecture design. |
 | `claude-sonnet-4-6` | Claude 3.5/3.7/4.6 | 200,000 tokens | Top-tier code synthesis, Cursor & Claude Code. |
 | `claude-sonnet-4-6-deepagent` | Claude 4.6 | 200,000 tokens | Autonomous agent preset with 64k extended thinking budget. |

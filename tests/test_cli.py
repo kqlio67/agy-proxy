@@ -612,6 +612,14 @@ class TestClaudeCliCommand(unittest.TestCase):
             _, kwargs = mock_setup.call_args
             self.assertTrue(kwargs.get("direct"))
 
+    def test_module_main_execution(self):
+        """Verifies that `python -m agy_proxy --help` executes without error via __main__.py."""
+        import subprocess
+        res = subprocess.run([sys.executable, "-m", "agy_proxy", "--help"], capture_output=True, text=True)
+        self.assertEqual(res.returncode, 0)
+        self.assertIn("Antigravity Proxy", res.stdout)
+
+
 
 if __name__ == "__main__":
     unittest.main()
