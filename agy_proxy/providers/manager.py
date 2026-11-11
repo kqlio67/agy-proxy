@@ -226,7 +226,32 @@ class ExternalProviderManager:
                     "supports_vision": m.supports_vision,
                     "is_fallback": m.is_fallback,
                 })
+        catalog.sort(key=lambda e: (
+            provider_rank(e["provider_id"], e["provider_name"]),
+            str(e["provider_name"]).lower(),
+        ))
         return catalog
+
+
+# Display order shared by dashboard and Web Hub model list:
+# Anthropic → OpenAI → DeepSeek → Local → OpenRouter → Groq → NVIDIA → custom
+PROVIDER_ORDER: tuple[tuple[str, ...], ...] = (
+    ("anthropic", "claude"),
+    ("openai", "gpt"),
+    ("deepseek",),
+    ("ollama", "lmstudio", "localai", "local"),
+    ("openrouter",),
+    ("groq",),
+    ("nvidia",),
+)
+
+
+def provider_rank(provider_id: str, provider_name: str = "") -> int:
+    key = f"{provider_id} {provider_name}".lower()
+    for i, group in enumerate(PROVIDER_ORDER):
+        if any(k in key for k in group):
+            return i
+    return len(PROVIDER_ORDER)
 
 
 # Singleton manager instance

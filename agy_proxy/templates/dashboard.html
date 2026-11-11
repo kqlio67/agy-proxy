@@ -3030,7 +3030,7 @@ ightarrow$ v1.0.3</p>
         }
         if (provRes && provRes.ok) {
           const provData = await provRes.json();
-          rawProvidersData = provData.providers || [];
+          rawProvidersData = sortProvidersByEcosystem(provData.providers || []);
           rawRoutingSettings = provData.routing || { enable_external_failover: false, fallback_model: null };
         }
         renderAccounts();
@@ -4105,6 +4105,25 @@ ightarrow$ v1.0.3</p>
       } catch (err) {
         showToast('Failed to update failover settings: ' + err.message, 'error');
       }
+    }
+
+    // Provider ordering: Anthropic → OpenAI → DeepSeek → Local → Gateways → Custom (matches Add Account modal)
+    const PROVIDER_ECOSYSTEM_ORDER = [
+      ['anthropic', 'claude'], ['openai', 'gpt'], ['deepseek'], ['ollama', 'lmstudio', 'localai', 'local'],
+      ['openrouter'], ['groq'], ['nvidia']
+    ];
+    function providerRank(p) {
+      const key = ((p && (p.id || p.name)) || '').toLowerCase();
+      const idx = PROVIDER_ECOSYSTEM_ORDER.findIndex(group => group.some(k => key.includes(k)));
+      return idx === -1 ? PROVIDER_ECOSYSTEM_ORDER.length : idx;
+    }
+    function sortProvidersByEcosystem(list) {
+      return [...list].sort((a, b) => {
+        const d = providerRank(a) - providerRank(b);
+        if (d !== 0) return d;
+        if ((a.enabled !== false) !== (b.enabled !== false)) return a.enabled !== false ? -1 : 1;
+        return String(a.name || a.id).localeCompare(String(b.name || b.id));
+      });
     }
 
     function renderExternalProvidersSection(isGrid = true) {
