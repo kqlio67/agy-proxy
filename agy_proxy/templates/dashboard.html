@@ -428,39 +428,75 @@
 
         <!-- Filter Tabs & Sort Dropdown -->
         <div class="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 max-w-full">
-          <div class="flex items-center space-x-1 bg-slate-900 rounded-lg p-0.5 border border-slate-800 shrink-0" id="accountTypeFilters">
+          <!-- Filter Group 1: Providers / Ecosystems -->
+          <div class="flex items-center space-x-1 bg-slate-900 rounded-lg p-0.5 border border-slate-800 shrink-0" title="Filter by Provider / Ecosystem">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-1.5 hidden sm:inline">Provider:</span>
             <button onclick="setAccountFilter('all')" data-filter="all" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium bg-indigo-600 text-white shadow-sm transition flex items-center gap-1.5">
               <span>All</span>
               <span class="px-1.5 py-0.2 bg-white/20 rounded-full text-[10px] font-mono text-white" id="countAll">0</span>
             </button>
-            <button onclick="setAccountFilter('oauth')" data-filter="oauth" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-white transition flex items-center gap-1.5">
+            <button onclick="setAccountFilter('google')" data-filter="google" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-blue-400 transition flex items-center gap-1.5" title="Google Accounts (OAuth, Web & AI Studio)">
+              <i class="fa-brands fa-google text-blue-400 text-[10px]"></i>
+              <span>Google</span>
+              <span class="px-1.5 py-0.2 bg-slate-800 rounded-full text-[10px] font-mono text-slate-300" id="countGoogle">0</span>
+            </button>
+            <button onclick="setAccountFilter('deepseek')" data-filter="deepseek" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-cyan-400 transition flex items-center gap-1.5" title="DeepSeek Direct API">
+              <i class="fa-solid fa-atom text-cyan-400 text-[10px]"></i>
+              <span>DeepSeek</span>
+              <span class="px-1.5 py-0.2 bg-slate-800 rounded-full text-[10px] font-mono text-slate-300" id="countDeepSeek">0</span>
+            </button>
+            <button onclick="setAccountFilter('local')" data-filter="local" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-emerald-400 transition flex items-center gap-1.5" title="Local AI (Ollama & Offline LLMs)">
+              <i class="fa-solid fa-server text-emerald-400 text-[10px]"></i>
+              <span>Local AI</span>
+              <span class="px-1.5 py-0.2 bg-slate-800 rounded-full text-[10px] font-mono text-slate-300" id="countLocal">0</span>
+            </button>
+            <button onclick="setAccountFilter('gateways')" data-filter="gateways" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-purple-400 transition flex items-center gap-1.5" title="Cloud Gateways (OpenRouter, Groq, NVIDIA NIM)">
+              <i class="fa-solid fa-bolt text-purple-400 text-[10px]"></i>
+              <span>Gateways</span>
+              <span class="px-1.5 py-0.2 bg-slate-800 rounded-full text-[10px] font-mono text-slate-300" id="countGateways">0</span>
+            </button>
+          </div>
+
+          <!-- Divider line -->
+          <div class="h-5 w-[1px] bg-slate-800 shrink-0"></div>
+
+          <!-- Filter Group 2: Auth Methods & Status -->
+          <div class="flex items-center space-x-1 bg-slate-900 rounded-lg p-0.5 border border-slate-800 shrink-0" title="Filter by Authentication Type">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-1.5 hidden sm:inline">Auth:</span>
+            <button onclick="setAccountFilter('oauth')" data-filter="oauth" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-indigo-300 transition flex items-center gap-1.5" title="Google OAuth 2.0 Accounts">
               <i class="fa-solid fa-shield-halved text-indigo-400 text-[10px]"></i>
               <span>OAuth</span>
               <span class="px-1.5 py-0.2 bg-slate-800 rounded-full text-[10px] font-mono text-slate-300" id="countOAuth">0</span>
             </button>
-            <button onclick="setAccountFilter('web')" data-filter="web" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-white transition flex items-center gap-1.5">
+            <button onclick="setAccountFilter('web')" data-filter="web" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-teal-300 transition flex items-center gap-1.5" title="Web Browser Sessions (Cookies / HAR)">
               <i class="fa-solid fa-globe text-teal-400 text-[10px]"></i>
               <span>Web</span>
               <span class="px-1.5 py-0.2 bg-slate-800 rounded-full text-[10px] font-mono text-slate-300" id="countWeb">0</span>
             </button>
-            <button onclick="setAccountFilter('apikey')" data-filter="apikey" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-white transition flex items-center gap-1.5">
+            <button onclick="setAccountFilter('apikey')" data-filter="apikey" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-amber-300 transition flex items-center gap-1.5" title="API Keys (Google AI Studio & DeepSeek Direct)">
               <i class="fa-solid fa-key text-amber-400 text-[10px]"></i>
               <span>API Keys</span>
               <span class="px-1.5 py-0.2 bg-slate-800 rounded-full text-[10px] font-mono text-slate-300" id="countApiKey">0</span>
             </button>
-            <button onclick="setAccountFilter('external')" data-filter="external" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-purple-400 transition flex items-center gap-1.5">
-              <i class="fa-solid fa-brain text-purple-400 text-[10px]"></i>
-              <span>External AI</span>
-              <span class="px-1.5 py-0.2 bg-slate-800 rounded-full text-[10px] font-mono text-slate-300" id="countExternal">0</span>
-            </button>
-            <button onclick="setAccountFilter('exhausted')" data-filter="exhausted" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-red-400 transition flex items-center gap-1.5">
+            <button onclick="setAccountFilter('exhausted')" data-filter="exhausted" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-red-400 transition flex items-center gap-1.5" title="0% Quota Remaining">
               <i class="fa-solid fa-battery-empty text-red-400 text-[10px]"></i>
               <span>0%</span>
               <span class="px-1.5 py-0.2 bg-slate-800 rounded-full text-[10px] font-mono text-slate-300" id="countExhausted">0</span>
             </button>
           </div>
 
-          <select id="accountSortSelect" onchange="renderAccounts()" class="bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-slate-300 text-[11px] focus:outline-none focus:border-indigo-500 shrink-0">
+          <!-- Hidden compatibility elements -->
+          <span id="countExternal" class="hidden">0</span>
+          <div id="accountTypeFilters" class="hidden"></div>
+
+          <select id="accountSortSelect" onchange="renderAccounts()" class="bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-slate-300 text-[11px] focus:outline-none focus:border-indigo-500 shrink-0 ml-auto">
+            <option value="default">Sort: Default (Primary first)</option>
+            <option value="quota-desc">Sort: Highest Quota</option>
+            <option value="quota-asc">Sort: Lowest Quota</option>
+            <option value="reqs-desc">Sort: Most Requests</option>
+            <option value="name-asc">Sort: Name (A-Z)</option>
+          </select>
+        </div>
             <option value="default">Sort: Default (Primary first)</option>
             <option value="quota-desc">Sort: Highest Quota</option>
             <option value="quota-asc">Sort: Lowest Quota</option>
@@ -2226,7 +2262,11 @@ ightarrow$ v1.0.3</p>
         const countBadge = btn.querySelector('span:last-child');
         if (isMatch) {
           let activeClass = 'bg-indigo-600 text-white';
-          if (filter === 'web') activeClass = 'bg-teal-600 text-white';
+          if (filter === 'google') activeClass = 'bg-blue-600 text-white';
+          else if (filter === 'deepseek') activeClass = 'bg-cyan-600 text-white';
+          else if (filter === 'local') activeClass = 'bg-emerald-600 text-white';
+          else if (filter === 'gateways') activeClass = 'bg-purple-600 text-white';
+          else if (filter === 'web') activeClass = 'bg-teal-600 text-white';
           else if (filter === 'apikey') activeClass = 'bg-amber-600 text-white';
           else if (filter === 'external') activeClass = 'bg-purple-600 text-white';
           else if (filter === 'exhausted') activeClass = 'bg-red-600 text-white';
@@ -2234,7 +2274,10 @@ ightarrow$ v1.0.3</p>
           if (countBadge) countBadge.className = 'px-1.5 py-0.2 bg-white/20 rounded-full text-[10px] font-mono text-white';
         } else {
           let hoverClass = 'hover:text-white';
-          if (btn.dataset.filter === 'external') hoverClass = 'hover:text-purple-400';
+          if (btn.dataset.filter === 'google') hoverClass = 'hover:text-blue-400';
+          else if (btn.dataset.filter === 'deepseek') hoverClass = 'hover:text-cyan-400';
+          else if (btn.dataset.filter === 'local') hoverClass = 'hover:text-emerald-400';
+          else if (btn.dataset.filter === 'gateways' || btn.dataset.filter === 'external') hoverClass = 'hover:text-purple-400';
           else if (btn.dataset.filter === 'exhausted') hoverClass = 'hover:text-red-400';
           btn.className = `acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 ${hoverClass} transition flex items-center gap-1.5`;
           if (countBadge) countBadge.className = 'px-1.5 py-0.2 bg-slate-800 rounded-full text-[10px] font-mono text-slate-300';
@@ -3472,16 +3515,94 @@ ightarrow$ v1.0.3</p>
         kpiClaudePool.className = `text-base sm:text-xl font-bold font-mono mt-0.5 truncate ${avgClaudeQuota > 50 ? 'text-emerald-400' : (avgClaudeQuota > 20 ? 'text-amber-400' : 'text-red-400')}`;
       }
 
+      // Split external providers into categories
+      const deepseekProviders = rawProvidersData.filter(p => (p.id || '').toLowerCase().includes('deepseek'));
+      const localProviders = rawProvidersData.filter(p => {
+        const id = (p.id || '').toLowerCase();
+        return id.includes('ollama') || id.includes('lmstudio') || id.includes('local');
+      });
+      const gatewayProviders = rawProvidersData.filter(p => {
+        const id = (p.id || '').toLowerCase();
+        return !id.includes('deepseek') && !id.includes('ollama') && !id.includes('lmstudio') && !id.includes('local');
+      });
+
+      const filterProvList = (list) => {
+        if (!searchQ) return list;
+        return list.filter(p => {
+          const pName = (p.name || '').toLowerCase();
+          const pId = (p.id || '').toLowerCase();
+          const pUrl = (p.base_url || '').toLowerCase();
+          const pModels = (p.models || []).map(m => (m.name || m.id || '').toLowerCase()).join(' ');
+          return pName.includes(searchQ) || pId.includes(searchQ) || pUrl.includes(searchQ) || pModels.includes(searchQ);
+        });
+      };
+
+      const matchedDeepseek = filterProvList(deepseekProviders);
+      const matchedLocal = filterProvList(localProviders);
+      const matchedGateways = filterProvList(gatewayProviders);
+
       let totalExternal = rawProvidersData.length;
+      let totalGoogle = totalAll;
+      let countApiKeysAll = totalApiKey + deepseekProviders.length;
+
       if (document.getElementById('countAll')) document.getElementById('countAll').innerText = totalAll + totalExternal;
       if (document.getElementById('navActivePoolCounter')) document.getElementById('navActivePoolCounter').innerText = totalAll;
+      if (document.getElementById('countGoogle')) document.getElementById('countGoogle').innerText = totalGoogle;
+      if (document.getElementById('countDeepSeek')) document.getElementById('countDeepSeek').innerText = deepseekProviders.length;
+      if (document.getElementById('countLocal')) document.getElementById('countLocal').innerText = localProviders.length;
+      if (document.getElementById('countGateways')) document.getElementById('countGateways').innerText = gatewayProviders.length;
       if (document.getElementById('countOAuth')) document.getElementById('countOAuth').innerText = totalOAuth;
-      if (document.getElementById('countApiKey')) document.getElementById('countApiKey').innerText = totalApiKey;
+      if (document.getElementById('countApiKey')) document.getElementById('countApiKey').innerText = countApiKeysAll;
       if (document.getElementById('countWeb')) document.getElementById('countWeb').innerText = totalWeb;
       if (document.getElementById('countExternal')) document.getElementById('countExternal').innerText = totalExternal;
       if (document.getElementById('countExhausted')) document.getElementById('countExhausted').innerText = totalExhausted;
 
       document.getElementById('accountPoolCount').innerText = `${totalAll + totalExternal} source${(totalAll + totalExternal) === 1 ? '' : 's'}`;
+
+      if (currentAccountFilter === 'deepseek') {
+        container.innerHTML = renderProviderEcosystemSection({
+          sectionId: 'deepseek',
+          title: 'DeepSeek Direct AI',
+          icon: 'fa-solid fa-atom',
+          iconColor: { bg: 'bg-cyan-500/15', border: 'border-cyan-500/30', text: 'text-cyan-400', pillBg: 'bg-cyan-500/20', pillText: 'text-cyan-300', pillBorder: 'border-cyan-500/30', addBtnBg: 'bg-cyan-600 hover:bg-cyan-500' },
+          count: matchedDeepseek.length,
+          desc: 'Direct OpenAI-compatible API connection (deepseek-chat, deepseek-reasoner R1)',
+          addTab: 'deepseek',
+          providers: matchedDeepseek,
+          showFailoverBanner: false
+        });
+        return;
+      }
+
+      if (currentAccountFilter === 'local') {
+        container.innerHTML = renderProviderEcosystemSection({
+          sectionId: 'local',
+          title: 'Local AI Models (Ollama & Offline LLMs)',
+          icon: 'fa-solid fa-server',
+          iconColor: { bg: 'bg-emerald-500/15', border: 'border-emerald-500/30', text: 'text-emerald-400', pillBg: 'bg-emerald-500/20', pillText: 'text-emerald-300', pillBorder: 'border-emerald-500/30', addBtnBg: 'bg-emerald-600 hover:bg-emerald-500' },
+          count: matchedLocal.length,
+          desc: 'Local offline models on localhost:11434 — zero latency, unlimited tokens, private',
+          addTab: 'ollama',
+          providers: matchedLocal,
+          showFailoverBanner: false
+        });
+        return;
+      }
+
+      if (currentAccountFilter === 'gateways') {
+        container.innerHTML = renderProviderEcosystemSection({
+          sectionId: 'gateways',
+          title: 'Cloud Gateways & Fallback Hubs (OpenRouter, Groq, NVIDIA NIM)',
+          icon: 'fa-solid fa-bolt',
+          iconColor: { bg: 'bg-purple-500/15', border: 'border-purple-500/30', text: 'text-purple-400', pillBg: 'bg-purple-500/20', pillText: 'text-purple-300', pillBorder: 'border-purple-500/30', addBtnBg: 'bg-purple-600 hover:bg-purple-500' },
+          count: matchedGateways.length,
+          desc: 'Multi-model cloud aggregators with 429 auto-failover to external providers',
+          addTab: 'external',
+          providers: matchedGateways,
+          showFailoverBanner: true
+        });
+        return;
+      }
 
       if (currentAccountFilter === 'external') {
         container.innerHTML = renderExternalProvidersSection(currentAccountView === 'grid');
@@ -3559,7 +3680,7 @@ ightarrow$ v1.0.3</p>
       // Always sync Playground account dropdown
       populatePlaygroundAccounts();
 
-      if (filtered.length === 0) {
+      if (filtered.length === 0 && currentAccountFilter !== 'all' && currentAccountFilter !== 'apikey') {
         container.innerHTML = `<div class="p-8 rounded-2xl bg-dark-card border border-dark-border text-center text-slate-500 text-sm">No accounts match the selected filter/search.</div>`;
         return;
       }
@@ -3572,6 +3693,96 @@ ightarrow$ v1.0.3</p>
       if (currentAccountFilter === 'all') {
         let fullHtml = '<div class="space-y-8">';
         // Section 1: Google Antigravity OAuth
+        if (oauthAccounts.length > 0 || !searchQ) {
+          fullHtml += renderSection(
+            'Google Antigravity Accounts (OAuth)',
+            'fa-solid fa-shield-halved',
+            { bg: 'bg-indigo-500/15', border: 'border-indigo-500/30', text: 'text-indigo-400', pillBg: 'bg-indigo-500/20', pillText: 'text-indigo-300', pillBorder: 'border-indigo-500/30' },
+            oauthAccounts.length,
+            'Full integration with Claude Sonnet/Opus & Gemini quota rotation',
+            'oauth',
+            oauthAccounts,
+            currentAccountView === 'grid'
+          );
+        }
+
+        // Section 2: Gemini Web Browser Sessions
+        if (webAccounts.length > 0 || !searchQ) {
+          fullHtml += renderSection(
+            'Gemini Web Browser Sessions',
+            'fa-solid fa-globe',
+            { bg: 'bg-teal-500/15', border: 'border-teal-500/30', text: 'text-teal-400', pillBg: 'bg-teal-500/20', pillText: 'text-teal-300', pillBorder: 'border-teal-500/30' },
+            webAccounts.length,
+            'Browser sessions from gemini.google.com (supports multiple accounts)',
+            'web',
+            webAccounts,
+            currentAccountView === 'grid'
+          );
+        }
+
+        // Section 3: Google AI Studio Keys
+        if (apiKeyAccounts.length > 0 || !searchQ) {
+          fullHtml += renderSection(
+            'Google AI Studio API Keys',
+            'fa-solid fa-key',
+            { bg: 'bg-amber-500/15', border: 'border-amber-500/30', text: 'text-amber-400', pillBg: 'bg-amber-500/20', pillText: 'text-amber-300', pillBorder: 'border-amber-500/30' },
+            apiKeyAccounts.length,
+            'Pay-as-you-go & free tier developer API keys via GenerativeLanguage REST',
+            'apikey',
+            apiKeyAccounts,
+            currentAccountView === 'grid'
+          );
+        }
+
+        // Section 4: DeepSeek Direct AI
+        if (matchedDeepseek.length > 0 || (!searchQ && deepseekProviders.length > 0)) {
+          fullHtml += renderProviderEcosystemSection({
+            sectionId: 'deepseek',
+            title: 'DeepSeek Direct AI',
+            icon: 'fa-solid fa-atom',
+            iconColor: { bg: 'bg-cyan-500/15', border: 'border-cyan-500/30', text: 'text-cyan-400', pillBg: 'bg-cyan-500/20', pillText: 'text-cyan-300', pillBorder: 'border-cyan-500/30', addBtnBg: 'bg-cyan-600 hover:bg-cyan-500' },
+            count: matchedDeepseek.length,
+            desc: 'Direct OpenAI-compatible API connection (deepseek-chat, deepseek-reasoner R1)',
+            addTab: 'deepseek',
+            providers: matchedDeepseek,
+            showFailoverBanner: false
+          });
+        }
+
+        // Section 5: Local AI Models (Ollama)
+        if (matchedLocal.length > 0 || (!searchQ && localProviders.length > 0)) {
+          fullHtml += renderProviderEcosystemSection({
+            sectionId: 'local',
+            title: 'Local AI Models (Ollama & Offline LLMs)',
+            icon: 'fa-solid fa-server',
+            iconColor: { bg: 'bg-emerald-500/15', border: 'border-emerald-500/30', text: 'text-emerald-400', pillBg: 'bg-emerald-500/20', pillText: 'text-emerald-300', pillBorder: 'border-emerald-500/30', addBtnBg: 'bg-emerald-600 hover:bg-emerald-500' },
+            count: matchedLocal.length,
+            desc: 'Local offline models on localhost:11434 — zero latency, unlimited tokens, private',
+            addTab: 'ollama',
+            providers: matchedLocal,
+            showFailoverBanner: false
+          });
+        }
+
+        // Section 6: Cloud Gateways (OpenRouter, Groq, NVIDIA NIM)
+        if (matchedGateways.length > 0 || (!searchQ && gatewayProviders.length > 0)) {
+          fullHtml += renderProviderEcosystemSection({
+            sectionId: 'gateways',
+            title: 'Cloud Gateways & Fallback Hubs (OpenRouter, Groq, NVIDIA NIM)',
+            icon: 'fa-solid fa-bolt',
+            iconColor: { bg: 'bg-purple-500/15', border: 'border-purple-500/30', text: 'text-purple-400', pillBg: 'bg-purple-500/20', pillText: 'text-purple-300', pillBorder: 'border-purple-500/30', addBtnBg: 'bg-purple-600 hover:bg-purple-500' },
+            count: matchedGateways.length,
+            desc: 'Multi-model cloud aggregators with 429 auto-failover to external providers',
+            addTab: 'external',
+            providers: matchedGateways,
+            showFailoverBanner: true
+          });
+        }
+
+        fullHtml += '</div>';
+        container.innerHTML = fullHtml;
+      } else if (currentAccountFilter === 'google') {
+        let fullHtml = '<div class="space-y-8">';
         fullHtml += renderSection(
           'Google Antigravity Accounts (OAuth)',
           'fa-solid fa-shield-halved',
@@ -3582,8 +3793,6 @@ ightarrow$ v1.0.3</p>
           oauthAccounts,
           currentAccountView === 'grid'
         );
-
-        // Section 2: Gemini Web Browser Sessions
         fullHtml += renderSection(
           'Gemini Web Browser Sessions',
           'fa-solid fa-globe',
@@ -3594,8 +3803,6 @@ ightarrow$ v1.0.3</p>
           webAccounts,
           currentAccountView === 'grid'
         );
-
-        // Section 3: Google AI Studio Keys
         fullHtml += renderSection(
           'Google AI Studio API Keys',
           'fa-solid fa-key',
@@ -3606,13 +3813,37 @@ ightarrow$ v1.0.3</p>
           apiKeyAccounts,
           currentAccountView === 'grid'
         );
-
-        // Section 4: External LLM Providers & Local Models
-        fullHtml += renderExternalProvidersSection(currentAccountView === 'grid');
+        fullHtml += '</div>';
+        container.innerHTML = fullHtml;
+      } else if (currentAccountFilter === 'apikey') {
+        let fullHtml = '<div class="space-y-8">';
+        fullHtml += renderSection(
+          'Google AI Studio API Keys',
+          'fa-solid fa-key',
+          { bg: 'bg-amber-500/15', border: 'border-amber-500/30', text: 'text-amber-400', pillBg: 'bg-amber-500/20', pillText: 'text-amber-300', pillBorder: 'border-amber-500/30' },
+          apiKeyAccounts.length,
+          'Pay-as-you-go & free tier developer API keys via GenerativeLanguage REST',
+          'apikey',
+          apiKeyAccounts,
+          currentAccountView === 'grid'
+        );
+        if (matchedDeepseek.length > 0) {
+          fullHtml += renderProviderEcosystemSection({
+            sectionId: 'deepseek',
+            title: 'DeepSeek Direct AI (API Key)',
+            icon: 'fa-solid fa-atom',
+            iconColor: { bg: 'bg-cyan-500/15', border: 'border-cyan-500/30', text: 'text-cyan-400', pillBg: 'bg-cyan-500/20', pillText: 'text-cyan-300', pillBorder: 'border-cyan-500/30', addBtnBg: 'bg-cyan-600 hover:bg-cyan-500' },
+            count: matchedDeepseek.length,
+            desc: 'Direct OpenAI-compatible API connection via DeepSeek API Key',
+            addTab: 'deepseek',
+            providers: matchedDeepseek,
+            showFailoverBanner: false
+          });
+        }
         fullHtml += '</div>';
         container.innerHTML = fullHtml;
       } else {
-        // Filtered view (oauth, web, apikey, exhausted)
+        // Filtered view (oauth, web, exhausted)
         let title = 'Accounts';
         let icon = 'fa-solid fa-users';
         let iconColor = { bg: 'bg-indigo-500/15', border: 'border-indigo-500/30', text: 'text-indigo-400', pillBg: 'bg-indigo-500/20', pillText: 'text-indigo-300', pillBorder: 'border-indigo-500/30' };
@@ -3630,12 +3861,6 @@ ightarrow$ v1.0.3</p>
           iconColor = { bg: 'bg-teal-500/15', border: 'border-teal-500/30', text: 'text-teal-400', pillBg: 'bg-teal-500/20', pillText: 'text-teal-300', pillBorder: 'border-teal-500/30' };
           desc = 'Browser sessions from gemini.google.com (supports multiple accounts)';
           addType = 'web';
-        } else if (currentAccountFilter === 'apikey') {
-          title = 'Google AI Studio API Keys';
-          icon = 'fa-solid fa-key';
-          iconColor = { bg: 'bg-amber-500/15', border: 'border-amber-500/30', text: 'text-amber-400', pillBg: 'bg-amber-500/20', pillText: 'text-amber-300', pillBorder: 'border-amber-500/30' };
-          desc = 'Pay-as-you-go & free tier developer API keys';
-          addType = 'apikey';
         } else if (currentAccountFilter === 'exhausted') {
           title = 'Exhausted Quota Accounts (0%)';
           icon = 'fa-solid fa-battery-empty';
@@ -3669,7 +3894,7 @@ ightarrow$ v1.0.3</p>
     }
 
     function collapseAllSections() {
-      ['oauth', 'web', 'apikey', 'external'].forEach(t => collapsedSections.add(t));
+      ['oauth', 'web', 'apikey', 'deepseek', 'local', 'gateways', 'external'].forEach(t => collapsedSections.add(t));
       renderAccounts();
     }
 
@@ -3679,24 +3904,8 @@ ightarrow$ v1.0.3</p>
     }
 
     async function toggleSectionAccounts(addType, enable) {
-      if (addType === 'external') {
-        const action = enable ? 'enable' : 'disable';
-        showToast(`${enable ? 'Enabling' : 'Disabling'} all external providers...`, 'info');
-        try {
-          await Promise.all(rawProvidersData.map(p =>
-            fetch(`/api/providers/${encodeURIComponent(p.id)}/toggle`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ enabled: enable })
-            })
-          ));
-          showToast(`All external providers ${action}d!`, 'success');
-          await loadAccounts(true);
-          await loadModels();
-        } catch (err) {
-          showToast(`Error: ${err.message}`, 'error');
-        }
-        return;
+      if (addType === 'external' || addType === 'deepseek' || addType === 'local' || addType === 'gateways') {
+        return toggleProviderGroup(addType, enable);
       }
       const typeMap = { oauth: 'consumer', web: 'gemini_web', apikey: 'api_key' };
       const authMethod = typeMap[addType];
@@ -4126,6 +4335,268 @@ ightarrow$ v1.0.3</p>
       });
     }
 
+    function renderFailoverBannerHtml() {
+      let fallbackOptions = '';
+      rawProvidersData.forEach(p => {
+        if (p.enabled !== false && p.models) {
+          p.models.forEach(m => {
+            const mFullId = `${p.id}/${m.id}`;
+            const isSel = (rawRoutingSettings?.fallback_model === mFullId || rawRoutingSettings?.fallback_model === m.id) ? 'selected' : '';
+            fallbackOptions += `<option value="${mFullId}" ${isSel}>${p.name}: ${m.name || m.id}</option>`;
+          });
+        }
+      });
+
+      const isFailoverActive = Boolean(rawRoutingSettings?.enable_external_failover);
+      return `
+        <div class="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-purple-950/30 via-slate-900 to-indigo-950/30 border border-purple-500/25 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-sm mb-4">
+          <div class="flex items-center space-x-3 min-w-0">
+            <div class="w-9 h-9 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 shrink-0">
+              <i class="fa-solid fa-shuffle text-sm"></i>
+            </div>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center space-x-2">
+                <h4 class="text-xs sm:text-sm font-bold text-white">Google 429 Quota Auto-Failover</h4>
+                <span class="text-[9px] px-2 py-0.5 rounded-full font-bold ${isFailoverActive ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-slate-800 text-slate-400 border border-slate-700'}">${isFailoverActive ? 'ACTIVE' : 'OFF'}</span>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-0.5">When all Google accounts in your pool hit rate limits (429), automatically failover to this external model without breaking IDE sessions.</p>
+            </div>
+          </div>
+          <div class="flex items-center space-x-2 shrink-0 self-end md:self-auto">
+            <select id="selectFailoverModel" onchange="handleFailoverChange()" class="bg-slate-900 border border-purple-500/30 rounded-lg px-2.5 py-1.5 text-xs text-purple-200 focus:outline-none focus:border-purple-400 font-mono">
+              <option value="">-- No Fallback Model --</option>
+              ${fallbackOptions}
+            </select>
+            <label class="relative inline-flex items-center cursor-pointer" title="Toggle Auto-Failover">
+              <input type="checkbox" id="toggleFailoverCheckbox" onchange="handleFailoverChange()" ${isFailoverActive ? 'checked' : ''} class="sr-only peer">
+              <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+            </label>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderSingleProviderCard(p) {
+      let iconClass = 'fa-solid fa-brain text-purple-400';
+      let bgIcon = 'bg-purple-500/15 border-purple-500/30';
+      let categoryBadge = '';
+      const idLower = (p.id || '').toLowerCase();
+      if (idLower.includes('ollama') || idLower.includes('lmstudio') || idLower.includes('local')) {
+        iconClass = 'fa-solid fa-server text-emerald-400';
+        bgIcon = 'bg-emerald-500/15 border-emerald-500/30';
+        categoryBadge = '<span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20"><i class="fa-solid fa-server text-[8px] mr-1"></i>Local AI</span>';
+      } else if (idLower.includes('deepseek')) {
+        iconClass = 'fa-solid fa-atom text-cyan-400';
+        bgIcon = 'bg-cyan-500/15 border-cyan-500/30';
+        categoryBadge = '<span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/20"><i class="fa-solid fa-atom text-[8px] mr-1"></i>Direct API</span>';
+      } else if (idLower.includes('openrouter')) {
+        iconClass = 'fa-solid fa-route text-indigo-400';
+        bgIcon = 'bg-indigo-500/15 border-indigo-500/30';
+        categoryBadge = '<span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20"><i class="fa-solid fa-route text-[8px] mr-1"></i>Gateway</span>';
+      } else if (idLower.includes('groq')) {
+        iconClass = 'fa-solid fa-bolt text-amber-400';
+        bgIcon = 'bg-amber-500/15 border-amber-500/30';
+        categoryBadge = '<span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20"><i class="fa-solid fa-bolt text-[8px] mr-1"></i>Gateway</span>';
+      } else if (idLower.includes('nvidia')) {
+        iconClass = 'fa-solid fa-microchip text-green-400';
+        bgIcon = 'bg-green-500/15 border-green-500/30';
+        categoryBadge = '<span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-green-500/10 text-green-300 border border-green-500/20"><i class="fa-solid fa-microchip text-[8px] mr-1"></i>Gateway</span>';
+      } else {
+        categoryBadge = '<span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-300 border border-purple-500/20">External AI</span>';
+      }
+
+      const isEnabled = p.enabled !== false;
+      const modelsCount = (p.models || []).length;
+
+      let modelsBadgesHtml = '';
+      if (p.models && p.models.length > 0) {
+        modelsBadgesHtml = p.models.map(m => `
+          <span class="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-slate-300" title="Model: ${p.id}/${m.id}">
+            ${m.supports_thinking ? '<i class="fa-solid fa-brain text-purple-400 text-[9px]" title="Thinking / CoT"></i>' : ''}
+            <span class="truncate max-w-[130px]">${m.name || m.id}</span>
+          </span>
+        `).join('');
+      } else {
+        modelsBadgesHtml = '<span class="text-[10px] text-slate-500 italic">No models listed. Click Discover or Add.</span>';
+      }
+
+      return `
+        <div class="p-4 rounded-2xl bg-dark-card border border-dark-border flex flex-col justify-between hover:border-slate-700 transition shadow-sm space-y-3">
+          <div>
+            <div class="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-800/80">
+              <div class="flex items-center space-x-2.5 min-w-0">
+                <div class="w-8 h-8 rounded-xl ${bgIcon} border flex items-center justify-center text-sm shrink-0">
+                  <i class="${iconClass}"></i>
+                </div>
+                <div class="min-w-0">
+                  <div class="flex items-center space-x-1.5 flex-wrap gap-y-0.5">
+                    <h4 class="text-xs sm:text-sm font-bold text-white truncate">${p.name || p.id}</h4>
+                    <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">${p.id}</span>
+                    ${categoryBadge}
+                  </div>
+                  <span class="text-[10px] text-slate-400 font-mono block truncate" title="${p.base_url}">${p.base_url}</span>
+                </div>
+              </div>
+              <div class="flex items-center space-x-2 shrink-0">
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" onchange="toggleProvider('${p.id}', this.checked)" ${isEnabled ? 'checked' : ''} class="sr-only peer">
+                  <div class="w-8 h-4 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-purple-600"></div>
+                </label>
+              </div>
+            </div>
+
+            <!-- Auth & Latency Info -->
+            <div class="flex items-center justify-between text-[11px] pt-2 text-slate-400">
+              <span class="flex items-center gap-1 font-mono text-[10px]">
+                <i class="fa-solid fa-key text-[9px] text-slate-500"></i>
+                ${p.api_key ? 'API Key Set' : 'No Key (Local)'}
+              </span>
+              <span id="prov-ping-${p.id}" class="text-[10px] font-mono text-slate-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded-full">
+                Ready
+              </span>
+            </div>
+
+            <!-- Models List -->
+            <div class="pt-2">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-[10px] font-semibold tracking-wider uppercase text-slate-500">Active Models (${modelsCount})</span>
+              </div>
+              <div class="flex flex-wrap gap-1 max-h-24 overflow-y-auto custom-scrollbar">
+                ${modelsBadgesHtml}
+              </div>
+            </div>
+          </div>
+
+          <!-- Card Actions -->
+          <div class="flex items-center justify-between pt-2.5 border-t border-slate-800/80">
+            <div class="flex items-center gap-1.5">
+              <button onclick="testProvider('${p.id}')" class="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 font-medium text-[11px] flex items-center gap-1 transition shadow-sm" title="Test Connection & Latency">
+                <i class="fa-solid fa-bolt text-amber-400 text-[10px]"></i>
+                <span>Ping</span>
+              </button>
+              <button onclick="discoverProvider('${p.id}')" class="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 font-medium text-[11px] flex items-center gap-1 transition shadow-sm" title="Auto-discover models from this provider">
+                <i class="fa-solid fa-arrows-rotate text-purple-400 text-[10px]"></i>
+                <span>Discover</span>
+              </button>
+            </div>
+            <button onclick="deleteProvider('${p.id}')" class="p-1.5 rounded-lg hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition" title="Delete Provider">
+              <i class="fa-solid fa-trash text-xs"></i>
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderProviderEcosystemSection({ sectionId, title, icon, iconColor, count, desc, addTab, providers, showFailoverBanner = false }) {
+      const isCollapsed = collapsedSections.has(sectionId);
+      let totalActiveModels = 0;
+      let enabledCount = 0;
+      providers.forEach(p => {
+        if (p.enabled !== false) {
+          enabledCount++;
+          totalActiveModels += (p.models ? p.models.length : 0);
+        }
+      });
+      const disabledCount = count - enabledCount;
+      const summaryBadge = `<span class="text-[10px] text-slate-400 font-mono">${enabledCount} active (${totalActiveModels} models)${disabledCount > 0 ? `, ${disabledCount} paused` : ''}</span>`;
+
+      let html = `
+        <div class="space-y-0 pt-1" id="acc-section-${sectionId}">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-800/80 cursor-pointer group" onclick="toggleSection('${sectionId}', event)">
+            <div class="flex items-center space-x-2.5 min-w-0 flex-1">
+              <div class="w-8 h-8 rounded-xl ${iconColor.bg} border ${iconColor.border} flex items-center justify-center ${iconColor.text} text-sm shrink-0">
+                <i class="${icon}"></i>
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center space-x-2 flex-wrap gap-y-1">
+                  <h3 class="text-sm sm:text-base font-bold text-white truncate">${title}</h3>
+                  <span class="text-[10px] font-mono px-2 py-0.5 rounded-full ${iconColor.pillBg} ${iconColor.pillText} border ${iconColor.pillBorder} font-bold shrink-0">${count}</span>
+                  ${isCollapsed ? summaryBadge : ''}
+                </div>
+                ${desc ? `<p class="text-[11px] text-slate-400 mt-0.5 truncate">${desc}</p>` : ''}
+              </div>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0" onclick="event.stopPropagation()">
+              <button onclick="toggleProviderGroup('${sectionId}', true)" class="text-[10px] px-2 py-1 rounded-lg bg-slate-900 hover:bg-emerald-600 hover:text-white text-slate-400 border border-slate-800 font-medium transition flex items-center space-x-1" title="Enable all in this section">
+                <i class="fa-solid fa-play text-emerald-400 text-[9px]"></i>
+                <span>Enable</span>
+              </button>
+              <button onclick="toggleProviderGroup('${sectionId}', false)" class="text-[10px] px-2 py-1 rounded-lg bg-slate-900 hover:bg-amber-600 hover:text-white text-slate-400 border border-slate-800 font-medium transition flex items-center space-x-1" title="Disable all in this section">
+                <i class="fa-solid fa-pause text-amber-400 text-[9px]"></i>
+                <span>Disable</span>
+              </button>
+              <button onclick="openAddAccountModal('${addTab || 'external'}')" class="text-xs px-3 py-1.5 rounded-xl ${iconColor.addBtnBg || 'bg-indigo-600 hover:bg-indigo-500'} text-white font-semibold transition flex items-center space-x-1.5 shadow-sm">
+                <i class="fa-solid fa-plus text-[10px]"></i>
+                <span>+ Add ${title.split(' ')[0]}</span>
+              </button>
+              <button class="text-slate-500 hover:text-white p-1 transition group-hover:text-slate-300" title="${isCollapsed ? 'Expand' : 'Collapse'}">
+                <i class="fa-solid ${isCollapsed ? 'fa-chevron-down' : 'fa-chevron-up'} text-[11px]"></i>
+              </button>
+            </div>
+          </div>
+      `;
+
+      if (isCollapsed) {
+        html += '</div>';
+        return html;
+      }
+
+      html += '<div class="space-y-4 pt-3.5">';
+      if (showFailoverBanner) {
+        html += renderFailoverBannerHtml();
+      }
+
+      if (providers.length === 0) {
+        html += `
+          <div class="p-6 rounded-2xl bg-dark-card/50 border border-dark-border border-dashed text-center space-y-2 text-xs text-slate-400">
+            <p>No ${title} configured yet.</p>
+            <button onclick="openAddAccountModal('${addTab || 'external'}')" class="text-xs px-3 py-1.5 rounded-lg ${iconColor.addBtnBg || 'bg-indigo-600'} text-white font-medium inline-flex items-center space-x-1.5 transition shadow">
+              <i class="fa-solid fa-plus text-[10px]"></i>
+              <span>+ Add ${title.split(' ')[0]}</span>
+            </button>
+          </div>
+        </div></div>`;
+        return html;
+      }
+
+      html += '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">';
+      html += providers.map(p => renderSingleProviderCard(p)).join('');
+      html += '</div></div></div>';
+      return html;
+    }
+
+    async function toggleProviderGroup(groupName, enable) {
+      let targets = [];
+      if (groupName === 'deepseek') targets = rawProvidersData.filter(p => (p.id || '').toLowerCase().includes('deepseek'));
+      else if (groupName === 'local') targets = rawProvidersData.filter(p => {
+        const id = (p.id || '').toLowerCase();
+        return id.includes('ollama') || id.includes('lmstudio') || id.includes('local');
+      });
+      else if (groupName === 'gateways') targets = rawProvidersData.filter(p => {
+        const id = (p.id || '').toLowerCase();
+        return !id.includes('deepseek') && !id.includes('ollama') && !id.includes('lmstudio') && !id.includes('local');
+      });
+      else targets = rawProvidersData;
+
+      if (targets.length === 0) return;
+      const action = enable ? 'enable' : 'disable';
+      showToast(`${enable ? 'Enabling' : 'Disabling'} ${groupName} providers...`, 'info');
+      try {
+        await Promise.all(targets.map(p =>
+          fetch(`/api/providers/${encodeURIComponent(p.id)}/toggle`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled: enable })
+          })
+        ));
+        showToast(`All ${groupName} providers ${action}d!`, 'success');
+        await loadAccounts(true);
+        await loadModels();
+      } catch (err) {
+        showToast(`Error: ${err.message}`, 'error');
+      }
+    }
+
     function renderExternalProvidersSection(isGrid = true) {
       const sectionId = 'acc-section-external';
       const isCollapsed = collapsedSections.has('external');
@@ -4183,46 +4654,7 @@ ightarrow$ v1.0.3</p>
       }
 
       html += '<div class="space-y-4 pt-3.5">';
-
-      // Google 429 Quota Auto-Failover Banner Card
-      let fallbackOptions = '';
-      rawProvidersData.forEach(p => {
-        if (p.enabled !== false && p.models) {
-          p.models.forEach(m => {
-            const mFullId = `${p.id}/${m.id}`;
-            const isSel = (rawRoutingSettings?.fallback_model === mFullId || rawRoutingSettings?.fallback_model === m.id) ? 'selected' : '';
-            fallbackOptions += `<option value="${mFullId}" ${isSel}>${p.name}: ${m.name || m.id}</option>`;
-          });
-        }
-      });
-
-      const isFailoverActive = Boolean(rawRoutingSettings?.enable_external_failover);
-      html += `
-        <div class="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-purple-950/30 via-slate-900 to-indigo-950/30 border border-purple-500/25 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-sm">
-          <div class="flex items-center space-x-3 min-w-0">
-            <div class="w-9 h-9 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 shrink-0">
-              <i class="fa-solid fa-shuffle text-sm"></i>
-            </div>
-            <div class="min-w-0 flex-1">
-              <div class="flex items-center space-x-2">
-                <h4 class="text-xs sm:text-sm font-bold text-white">Google 429 Quota Auto-Failover</h4>
-                <span class="text-[9px] px-2 py-0.5 rounded-full font-bold ${isFailoverActive ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-slate-800 text-slate-400 border border-slate-700'}">${isFailoverActive ? 'ACTIVE' : 'OFF'}</span>
-              </div>
-              <p class="text-[11px] text-slate-400 mt-0.5">When all Google accounts in your pool hit rate limits (429), automatically failover to this external model without breaking IDE sessions.</p>
-            </div>
-          </div>
-          <div class="flex items-center space-x-2 shrink-0 self-end md:self-auto">
-            <select id="selectFailoverModel" onchange="handleFailoverChange()" class="bg-slate-900 border border-purple-500/30 rounded-lg px-2.5 py-1.5 text-xs text-purple-200 focus:outline-none focus:border-purple-400 font-mono">
-              <option value="">-- No Fallback Model --</option>
-              ${fallbackOptions}
-            </select>
-            <label class="relative inline-flex items-center cursor-pointer" title="Toggle Auto-Failover">
-              <input type="checkbox" id="toggleFailoverCheckbox" onchange="handleFailoverChange()" ${isFailoverActive ? 'checked' : ''} class="sr-only peer">
-              <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
-            </label>
-          </div>
-        </div>
-      `;
+      html += renderFailoverBannerHtml();
 
       if (rawProvidersData.length === 0) {
         html += `
@@ -4239,107 +4671,7 @@ ightarrow$ v1.0.3</p>
       }
 
       html += '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">';
-      rawProvidersData.forEach(p => {
-        let iconClass = 'fa-solid fa-brain text-purple-400';
-        let bgIcon = 'bg-purple-500/15 border-purple-500/30';
-        const idLower = (p.id || '').toLowerCase();
-        if (idLower.includes('ollama')) {
-          iconClass = 'fa-solid fa-server text-emerald-400';
-          bgIcon = 'bg-emerald-500/15 border-emerald-500/30';
-        } else if (idLower.includes('openrouter')) {
-          iconClass = 'fa-solid fa-route text-indigo-400';
-          bgIcon = 'bg-indigo-500/15 border-indigo-500/30';
-        } else if (idLower.includes('deepseek')) {
-          iconClass = 'fa-solid fa-atom text-blue-400';
-          bgIcon = 'bg-blue-500/15 border-blue-500/30';
-        } else if (idLower.includes('groq')) {
-          iconClass = 'fa-solid fa-bolt text-amber-400';
-          bgIcon = 'bg-amber-500/15 border-amber-500/30';
-        } else if (idLower.includes('nvidia')) {
-          iconClass = 'fa-solid fa-microchip text-green-400';
-          bgIcon = 'bg-green-500/15 border-green-500/30';
-        }
-
-        const isEnabled = p.enabled !== false;
-        const modelsCount = (p.models || []).length;
-
-        let modelsBadgesHtml = '';
-        if (p.models && p.models.length > 0) {
-          modelsBadgesHtml = p.models.map(m => `
-            <span class="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-slate-300" title="Model: ${p.id}/${m.id}">
-              ${m.supports_thinking ? '<i class="fa-solid fa-brain text-purple-400 text-[9px]" title="Thinking / CoT"></i>' : ''}
-              <span class="truncate max-w-[130px]">${m.name || m.id}</span>
-            </span>
-          `).join('');
-        } else {
-          modelsBadgesHtml = '<span class="text-[10px] text-slate-500 italic">No models listed. Click Discover or Add.</span>';
-        }
-
-        html += `
-          <div class="p-4 rounded-2xl bg-dark-card border border-dark-border flex flex-col justify-between hover:border-slate-700 transition shadow-sm space-y-3">
-            <div>
-              <div class="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-800/80">
-                <div class="flex items-center space-x-2.5 min-w-0">
-                  <div class="w-8 h-8 rounded-xl ${bgIcon} border flex items-center justify-center text-sm shrink-0">
-                    <i class="${iconClass}"></i>
-                  </div>
-                  <div class="min-w-0">
-                    <div class="flex items-center space-x-1.5">
-                      <h4 class="text-xs sm:text-sm font-bold text-white truncate">${p.name || p.id}</h4>
-                      <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-300 border border-purple-500/20">${p.id}</span>
-                    </div>
-                    <span class="text-[10px] text-slate-400 font-mono block truncate" title="${p.base_url}">${p.base_url}</span>
-                  </div>
-                </div>
-                <div class="flex items-center space-x-2 shrink-0">
-                  <label class="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" onchange="toggleProvider('${p.id}', this.checked)" ${isEnabled ? 'checked' : ''} class="sr-only peer">
-                    <div class="w-8 h-4 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-purple-600"></div>
-                  </label>
-                </div>
-              </div>
-
-              <!-- Auth & Latency Info -->
-              <div class="flex items-center justify-between text-[11px] pt-2 text-slate-400">
-                <span class="flex items-center gap-1 font-mono text-[10px]">
-                  <i class="fa-solid fa-key text-[9px] text-slate-500"></i>
-                  ${p.api_key ? 'API Key Set' : 'No Key (Local)'}
-                </span>
-                <span id="prov-ping-${p.id}" class="text-[10px] font-mono text-slate-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded-full">
-                  Ready
-                </span>
-              </div>
-
-              <!-- Models List -->
-              <div class="pt-2">
-                <div class="flex items-center justify-between mb-1">
-                  <span class="text-[10px] font-semibold tracking-wider uppercase text-slate-500">Active Models (${modelsCount})</span>
-                </div>
-                <div class="flex flex-wrap gap-1 max-h-24 overflow-y-auto custom-scrollbar">
-                  ${modelsBadgesHtml}
-                </div>
-              </div>
-            </div>
-
-            <!-- Card Actions -->
-            <div class="flex items-center justify-between pt-2.5 border-t border-slate-800/80">
-              <div class="flex items-center gap-1.5">
-                <button onclick="testProvider('${p.id}')" class="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 font-medium text-[11px] flex items-center gap-1 transition shadow-sm" title="Test Connection & Latency">
-                  <i class="fa-solid fa-bolt text-amber-400 text-[10px]"></i>
-                  <span>Ping</span>
-                </button>
-                <button onclick="discoverProvider('${p.id}')" class="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 font-medium text-[11px] flex items-center gap-1 transition shadow-sm" title="Auto-discover models from this provider">
-                  <i class="fa-solid fa-arrows-rotate text-purple-400 text-[10px]"></i>
-                  <span>Discover</span>
-                </button>
-              </div>
-              <button onclick="deleteProvider('${p.id}')" class="p-1.5 rounded-lg hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition" title="Delete Provider">
-                <i class="fa-solid fa-trash text-xs"></i>
-              </button>
-            </div>
-          </div>
-        `;
-      });
+      html += rawProvidersData.map(p => renderSingleProviderCard(p)).join('');
       html += '</div></div></div>';
       return html;
     }
@@ -5750,9 +6082,9 @@ ightarrow$ v1.0.3</p>
         selectEcosystem('google', 'google_apikey');
       } else if (tab === 'web') {
         selectEcosystem('google', 'google_web');
-      } else if (tab === 'external') {
+      } else if (tab === 'external' || tab === 'gateways') {
         selectEcosystem('gateways', 'openrouter');
-      } else if (tab === 'ollama') {
+      } else if (tab === 'ollama' || tab === 'local') {
         selectEcosystem('ollama', 'ollama_local');
       } else if (tab === 'deepseek') {
         selectEcosystem('deepseek', 'deepseek_api');

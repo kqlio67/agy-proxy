@@ -212,7 +212,35 @@ class TestDashboardTemplate(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, f"Node script failed: {proc.stderr}")
         self.assertIn("OK", proc.stdout)
 
+    def test_dashboard_provider_and_auth_filter_toolbar(self):
+        html = get_dashboard_html()
+        # Verify separate Provider filters
+        self.assertIn('data-filter="google"', html)
+        self.assertIn('data-filter="deepseek"', html)
+        self.assertIn('data-filter="local"', html)
+        self.assertIn('data-filter="gateways"', html)
+        self.assertIn('id="countGoogle"', html)
+        self.assertIn('id="countDeepSeek"', html)
+        self.assertIn('id="countLocal"', html)
+        self.assertIn('id="countGateways"', html)
+
+        # Verify separate Auth filters
+        self.assertIn('data-filter="oauth"', html)
+        self.assertIn('data-filter="web"', html)
+        self.assertIn('data-filter="apikey"', html)
+        self.assertIn('data-filter="exhausted"', html)
+        self.assertIn('id="countOAuth"', html)
+        self.assertIn('id="countWeb"', html)
+        self.assertIn('id="countApiKey"', html)
+        self.assertIn('id="countExhausted"', html)
+
+        # Verify rendering functions
+        self.assertIn("renderProviderEcosystemSection", html)
+        self.assertIn("renderSingleProviderCard", html)
+        self.assertIn("renderFailoverBannerHtml", html)
+
 
 if __name__ == "__main__":
     unittest.main()
+
 
