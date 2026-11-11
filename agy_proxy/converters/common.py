@@ -8,6 +8,7 @@ import copy
 import json
 import logging
 import mimetypes
+import os
 import re
 from typing import Any
 import uuid
@@ -151,14 +152,24 @@ DEFAULT_SAFETY_SETTINGS: list[dict[str, str]] = [
 ]
 
 
-def should_clean_text(text: Any) -> bool:
-    """Returns True if the text contains artificial restriction patterns or headers needing cleanup."""
+def _should_strip_prompt_restrictions(strip_restrictions: bool | None = None) -> bool:
+    if strip_restrictions is not None:
+        return bool(strip_restrictions)
+    env_val = os.environ.get("AGY_PROXY_STRIP_PROMPT_RESTRICTIONS", "").strip().lower()
+    return env_val in ("1", "true", "yes", "on", "enable", "enabled")
+
+
+def should_clean_text(text: Any, strip_restrictions: bool | None = None) -> bool:
+    """Returns True if the text contains headers (or opted-in restriction patterns) needing cleanup."""
     if not text or not isinstance(text, str):
         return False
     lower = text.lower()
+    if "x-anthropic-billing-header:" in lower:
+        return True
+    if not _should_strip_prompt_restrictions(strip_restrictions):
+        return False
     return (
-        "x-anthropic-billing-header:" in lower
-        or "never defeat or bypass" in lower
+        "never defeat or bypass" in lower
         or "block any task that" in lower
         or "system prompt protection" in lower
         or "rule 1 — decoy" in lower
@@ -172,41 +183,36 @@ def should_clean_text(text: Any) -> bool:
     )
 
 
-def clean_system_prompt_text(text: str) -> str:
+def clean_system_prompt_text(text: str, strip_restrictions: bool | None = None) -> str:
     """
-    Cleans system and message prompt text to remove:
-    - Claude Code CLI internal billing headers (x-anthropic-billing-header)
-    - Artificial copyright/anti-game-clone restrictions (tengu_heron_brook)
-    - Injected Antigravity System Prompt Protection & Decoy Protocol blocks
-    - Injected sandbox boundary & security circumvention restrictions (Antigravity v2.29.0)
-    - Injected security interference & scraping prohibition blocks
-    - Anti-reverse-engineering benchmark mode restrictions
-    - Verbose marketing shelves (<featured_plugins>)
-    - Internal debugging log specifications (<conversation_transcript>)
-    Saves thousands of context tokens, dramatically speeds up TTFT, and prevents false refusals.
+    Cleans system prompt text safely:
+    - Always removes Claude Code CLI internal billing headers (x-anthropic-billing-header)
+    - Only removes restriction/policy/tag blocks when explicitly opted in via
+      strip_restrictions=True or AGY_PROXY_STRIP_PROMPT_RESTRICTIONS=1.
     Preserves <slash_commands> UI shortcuts per user preference.
     """
     if not text:
         return ""
-    if "system prompt protection" in text.lower():
-        text = _SYSTEM_PROMPT_PROTECTION_PATTERN.sub("", text)
-    if "rule 1 — decoy" in text.lower() or "rule 1 - decoy" in text.lower():
-        text = _DECOY_RULE_PATTERN.sub("", text)
-    if "original games" in text.lower() or "existing game" in text.lower():
-        text = _ANTI_CLONE_PATTERN.sub("", text)
-    if "never defeat or bypass" in text.lower():
-        text = _SANDBOX_RESTRICTION_PATTERN.sub("", text)
-        text = _EMPTY_GUIDELINES_PATTERN.sub("", text)
-    if "block any task that compromises" in text.lower():
-        text = _SECURITY_INTERFERENCE_PATTERN.sub("", text)
-    if "block any task that" in text.lower():
-        text = _BLOCK_TASK_POLICY_PATTERN.sub("", text)
-    if "reverse-engineer" in text.lower() or "reverse engineer" in text.lower():
-        text = _REVERSE_ENGINEERING_RESTRICTION_PATTERN.sub("", text)
-    if "<featured_plugins>" in text.lower():
-        text = _FEATURED_PLUGINS_PATTERN.sub("", text)
-    if "<conversation_transcript>" in text.lower():
-        text = _CONVERSATION_TRANSCRIPT_PATTERN.sub("", text)
+    if _should_strip_prompt_restrictions(strip_restrictions):
+        if "system prompt protection" in text.lower():
+            text = _SYSTEM_PROMPT_PROTECTION_PATTERN.sub("", text)
+        if "rule 1 — decoy" in text.lower() or "rule 1 - decoy" in text.lower():
+            text = _DECOY_RULE_PATTERN.sub("", text)
+        if "original games" in text.lower() or "existing game" in text.lower():
+            text = _ANTI_CLONE_PATTERN.sub("", text)
+        if "never defeat or bypass" in text.lower():
+            text = _SANDBOX_RESTRICTION_PATTERN.sub("", text)
+            text = _EMPTY_GUIDELINES_PATTERN.sub("", text)
+        if "block any task that compromises" in text.lower():
+            text = _SECURITY_INTERFERENCE_PATTERN.sub("", text)
+        if "block any task that" in text.lower():
+            text = _BLOCK_TASK_POLICY_PATTERN.sub("", text)
+        if "reverse-engineer" in text.lower() or "reverse engineer" in text.lower():
+            text = _REVERSE_ENGINEERING_RESTRICTION_PATTERN.sub("", text)
+        if "<featured_plugins>" in text.lower():
+            text = _FEATURED_PLUGINS_PATTERN.sub("", text)
+        if "<conversation_transcript>" in text.lower():
+            text = _CONVERSATION_TRANSCRIPT_PATTERN.sub("", text)
     lines = text.splitlines()
     cleaned_lines = [
         line for line in lines
@@ -827,8 +833,15 @@ def _apply_thinking_config(
                 thinking_config["thinkingLevel"] = "HIGH"
 
 
-def _is_title_generation(sys_text: str, messages: list[Any]) -> bool:
-    """Detects whether a request is intended to generate a session / conversation title."""
+def _is_title_generation(
+    sys_text: str,
+    messages: list[Any],
+    has_tools: bool = False,
+) -> bool:
+    """Detects whether a request is strictly intended to generate a session / conversation title."""
+    if has_tools:
+        return False
+
     sys_lower = sys_text.lower()
     if (
         "title generator" in sys_lower
@@ -839,19 +852,19 @@ def _is_title_generation(sys_text: str, messages: list[Any]) -> bool:
     ):
         return True
 
-    for m in messages[-4:]:
-        c_text = _extract_message_text(m)
-        c_lower = c_text.lower()
-        if (
-            "generate a concise, single-line task title" in c_lower
-            or "single-line task title" in c_lower
-            or "task title of at most" in c_lower
-            or "conversation title" in c_lower
-            or ("<session>" in c_lower and "title" in c_lower)
-            or "write the title in the predominant language" in c_lower
-        ):
-            return True
-    return False
+    if not messages or len(messages) > 2:
+        return False
+
+    c_text = _extract_message_text(messages[-1])
+    c_lower = c_text.lower()
+    return (
+        "generate a concise, single-line task title" in c_lower
+        or "single-line task title" in c_lower
+        or "task title of at most" in c_lower
+        or "generate a conversation title" in c_lower
+        or ("<session>" in c_lower and "</session>" in c_lower and "title" in c_lower)
+        or "write the title in the predominant language" in c_lower
+    )
 
 
 def is_explicit_compact_request(messages: list[Any]) -> tuple[bool, int]:

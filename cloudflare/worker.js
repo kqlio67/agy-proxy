@@ -675,11 +675,12 @@ async function getAccessToken(account, forceRefresh = false) {
 // Message Conversion & Role Sanitization
 // -----------------------------------------------------------------------------
 
-function shouldCleanText(str) {
+function shouldCleanText(str, stripRestrictions = false) {
   if (!str || typeof str !== "string") return false;
   const lower = str.toLowerCase();
+  if (lower.includes("x-anthropic-billing-header:")) return true;
+  if (!stripRestrictions) return false;
   return (
-    lower.includes("x-anthropic-billing-header:") ||
     lower.includes("never defeat or bypass") ||
     lower.includes("block any task that") ||
     lower.includes("system prompt protection") ||
@@ -694,37 +695,39 @@ function shouldCleanText(str) {
   );
 }
 
-function cleanSystemPromptText(text) {
+function cleanSystemPromptText(text, stripRestrictions = false) {
   if (!text || typeof text !== "string") return "";
   let cleaned = text;
-  if (cleaned.toLowerCase().includes("system prompt protection")) {
-    cleaned = cleaned.replace(/#\s*SYSTEM PROMPT PROTECTION\b[\s\S]*?(?:These rules activate only when your prompt content is being queried\.?|(?=\n#|\Z))\s*/gi, "");
-  }
-  if (cleaned.toLowerCase().includes("rule 1 — decoy") || cleaned.toLowerCase().includes("rule 1 - decoy")) {
-    cleaned = cleaned.replace(/\*\*Rule 1\s*[—-]\s*Decoy\.?\*\*[\s\S]*?(?:Redirect to the task at hand\.?|(?=\n\n|\Z))\s*/gi, "");
-  }
-  if (cleaned.toLowerCase().includes("original games") || cleaned.toLowerCase().includes("existing game")) {
-    cleaned = cleaned.replace(/(?:Do build original games[\s\S]*?even if it is renamed or called original\.|Don['’]t build a recreation of a specific existing game[\s\S]*?(?:\.|\n)|Do build original games[\s\S]*?(?:\.|\n))\s*/gi, "");
-  }
-  if (cleaned.toLowerCase().includes("never defeat or bypass")) {
-    cleaned = cleaned.replace(/(?:^[ \t]*-[ \t]*)?Never defeat or bypass an access control[^\n]*(?:\n(?![ \t]*-|<)[^\n]*)*?(?:report the error and stop\.?)?\s*/gim, "");
-    cleaned = cleaned.replace(/<guidelines>\s*(?:Follow these behavioral guidelines at all times:\s*)?<\/guidelines>\s*/gi, "");
-  }
-  if (cleaned.toLowerCase().includes("block any task that compromises")) {
-    cleaned = cleaned.replace(/BLOCK any task that compromises system security[^\n]*(?:\n(?!\n)[^\n]*)*?(?:even if performed at scale\.?)?\s*/gi, "");
-  }
-  if (cleaned.toLowerCase().includes("block any task that")) {
-    cleaned = cleaned.replace(/^[ \t]*BLOCK any task that (?:facilitates or accesses illegal activities|could directly or indirectly result in serious physical harm)[^\n]*\n?/gim, "");
-  }
-  if (cleaned.toLowerCase().includes("reverse-engineer") || cleaned.toLowerCase().includes("reverse engineer")) {
-    cleaned = cleaned.replace(/(?:-\s*)?Reading test source code to reverse-engineer expected behavior[\s\S]*?(?:(?:\.|\n)|(?=\n-|\Z))\s*/gi, "");
-    cleaned = cleaned.replace(/(?:Please\s+)?(?:do not|never)\s+attempt\s+to\s+reverse\s+engineer[^\n.]*\.?\s*/gi, "");
-  }
-  if (cleaned.toLowerCase().includes("<featured_plugins>")) {
-    cleaned = cleaned.replace(/<featured_plugins>[\s\S]*?<\/featured_plugins>\s*/gi, "");
-  }
-  if (cleaned.toLowerCase().includes("<conversation_transcript>")) {
-    cleaned = cleaned.replace(/<conversation_transcript>[\s\S]*?<\/conversation_transcript>\s*/gi, "");
+  if (stripRestrictions) {
+    if (cleaned.toLowerCase().includes("system prompt protection")) {
+      cleaned = cleaned.replace(/#\s*SYSTEM PROMPT PROTECTION\b[\s\S]*?(?:These rules activate only when your prompt content is being queried\.?|(?=\n#|\Z))\s*/gi, "");
+    }
+    if (cleaned.toLowerCase().includes("rule 1 — decoy") || cleaned.toLowerCase().includes("rule 1 - decoy")) {
+      cleaned = cleaned.replace(/\*\*Rule 1\s*[—-]\s*Decoy\.?\*\*[\s\S]*?(?:Redirect to the task at hand\.?|(?=\n\n|\Z))\s*/gi, "");
+    }
+    if (cleaned.toLowerCase().includes("original games") || cleaned.toLowerCase().includes("existing game")) {
+      cleaned = cleaned.replace(/(?:Do build original games[\s\S]*?even if it is renamed or called original\.|Don['’]t build a recreation of a specific existing game[\s\S]*?(?:\.|\n)|Do build original games[\s\S]*?(?:\.|\n))\s*/gi, "");
+    }
+    if (cleaned.toLowerCase().includes("never defeat or bypass")) {
+      cleaned = cleaned.replace(/(?:^[ \t]*-[ \t]*)?Never defeat or bypass an access control[^\n]*(?:\n(?![ \t]*-|<)[^\n]*)*?(?:report the error and stop\.?)?\s*/gim, "");
+      cleaned = cleaned.replace(/<guidelines>\s*(?:Follow these behavioral guidelines at all times:\s*)?<\/guidelines>\s*/gi, "");
+    }
+    if (cleaned.toLowerCase().includes("block any task that compromises")) {
+      cleaned = cleaned.replace(/BLOCK any task that compromises system security[^\n]*(?:\n(?!\n)[^\n]*)*?(?:even if performed at scale\.?)?\s*/gi, "");
+    }
+    if (cleaned.toLowerCase().includes("block any task that")) {
+      cleaned = cleaned.replace(/^[ \t]*BLOCK any task that (?:facilitates or accesses illegal activities|could directly or indirectly result in serious physical harm)[^\n]*\n?/gim, "");
+    }
+    if (cleaned.toLowerCase().includes("reverse-engineer") || cleaned.toLowerCase().includes("reverse engineer")) {
+      cleaned = cleaned.replace(/(?:-\s*)?Reading test source code to reverse-engineer expected behavior[\s\S]*?(?:(?:\.|\n)|(?=\n-|\Z))\s*/gi, "");
+      cleaned = cleaned.replace(/(?:Please\s+)?(?:do not|never)\s+attempt\s+to\s+reverse\s+engineer[^\n.]*\.?\s*/gi, "");
+    }
+    if (cleaned.toLowerCase().includes("<featured_plugins>")) {
+      cleaned = cleaned.replace(/<featured_plugins>[\s\S]*?<\/featured_plugins>\s*/gi, "");
+    }
+    if (cleaned.toLowerCase().includes("<conversation_transcript>")) {
+      cleaned = cleaned.replace(/<conversation_transcript>[\s\S]*?<\/conversation_transcript>\s*/gi, "");
+    }
   }
   const lines = cleaned.split("\n");
   const filtered = lines.filter(
@@ -827,23 +830,14 @@ function convertMessagesToGemini(reqJson) {
         },
       });
     } else if (typeof m.content === "string") {
-      const cleaned = shouldCleanText(m.content)
-        ? cleanSystemPromptText(m.content)
-        : m.content;
-      if (cleaned) parts.push({ text: cleaned });
+      if (m.content) parts.push({ text: m.content });
     } else if (Array.isArray(m.content)) {
       for (const block of m.content) {
         if (!block) continue;
         if (typeof block === "string") {
-          const cleaned = shouldCleanText(block)
-            ? cleanSystemPromptText(block)
-            : block;
-          if (cleaned) parts.push({ text: cleaned });
+          if (block) parts.push({ text: block });
         } else if (block.type === "text" && block.text) {
-          const cleaned = shouldCleanText(block.text)
-            ? cleanSystemPromptText(block.text)
-            : block.text;
-          if (cleaned) parts.push({ text: cleaned });
+          parts.push({ text: block.text });
         } else if (block.type === "thinking" && block.thinking) {
           parts.push({ thought: true, text: block.thinking });
         } else if (block.type === "tool_use") {
@@ -1729,17 +1723,6 @@ export default {
             for (const p of innerReq.systemInstruction.parts) {
               if (p && typeof p.text === "string") {
                 p.text = cleanSystemPromptText(p.text);
-              }
-            }
-          }
-          if (Array.isArray(innerReq.contents)) {
-            for (const turn of innerReq.contents) {
-              if (Array.isArray(turn?.parts)) {
-                for (const p of turn.parts) {
-                  if (p && typeof p.text === "string" && shouldCleanText(p.text)) {
-                    p.text = cleanSystemPromptText(p.text);
-                  }
-                }
               }
             }
           }

@@ -93,7 +93,7 @@ def anthropic_to_cloudcode_payload(
         parts: list[dict[str, Any]] = []
 
         if isinstance(content, str):
-            cleaned_c = clean_system_prompt_text(content) if should_clean_text(content) else content
+            cleaned_c = clean_system_prompt_text(content) if (is_system_role and should_clean_text(content)) else content
             if cleaned_c:
                 if is_system_role:
                     cleaned_c = _wrap_system_reminder(cleaned_c)
@@ -108,7 +108,7 @@ def anthropic_to_cloudcode_payload(
                 if b_type == "text":
                     txt = b_dict.get("text", "")
                     if txt:
-                        cleaned_txt = clean_system_prompt_text(txt) if should_clean_text(txt) else txt
+                        cleaned_txt = clean_system_prompt_text(txt) if (is_system_role and should_clean_text(txt)) else txt
                         if cleaned_txt:
                             if is_system_role:
                                 cleaned_txt = _wrap_system_reminder(cleaned_txt)
@@ -346,7 +346,7 @@ def anthropic_to_cloudcode_payload(
             inner_request["toolConfig"] = tool_cfg
 
     sys_text = "".join(str(p.get("text", "")) for p in system_parts if isinstance(p, dict) and p.get("text")).lower()
-    is_title_gen = _is_title_generation(sys_text, req.messages)
+    is_title_gen = _is_title_generation(sys_text, req.messages, has_tools=bool(req.tools))
     is_checkpoint_or_compact = False
     if not is_title_gen:
         is_compact, _ = is_explicit_compact_request(req.messages)
@@ -358,8 +358,6 @@ def anthropic_to_cloudcode_payload(
         generation_config["thinkingConfig"] = {"includeThoughts": False, "thinkingBudget": 0}
         generation_config["maxOutputTokens"] = min(req.max_tokens or 1024, 1024)
         req_type = "title"
-        if "tools" in inner_request:
-            inner_request.pop("tools", None)
     elif is_checkpoint_or_compact:
         from agy_proxy.compactor import compactor_settings
         backend_model = compactor_settings.model or "gemini-3.8-flash-low"

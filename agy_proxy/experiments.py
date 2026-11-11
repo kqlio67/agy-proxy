@@ -12,7 +12,6 @@ and history wiping).
 import copy
 import json
 import logging
-import re
 from pathlib import Path
 from typing import Any
 
@@ -37,7 +36,6 @@ BLOCKLIST_FLAGS: set[str] = {
     "disable-command-assessor",
     "disable-system-message-merging",
     "disable-system-message-tag",
-    "disable-teamwork-forced-flash-model",
     "disable-tool-hook-notices",
 
     # Destructive or broken flags
@@ -62,8 +60,6 @@ BLOCKLIST_FLAGS: set[str] = {
     "enable-scoped-csrf-tokens",
     "use-aicode-jetski-endpoint",
 }
-
-DISABLER_PATTERN = re.compile(r"^disable-(?!loop-detection)")
 
 # =============================================================================
 # 2. Curated High-Value Experimental Features
@@ -1758,49 +1754,13 @@ NON_BOOL_OPTIMIZATIONS: dict[str, dict[str, Any]] = {
         "stringListValue": {"values": ["test"]},
         "desc": "v2.22.0 Config: DuetAiLocalRag__substrings_to_identify_test_prompts",
     },
-    "cascade-knowledge-config": {
-        "stringValue": '{"enabled": false, "min_turns_between_knowledge_generation": 10000}',
-        "desc": "v2.22.0 Config: cascade-knowledge-config",
-    },
-    "context-engine-config": {
-        "stringValue": "{}",
-        "desc": "v2.22.0 Config: context-engine-config",
-    },
-    "CASCADE_USE_REPLACE_CONTENT_EDIT_TOOL": {
-        "stringValue": '{"max_fuzzy_edit_distance_fraction": 0.001, "allow_partial_replacement_success": true, "use_line_range": true, "fast_apply_fallback_config": {"enabled": false, "prompt_unchanged_threshold": 5, "content_view_radius_lines": 200, "content_edit_radius_lines": 5}}',
-        "desc": "v2.22.0 Config: CASCADE_USE_REPLACE_CONTENT_EDIT_TOOL",
-    },
-    "log-artifacts-config": {
-        "stringValue": '{"enabled": true, "hideNominalToolSteps": false, "hidePlannerResponseText": false, "maxBytesPerStep": 4096, "maxBytesPerToolArg": 2048, "hideSystemSteps": false, "hideUserImplicitSteps": false}',
-        "desc": "v2.22.0 Config: log-artifacts-config",
-    },
-    "auto-command-config": {
-        "stringValue": '{"system_allowlist": ["cd"], "sandbox_system_allowlist": ["head", "tail", "mkdir", "cd", "cp", "mv", "cat", "find", "grep", "rm", "touch", "less", "clear", "ls"]}',
-        "desc": "v2.22.0 Config: auto-command-config",
-    },
-    "cascade-conversation-history-config": {
-        "stringValue": '{"enabled": true, "max_conversations": 20}',
-        "desc": "v2.22.0 Config: cascade-conversation-history-config",
-    },
-    "max-media-attachments": {
-        "intValue": "5",
-        "desc": "v2.22.0 Int Value: max-media-attachments",
-    },
     "continuous-pprof-mem-cooldown-minutes": {
         "intValue": "30",
         "desc": "v2.22.0 Int Value: continuous-pprof-mem-cooldown-minutes",
     },
-    "customization-token-budget": {
-        "intValue": "20000",
-        "desc": "v2.22.0 Int Value: customization-token-budget",
-    },
     "remote-control-silence-timeout-seconds": {
         "intValue": "60",
         "desc": "v2.22.0 Int Value: remote-control-silence-timeout-seconds",
-    },
-    "rules-token-budget": {
-        "intValue": "20000",
-        "desc": "v2.22.0 Int Value: rules-token-budget",
     },
     "best-of-nudge-length-threshold": {
         "intValue": "150",
@@ -1814,21 +1774,9 @@ NON_BOOL_OPTIMIZATIONS: dict[str, dict[str, Any]] = {
         "intValue": "10",
         "desc": "v2.22.0 Int Value: max-best-of-n",
     },
-    "max-tokens-per-step": {
-        "intValue": "16384",
-        "desc": "v2.22.0 Int Value: max-tokens-per-step",
-    },
-    "tool-output-max-bytes": {
-        "intValue": "10240",
-        "desc": "v2.22.0 Int Value: tool-output-max-bytes",
-    },
     "continuous-pprof-mem-threshold-gib": {
         "intValue": "16",
         "desc": "v2.22.0 Int Value: continuous-pprof-mem-threshold-gib",
-    },
-    "max-conversation-save-count": {
-        "intValue": "500",
-        "desc": "v2.22.0 Int Value: max-conversation-save-count",
     },
     "battle-winner-survey-percent": {
         "intValue": "50",
@@ -2011,7 +1959,7 @@ def enhance_list_experiments(
     """
     Transforms /v1internal:listExperiments response:
     1. Injects and deduplicates 121 rich experiment IDs (including 106544526 for Claude 5.5).
-    2. Strictly disables toxic/disabling flags in BLOCKLIST_FLAGS and ^disable-*.
+    2. Strictly disables explicit toxic/destructive flags in BLOCKLIST_FLAGS while preserving unknown flags.
     3. Safely activates CURATED_SAFE_FLAGS (deepagent, swarm, MOA, MCP, diff-view, RAG, etc.).
     4. Applies user custom overrides from ~/.config/agy-proxy/experiments.json.
     5. Optimizes non-bool parameters (e.g. 3.5M token context window).
@@ -2081,8 +2029,8 @@ def enhance_list_experiments(
             _set_bool(fl, bool(user_overrides[name]))
             continue
 
-        # Rule B: Strict Blocklist & disablers must ALWAYS be False
-        if name in BLOCKLIST_FLAGS or DISABLER_PATTERN.match(name):
+        # Rule B: Explicit toxic/destructive blocklist must ALWAYS be False
+        if name in BLOCKLIST_FLAGS:
             _set_bool(fl, False)
             continue
 
@@ -2364,18 +2312,16 @@ def enhance_available_models(data: dict[str, Any]) -> dict[str, Any]:
     else:
         data["audioTranscriptionModelIds"] = ["models/proactive-observer-v10"]
 
-    if "webSearchModelIds" not in data or not isinstance(data.get("webSearchModelIds"), list):
-        data["webSearchModelIds"] = ["gemini-3.5-flash-lite"]
-    elif "gemini-3.5-flash-lite" not in data["webSearchModelIds"]:
+    if not isinstance(data.get("webSearchModelIds"), list) or not data["webSearchModelIds"]:
         data["webSearchModelIds"] = ["gemini-3.5-flash-lite"]
 
-    if "tieredModelIds" in data and isinstance(data["tieredModelIds"], dict):
+    if isinstance(data.get("tieredModelIds"), dict):
         tiered = data["tieredModelIds"]
-        if "flashLite" in tiered and "gemini-3.5-flash-lite" not in tiered["flashLite"]:
+        if not tiered.get("flashLite"):
             tiered["flashLite"] = ["gemini-3.5-flash-lite"]
-        if "flash" in tiered and "gemini-3.8-flash-tiered" not in tiered["flash"]:
+        if not tiered.get("flash"):
             tiered["flash"] = ["gemini-3.8-flash-tiered"]
-        if "pro" in tiered and "gemini-3.8-flash-tiered" not in tiered["pro"]:
+        if not tiered.get("pro"):
             tiered["pro"] = ["gemini-3.8-flash-tiered"]
 
     # 6. Apply v2.25.0 model configurations
@@ -2636,14 +2582,41 @@ def enhance_load_code_assist(data: dict[str, Any], pool: Any = None) -> dict[str
         else "Google AI Pro Plan"
     )
 
-    data["currentTier"] = {
-        "id": "g1-pro-tier",
-        "name": "Google AI Pro",
-        "description": pool_desc,
-        "privacyNotice": {"showNotice": False},
-    }
-    data["gcpManaged"] = False
-    data.pop("ineligibleTiers", None)
+    existing_tier = data.get("currentTier")
+    existing_tier_id = (
+        str(existing_tier.get("id", "")).strip()
+        if isinstance(existing_tier, dict)
+        else ""
+    )
+    paid_tier = data.get("paidTier")
+    paid_tier_id = (
+        str(paid_tier.get("id", "")).strip()
+        if isinstance(paid_tier, dict)
+        else ""
+    )
+    is_free_or_missing = (not existing_tier_id) or existing_tier_id in ("free-tier", "legacy-tier")
+
+    if is_free_or_missing:
+        if paid_tier_id and paid_tier_id not in ("free-tier", "legacy-tier"):
+            new_tier = copy.deepcopy(paid_tier)
+            if not new_tier.get("description"):
+                new_tier["description"] = pool_desc
+            new_tier.setdefault("privacyNotice", {"showNotice": False})
+            data["currentTier"] = new_tier
+        else:
+            data["currentTier"] = {
+                "id": "g1-pro-tier",
+                "name": "Google AI Pro",
+                "description": pool_desc,
+                "privacyNotice": {"showNotice": False},
+            }
+        data["gcpManaged"] = bool(data.get("gcpManaged", False))
+        data.pop("ineligibleTiers", None)
+    else:
+        preserved = copy.deepcopy(existing_tier)
+        if isinstance(preserved, dict) and not preserved.get("description"):
+            preserved["description"] = pool_desc
+        data["currentTier"] = preserved
     return data
 
 

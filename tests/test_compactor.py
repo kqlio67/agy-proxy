@@ -95,21 +95,22 @@ class TestCompactorSettings(unittest.TestCase):
         settings = CompactorSettings(load_from_disk=False)
         self.assertFalse(settings.enabled)
         self.assertFalse(settings.pruning_enabled)
+        self.assertFalse(settings.checkpointer_enabled)
         self.assertEqual(settings.threshold_tokens, 130000)
         self.assertEqual(settings.prune_keep_tools, 15)
         self.assertEqual(settings.prune_max_chars, 15000)
-        self.assertEqual(settings.to_dict()["schema_version"], 5)
+        self.assertEqual(settings.to_dict()["schema_version"], 6)
 
-    def test_schema_v5_migration_disables_compactor(self):
+    def test_schema_v6_migration_disables_compactor(self):
         import json
         import tempfile
         from pathlib import Path
 
         with tempfile.TemporaryDirectory() as tmpdir:
             cfg_path = Path(tmpdir) / "compactor_config.json"
-            # Simulate legacy v3/v4 config where compaction was enabled with 75k threshold
+            # Simulate legacy v4/v5 config where compaction / checkpointer was enabled
             legacy_data = {
-                "schema_version": 4,
+                "schema_version": 5,
                 "enabled": True,
                 "threshold_tokens": 75000,
                 "keep_last_n": 8,
@@ -117,6 +118,7 @@ class TestCompactorSettings(unittest.TestCase):
                 "pruning_enabled": True,
                 "prune_keep_tools": 6,
                 "prune_max_chars": 500,
+                "checkpointer_enabled": True,
             }
             with open(cfg_path, "w", encoding="utf-8") as f:
                 json.dump(legacy_data, f)
@@ -124,14 +126,16 @@ class TestCompactorSettings(unittest.TestCase):
             migrated = CompactorSettings(config_file=cfg_path, load_from_disk=True)
             self.assertFalse(migrated.enabled)
             self.assertFalse(migrated.pruning_enabled)
+            self.assertFalse(migrated.checkpointer_enabled)
             self.assertEqual(migrated.threshold_tokens, 130000)
 
-            # Check that saved config was updated to schema 5 with disabled status
+            # Check that saved config was updated to schema 6 with disabled status
             with open(cfg_path, encoding="utf-8") as f:
                 saved = json.load(f)
-            self.assertEqual(saved["schema_version"], 5)
+            self.assertEqual(saved["schema_version"], 6)
             self.assertFalse(saved["enabled"])
             self.assertFalse(saved["pruning_enabled"])
+            self.assertFalse(saved["checkpointer_enabled"])
 
 
 class TestSmartToolPruning(unittest.TestCase):
@@ -278,11 +282,11 @@ class TestSmartToolPruning(unittest.TestCase):
     def test_compactor_settings_checkpointer_fields(self):
         from agy_proxy.compactor import CompactorSettings
         settings = CompactorSettings(load_from_disk=False)
-        self.assertTrue(settings.checkpointer_enabled)
+        self.assertFalse(settings.checkpointer_enabled)
         self.assertEqual(settings.checkpointer_threshold, 50000)
         self.assertEqual(settings.checkpointer_model, "gemini-3.1-flash-lite")
         d = settings.to_dict()
-        self.assertTrue(d["checkpointer_enabled"])
+        self.assertFalse(d["checkpointer_enabled"])
         self.assertEqual(d["checkpointer_threshold"], 50000)
         self.assertEqual(d["checkpointer_model"], "gemini-3.1-flash-lite")
 

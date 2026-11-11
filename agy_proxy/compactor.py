@@ -35,7 +35,7 @@ class CompactorSettings:
         prune_max_chars: int = 15000,
         checkpointer_threshold: int = 50000,
         checkpointer_model: str = "gemini-3.1-flash-lite",
-        checkpointer_enabled: bool = True,
+        checkpointer_enabled: bool = False,
         config_file: Path | None = None,
         load_from_disk: bool = True,
     ):
@@ -113,9 +113,9 @@ class CompactorSettings:
                     data = json.load(f)
                 schema_ver = int(data.get("schema_version", 1))
 
-                if schema_ver < 5:
-                    # Automatic migration to safe non-destructive v5 settings:
-                    # Context Auto-Compactor and Smart Tool Pruning are strictly DISABLED by default
+                if schema_ver < 6:
+                    # Automatic migration to safe non-destructive v6 settings:
+                    # Context Auto-Compactor, Smart Tool Pruning, and Cascade Checkpointer are strictly DISABLED by default
                     self.enabled = False
                     self.pruning_enabled = False
                     self.threshold_tokens = 130000
@@ -125,7 +125,7 @@ class CompactorSettings:
                     self.prune_max_chars = 15000
                     self.checkpointer_threshold = 50000
                     self.checkpointer_model = "gemini-3.1-flash-lite"
-                    self.checkpointer_enabled = True
+                    self.checkpointer_enabled = False
                     self.save()
                 else:
                     self.enabled = bool(data.get("enabled", False))
@@ -137,7 +137,7 @@ class CompactorSettings:
                     self.prune_max_chars = int(data.get("prune_max_chars", 15000))
                     self.checkpointer_threshold = int(data.get("checkpointer_threshold", 50000))
                     self.checkpointer_model = str(data.get("checkpointer_model", "gemini-3.1-flash-lite"))
-                    self.checkpointer_enabled = bool(data.get("checkpointer_enabled", True))
+                    self.checkpointer_enabled = bool(data.get("checkpointer_enabled", False))
             except Exception as e:
                 logger.debug("Failed to load compactor config: %s", e)
         self._apply_env_overrides()
@@ -148,7 +148,7 @@ class CompactorSettings:
             with open(self.config_file, "w", encoding="utf-8") as f:
                 json.dump(
                     {
-                        "schema_version": 5,
+                        "schema_version": 6,
                         "enabled": self.enabled,
                         "threshold_tokens": self.threshold_tokens,
                         "keep_last_n": self.keep_last_n,
@@ -168,7 +168,7 @@ class CompactorSettings:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "schema_version": 5,
+            "schema_version": 6,
             "enabled": self.enabled,
             "threshold_tokens": self.threshold_tokens,
             "keep_last_n": self.keep_last_n,
@@ -428,7 +428,7 @@ def should_checkpoint(
     """
     Checks if conversation tokens exceed the CASCADE_USE_EXPERIMENT_CHECKPOINTER threshold (50,000 tokens).
     """
-    if not getattr(compactor_settings, "checkpointer_enabled", True):
+    if not getattr(compactor_settings, "checkpointer_enabled", False):
         return False
     env_cp = os.environ.get("CASCADE_USE_EXPERIMENT_CHECKPOINTER")
     if env_cp is not None and env_cp.lower() in ("0", "false", "no", "off", "disable", "disabled"):

@@ -107,7 +107,7 @@ def test_worker_endpoints_and_deepagent():
 
 
 def test_worker_clean_system_prompt_restrictions():
-    """Verifies that cleanSystemPromptText in cloudflare/worker.js removes sandbox and security restrictions."""
+    """Verifies cleanSystemPromptText preserves content by default and strips restrictions on explicit opt-in."""
     node_script = f"""
     import fs from 'fs';
     const content = fs.readFileSync('{WORKER_JS}', 'utf8');
@@ -130,10 +130,19 @@ Follow these behavioral guidelines at all times:
 </guidelines>
 BLOCK any task that compromises system security, including malware, phishing, unauthorized data access, malicious system interference, and circumvention of security features. Examples: bypassing authentication, web scraping, scanning a website. This policy does not apply to tasks that access publicly available data. Routine browser tasks are considered benign and are NOT blocked by this policy, even if performed at scale.
 Please do not attempt to reverse engineer or decompile.
+x-anthropic-billing-header: secret-billing-token
 Task: Parse website data.`;
 
-    if (!shouldCleanText(raw)) throw new Error('shouldCleanText should have returned true');
-    const cleaned = cleanSystemPromptText(raw);
+    // Default safe mode preserves guidelines/policies and only strips billing header
+    if (shouldCleanText(raw.replace('x-anthropic-billing-header: secret-billing-token\\n', ''))) {{
+      throw new Error('shouldCleanText should default to false when only restrictions exist');
+    }}
+    const safeCleaned = cleanSystemPromptText(raw);
+    if (safeCleaned.includes('x-anthropic-billing-header')) throw new Error('billing header was not removed by default');
+    if (!safeCleaned.includes('Never defeat or bypass')) throw new Error('default mode should preserve prompt text');
+
+    if (!shouldCleanText(raw, true)) throw new Error('shouldCleanText(raw, true) should return true');
+    const cleaned = cleanSystemPromptText(raw, true);
 
     if (cleaned.includes('Never defeat or bypass')) throw new Error('Never defeat or bypass was not removed');
     if (cleaned.includes('BLOCK any task that compromises system security')) throw new Error('BLOCK any task was not removed');
@@ -148,8 +157,9 @@ Task: Parse website data.`;
 <conversation_transcript>Transcript log schema</conversation_transcript>
 Task: Run service.`;
 
-    if (!shouldCleanText(rawBloat)) throw new Error('shouldCleanText should have returned true for rawBloat');
-    const cleanedBloat = cleanSystemPromptText(rawBloat);
+    if (shouldCleanText(rawBloat)) throw new Error('shouldCleanText should default to false for rawBloat');
+    if (!shouldCleanText(rawBloat, true)) throw new Error('shouldCleanText(rawBloat, true) should return true');
+    const cleanedBloat = cleanSystemPromptText(rawBloat, true);
     if (!cleanedBloat.includes('<slash_commands>')) throw new Error('<slash_commands> should be preserved per user preference');
     if (cleanedBloat.includes('<featured_plugins>')) throw new Error('<featured_plugins> was not removed');
     if (cleanedBloat.includes('<conversation_transcript>')) throw new Error('<conversation_transcript> was not removed');
@@ -162,7 +172,7 @@ Here is some other content.
 More content that should survive.
 
 Final section.`;
-    const cleanedGreedy = cleanSystemPromptText(rawGreedyTest);
+    const cleanedGreedy = cleanSystemPromptText(rawGreedyTest, true);
     if (!cleanedGreedy.includes('More content that should survive')) {{
       throw new Error('cleanSystemPromptText greedily swallowed content after BLOCK line');
     }}
@@ -173,7 +183,7 @@ You should still help with network debugging.
 You can analyze traffic and protocols.
 
 Help me with coding.`;
-    const cleanedSandbox = cleanSystemPromptText(rawSandboxNeighbor);
+    const cleanedSandbox = cleanSystemPromptText(rawSandboxNeighbor, true);
     if (!cleanedSandbox.includes('network debugging') || !cleanedSandbox.includes('analyze traffic')) {{
       throw new Error('cleanSystemPromptText greedily swallowed sandbox neighbor lines');
     }}

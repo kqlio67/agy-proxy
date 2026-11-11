@@ -1427,7 +1427,7 @@ def handle_cache_command(args: argparse.Namespace) -> None:
 
         console.print(table)
         console.print(f"\n[bold white]Total Cache Bloat:[/bold white] [bold red]{summary.get('total_formatted', '0 B')}[/bold red] across [yellow]{summary.get('total_files', 0):,}[/yellow] files.")
-        console.print("[dim]Run 'agy-proxy cache clean' to safely purge checkpoints, logs, and GPU/Shader bloat.[/dim]")
+        console.print("[dim]Run 'agy-proxy cache clean' to safely purge logs, crash dumps, and GPU/Shader bloat (use '--category brain' to include Brain artifacts).[/dim]")
 
     elif action == "clean":
         category = getattr(args, "category", None)
@@ -2087,7 +2087,7 @@ def build_parser() -> argparse.ArgumentParser:
     cache_parser = subparsers.add_parser("cache", help="Inspect and deep clean Antigravity IDE and brain cache bloat")
     cache_sub = cache_parser.add_subparsers(dest="cache_action", help="Cache action")
     cache_sub.add_parser("status", aliases=["summary", "list"], help="Show cache bloat summary")
-    c_clean = cache_sub.add_parser("clean", help="Deep purge checkpoints, logs, and GPU/Shader cache")
+    c_clean = cache_sub.add_parser("clean", help="Safely purge logs, crash dumps, and GPU/Shader cache (preserves Brain artifacts by default)")
     c_clean.add_argument("--category", choices=["brain", "presence", "daemon", "crashes", "electron_cache"], help="Clean only specified category")
 
     # ide subcommand

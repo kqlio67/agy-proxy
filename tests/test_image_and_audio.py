@@ -183,34 +183,52 @@ class TestImageAndAudioCapabilities(unittest.TestCase):
         self.assertIn("text", data)
 
     def test_enhance_available_models_metadata_groups(self):
-        initial_data = {
+        # Empty / missing lists get default values without overwriting populated upstream lists
+        empty_data = {
             "models": {
                 "gemini-3.8-flash-high": {"displayName": "Gemini 3.8 Flash"},
             },
             "tieredModelIds": {
-                "flashLite": ["some-old-model"],
-                "flash": ["some-old-model"],
-                "pro": ["some-old-model"],
+                "flashLite": [],
+                "flash": [],
+                "pro": [],
             },
         }
-        enhanced = enhance_available_models(initial_data)
+        enhanced_empty = enhance_available_models(empty_data)
 
         # imageGenerationModelIds
-        self.assertIn("imageGenerationModelIds", enhanced)
-        self.assertIn("gemini-3.1-flash-image", enhanced["imageGenerationModelIds"])
+        self.assertIn("imageGenerationModelIds", enhanced_empty)
+        self.assertIn("gemini-3.1-flash-image", enhanced_empty["imageGenerationModelIds"])
 
         # audioTranscriptionModelIds
-        self.assertIn("audioTranscriptionModelIds", enhanced)
-        self.assertIn("models/proactive-observer-v10", enhanced["audioTranscriptionModelIds"])
+        self.assertIn("audioTranscriptionModelIds", enhanced_empty)
+        self.assertIn("models/proactive-observer-v10", enhanced_empty["audioTranscriptionModelIds"])
 
         # webSearchModelIds
-        self.assertIn("webSearchModelIds", enhanced)
-        self.assertEqual(enhanced["webSearchModelIds"], ["gemini-3.5-flash-lite"])
+        self.assertEqual(enhanced_empty["webSearchModelIds"], ["gemini-3.5-flash-lite"])
 
-        # tieredModelIds
-        self.assertEqual(enhanced["tieredModelIds"]["flashLite"], ["gemini-3.5-flash-lite"])
-        self.assertEqual(enhanced["tieredModelIds"]["flash"], ["gemini-3.8-flash-tiered"])
-        self.assertEqual(enhanced["tieredModelIds"]["pro"], ["gemini-3.8-flash-tiered"])
+        # tieredModelIds filled when empty
+        self.assertEqual(enhanced_empty["tieredModelIds"]["flashLite"], ["gemini-3.5-flash-lite"])
+        self.assertEqual(enhanced_empty["tieredModelIds"]["flash"], ["gemini-3.8-flash-tiered"])
+        self.assertEqual(enhanced_empty["tieredModelIds"]["pro"], ["gemini-3.8-flash-tiered"])
+
+        # Non-empty upstream webSearchModelIds and tieredModelIds are preserved
+        populated_data = {
+            "models": {
+                "gemini-3.8-flash-high": {"displayName": "Gemini 3.8 Flash"},
+            },
+            "webSearchModelIds": ["custom-search-model"],
+            "tieredModelIds": {
+                "flashLite": ["upstream-flash-lite"],
+                "flash": ["upstream-flash"],
+                "pro": ["upstream-pro"],
+            },
+        }
+        enhanced_populated = enhance_available_models(populated_data)
+        self.assertEqual(enhanced_populated["webSearchModelIds"], ["custom-search-model"])
+        self.assertEqual(enhanced_populated["tieredModelIds"]["flashLite"], ["upstream-flash-lite"])
+        self.assertEqual(enhanced_populated["tieredModelIds"]["flash"], ["upstream-flash"])
+        self.assertEqual(enhanced_populated["tieredModelIds"]["pro"], ["upstream-pro"])
 
     def test_parse_gemini_sse_candidate_with_inline_image(self):
         cand = {

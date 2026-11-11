@@ -171,6 +171,36 @@ def test_enhance_load_code_assist():
     assert enhanced["currentTier"]["name"] == "Google AI Pro"
     assert "ineligibleTiers" not in enhanced
 
+    # Paid tier (e.g. g1-ultra-tier) must never be downgraded to g1-pro-tier
+    ultra_data = {
+        "currentTier": {"id": "g1-ultra-tier", "name": "Google AI Ultra", "description": "Google AI Ultra Plan"},
+        "paidTier": {"id": "g1-ultra-tier", "name": "Google AI Ultra"},
+        "gcpManaged": True,
+    }
+    enhanced_ultra = enhance_load_code_assist(ultra_data)
+    assert enhanced_ultra["currentTier"]["id"] == "g1-ultra-tier"
+    assert enhanced_ultra["currentTier"]["name"] == "Google AI Ultra"
+    assert enhanced_ultra["gcpManaged"] is True
+
+
+def test_non_destructive_experiment_preservation():
+    """Verify unknown disable-* flags and upstream knowledge/history configs are preserved."""
+    upstream = {
+        "experimentIds": [],
+        "flags": [
+            {"name": "disable-stained-loas2-creds", "boolValue": True},
+            {"name": "disable-teamwork-forced-flash-model", "boolValue": True},
+            {"name": "cascade-knowledge-config", "stringValue": '{"enabled": true}'},
+            {"name": "max-media-attachments", "intValue": "20"},
+        ],
+    }
+    enhanced = enhance_list_experiments(upstream, config_override={"enabled": True, "mode": "curated", "custom_overrides": {}})
+    fmap = {f["name"]: f for f in enhanced["flags"]}
+    assert fmap["disable-stained-loas2-creds"]["boolValue"] is True
+    assert fmap["disable-teamwork-forced-flash-model"]["boolValue"] is True
+    assert fmap["cascade-knowledge-config"]["stringValue"] == '{"enabled": true}'
+    assert fmap["max-media-attachments"]["intValue"] == "20"
+
 
 def test_experiments_status_and_overrides():
     status = get_experiments_status()

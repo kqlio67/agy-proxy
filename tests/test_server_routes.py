@@ -33,6 +33,9 @@ class TestServerRoutes(unittest.IsolatedAsyncioTestCase):
         self._orig_enabled = compactor_settings.enabled
         self._orig_pruning = compactor_settings.pruning_enabled
         self._orig_threshold = compactor_settings.threshold_tokens
+        self._orig_cp_enabled = compactor_settings.checkpointer_enabled
+        self._orig_cp_threshold = compactor_settings.checkpointer_threshold
+        self._orig_cp_model = compactor_settings.checkpointer_model
         compactor_settings.config_file = Path(self._temp_dir.name) / "compactor_config.json"
 
     async def asyncTearDown(self):
@@ -41,6 +44,9 @@ class TestServerRoutes(unittest.IsolatedAsyncioTestCase):
         compactor_settings.enabled = self._orig_enabled
         compactor_settings.pruning_enabled = self._orig_pruning
         compactor_settings.threshold_tokens = self._orig_threshold
+        compactor_settings.checkpointer_enabled = self._orig_cp_enabled
+        compactor_settings.checkpointer_threshold = self._orig_cp_threshold
+        compactor_settings.checkpointer_model = self._orig_cp_model
         self._temp_dir.cleanup()
 
     async def test_dashboard_root(self):

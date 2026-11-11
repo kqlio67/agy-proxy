@@ -41,8 +41,16 @@ def test_cache_summary_and_cleaning(tmp_path, monkeypatch):
     assert not (crashes_dir / "crash1.dmp").exists()
     assert (brain_dir / "session1.json").exists()
 
-    # Clean all
-    res_all = cleaner.clean_cache()
-    assert res_all["success"] is True
-    assert res_all["deleted_files"] >= 2
+    # Default clean_cache() preserves brain artifacts
+    (crashes_dir / "crash2.dmp").write_text("more crash data")
+    res_default = cleaner.clean_cache()
+    assert res_default["success"] is True
+    assert not (crashes_dir / "crash2.dmp").exists()
+    assert (brain_dir / "session1.json").exists()
+    assert (brain_dir / "session2.json").exists()
+
+    # Explicit brain category cleans brain directory
+    res_brain = cleaner.clean_cache(categories=["brain"])
+    assert res_brain["success"] is True
+    assert res_brain["deleted_files"] >= 2
     assert not (brain_dir / "session1.json").exists()

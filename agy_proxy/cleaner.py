@@ -131,15 +131,15 @@ class AntigravityCacheCleaner:
 
     def clean_cache(
         self,
-        clean_brain: bool = True,
+        clean_brain: bool = False,
         clean_electron: bool = True,
         clean_crashes: bool = True,
         categories: list[str] | None = None,
         older_than_hours: float = 0.0,
     ) -> dict[str, Any]:
         """
-        Safely purges caches.
-        Preserves currently active conversation directory to prevent session disruption.
+        Safely purges temporary IDE, crash, and Electron caches without deleting Brain artifacts by default.
+        Preserves currently active conversation directory when brain cleaning is explicitly requested.
         """
         if categories is not None:
             clean_brain = "brain" in categories

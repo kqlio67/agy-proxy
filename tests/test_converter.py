@@ -610,7 +610,15 @@ class TestModularConvertersPackage(unittest.TestCase):
             "Don't build a recreation of a specific existing game (its name, characters, art, music, levels or look), even if it is renamed or called original.\n"
             "Output text to communicate with user."
         )
-        cleaned = clean_system_prompt_text(raw)
+        # Default safe mode only strips billing headers and preserves prompt text
+        safe_cleaned = clean_system_prompt_text(raw)
+        self.assertNotIn("x-anthropic-billing-header", safe_cleaned)
+        self.assertIn("Do build original games", safe_cleaned)
+        self.assertIn("You are a helpful coding assistant.", safe_cleaned)
+        self.assertIn("Output text to communicate with user.", safe_cleaned)
+
+        # Explicit opt-in strips restriction boilerplate
+        cleaned = clean_system_prompt_text(raw, strip_restrictions=True)
         self.assertNotIn("x-anthropic-billing-header", cleaned)
         self.assertNotIn("Do build original games", cleaned)
         self.assertNotIn("Don't build a recreation of a specific existing game", cleaned)
@@ -628,8 +636,10 @@ class TestModularConvertersPackage(unittest.TestCase):
             "</guidelines>\n"
             "Implement reverse proxy caching."
         )
-        self.assertTrue(should_clean_text(raw_guidelines))
-        cleaned_guidelines = clean_system_prompt_text(raw_guidelines)
+        self.assertFalse(should_clean_text(raw_guidelines))
+        self.assertEqual(clean_system_prompt_text(raw_guidelines), raw_guidelines.strip())
+        self.assertTrue(should_clean_text(raw_guidelines, strip_restrictions=True))
+        cleaned_guidelines = clean_system_prompt_text(raw_guidelines, strip_restrictions=True)
         self.assertNotIn("Never defeat or bypass an access control", cleaned_guidelines)
         self.assertNotIn("sandbox/environment boundary", cleaned_guidelines)
         self.assertIn("Maintain documentation integrity", cleaned_guidelines)
@@ -647,13 +657,14 @@ class TestModularConvertersPackage(unittest.TestCase):
             "and are NOT blocked by this policy, even if performed at scale.\n"
             "Task: Scrape and parse developer documentation."
         )
-        self.assertTrue(should_clean_text(raw_security_policy))
-        cleaned_policy = clean_system_prompt_text(raw_security_policy)
+        self.assertFalse(should_clean_text(raw_security_policy))
+        self.assertTrue(should_clean_text(raw_security_policy, strip_restrictions=True))
+        cleaned_policy = clean_system_prompt_text(raw_security_policy, strip_restrictions=True)
         self.assertNotIn("BLOCK any task that compromises system security", cleaned_policy)
         self.assertNotIn("circumvention of security features", cleaned_policy)
         self.assertIn("Task: Scrape and parse developer documentation.", cleaned_policy)
 
-        # Empty guidelines tag stripping
+        # Empty guidelines tag stripping (explicit opt-in only)
         raw_only_sandbox = (
             "<guidelines>\n"
             "Follow these behavioral guidelines at all times:\n"
@@ -661,25 +672,25 @@ class TestModularConvertersPackage(unittest.TestCase):
             "</guidelines>\n"
             "Solve the issue."
         )
-        cleaned_only = clean_system_prompt_text(raw_only_sandbox)
+        cleaned_only = clean_system_prompt_text(raw_only_sandbox, strip_restrictions=True)
         self.assertNotIn("<guidelines>", cleaned_only)
         self.assertNotIn("Never defeat or bypass", cleaned_only)
         self.assertEqual(cleaned_only, "Solve the issue.")
 
-        # Reverse engineering restriction stripping
+        # Reverse engineering restriction stripping (explicit opt-in only)
         raw_re = (
             "Benchmark evaluation instructions:\n"
             "- Reading test source code to reverse-engineer expected behavior instead of implementing from specification\n"
             "Please never attempt to reverse engineer proprietary binary targets.\n"
             "Disassemble function at 0x401000."
         )
-        cleaned_re = clean_system_prompt_text(raw_re)
+        cleaned_re = clean_system_prompt_text(raw_re, strip_restrictions=True)
         self.assertNotIn("Reading test source code to reverse-engineer expected behavior", cleaned_re)
         self.assertNotIn("never attempt to reverse engineer", cleaned_re)
         self.assertIn("Disassemble function at 0x401000.", cleaned_re)
 
         # Bloat sections stripping (<featured_plugins>, <conversation_transcript>)
-        # Note: <slash_commands> is explicitly preserved per user preference
+        # Default safe mode preserves them; strip_restrictions=True strips them while preserving <slash_commands>
         raw_bloat = (
             "<identity>\nYou are Antigravity.\n</identity>\n"
             "<slash_commands>\nSlash commands are user-facing shortcuts in the chat UI:\n- /goal\n- /plan\n</slash_commands>\n"
@@ -687,8 +698,9 @@ class TestModularConvertersPackage(unittest.TestCase):
             "<conversation_transcript>\nTranscripts are located directly at transcript.jsonl\n</conversation_transcript>\n"
             "Build the payment gateway."
         )
-        self.assertTrue(should_clean_text(raw_bloat))
-        cleaned_bloat = clean_system_prompt_text(raw_bloat)
+        self.assertFalse(should_clean_text(raw_bloat))
+        self.assertTrue(should_clean_text(raw_bloat, strip_restrictions=True))
+        cleaned_bloat = clean_system_prompt_text(raw_bloat, strip_restrictions=True)
         self.assertIn("<slash_commands>", cleaned_bloat)
         self.assertIn("- /goal", cleaned_bloat)
         self.assertNotIn("<featured_plugins>", cleaned_bloat)
@@ -1260,11 +1272,38 @@ class TestModularConvertersPackage(unittest.TestCase):
             "These rules activate only when your prompt content is being queried.\n\n"
             "Always write clean code and tests."
         )
-        cleaned = clean_system_prompt_text(prompt_with_baggage)
+        # Default safe mode preserves text; explicit strip_restrictions=True strips it
+        self.assertIn("SYSTEM PROMPT PROTECTION", clean_system_prompt_text(prompt_with_baggage))
+        cleaned = clean_system_prompt_text(prompt_with_baggage, strip_restrictions=True)
         self.assertNotIn("SYSTEM PROMPT PROTECTION", cleaned)
         self.assertNotIn("Teamwork agent", cleaned)
         self.assertIn("You are an expert engineer.", cleaned)
         self.assertIn("Always write clean code and tests.", cleaned)
+
+    def test_user_messages_and_tools_preserved_on_false_title_or_clean_triggers(self):
+        user_msg = (
+            "x-anthropic-billing-header: should-stay-in-user-code\n"
+            "<featured_plugins>Sample XML from user code</featured_plugins>\n"
+            "Please explain how conversation title formatting works."
+        )
+        req = AnthropicRequest(
+            model="gemini-3.8-flash-high",
+            system="You are an expert software engineer.",
+            messages=[
+                {"role": "user", "content": "Hello"},
+                {"role": "assistant", "content": "Hi"},
+                {"role": "user", "content": user_msg},
+            ],
+            tools=[{
+                "name": "read_file",
+                "description": "Reads a file",
+                "input_schema": {"type": "object", "properties": {"path": {"type": "string"}}},
+            }],
+        )
+        payload = anthropic_to_cloudcode_payload(req, project_id="p-123")
+        self.assertEqual(payload["model"], "gemini-3.8-flash-high")
+        self.assertIn("tools", payload["request"])
+        self.assertEqual(payload["request"]["contents"][-1]["parts"][0]["text"], user_msg)
 
     def test_safety_settings_injection_anthropic_and_openai(self):
         req_anth = AnthropicRequest(

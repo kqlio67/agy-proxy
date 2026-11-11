@@ -126,8 +126,8 @@ async function showQuickMenu() {
       action: 'dashboard'
     },
     {
-      label: '$(trash) Clean Brain & IDE Cache',
-      description: 'Purge accumulated checkpoints and temporary logs to free RAM and disk',
+      label: '$(trash) Clean IDE & Logs Cache',
+      description: 'Purge crash dumps, Electron GPU caches, and temporary logs (preserves Brain artifacts)',
       action: 'clean_cache'
     },
     {
@@ -181,14 +181,14 @@ async function runCleanCache() {
   try {
     vscode.window.withProgress({
       location: vscode.ProgressLocation.Notification,
-      title: 'Cleaning Antigravity Brain & IDE Cache...',
+      title: 'Cleaning Antigravity IDE & Logs Cache...',
       cancellable: false
     }, async () => {
       const res = await fetchJson('/api/cache/clean', { method: 'POST', body: {} });
       if (res.status === 200 && res.data) {
         const freed = res.data.freed_formatted || '0 B';
         const files = res.data.deleted_files || 0;
-        vscode.window.showInformationMessage(`🧹 Brain Cache Cleaned! Freed ${freed} across ${files} files.`);
+        vscode.window.showInformationMessage(`🧹 IDE Cache Cleaned! Freed ${freed} across ${files} files.`);
       } else {
         vscode.window.showWarningMessage(`Cache clean finished with status ${res.status}`);
       }
