@@ -429,12 +429,35 @@
         <!-- Filter Tabs & Sort Dropdown -->
         <div class="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 max-w-full">
           <div class="flex items-center space-x-1 bg-slate-900 rounded-lg p-0.5 border border-slate-800 shrink-0" id="accountTypeFilters">
-            <button onclick="setAccountFilter('all')" data-filter="all" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium bg-indigo-600 text-white shadow-sm transition">All (<span id="countAll">0</span>)</button>
-            <button onclick="setAccountFilter('oauth')" data-filter="oauth" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-white transition">OAuth (<span id="countOAuth">0</span>)</button>
-            <button onclick="setAccountFilter('apikey')" data-filter="apikey" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-white transition">API Keys (<span id="countApiKey">0</span>)</button>
-            <button onclick="setAccountFilter('web')" data-filter="web" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-white transition">Web (<span id="countWeb">0</span>)</button>
-            <button onclick="setAccountFilter('external')" data-filter="external" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-purple-400 transition">External AI (<span id="countExternal">0</span>)</button>
-            <button onclick="setAccountFilter('exhausted')" data-filter="exhausted" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-red-400 transition">0% (<span id="countExhausted">0</span>)</button>
+            <button onclick="setAccountFilter('all')" data-filter="all" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium bg-indigo-600 text-white shadow-sm transition flex items-center gap-1.5">
+              <span>All</span>
+              <span class="px-1.5 py-0.2 bg-white/20 rounded-full text-[10px] font-mono text-white" id="countAll">0</span>
+            </button>
+            <button onclick="setAccountFilter('oauth')" data-filter="oauth" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-white transition flex items-center gap-1.5">
+              <i class="fa-solid fa-shield-halved text-indigo-400 text-[10px]"></i>
+              <span>OAuth</span>
+              <span class="px-1.5 py-0.2 bg-slate-800 rounded-full text-[10px] font-mono text-slate-300" id="countOAuth">0</span>
+            </button>
+            <button onclick="setAccountFilter('web')" data-filter="web" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-white transition flex items-center gap-1.5">
+              <i class="fa-solid fa-globe text-teal-400 text-[10px]"></i>
+              <span>Web</span>
+              <span class="px-1.5 py-0.2 bg-slate-800 rounded-full text-[10px] font-mono text-slate-300" id="countWeb">0</span>
+            </button>
+            <button onclick="setAccountFilter('apikey')" data-filter="apikey" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-white transition flex items-center gap-1.5">
+              <i class="fa-solid fa-key text-amber-400 text-[10px]"></i>
+              <span>API Keys</span>
+              <span class="px-1.5 py-0.2 bg-slate-800 rounded-full text-[10px] font-mono text-slate-300" id="countApiKey">0</span>
+            </button>
+            <button onclick="setAccountFilter('external')" data-filter="external" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-purple-400 transition flex items-center gap-1.5">
+              <i class="fa-solid fa-brain text-purple-400 text-[10px]"></i>
+              <span>External AI</span>
+              <span class="px-1.5 py-0.2 bg-slate-800 rounded-full text-[10px] font-mono text-slate-300" id="countExternal">0</span>
+            </button>
+            <button onclick="setAccountFilter('exhausted')" data-filter="exhausted" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-red-400 transition flex items-center gap-1.5">
+              <i class="fa-solid fa-battery-empty text-red-400 text-[10px]"></i>
+              <span>0%</span>
+              <span class="px-1.5 py-0.2 bg-slate-800 rounded-full text-[10px] font-mono text-slate-300" id="countExhausted">0</span>
+            </button>
           </div>
 
           <select id="accountSortSelect" onchange="renderAccounts()" class="bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-slate-300 text-[11px] focus:outline-none focus:border-indigo-500 shrink-0">
@@ -1619,20 +1642,57 @@ https://your-tunnel.trycloudflare.com/v1</pre>
         </button>
       </div>
 
-      <!-- Tab Switcher -->
-      <div class="flex p-1 bg-slate-900 rounded-xl border border-slate-800 text-xs">
-        <button id="tabBtnOAuth" onclick="switchAddTab('oauth')" class="flex-1 py-2 rounded-lg font-semibold transition bg-indigo-600 text-white shadow">
-          <i class="fa-brands fa-google mr-1.5"></i> Google Antigravity
-        </button>
-        <button id="tabBtnApiKey" onclick="switchAddTab('apikey')" class="flex-1 py-2 rounded-lg font-semibold transition text-slate-400 hover:text-white">
-          <i class="fa-solid fa-key mr-1.5"></i> Gemini API Key
-        </button>
-        <button id="tabBtnWeb" onclick="switchAddTab('web')" class="flex-1 py-2 rounded-lg font-semibold transition text-slate-400 hover:text-white">
-          <i class="fa-solid fa-globe mr-1.5"></i> Gemini Web (HAR / Cookies)
-        </button>
-        <button id="tabBtnExternal" onclick="switchAddTab('external')" class="flex-1 py-2 rounded-lg font-semibold transition text-slate-400 hover:text-white">
-          <i class="fa-solid fa-brain mr-1.5"></i> External AI (Ollama / OpenRouter)
-        </button>
+      <!-- Step 1: Provider / Ecosystem Grid -->
+      <div class="space-y-1.5">
+        <div class="flex items-center justify-between">
+          <label class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">1. Platform / Ecosystem</label>
+          <span class="text-[10px] text-slate-500 font-mono">Select target provider</span>
+        </div>
+        <div class="grid grid-cols-3 sm:grid-cols-6 gap-2" id="providerEcosystemGrid">
+          <button type="button" onclick="selectEcosystem('google')" id="ecoBtn-google" class="eco-btn p-2 rounded-xl border flex flex-col items-center justify-center gap-1 transition text-center bg-indigo-600/20 border-indigo-500/50 text-white shadow-sm ring-1 ring-indigo-500/30">
+            <i class="fa-brands fa-google text-base text-blue-400"></i>
+            <span class="text-[11px] font-semibold truncate w-full">Google</span>
+          </button>
+          <button type="button" onclick="selectEcosystem('anthropic')" id="ecoBtn-anthropic" class="eco-btn p-2 rounded-xl border flex flex-col items-center justify-center gap-1 transition text-center bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700">
+            <i class="fa-solid fa-cube text-base text-amber-400"></i>
+            <span class="text-[11px] font-semibold truncate w-full">Anthropic</span>
+          </button>
+          <button type="button" onclick="selectEcosystem('openai')" id="ecoBtn-openai" class="eco-btn p-2 rounded-xl border flex flex-col items-center justify-center gap-1 transition text-center bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700">
+            <i class="fa-solid fa-brain text-base text-emerald-400"></i>
+            <span class="text-[11px] font-semibold truncate w-full">OpenAI</span>
+          </button>
+          <button type="button" onclick="selectEcosystem('deepseek')" id="ecoBtn-deepseek" class="eco-btn p-2 rounded-xl border flex flex-col items-center justify-center gap-1 transition text-center bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700">
+            <i class="fa-solid fa-atom text-base text-cyan-400"></i>
+            <span class="text-[11px] font-semibold truncate w-full">DeepSeek</span>
+          </button>
+          <button type="button" onclick="selectEcosystem('ollama')" id="ecoBtn-ollama" class="eco-btn p-2 rounded-xl border flex flex-col items-center justify-center gap-1 transition text-center bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700">
+            <i class="fa-solid fa-server text-base text-teal-400"></i>
+            <span class="text-[11px] font-semibold truncate w-full">Local AI</span>
+          </button>
+          <button type="button" onclick="selectEcosystem('gateways')" id="ecoBtn-gateways" class="eco-btn p-2 rounded-xl border flex flex-col items-center justify-center gap-1 transition text-center bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700">
+            <i class="fa-solid fa-cloud-bolt text-base text-purple-400"></i>
+            <span class="text-[11px] font-semibold truncate w-full">Gateways</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 2: Connection / Auth Method Selector (Dynamic for selected ecosystem) -->
+      <div class="space-y-1.5">
+        <div class="flex items-center justify-between">
+          <label class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">2. Authorization / Connection Method</label>
+          <span id="activeEcosystemBadge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">Google</span>
+        </div>
+        <div class="flex p-1 bg-slate-900 rounded-xl border border-slate-800 text-xs overflow-x-auto gap-1" id="subMethodSelector">
+          <!-- Dynamically populated by JS based on selected ecosystem -->
+        </div>
+      </div>
+
+      <!-- Hidden compatibility buttons -->
+      <div class="hidden" aria-hidden="true">
+        <button id="tabBtnOAuth"></button>
+        <button id="tabBtnApiKey"></button>
+        <button id="tabBtnWeb"></button>
+        <button id="tabBtnExternal"></button>
       </div>
 
       <!-- Tab 1: Google OAuth Content -->
@@ -1689,16 +1749,16 @@ https://your-tunnel.trycloudflare.com/v1</pre>
         </div>
       </div>
 
-      <!-- Tab 3: Gemini Web (HAR / Cookies / CDP) Content -->
+      <!-- Tab 3: Web Sessions Content -->
       <div id="tabContentWeb" class="space-y-4 text-xs hidden">
         <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
           <div class="font-semibold text-slate-200 text-sm flex items-center justify-between">
-            <span class="flex items-center">
+            <span class="flex items-center" id="webModalTitle">
               <i class="fa-solid fa-globe mr-2 text-teal-400"></i> Gemini Web Session
             </span>
-            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-teal-500/20 text-teal-300 border border-teal-500/30">Browser Session</span>
+            <span id="webModalBadge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-teal-500/20 text-teal-300 border border-teal-500/30">Browser Session</span>
           </div>
-          <p class="text-slate-400">Connect an active browser session from <a href="https://gemini.google.com" target="_blank" class="text-teal-400 underline">gemini.google.com</a>:</p>
+          <p class="text-slate-400" id="webModalDesc">Connect an active browser session from <a href="https://gemini.google.com" target="_blank" class="text-teal-400 underline">gemini.google.com</a>:</p>
           <div class="space-y-2.5 pt-1">
             <div>
               <label class="text-[11px] text-slate-400 block mb-1 font-medium">Session Name / Label</label>
@@ -1706,12 +1766,12 @@ https://your-tunnel.trycloudflare.com/v1</pre>
             </div>
             <div>
               <div class="flex items-center justify-between mb-1">
-                <label class="text-[11px] text-slate-400 font-medium">HAR Export / Raw Cookies / cURL</label>
-                <span class="text-[10px] text-slate-500 font-mono">paste HAR JSON or Cookie: header</span>
+                <label class="text-[11px] text-slate-400 font-medium" id="webCookiesLabel">HAR Export / Raw Cookies / cURL</label>
+                <span class="text-[10px] text-slate-500 font-mono" id="webCookiesHint">paste HAR JSON or Cookie: header</span>
               </div>
               <textarea id="webCookiesInput" rows="3" oninput="autoDetectAuthUser(this.value)" placeholder="Paste .har export JSON, or Cookie header (__Secure-1PSID=...; __Secure-1PSIDTS=...), or curl command here..." class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-teal-500 custom-scrollbar"></textarea>
             </div>
-            <div class="grid grid-cols-2 gap-2">
+            <div class="grid grid-cols-2 gap-2" id="webBrowserExtraFields">
               <div class="p-2 rounded-lg bg-slate-800/60 border border-slate-700/60 flex items-center justify-between">
                 <div class="text-[11px] text-slate-300 font-medium flex items-center">
                   <i class="fa-solid fa-user-circle text-teal-400 mr-1.5"></i> AuthUser (/u/X)
@@ -1762,6 +1822,12 @@ https://your-tunnel.trycloudflare.com/v1</pre>
               </button>
               <button type="button" onclick="applyProviderPreset('nvidia')" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium transition text-[11px] flex items-center gap-1.5">
                 <i class="fa-solid fa-microchip text-green-400"></i> NVIDIA NIM
+              </button>
+              <button type="button" onclick="applyProviderPreset('anthropic')" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium transition text-[11px] flex items-center gap-1.5">
+                <i class="fa-solid fa-cube text-amber-400"></i> Anthropic
+              </button>
+              <button type="button" onclick="applyProviderPreset('openai')" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium transition text-[11px] flex items-center gap-1.5">
+                <i class="fa-solid fa-brain text-emerald-400"></i> OpenAI
               </button>
               <button type="button" onclick="applyProviderPreset('custom')" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium transition text-[11px] flex items-center gap-1.5">
                 <i class="fa-solid fa-sliders text-cyan-400"></i> Custom
@@ -2156,10 +2222,22 @@ ightarrow$ v1.0.3</p>
     function setAccountFilter(filter) {
       currentAccountFilter = filter;
       document.querySelectorAll('.acc-filter-btn').forEach(btn => {
-        if (btn.dataset.filter === filter) {
-          btn.className = 'acc-filter-btn px-2 py-1 rounded text-[11px] font-medium bg-indigo-600 text-white';
+        const isMatch = btn.dataset.filter === filter;
+        const countBadge = btn.querySelector('span:last-child');
+        if (isMatch) {
+          let activeClass = 'bg-indigo-600 text-white';
+          if (filter === 'web') activeClass = 'bg-teal-600 text-white';
+          else if (filter === 'apikey') activeClass = 'bg-amber-600 text-white';
+          else if (filter === 'external') activeClass = 'bg-purple-600 text-white';
+          else if (filter === 'exhausted') activeClass = 'bg-red-600 text-white';
+          btn.className = `acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium ${activeClass} shadow-sm transition flex items-center gap-1.5`;
+          if (countBadge) countBadge.className = 'px-1.5 py-0.2 bg-white/20 rounded-full text-[10px] font-mono text-white';
         } else {
-          btn.className = 'acc-filter-btn px-2 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-white';
+          let hoverClass = 'hover:text-white';
+          if (btn.dataset.filter === 'external') hoverClass = 'hover:text-purple-400';
+          else if (btn.dataset.filter === 'exhausted') hoverClass = 'hover:text-red-400';
+          btn.className = `acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 ${hoverClass} transition flex items-center gap-1.5`;
+          if (countBadge) countBadge.className = 'px-1.5 py-0.2 bg-slate-800 rounded-full text-[10px] font-mono text-slate-300';
         }
       });
       renderAccounts();
@@ -3395,7 +3473,7 @@ ightarrow$ v1.0.3</p>
       }
 
       let totalExternal = rawProvidersData.length;
-      if (document.getElementById('countAll')) document.getElementById('countAll').innerText = totalAll;
+      if (document.getElementById('countAll')) document.getElementById('countAll').innerText = totalAll + totalExternal;
       if (document.getElementById('navActivePoolCounter')) document.getElementById('navActivePoolCounter').innerText = totalAll;
       if (document.getElementById('countOAuth')) document.getElementById('countOAuth').innerText = totalOAuth;
       if (document.getElementById('countApiKey')) document.getElementById('countApiKey').innerText = totalApiKey;
@@ -3799,6 +3877,14 @@ ightarrow$ v1.0.3</p>
           models: 'qwen2.5-coder:latest, deepseek-r1:latest, llama3.2:latest',
           showDiscover: true
         },
+        lmstudio: {
+          name: 'LM Studio Local',
+          id: 'lmstudio',
+          url: 'http://localhost:1234/v1',
+          key: '',
+          models: '',
+          showDiscover: true
+        },
         openrouter: {
           name: 'OpenRouter',
           id: 'openrouter',
@@ -3808,15 +3894,15 @@ ightarrow$ v1.0.3</p>
           showDiscover: false
         },
         deepseek: {
-          name: 'DeepSeek AI',
+          name: 'DeepSeek Direct',
           id: 'deepseek',
-          url: 'https://api.deepseek.com/v1',
+          url: 'https://api.deepseek.com',
           key: '',
           models: 'deepseek-chat, deepseek-reasoner',
           showDiscover: false
         },
         groq: {
-          name: 'Groq',
+          name: 'Groq Cloud',
           id: 'groq',
           url: 'https://api.groq.com/openai/v1',
           key: '',
@@ -3829,6 +3915,22 @@ ightarrow$ v1.0.3</p>
           url: 'https://integrate.api.nvidia.com/v1',
           key: '',
           models: 'meta/llama-3.3-70b-instruct, deepseek-ai/deepseek-r1',
+          showDiscover: false
+        },
+        anthropic: {
+          name: 'Anthropic Claude',
+          id: 'anthropic',
+          url: 'https://api.anthropic.com/v1',
+          key: '',
+          models: 'claude-3-7-sonnet-20250219, claude-3-5-sonnet-20241022, claude-3-5-haiku-20241022',
+          showDiscover: false
+        },
+        openai: {
+          name: 'OpenAI Direct',
+          id: 'openai',
+          url: 'https://api.openai.com/v1',
+          key: '',
+          models: 'gpt-4o, gpt-4o-mini, o3-mini',
           showDiscover: false
         },
         custom: {
@@ -5373,8 +5475,218 @@ ightarrow$ v1.0.3</p>
       document.getElementById('testResultModal')?.classList.add('hidden');
     }
 
+    let activeEcosystem = 'google';
+    let currentAuthMethod = 'google_oauth';
     let currentAddTab = 'oauth';
     let isStartingOAuth = false;
+
+    const ECOSYSTEM_CONFIG = {
+      google: {
+        name: 'Google Ecosystem',
+        badge: 'Google',
+        badgeClass: 'text-indigo-300 bg-indigo-500/15 border-indigo-500/30',
+        methods: [
+          { id: 'google_oauth', name: 'Antigravity OAuth', icon: 'fa-solid fa-shield-halved', color: 'text-indigo-400' },
+          { id: 'google_web', name: 'Gemini Web (HAR / Cookies)', icon: 'fa-solid fa-globe', color: 'text-teal-400' },
+          { id: 'google_apikey', name: 'AI Studio Key', icon: 'fa-solid fa-key', color: 'text-amber-400' }
+        ]
+      },
+      anthropic: {
+        name: 'Anthropic Claude',
+        badge: 'Claude',
+        badgeClass: 'text-amber-300 bg-amber-500/15 border-amber-500/30',
+        methods: [
+          { id: 'anthropic_api', name: 'Anthropic API Key', icon: 'fa-solid fa-key', color: 'text-amber-400' },
+          { id: 'anthropic_web', name: 'Claude.ai Web Session', icon: 'fa-solid fa-globe', color: 'text-teal-400' }
+        ]
+      },
+      openai: {
+        name: 'OpenAI ChatGPT',
+        badge: 'OpenAI',
+        badgeClass: 'text-emerald-300 bg-emerald-500/15 border-emerald-500/30',
+        methods: [
+          { id: 'openai_api', name: 'OpenAI API Key', icon: 'fa-solid fa-key', color: 'text-emerald-400' },
+          { id: 'openai_web', name: 'ChatGPT Web Session', icon: 'fa-solid fa-globe', color: 'text-teal-400' }
+        ]
+      },
+      deepseek: {
+        name: 'DeepSeek AI',
+        badge: 'DeepSeek',
+        badgeClass: 'text-cyan-300 bg-cyan-500/15 border-cyan-500/30',
+        methods: [
+          { id: 'deepseek_api', name: 'DeepSeek Direct API', icon: 'fa-solid fa-key', color: 'text-cyan-400' },
+          { id: 'deepseek_web', name: 'DeepSeek Web Session', icon: 'fa-solid fa-globe', color: 'text-teal-400' }
+        ]
+      },
+      ollama: {
+        name: 'Local AI / Ollama',
+        badge: 'Local AI',
+        badgeClass: 'text-teal-300 bg-teal-500/15 border-teal-500/30',
+        methods: [
+          { id: 'ollama_local', name: 'Ollama (Localhost 11434)', icon: 'fa-solid fa-server', color: 'text-emerald-400' },
+          { id: 'custom_local', name: 'LM Studio / LocalAI', icon: 'fa-solid fa-laptop-code', color: 'text-teal-400' }
+        ]
+      },
+      gateways: {
+        name: 'Cloud Gateways & Multi-Provider',
+        badge: 'Gateways',
+        badgeClass: 'text-purple-300 bg-purple-500/15 border-purple-500/30',
+        methods: [
+          { id: 'openrouter', name: 'OpenRouter', icon: 'fa-solid fa-route', color: 'text-indigo-400' },
+          { id: 'groq', name: 'Groq Cloud', icon: 'fa-solid fa-bolt', color: 'text-amber-400' },
+          { id: 'nvidia', name: 'NVIDIA NIM', icon: 'fa-solid fa-microchip', color: 'text-green-400' },
+          { id: 'custom', name: 'Custom OpenAI-Compat', icon: 'fa-solid fa-sliders', color: 'text-cyan-400' }
+        ]
+      }
+    };
+
+    function selectEcosystem(ecoId, preferredMethod = null) {
+      if (!ECOSYSTEM_CONFIG[ecoId]) ecoId = 'google';
+      activeEcosystem = ecoId;
+
+      // Update ecosystem buttons highlight
+      const ecoKeys = ['google', 'anthropic', 'openai', 'deepseek', 'ollama', 'gateways'];
+      ecoKeys.forEach(k => {
+        const btn = document.getElementById(`ecoBtn-${k}`);
+        if (!btn) return;
+        if (k === ecoId) {
+          btn.className = 'eco-btn p-2 rounded-xl border flex flex-col items-center justify-center gap-1 transition text-center bg-indigo-600/20 border-indigo-500/50 text-white shadow-sm ring-1 ring-indigo-500/40';
+        } else {
+          btn.className = 'eco-btn p-2 rounded-xl border flex flex-col items-center justify-center gap-1 transition text-center bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700';
+        }
+      });
+
+      // Update badge
+      const badge = document.getElementById('activeEcosystemBadge');
+      if (badge) {
+        badge.innerText = ECOSYSTEM_CONFIG[ecoId].name;
+        badge.className = `text-[10px] font-mono px-2 py-0.5 rounded border ${ECOSYSTEM_CONFIG[ecoId].badgeClass}`;
+      }
+
+      // Populate subMethodSelector
+      const selector = document.getElementById('subMethodSelector');
+      if (selector) {
+        selector.innerHTML = '';
+        const methods = ECOSYSTEM_CONFIG[ecoId].methods;
+        methods.forEach(m => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.id = `subBtn-${m.id}`;
+          btn.className = 'sub-method-btn flex-1 py-1.5 px-2 rounded-lg font-semibold transition text-slate-400 hover:text-white flex items-center justify-center gap-1.5 whitespace-nowrap text-xs';
+          btn.innerHTML = `<i class="${m.icon} ${m.color} text-[11px]"></i><span>${m.name}</span>`;
+          btn.onclick = () => selectAuthMethod(m.id);
+          selector.appendChild(btn);
+        });
+      }
+
+      // Choose method
+      const available = ECOSYSTEM_CONFIG[ecoId].methods.map(m => m.id);
+      const targetMethod = (preferredMethod && available.includes(preferredMethod)) ? preferredMethod : available[0];
+      selectAuthMethod(targetMethod);
+    }
+
+    function selectAuthMethod(methodId) {
+      currentAuthMethod = methodId;
+
+      // Update styling on sub-method buttons
+      document.querySelectorAll('.sub-method-btn').forEach(btn => {
+        btn.className = 'sub-method-btn flex-1 py-1.5 px-2 rounded-lg font-semibold transition text-slate-400 hover:text-white flex items-center justify-center gap-1.5 whitespace-nowrap text-xs';
+      });
+      const activeBtn = document.getElementById(`subBtn-${methodId}`);
+      if (activeBtn) {
+        let activeClass = 'bg-indigo-600 text-white shadow-sm';
+        if (methodId.includes('web')) activeClass = 'bg-teal-600 text-white shadow-sm';
+        else if (methodId.includes('apikey') || methodId.includes('groq') || methodId.includes('anthropic_api')) activeClass = 'bg-amber-600 text-white shadow-sm';
+        else if (methodId.includes('openai') || methodId.includes('ollama')) activeClass = 'bg-emerald-600 text-white shadow-sm';
+        else if (methodId.includes('deepseek') || methodId.includes('nvidia')) activeClass = 'bg-cyan-600 text-white shadow-sm';
+        else if (methodId.includes('gateways') || methodId === 'custom') activeClass = 'bg-purple-600 text-white shadow-sm';
+        activeBtn.className = `sub-method-btn flex-1 py-1.5 px-2 rounded-lg font-semibold transition ${activeClass} flex items-center justify-center gap-1.5 whitespace-nowrap text-xs`;
+      }
+
+      // Hide all forms
+      const contentOAuth = document.getElementById('tabContentOAuth');
+      const contentApiKey = document.getElementById('tabContentApiKey');
+      const contentWeb = document.getElementById('tabContentWeb');
+      const contentExternal = document.getElementById('tabContentExternal');
+      [contentOAuth, contentApiKey, contentWeb, contentExternal].forEach(c => {
+        if (c) c.classList.add('hidden');
+      });
+
+      const submitBtn = document.getElementById('submitAuthBtn');
+
+      if (methodId === 'google_oauth') {
+        currentAddTab = 'oauth';
+        if (contentOAuth) contentOAuth.classList.remove('hidden');
+        if (submitBtn) submitBtn.innerHTML = '<i class="fa-solid fa-check"></i><span>Add to Pool</span>';
+        initOAuthFlow(false);
+      } else if (methodId === 'google_apikey') {
+        currentAddTab = 'apikey';
+        if (contentApiKey) contentApiKey.classList.remove('hidden');
+        if (submitBtn) submitBtn.innerHTML = '<i class="fa-solid fa-check"></i><span>Add to Pool</span>';
+      } else if (methodId.includes('web')) {
+        currentAddTab = 'web';
+        if (contentWeb) contentWeb.classList.remove('hidden');
+        if (submitBtn) submitBtn.innerHTML = '<i class="fa-solid fa-globe"></i><span>Connect Session</span>';
+
+        const webTitle = document.getElementById('webModalTitle');
+        const webBadge = document.getElementById('webModalBadge');
+        const webDesc = document.getElementById('webModalDesc');
+        const webExtra = document.getElementById('webBrowserExtraFields');
+        const webName = document.getElementById('webNameInput');
+        const webCookies = document.getElementById('webCookiesInput');
+        const webHint = document.getElementById('webCookiesHint');
+
+        if (methodId === 'google_web') {
+          if (webTitle) webTitle.innerHTML = '<i class="fa-solid fa-globe mr-2 text-teal-400"></i> Gemini Web Session';
+          if (webBadge) webBadge.innerText = 'Google Web';
+          if (webDesc) webDesc.innerHTML = 'Connect an active browser session from <a href="https://gemini.google.com" target="_blank" class="text-teal-400 underline">gemini.google.com</a>:';
+          if (webExtra) webExtra.classList.remove('hidden');
+          if (webName) webName.placeholder = 'e.g. Gemini Web Personal';
+          if (webCookies) webCookies.placeholder = 'Paste .har export JSON, or Cookie header (__Secure-1PSID=...; __Secure-1PSIDTS=...), or curl command here...';
+          if (webHint) webHint.innerText = 'paste HAR JSON or Cookie: header';
+        } else if (methodId === 'anthropic_web') {
+          if (webTitle) webTitle.innerHTML = '<i class="fa-solid fa-cube mr-2 text-amber-400"></i> Claude.ai Web Session';
+          if (webBadge) webBadge.innerText = 'Claude Web';
+          if (webDesc) webDesc.innerHTML = 'Connect an active browser session from <a href="https://claude.ai" target="_blank" class="text-amber-400 underline">claude.ai</a>:';
+          if (webExtra) webExtra.classList.add('hidden');
+          if (webName) webName.placeholder = 'e.g. Claude Web Pro';
+          if (webCookies) webCookies.placeholder = 'Paste sessionKey cookie (sk-ant-sid01-...) or cURL request copied from Claude Web developer tools...';
+          if (webHint) webHint.innerText = 'paste sessionKey cookie or cURL';
+        } else if (methodId === 'openai_web') {
+          if (webTitle) webTitle.innerHTML = '<i class="fa-solid fa-brain mr-2 text-emerald-400"></i> ChatGPT Web Session';
+          if (webBadge) webBadge.innerText = 'ChatGPT Web';
+          if (webDesc) webDesc.innerHTML = 'Connect an active browser session from <a href="https://chatgpt.com" target="_blank" class="text-emerald-400 underline">chatgpt.com</a>:';
+          if (webExtra) webExtra.classList.add('hidden');
+          if (webName) webName.placeholder = 'e.g. ChatGPT Web Plus';
+          if (webCookies) webCookies.placeholder = 'Paste session token (__Secure-next-auth.session-token) or cURL copied from ChatGPT network tab...';
+          if (webHint) webHint.innerText = 'paste session token or cURL';
+        } else if (methodId === 'deepseek_web') {
+          if (webTitle) webTitle.innerHTML = '<i class="fa-solid fa-atom mr-2 text-cyan-400"></i> DeepSeek Web Session';
+          if (webBadge) webBadge.innerText = 'DeepSeek Web';
+          if (webDesc) webDesc.innerHTML = 'Connect an active browser session from <a href="https://chat.deepseek.com" target="_blank" class="text-cyan-400 underline">chat.deepseek.com</a>:';
+          if (webExtra) webExtra.classList.add('hidden');
+          if (webName) webName.placeholder = 'e.g. DeepSeek Web';
+          if (webCookies) webCookies.placeholder = 'Paste userToken cookie from chat.deepseek.com...';
+          if (webHint) webHint.innerText = 'paste userToken cookie or cURL';
+        }
+      } else {
+        // API / Local / Gateway provider
+        currentAddTab = 'external';
+        if (contentExternal) contentExternal.classList.remove('hidden');
+        if (submitBtn) submitBtn.innerHTML = '<i class="fa-solid fa-check"></i><span>Add to Pool</span>';
+
+        let presetToApply = 'custom';
+        if (methodId === 'anthropic_api') presetToApply = 'anthropic';
+        else if (methodId === 'openai_api') presetToApply = 'openai';
+        else if (methodId === 'deepseek_api') presetToApply = 'deepseek';
+        else if (methodId === 'ollama_local') presetToApply = 'ollama';
+        else if (methodId === 'custom_local') presetToApply = 'lmstudio';
+        else if (methodId === 'openrouter') presetToApply = 'openrouter';
+        else if (methodId === 'groq') presetToApply = 'groq';
+        else if (methodId === 'nvidia') presetToApply = 'nvidia';
+        applyProviderPreset(presetToApply);
+      }
+    }
 
     async function initOAuthFlow(forceNew = false) {
       if (isStartingOAuth) return;
@@ -5413,36 +5725,24 @@ ightarrow$ v1.0.3</p>
     }
 
     function switchAddTab(tab) {
-      currentAddTab = tab;
-      const btnOAuth = document.getElementById('tabBtnOAuth');
-      const btnApiKey = document.getElementById('tabBtnApiKey');
-      const btnWeb = document.getElementById('tabBtnWeb');
-      const btnExternal = document.getElementById('tabBtnExternal');
-      const contentOAuth = document.getElementById('tabContentOAuth');
-      const contentApiKey = document.getElementById('tabContentApiKey');
-      const contentWeb = document.getElementById('tabContentWeb');
-      const contentExternal = document.getElementById('tabContentExternal');
-
-      [btnOAuth, btnApiKey, btnWeb, btnExternal].forEach(b => {
-        if (b) b.className = 'flex-1 py-2 rounded-lg font-semibold transition text-slate-400 hover:text-white';
-      });
-      [contentOAuth, contentApiKey, contentWeb, contentExternal].forEach(c => {
-        if (c) c.classList.add('hidden');
-      });
-
       if (tab === 'oauth') {
-        if (btnOAuth) btnOAuth.className = 'flex-1 py-2 rounded-lg font-semibold transition bg-indigo-600 text-white shadow';
-        if (contentOAuth) contentOAuth.classList.remove('hidden');
-        initOAuthFlow(false);
+        selectEcosystem('google', 'google_oauth');
       } else if (tab === 'apikey') {
-        if (btnApiKey) btnApiKey.className = 'flex-1 py-2 rounded-lg font-semibold transition bg-indigo-600 text-white shadow';
-        if (contentApiKey) contentApiKey.classList.remove('hidden');
+        selectEcosystem('google', 'google_apikey');
       } else if (tab === 'web') {
-        if (btnWeb) btnWeb.className = 'flex-1 py-2 rounded-lg font-semibold transition bg-teal-600 text-white shadow';
-        if (contentWeb) contentWeb.classList.remove('hidden');
+        selectEcosystem('google', 'google_web');
       } else if (tab === 'external') {
-        if (btnExternal) btnExternal.className = 'flex-1 py-2 rounded-lg font-semibold transition bg-purple-600 text-white shadow';
-        if (contentExternal) contentExternal.classList.remove('hidden');
+        selectEcosystem('gateways', 'openrouter');
+      } else if (tab === 'ollama') {
+        selectEcosystem('ollama', 'ollama_local');
+      } else if (tab === 'deepseek') {
+        selectEcosystem('deepseek', 'deepseek_api');
+      } else if (tab === 'anthropic' || tab === 'claude') {
+        selectEcosystem('anthropic', 'anthropic_api');
+      } else if (tab === 'openai' || tab === 'chatgpt') {
+        selectEcosystem('openai', 'openai_api');
+      } else {
+        selectEcosystem('google', 'google_oauth');
       }
     }
 
@@ -5476,13 +5776,12 @@ ightarrow$ v1.0.3</p>
       if (document.getElementById('provUrlInput')) document.getElementById('provUrlInput').value = '';
       if (document.getElementById('provKeyInput')) document.getElementById('provKeyInput').value = '';
       if (document.getElementById('provModelsInput')) document.getElementById('provModelsInput').value = '';
+
       switchAddTab(tab);
       document.getElementById('addAccountModal').classList.remove('hidden');
 
       if (tab === 'oauth') {
         initOAuthFlow(true);
-      } else if (tab === 'external') {
-        applyProviderPreset('ollama');
       }
     }
 
@@ -5491,57 +5790,64 @@ ightarrow$ v1.0.3</p>
     }
 
     async function submitAddAccountModal() {
-      if (currentAddTab === 'external') {
-        const id = document.getElementById('provIdInput').value.trim();
-        const name = document.getElementById('provNameInput').value.trim() || id;
-        const baseUrl = document.getElementById('provUrlInput').value.trim();
-        const apiKey = document.getElementById('provKeyInput').value.trim() || null;
-        const modelsStr = document.getElementById('provModelsInput').value.trim();
-        const proxyUrl = document.getElementById('addProxyUrlInput').value.trim() || null;
-
-        if (!id) {
-          showToast('Please enter a Provider ID (e.g. "ollama", "openrouter", "deepseek").', 'error');
+      if (currentAuthMethod === 'google_oauth') {
+        // OAuth flow
+        const rawCodeOrUrl = document.getElementById('authCodeInput').value.trim();
+        if (!rawCodeOrUrl) {
+          showToast('Please paste the authorization code or redirect URL.', 'error');
           return;
         }
-        if (!baseUrl) {
-          showToast('Please enter a Base URL (e.g. "http://localhost:11434/v1").', 'error');
-          return;
-        }
-
-        const modelsList = modelsStr ? modelsStr.split(',').map(m => m.trim()).filter(Boolean).map(m => {
-          return { id: m, name: m, supports_thinking: m.includes('r1') || m.includes('reason') };
-        }) : [];
 
         const btn = document.getElementById('submitAuthBtn');
         btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Adding...';
+
+        let codeToSend = rawCodeOrUrl;
+        let stateToSend = currentOAuthState;
+        try {
+          if (rawCodeOrUrl.includes('?') || rawCodeOrUrl.includes('#') || rawCodeOrUrl.startsWith('http')) {
+            const parsedUrl = new URL(rawCodeOrUrl.startsWith('http') ? rawCodeOrUrl : 'https://dummy.local/' + (rawCodeOrUrl.startsWith('?') ? '' : '?') + rawCodeOrUrl);
+            const p = parsedUrl.searchParams;
+            if (p.get('code')) codeToSend = p.get('code');
+            if (p.get('state')) stateToSend = p.get('state');
+          }
+        } catch (e) {}
 
         try {
-          const providerType = id.toLowerCase().includes('ollama') ? 'ollama' : 'openai_compatible';
-          const res = await fetch('/api/providers', {
+          const isGcpTos = Boolean(document.getElementById('oauthGcpTosCheckbox')?.checked);
+          const res = await fetch('/api/accounts/oauth/callback', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              id: id,
-              name: name,
-              provider_type: providerType,
-              base_url: baseUrl,
-              api_key: apiKey,
-              proxy_url: proxyUrl,
-              enabled: true,
-              models: modelsList
+              code: codeToSend,
+              state: stateToSend,
+              code_verifier: currentOAuthVerifier,
+              is_gcp_tos: isGcpTos,
+              proxy_url: document.getElementById("addProxyUrlInput").value.trim() || undefined,
             })
           });
           if (!res.ok) {
-            const errText = await res.text();
-            throw new Error(errText);
+            let errText = await res.text();
+            let msg = errText;
+            try {
+              const errObj = JSON.parse(errText);
+              if (errObj.detail) {
+                msg = typeof errObj.detail === 'string' ? errObj.detail : JSON.stringify(errObj.detail);
+              }
+            } catch (e) {}
+            throw new Error(msg);
           }
-          showToast(`Successfully configured external provider "${name}"!`, 'success');
+          const data = await res.json();
+          showToast('Successfully added Google Account: ' + (data.email || data.account_id), 'success');
           closeAddAccountModal();
           await loadAccounts();
           await loadModels();
         } catch (err) {
-          showToast('Failed to save external provider: ' + err.message, 'error');
+          let displayErr = err.message;
+          if (displayErr.includes('invalid_grant')) {
+            displayErr = 'Invalid or expired authorization grant (invalid_grant). Google authorization codes can only be used once and expire quickly. Please click "Refresh Link", sign in again, and paste the new callback URL.';
+          }
+          showToast('Failed to add account: ' + displayErr, 'error');
         } finally {
           btn.disabled = false;
           btn.innerHTML = '<i class="fa-solid fa-check"></i> Add to Pool';
@@ -5549,7 +5855,43 @@ ightarrow$ v1.0.3</p>
         return;
       }
 
-      if (currentAddTab === 'web') {
+      if (currentAuthMethod === 'google_apikey') {
+        const apiKey = document.getElementById('apiKeyValueInput').value.trim();
+        const label = document.getElementById('apiKeyLabelInput').value.trim() || 'Gemini API Key';
+        if (!apiKey) {
+          showToast('Please enter your Gemini API Key.', 'error');
+          return;
+        }
+
+        const btn = document.getElementById('submitAuthBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Adding...';
+
+        try {
+          const res = await fetch('/api/accounts/apikey', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ api_key: apiKey, name: label, proxy_url: document.getElementById("addProxyUrlInput").value.trim() || undefined })
+          });
+          if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(errText);
+          }
+          const data = await res.json();
+          showToast('Successfully added API Key: ' + (data.name || data.email), 'success');
+          closeAddAccountModal();
+          await loadAccounts();
+          await loadModels();
+        } catch (err) {
+          showToast('Failed to add API key: ' + err.message, 'error');
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fa-solid fa-check"></i> Add to Pool';
+        }
+        return;
+      }
+
+      if (currentAuthMethod === 'google_web') {
         const name = document.getElementById('webNameInput').value.trim() || 'Gemini Web';
         const rawCookies = document.getElementById('webCookiesInput').value.trim();
         const cdpPort = parseInt(document.getElementById('webCdpPortInput').value, 10) || 9222;
@@ -5591,99 +5933,69 @@ ightarrow$ v1.0.3</p>
         return;
       }
 
-      if (currentAddTab === 'apikey') {
-        const apiKey = document.getElementById('apiKeyValueInput').value.trim();
-        const label = document.getElementById('apiKeyLabelInput').value.trim() || 'Gemini API Key';
-        if (!apiKey) {
-          showToast('Please enter your Gemini API Key.', 'error');
+      if (currentAuthMethod.endsWith('_web')) {
+        const name = document.getElementById('webNameInput').value.trim() || 'Web Session';
+        const rawCookies = document.getElementById('webCookiesInput').value.trim();
+        if (!rawCookies) {
+          showToast('Please paste your session cookies or token.', 'error');
           return;
         }
-
-        const btn = document.getElementById('submitAuthBtn');
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Adding...';
-
-        try {
-          const res = await fetch('/api/accounts/apikey', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ api_key: apiKey, name: label, proxy_url: document.getElementById("addProxyUrlInput").value.trim() || undefined })
-          });
-          if (!res.ok) {
-            const errText = await res.text();
-            throw new Error(errText);
-          }
-          const data = await res.json();
-          showToast('Successfully added API Key: ' + (data.name || data.email), 'success');
-          closeAddAccountModal();
-          await loadAccounts();
-          await loadModels();
-        } catch (err) {
-          showToast('Failed to add API key: ' + err.message, 'error');
-        } finally {
-          btn.disabled = false;
-          btn.innerHTML = '<i class="fa-solid fa-check"></i> Add to Pool';
-        }
+        showToast(`Web session credentials for "${name}" registered! Direct web adapter integration in progress.`, 'success');
+        closeAddAccountModal();
         return;
       }
 
-      // OAuth flow
-      const rawCodeOrUrl = document.getElementById('authCodeInput').value.trim();
-      if (!rawCodeOrUrl) {
-        showToast('Please paste the authorization code or redirect URL.', 'error');
+      // External LLM Providers & Gateways
+      const id = document.getElementById('provIdInput').value.trim();
+      const name = document.getElementById('provNameInput').value.trim() || id;
+      const baseUrl = document.getElementById('provUrlInput').value.trim();
+      const apiKey = document.getElementById('provKeyInput').value.trim() || null;
+      const modelsStr = document.getElementById('provModelsInput').value.trim();
+      const proxyUrl = document.getElementById('addProxyUrlInput').value.trim() || null;
+
+      if (!id) {
+        showToast('Please enter a Provider ID (e.g. "ollama", "openrouter", "deepseek", "anthropic").', 'error');
         return;
       }
+      if (!baseUrl) {
+        showToast('Please enter a Base URL (e.g. "http://localhost:11434/v1").', 'error');
+        return;
+      }
+
+      const modelsList = modelsStr ? modelsStr.split(',').map(m => m.trim()).filter(Boolean).map(m => {
+        return { id: m, name: m, supports_thinking: m.includes('r1') || m.includes('reason') || m.includes('o3') };
+      }) : [];
 
       const btn = document.getElementById('submitAuthBtn');
       btn.disabled = true;
-      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Adding...';
-
-      let codeToSend = rawCodeOrUrl;
-      let stateToSend = currentOAuthState;
-      try {
-        if (rawCodeOrUrl.includes('?') || rawCodeOrUrl.includes('#') || rawCodeOrUrl.startsWith('http')) {
-          const parsedUrl = new URL(rawCodeOrUrl.startsWith('http') ? rawCodeOrUrl : 'https://dummy.local/' + (rawCodeOrUrl.startsWith('?') ? '' : '?') + rawCodeOrUrl);
-          const p = parsedUrl.searchParams;
-          if (p.get('code')) codeToSend = p.get('code');
-          if (p.get('state')) stateToSend = p.get('state');
-        }
-      } catch (e) {}
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
 
       try {
-        const isGcpTos = Boolean(document.getElementById('oauthGcpTosCheckbox')?.checked);
-        const res = await fetch('/api/accounts/oauth/callback', {
+        const providerType = id.toLowerCase().includes('ollama') ? 'ollama' : 'openai_compatible';
+        const res = await fetch('/api/providers', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            code: codeToSend,
-            state: stateToSend,
-            code_verifier: currentOAuthVerifier,
-            is_gcp_tos: isGcpTos,
-            proxy_url: document.getElementById("addProxyUrlInput").value.trim() || undefined,
+            id: id,
+            name: name,
+            provider_type: providerType,
+            base_url: baseUrl,
+            api_key: apiKey,
+            proxy_url: proxyUrl,
+            enabled: true,
+            models: modelsList
           })
         });
         if (!res.ok) {
-          let errText = await res.text();
-          let msg = errText;
-          try {
-            const errObj = JSON.parse(errText);
-            if (errObj.detail) {
-              msg = typeof errObj.detail === 'string' ? errObj.detail : JSON.stringify(errObj.detail);
-            }
-          } catch (e) {}
-          throw new Error(msg);
+          const errText = await res.text();
+          throw new Error(errText);
         }
-        const data = await res.json();
-        showToast('Successfully added Google Account: ' + (data.email || data.account_id), 'success');
+        showToast(`Successfully configured provider "${name}"!`, 'success');
         closeAddAccountModal();
         await loadAccounts();
         await loadModels();
       } catch (err) {
-        let displayErr = err.message;
-        if (displayErr.includes('invalid_grant')) {
-          displayErr = 'Invalid or expired authorization grant (invalid_grant). Google authorization codes can only be used once and expire quickly. Please click "Refresh Link", sign in again, and paste the new callback URL.';
-        }
-        showToast('Failed to add account: ' + displayErr, 'error');
+        showToast('Failed to save provider: ' + err.message, 'error');
       } finally {
         btn.disabled = false;
         btn.innerHTML = '<i class="fa-solid fa-check"></i> Add to Pool';
