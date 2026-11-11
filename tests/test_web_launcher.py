@@ -848,10 +848,33 @@ def test_patch_web_bundle_v2_31_0_mic_and_carbon(tmp_path):
     # Verify slash command caching and /deepagent injection
     assert '__AGY_CACHED_SLASH_COMMANDS__' in patched_js
     assert 'daItem.name="deepagent"' in patched_js
+    assert '<deepagent_effort>' in patched_js
+    # Ensure there are no literal unescaped newlines and it is valid JS syntax
+    import json
+    import re
+    import shutil
+    import subprocess
+    match = re.search(r"daItem\.info\.modelFacingText=(.*?);}", patched_js)
+    assert match is not None
+    parsed = json.loads(match.group(1))
+    assert "<deepagent_effort>" in parsed
+    assert "Spend the effort" in parsed
+    if shutil.which("node"):
+        res = subprocess.run(["node", "-e", f"var x = {match.group(1)};"], capture_output=True, text=True)
+        assert res.returncode == 0, f"JS Syntax error in modelFacingText: {res.stderr}"
 
     patched_html = (bundle / "index.html").read_text(encoding="utf-8")
     assert '"enable-swarm-overview": true' in patched_html
     assert '"enable-citc-workspace-hygiene-rule": true' in patched_html
+
+
+def test_real_main_js_syntax_if_present():
+    import shutil
+    import subprocess
+    real_main = Path.home() / ".config" / "agy-proxy" / "web_ui" / "main.js"
+    if real_main.exists() and shutil.which("node"):
+        res = subprocess.run(["node", "-c", str(real_main)], capture_output=True, text=True)
+        assert res.returncode == 0, f"Real main.js has syntax error: {res.stderr}"
 
 
 
