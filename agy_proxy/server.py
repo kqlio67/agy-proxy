@@ -2078,21 +2078,6 @@ def create_app(
             pass
         return cache_cleaner.clean_cache(categories=categories)
 
-    @app.get("/api/ide/extension")
-    async def get_ide_extension_status():
-        from agy_proxy.extension import get_extension_status
-        return get_extension_status()
-
-    @app.post("/api/ide/extension/install")
-    async def install_ide_extension_endpoint():
-        from agy_proxy.extension import install_ide_extension
-        return install_ide_extension()
-
-    @app.post("/api/ide/extension/uninstall")
-    async def uninstall_ide_extension_endpoint():
-        from agy_proxy.extension import uninstall_ide_extension
-        return uninstall_ide_extension()
-
     @app.get("/api/tunnel/status")
     async def get_tunnel_status():
         from agy_proxy.tunnel import tunnel_manager

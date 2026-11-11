@@ -1446,44 +1446,6 @@ def handle_cache_command(args: argparse.Namespace) -> None:
             console.print(f"[bold red]❌ Failed to clean cache: {res.get('errors')}[/bold red]")
 
 
-def handle_ide_command(args: argparse.Namespace) -> None:
-    """Handles Antigravity IDE companion extension management."""
-    from agy_proxy.extension import get_extension_status, install_ide_extension, uninstall_ide_extension
-    action = getattr(args, "ide_action", "status") or "status"
-
-    if action == "status":
-        st = get_extension_status()
-        inst_badge = "[bold green]INSTALLED[/bold green]" if st.get("installed") else "[bold yellow]NOT INSTALLED[/bold yellow]"
-        dirs_str = "\n".join([f"  • {p}" for p in st.get("candidate_dirs", [])])
-        console.print(Panel(
-            f"[bold cyan]Companion Status:[/bold cyan] {inst_badge}\n"
-            f"[bold cyan]Installed Paths:[/bold cyan] {', '.join(st.get('installed_paths', [])) or 'None'}\n"
-            f"[bold cyan]Target Extension Dirs:[/bold cyan]\n{dirs_str}\n\n"
-            f"[dim]The companion extension adds real-time Quota % and Runway directly to the Antigravity status bar.[/dim]",
-            title="[bold white]Antigravity IDE Companion Extension Status[/bold white]",
-            border_style="cyan",
-        ))
-
-    elif action in ("install", "install-extension"):
-        console.print("[cyan]Installing agy-proxy Companion Extension into Antigravity IDE...[/cyan]")
-        res = install_ide_extension()
-        if res.get("success"):
-            console.print("[bold green]✓ Extension successfully installed![/bold green]")
-            for p in res.get("installed_to", []):
-                console.print(f"  • Installed to: [cyan]{p}[/cyan]")
-            console.print("[dim]Restart or reload Antigravity IDE to view the status-bar widget.[/dim]")
-        else:
-            console.print(f"[bold red]❌ Installation failed: {res.get('error')}[/bold red]")
-
-    elif action in ("uninstall", "uninstall-extension"):
-        console.print("[yellow]Uninstalling agy-proxy Companion Extension...[/yellow]")
-        res = uninstall_ide_extension()
-        if res.get("success"):
-            console.print(f"[bold green]✓ Removed from {len(res.get('removed_from', []))} directory(s).[/bold green]")
-        else:
-            console.print(f"[bold red]❌ Uninstallation failed: {res.get('error')}[/bold red]")
-
-
 def handle_tunnel_command(args: argparse.Namespace) -> None:
     """Handles Remote SSH reverse tunneling commands."""
     from agy_proxy.tunnel import tunnel_manager
@@ -2090,13 +2052,6 @@ def build_parser() -> argparse.ArgumentParser:
     c_clean = cache_sub.add_parser("clean", help="Safely purge logs, crash dumps, and GPU/Shader cache (preserves Brain artifacts by default)")
     c_clean.add_argument("--category", choices=["brain", "presence", "daemon", "crashes", "electron_cache"], help="Clean only specified category")
 
-    # ide subcommand
-    ide_parser = subparsers.add_parser("ide", help="Manage Antigravity IDE companion extension and status bar widget")
-    ide_sub = ide_parser.add_subparsers(dest="ide_action", help="IDE action")
-    ide_sub.add_parser("status", help="Show companion extension installation status")
-    ide_sub.add_parser("install-extension", aliases=["install"], help="Install companion extension into Antigravity IDE")
-    ide_sub.add_parser("uninstall-extension", aliases=["uninstall"], help="Remove companion extension from Antigravity IDE")
-
     # tunnel subcommand
     tunnel_parser = subparsers.add_parser("tunnel", aliases=["ssh"], help="Remote SSH reverse tunneling for isolated servers")
     tunnel_sub = tunnel_parser.add_subparsers(dest="tunnel_action", help="Tunnel action")
@@ -2401,9 +2356,6 @@ def main():
         return
     elif args.subcommand in ("cache", "cleaner"):
         handle_cache_command(args)
-        return
-    elif args.subcommand in ("ide", "extension"):
-        handle_ide_command(args)
         return
     elif args.subcommand in ("tunnel", "ssh"):
         handle_tunnel_command(args)

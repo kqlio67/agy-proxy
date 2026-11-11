@@ -845,14 +845,14 @@
       </div>
     </div>
 
-    <!-- Antigravity Companion Suite & Ecosystem Hub -->
+    <!-- Antigravity IDE & Ecosystem Suite Hub -->
     <div class="p-6 rounded-2xl bg-dark-card border border-dark-border space-y-5">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
         <div>
           <h2 class="text-base font-bold text-white flex items-center">
             <i class="fa-solid fa-rocket mr-2 text-indigo-400"></i> Antigravity IDE & Ecosystem Suite
           </h2>
-          <p class="text-xs text-slate-400 mt-0.5">Status-bar companion extension, deep cache purger, auto-guard update protector, and remote SSH routing.</p>
+          <p class="text-xs text-slate-400 mt-0.5">Deep cache purger, auto-guard update protector, and remote SSH routing.</p>
         </div>
         <div class="flex items-center space-x-2">
           <span class="inline-flex items-center px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-semibold font-mono text-xs">
@@ -861,37 +861,9 @@
         </div>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
 
-        <!-- 1. IDE Companion Extension Card -->
-        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3 flex flex-col hover:border-indigo-500/40 transition">
-          <div class="space-y-1">
-            <div class="font-bold text-slate-200 text-sm flex items-center justify-between">
-              <span class="flex items-center space-x-2">
-                <div class="w-6 h-6 rounded-lg bg-indigo-600/20 text-indigo-400 flex items-center justify-center text-xs">
-                  <i class="fa-solid fa-window-maximize"></i>
-                </div>
-                <span>IDE Status-Bar</span>
-              </span>
-              <span id="ideExtensionBadge" class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 font-mono">Checking...</span>
-            </div>
-            <p class="text-[11px] text-slate-400 leading-snug">Shows live quota %, model runway, and fast actions directly in Antigravity's status bar.</p>
-          </div>
-          <div class="pt-2 mt-auto space-y-2">
-            <div class="grid grid-cols-2 gap-2">
-              <button onclick="triggerExtensionInstall()" class="py-1.5 px-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-center text-xs transition flex items-center justify-center space-x-1 shadow-sm">
-                <i class="fa-solid fa-download text-[10px]"></i>
-                <span>Install</span>
-              </button>
-              <button onclick="triggerExtensionUninstall()" class="py-1.5 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-center text-xs transition flex items-center justify-center space-x-1 border border-slate-700">
-                <i class="fa-solid fa-trash-can text-[10px]"></i>
-                <span>Remove</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- 2. Cache Cleaner Card -->
+        <!-- 1. Cache Cleaner Card -->
         <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3 flex flex-col hover:border-emerald-500/40 transition">
           <div class="space-y-1">
             <div class="font-bold text-slate-200 text-sm flex items-center justify-between">
@@ -913,7 +885,7 @@
           </div>
         </div>
 
-        <!-- 3. AutoGuard & Non-Destructive Launcher Card -->
+        <!-- 2. AutoGuard & Non-Destructive Launcher Card -->
         <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3 flex flex-col hover:border-cyan-500/40 transition">
           <div class="space-y-1">
             <div class="font-bold text-slate-200 text-sm flex items-center justify-between">
@@ -941,7 +913,7 @@
           </div>
         </div>
 
-        <!-- 4. Remote SSH Reverse Tunnel Card -->
+        <!-- 3. Remote SSH Reverse Tunnel Card -->
         <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3 flex flex-col hover:border-purple-500/40 transition">
           <div class="space-y-1">
             <div class="font-bold text-slate-200 text-sm flex items-center justify-between">
@@ -6967,27 +6939,7 @@ ${data.stderr || data.stdout || data.error}`;
         console.debug('Failed to fetch cache summary', e);
       }
 
-      // 2. Extension Status
-      try {
-        const r = await fetch('/api/ide/extension');
-        if (r.ok) {
-          const d = await r.json();
-          const badge = document.getElementById('ideExtensionBadge');
-          if (badge) {
-            if (d.installed) {
-              badge.textContent = 'Installed';
-              badge.className = 'text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-mono font-semibold';
-            } else {
-              badge.textContent = 'Not Installed';
-              badge.className = 'text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 font-mono';
-            }
-          }
-        }
-      } catch (e) {
-        console.debug('Failed to fetch extension status', e);
-      }
-
-      // 3. AutoGuard & Launcher Status
+      // 2. AutoGuard & Launcher Status
       try {
         const r = await fetch('/api/patch/autoguard');
         if (r.ok) {
@@ -7030,36 +6982,6 @@ ${data.stderr || data.stdout || data.error}`;
           btn.disabled = false;
           btn.innerHTML = '<i class="fa-solid fa-broom text-[10px]"></i><span>Purge Cache Now</span>';
         }
-      }
-    }
-
-    async function triggerExtensionInstall() {
-      try {
-        const r = await fetch('/api/ide/extension/install', { method: 'POST' });
-        const d = await r.json();
-        if (d.success) {
-          showToast('Companion extension installed! Restart Antigravity IDE to view.', 'success');
-          loadSuiteStatus();
-        } else {
-          showToast(`Install failed: ${d.error}`, 'error');
-        }
-      } catch (e) {
-        showToast('Failed to install extension: ' + e.message, 'error');
-      }
-    }
-
-    async function triggerExtensionUninstall() {
-      try {
-        const r = await fetch('/api/ide/extension/uninstall', { method: 'POST' });
-        const d = await r.json();
-        if (d.success) {
-          showToast('Companion extension removed.', 'info');
-          loadSuiteStatus();
-        } else {
-          showToast(`Uninstall failed: ${d.error}`, 'error');
-        }
-      } catch (e) {
-        showToast('Failed to uninstall extension: ' + e.message, 'error');
       }
     }
 

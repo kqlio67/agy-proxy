@@ -28,14 +28,6 @@ def test_cache_endpoints(client):
     assert clean_data.get("success") is True
 
 
-def test_extension_endpoints(client):
-    res = client.get("/api/ide/extension")
-    assert res.status_code == 200
-    data = res.json()
-    assert "installed" in data
-    assert "candidate_dirs" in data
-
-
 def test_tunnel_endpoints(client, tmp_path, monkeypatch):
     res_status = client.get("/api/tunnel/status")
     assert res_status.status_code == 200
