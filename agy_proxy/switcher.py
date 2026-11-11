@@ -155,6 +155,7 @@ async def activate_account_in_antigravity(
     target_env: str = "all",
     force_refresh: bool = False,
     allow_overwrite: bool = False,
+    sync_vscdb: bool = False,
 ) -> list[Path]:
     """
     Ensures tokens are refreshed and writes the active session payload to Antigravity token files.
@@ -263,6 +264,13 @@ async def activate_account_in_antigravity(
                     pass
             logger.error("Failed writing active token to %s: %s", dest, e)
 
+    if sync_vscdb:
+        try:
+            from agy_proxy.ide_sync import write_ide_vscdb_oauth_token
+            write_ide_vscdb_oauth_token(account)
+        except Exception as db_err:
+            logger.debug("Optional IDE state.vscdb sync skipped: %s", db_err)
+
     return written
 
 
@@ -274,6 +282,7 @@ async def switch_antigravity_session(
     target_env: str = "all",
     allow_overwrite: bool = True,
     set_primary: bool = True,
+    sync_vscdb: bool = False,
 ) -> tuple[AccountSession, list[Path]]:
     """
     Switches active Antigravity session to specified account or the next available account.
@@ -359,7 +368,11 @@ async def switch_antigravity_session(
     # Write to Antigravity token destinations
     effective_targets = target_paths if target_paths is not None else resolve_antigravity_destinations(target_env)
     written_paths = await activate_account_in_antigravity(
-        selected_account, target_paths=effective_targets, target_env=target_env, allow_overwrite=allow_overwrite
+        selected_account,
+        target_paths=effective_targets,
+        target_env=target_env,
+        allow_overwrite=allow_overwrite,
+        sync_vscdb=sync_vscdb,
     )
     try:
         await selected_account.fetch_quota()

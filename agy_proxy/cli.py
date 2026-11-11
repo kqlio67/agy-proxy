@@ -225,13 +225,14 @@ def print_banner(host: str, port: int, pool: AccountPool, api_key: str = None, u
     console.print(panel)
 
 
-async def handle_auth_login():
+async def handle_auth_login(is_gcp_tos: bool = False):
     """Interactive PKCE OAuth login command for adding Google Accounts to the pool."""
-    console.print(Panel("[bold cyan]Google Antigravity OAuth Login[/bold cyan]", border_style="blue"))
+    title_suffix = " [cyan](GCP ToS / Enterprise)[/cyan]" if is_gcp_tos else ""
+    console.print(Panel(f"[bold cyan]Google Antigravity OAuth Login[/bold cyan]{title_suffix}", border_style="blue"))
     pool = AccountPool()
     pool.load_accounts()
 
-    flow = pool.start_oauth_flow()
+    flow = pool.start_oauth_flow(is_gcp_tos=is_gcp_tos)
     auth_url = flow["auth_url"]
     state = flow["state"]
     verifier = flow["code_verifier"]
@@ -252,7 +253,12 @@ async def handle_auth_login():
 
     console.print("\n[dim]Exchanging authorization code for OAuth tokens...[/dim]")
     try:
-        acc = await pool.complete_oauth_flow(code_or_url=code_input, verifier=verifier, state=state)
+        acc = await pool.complete_oauth_flow(
+            code_or_url=code_input,
+            verifier=verifier,
+            state=state,
+            is_gcp_tos=is_gcp_tos,
+        )
         console.print(f"[bold green]✓ Successfully added account:[/bold green] [bold white]{acc.email}[/bold white] (ID: {acc.account_id})")
         console.print(f"Project: [cyan]{acc.project_id}[/cyan], Tier: [magenta]{acc.tier_info.get('name', 'Antigravity')}[/magenta]")
     except Exception as e:
@@ -310,13 +316,14 @@ async def handle_auth_list():
     for acc in pool.accounts.values():
         is_api_key = acc.auth_method == "api_key"
         is_web = acc.auth_method == "gemini_web"
-        acc_type = "API Key" if is_api_key else ("Web" if is_web else "OAuth")
+        acc_type = "API Key" if is_api_key else ("Web" if is_web else ("OAuth (GCP ToS)" if getattr(acc, "is_gcp_tos", False) else "OAuth"))
         display_name = acc.name or ("Primary Account" if acc.is_primary else acc.account_id)
         if acc.is_primary:
             display_name += " ⭐"
 
         # Tier / Plan badge
         tid = getattr(acc, "tier_id", "free-tier")
+        ai_cred_total = int((getattr(acc, "ai_credits", None) or {}).get("total", 0) or 0)
         if is_api_key:
             tier_display = "[yellow]AI Studio PayG[/yellow]"
         elif is_web:
@@ -325,7 +332,7 @@ async def handle_auth_list():
             tier_display = "[bold magenta]Google AI Ultra[/bold magenta]"
         elif tid == "g1-pro-tier":
             tier_display = "[bold cyan]Google AI Pro[/bold cyan]"
-        elif tid == "standard-tier":
+        elif tid == "standard-tier" or getattr(acc, "is_gcp_tos", False):
             tier_display = "[blue]GCP Enterprise[/blue]"
         else:
             tier_info = getattr(acc, "tier_info", {}) or {}
@@ -336,6 +343,8 @@ async def handle_auth_list():
                 tier_display = "[dim]Free Tier[/dim] [yellow](G1 Ready)[/yellow]"
             else:
                 tier_display = "[dim]Free Tier[/dim]"
+        if ai_cred_total > 0 and not is_api_key and not is_web:
+            tier_display += f" [dim](Credits: {ai_cred_total})[/dim]"
 
         if is_api_key:
             if acc.error_message:
@@ -467,6 +476,7 @@ async def handle_switch_command(
     set_primary: bool = True,
     target_env: str = "all",
     env_explicitly_set: bool = False,
+    sync_vscdb: bool = False,
 ):
     """Handles CLI session switching."""
     from agy_proxy.switcher import switch_antigravity_session
@@ -545,6 +555,7 @@ async def handle_switch_command(
             target_env=target_env,
             allow_overwrite=True,
             set_primary=set_primary,
+            sync_vscdb=sync_vscdb,
         )
         paths_str = ", ".join(str(p) for p in paths)
         console.print(f"\n[bold green]✓ Activated Antigravity Session:[/bold green] [bold white]{acc.email}[/bold white] ({acc.name or 'OAuth'}) [cyan][{env_label}][/cyan]")
@@ -1326,6 +1337,7 @@ def handle_patch_command(args: argparse.Namespace) -> None:
             console.print("[bold yellow]ℹ️  No active language_server processes found.[/bold yellow]")
 
     elif action == "status":
+        from agy_proxy.patcher import AntigravityIDESettingsConfigurator
         info = patcher.status()
         ls_file = info.get("ls_file")
         real_file = info.get("real_file")
@@ -1336,10 +1348,18 @@ def handle_patch_command(args: argparse.Namespace) -> None:
         patch_status = "[bold green]PATCHED (Wrapper Active)[/bold green]" if is_patched else "[bold yellow]ORIGINAL (Unpatched Binary)[/bold yellow]"
         proxy_status = "[bold green]ONLINE[/bold green]" if proxy_alive else "[bold red]OFFLINE (Direct Fallback)[/bold red]"
 
+        ide_cfg = AntigravityIDESettingsConfigurator(proxy_url=proxy_url).status()
+        ide_cfg_str = (
+            f"[bold green]CONFIGURED[/bold green] ({ide_cfg.get('settings_file')})"
+            if ide_cfg.get("configured")
+            else f"[dim]NOT CONFIGURED ({ide_cfg.get('settings_file')})[/dim]"
+        )
+
         lines = [
             f"[bold cyan]Target Binary:[/bold cyan] {ls_file or 'Not found'}",
             f"[bold cyan]Backup (.real):[/bold cyan] {real_file if info.get('backup_exists') else 'None'}",
             f"[bold cyan]Patch State:[/bold cyan] {patch_status}",
+            f"[bold cyan]Zero-Patch IDE Settings:[/bold cyan] {ide_cfg_str}",
             f"[bold cyan]Target Proxy:[/bold cyan] {info.get('proxy_url')} ({proxy_status})",
             f"[bold cyan]Running Processes:[/bold cyan] {len(pids)} active",
         ]
@@ -1352,6 +1372,39 @@ def handle_patch_command(args: argparse.Namespace) -> None:
             title="[bold white]Antigravity Language Server Desktop Patch Status[/bold white]",
             border_style="cyan",
         ))
+
+    elif action in ("ide-settings", "settings"):
+        from agy_proxy.patcher import AntigravityIDESettingsConfigurator
+        cfg = AntigravityIDESettingsConfigurator(
+            proxy_url=proxy_url,
+            settings_path=getattr(args, "settings_path", None),
+        )
+        if getattr(args, "apply", False):
+            res = cfg.apply()
+            if res.get("success"):
+                console.print(f"[bold green]✓ Applied Zero-Patch IDE v2.6+ proxy settings:[/bold green] {res.get('settings_file')}")
+                console.print(f"  • jetski.cloudCodeUrl & antigravity.serverArgs -> [cyan]{res.get('proxy_url')}[/cyan]")
+            else:
+                console.print(f"[bold red]❌ Failed to update IDE settings: {res.get('error')}[/bold red]")
+                sys.exit(1)
+        elif getattr(args, "restore", False):
+            res = cfg.restore()
+            if res.get("success"):
+                console.print(f"[bold green]✓ Restored IDE settings ({res.get('status')}):[/bold green] {res.get('settings_file')}")
+            else:
+                console.print(f"[bold red]❌ Failed to restore IDE settings: {res.get('error')}[/bold red]")
+                sys.exit(1)
+        else:
+            st = cfg.status()
+            state_badge = "[bold green]CONFIGURED[/bold green]" if st.get("configured") else "[yellow]UNCONFIGURED[/yellow]"
+            console.print(Panel(
+                f"[bold cyan]Settings File:[/bold cyan] {st.get('settings_file')}\n"
+                f"[bold cyan]Zero-Patch Status:[/bold cyan] {state_badge}\n"
+                f"[bold cyan]jetski.cloudCodeUrl:[/bold cyan] {st.get('jetski_cloud_code_url') or 'None'}\n"
+                f"[bold cyan]antigravity.serverArgs:[/bold cyan] {st.get('antigravity_server_args') or '[]'}",
+                title="[bold white]Antigravity IDE v2.6+ Settings Status[/bold white]",
+                border_style="cyan",
+            ))
 
     elif action == "guard":
         from agy_proxy.patcher import AutoGuard
@@ -1724,6 +1777,7 @@ def build_parser() -> argparse.ArgumentParser:
     switch_parser.add_argument("--ide", action="store_true", help="Switch session ONLY for IDE (~/.gemini/antigravity-ide)")
     switch_parser.add_argument("--standalone", action="store_true", help="Switch session ONLY for Standalone Web UI (~/.gemini/jetski-standalone-oauth-token)")
     switch_parser.add_argument("--all", action="store_true", help="Switch session for ALL environments (default)")
+    switch_parser.add_argument("--sync-ide-db", dest="sync_ide_db", action="store_true", default=False, help="Also update Antigravity IDE v2.6+ state.vscdb protobuf OAuth state")
 
     # usage / quota subcommand (agy-proxy usage / agy-proxy quota)
     for u_name in ("usage", "quota"):
@@ -1733,7 +1787,8 @@ def build_parser() -> argparse.ArgumentParser:
     # auth subcommand (also accessible via 'accounts')
     auth_parser = subparsers.add_parser("auth", aliases=["accounts"], help="Manage Antigravity Google accounts in pool")
     auth_subparsers = auth_parser.add_subparsers(dest="auth_action", help="Auth action")
-    auth_subparsers.add_parser("login", help="Log in a Google account via browser OAuth PKCE")
+    auth_login_p = auth_subparsers.add_parser("login", help="Log in a Google account via browser OAuth PKCE")
+    auth_login_p.add_argument("--gcp-tos", dest="gcp_tos", action="store_true", default=False, help="Authenticate using Google Cloud ToS / Enterprise OAuth client (cloudcode-pa)")
     auth_subparsers.add_parser("list", help="List all accounts and quotas in pool")
 
     # accounts / auth export
@@ -1758,6 +1813,7 @@ def build_parser() -> argparse.ArgumentParser:
     auth_switch.add_argument("--ide", action="store_true", help="Switch session ONLY for IDE (~/.gemini/antigravity-ide)")
     auth_switch.add_argument("--standalone", action="store_true", help="Switch session ONLY for Standalone Web UI (~/.gemini/jetski-standalone-oauth-token)")
     auth_switch.add_argument("--all", action="store_true", help="Switch session for ALL environments (default)")
+    auth_switch.add_argument("--sync-ide-db", dest="sync_ide_db", action="store_true", default=False, help="Also update Antigravity IDE v2.6+ state.vscdb protobuf OAuth state")
 
     # auth usage / quota subcommand (agy-proxy auth usage / agy-proxy auth quota)
     for au_name in ("usage", "quota"):
@@ -1923,6 +1979,7 @@ def build_parser() -> argparse.ArgumentParser:
     web_parser.add_argument("--force-patch", "-f", "--force", action="store_true", help="Force re-extraction and re-patching of the Web UI bundle")
     web_parser.add_argument("--bundle-dir", "-d", type=str, default=None, help="Target directory for extracted & patched bundle (default: ~/.config/agy-proxy/web_ui)")
     web_parser.add_argument("--download-server", action="store_true", help="Download Antigravity Hub language_server binary for this platform to ~/.config/agy-proxy/bin/ and exit")
+    web_parser.add_argument("--hub", action="store_true", default=False, help="Launch Antigravity v2.6+ Web Hub via `agy --hub` CLI when available")
 
     # patch subcommand (agy-proxy patch [install|restore|status|restart])
     patch_parser = subparsers.add_parser(
@@ -1983,6 +2040,19 @@ def build_parser() -> argparse.ArgumentParser:
     p_launch.add_argument("--install", action="store_true", help="Install desktop launcher and CLI wrapper")
     p_launch.add_argument("--uninstall", action="store_true", help="Remove desktop launcher and CLI wrapper")
     p_launch.add_argument("--status", action="store_true", help="Show launcher status")
+
+    p_ide = patch_sub.add_parser(
+        "ide-settings",
+        aliases=["settings"],
+        help="Configure Antigravity IDE v2.6+ User/settings.json for Zero-Patch proxy routing",
+    )
+    p_ide.add_argument("--apply", action="store_true", help="Write jetski.cloudCodeUrl and antigravity.serverArgs to IDE settings.json")
+    p_ide.add_argument("--restore", action="store_true", help="Remove agy-proxy routing keys from IDE settings.json")
+    p_ide.add_argument("--status", action="store_true", help="Inspect IDE settings.json proxy routing status")
+    p_ide.add_argument("--url", default=None, help="Proxy URL to write (default: http://127.0.0.1:8000)")
+    p_ide.add_argument("--host", default="127.0.0.1", help="Proxy host (default: 127.0.0.1)")
+    p_ide.add_argument("--port", type=int, default=8000, help="Proxy port (default: 8000)")
+    p_ide.add_argument("--settings-path", dest="settings_path", default=None, help="Explicit path to IDE User/settings.json")
 
     # config subcommand (agy-proxy config [get|set|list|reset])
     config_parser = subparsers.add_parser("config", help="Manage persistent user configuration (e.g. language_server and editor paths)")
@@ -2231,6 +2301,7 @@ def main():
             set_primary=getattr(args, "set_primary", True),
             target_env=target_env,
             env_explicitly_set=env_set,
+            sync_vscdb=getattr(args, "sync_ide_db", False),
         ))
         return
     elif args.subcommand in ("usage", "quota"):
@@ -2240,7 +2311,7 @@ def main():
         return
     elif args.subcommand in ("auth", "accounts"):
         if args.auth_action == "login":
-            asyncio.run(handle_auth_login())
+            asyncio.run(handle_auth_login(is_gcp_tos=getattr(args, "gcp_tos", False)))
             return
         elif args.auth_action == "export":
             handle_accounts_export(output=getattr(args, "output", None))
@@ -2285,6 +2356,7 @@ def main():
                 set_primary=getattr(args, "set_primary", True),
                 target_env=target_env,
                 env_explicitly_set=env_set,
+                sync_vscdb=getattr(args, "sync_ide_db", False),
             ))
             return
         elif args.auth_action in ("usage", "quota"):
@@ -2406,6 +2478,7 @@ def main():
             patched=getattr(args, "patched", False),
             force_patch=getattr(args, "force_patch", False),
             bundle_dir=getattr(args, "bundle_dir", None),
+            use_hub=getattr(args, "hub", False),
         )
         sys.exit(code)
 
@@ -2492,13 +2565,21 @@ def main():
             "/api/version",
             "/api/codex/status",
             "/health",
+            "/healthz",
             "/v1internal:recordCodeAssistMetrics",
+            "/v1internal:writeTrajectoryAcls",
+            "/v1internal:WriteTrajectoryACLs",
+            "/v1internal:recordTrajectoryAnalytics",
+            "/v1internal:registerInteraction",
+            "/v1internal:setUserSettings",
+            "/v1internal:getHealth",
             "/v1internal:listExperiments",
             "/v1internal:loadCodeAssist",
             "/v1internal:fetchUserInfo",
             "/v1internal:fetchAvailableModels",
             "/v1internal:retrieveUserQuotaSummary",
             "/v1internal/cascadeNuxes",
+            "/v1internal:listCascadeNuxes",
             "/v1alpha:fetchConfig",
         )
 

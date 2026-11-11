@@ -15,6 +15,7 @@ from typing import Any
 
 from agy_proxy.auth.constants import (
     DEFAULT_CLIENT_ID,
+    GCP_TOS_CLIENT_ID,
     REDIRECT_URI,
     SCOPES,
     logger,
@@ -275,6 +276,10 @@ def parse_token_dict(data: Any, mtime: float = 0.0) -> dict[str, Any] | None:
     picture = _find_val("picture", "avatar", "photo_url") or jwt_claims.get("picture")
     project_id = _find_val("project_id", "projectId", "cloudaicompanionProject", "project")
     auth_method = _find_val("auth_method", "authMethod") or "consumer"
+    client_id = _find_val("client_id", "clientId")
+    client_secret = _find_val("client_secret", "clientSecret")
+    raw_gcp_tos = _find_val("is_gcp_tos", "isGcpTos", "enable_gcp_tos", "usesGcpTos")
+    is_gcp_tos = bool(raw_gcp_tos) or (str(client_id).strip() == GCP_TOS_CLIENT_ID if client_id else False)
 
     res = {
         "refresh_token": rf_str,
@@ -286,6 +291,12 @@ def parse_token_dict(data: Any, mtime: float = 0.0) -> dict[str, Any] | None:
         "project_id": str(project_id).strip() if project_id else None,
         "auth_method": str(auth_method).strip() if auth_method else "consumer",
     }
+    if is_gcp_tos:
+        res["is_gcp_tos"] = True
+    if client_id:
+        res["client_id"] = str(client_id).strip()
+    if client_secret:
+        res["client_secret"] = str(client_secret).strip()
     if id_str:
         res["id_token"] = id_str
     return res
@@ -323,13 +334,15 @@ def generate_pkce_pair() -> tuple[str, str, str]:
 def get_authorization_url(
     code_challenge: str,
     state: str,
-    client_id: str = DEFAULT_CLIENT_ID,
+    client_id: str | None = None,
     redirect_uri: str = REDIRECT_URI,
+    is_gcp_tos: bool = False,
 ) -> str:
     """Constructs the Google OAuth authorization URL."""
+    resolved_client_id = client_id or (GCP_TOS_CLIENT_ID if is_gcp_tos else DEFAULT_CLIENT_ID)
     params = {
         "access_type": "offline",
-        "client_id": client_id,
+        "client_id": resolved_client_id,
         "code_challenge": code_challenge,
         "code_challenge_method": "S256",
         "prompt": "consent",

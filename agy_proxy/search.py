@@ -142,9 +142,10 @@ async def search_google_grounding(
 
     acc = oauth_accounts[0]
     try:
-        from agy_proxy.auth import CLOUDCODE_BASE_URL
+        from agy_proxy.auth import CLOUDCODE_BASE_URL, get_cloudcode_base_url
         headers = await acc.get_auth_headers()
         client = await acc.get_http_client()
+        upstream_base = get_cloudcode_base_url(True) if getattr(acc, "is_gcp_tos", False) else CLOUDCODE_BASE_URL
         payload = {
             "project": acc.project_id or "aicode-consumers",
             "request": {
@@ -176,7 +177,7 @@ async def search_google_grounding(
         }
 
         resp = await client.post(
-            f"{CLOUDCODE_BASE_URL}/v1internal:generateContent",
+            f"{upstream_base}/v1internal:generateContent",
             headers=headers,
             json=payload,
             timeout=timeout,
@@ -316,8 +317,9 @@ async def rewrite_uri(
         )
         if not acc:
             return None
-        from agy_proxy.auth import CLOUDCODE_BASE_URL, USER_AGENT
+        from agy_proxy.auth import CLOUDCODE_BASE_URL, USER_AGENT, get_cloudcode_base_url
         token = await acc.get_valid_token()
+        upstream_base = get_cloudcode_base_url(True) if getattr(acc, "is_gcp_tos", False) else CLOUDCODE_BASE_URL
         headers = {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
@@ -325,7 +327,7 @@ async def rewrite_uri(
         }
         async with httpx.AsyncClient(timeout=timeout) as client:
             resp = await client.post(
-                f"{CLOUDCODE_BASE_URL}/v1internal:rewriteUri",
+                f"{upstream_base}/v1internal:rewriteUri",
                 headers=headers,
                 json={"originalUri": original_uri},
             )
@@ -356,8 +358,9 @@ async def fetch_url_via_trawler(
         )
         if not acc:
             return None
-        from agy_proxy.auth import CLOUDCODE_BASE_URL, USER_AGENT
+        from agy_proxy.auth import CLOUDCODE_BASE_URL, USER_AGENT, get_cloudcode_base_url
         token = await acc.get_valid_token()
+        upstream_base = get_cloudcode_base_url(True) if getattr(acc, "is_gcp_tos", False) else CLOUDCODE_BASE_URL
         headers = {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
@@ -366,7 +369,7 @@ async def fetch_url_via_trawler(
         payload = {"url": url}
         async with httpx.AsyncClient(timeout=timeout) as client:
             resp = await client.post(
-                f"{CLOUDCODE_BASE_URL}/v1internal:fetchFromTrawlerCache",
+                f"{upstream_base}/v1internal:fetchFromTrawlerCache",
                 headers=headers,
                 json=payload,
             )

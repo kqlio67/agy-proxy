@@ -170,6 +170,47 @@ class TestDashboardTemplate(unittest.TestCase):
         self.assertIn("Antigravity Web Mode (Browser-Based IDE)", html)
         self.assertIn("updateRoutingStrategyUI", html)
 
+    def test_dashboard_v26_features_and_card_badges(self):
+        html = get_dashboard_html()
+        self.assertIn("Zero-Patch IDE v2.6", html)
+        self.assertIn("triggerIdeSettingsApply", html)
+        self.assertIn("triggerIdeSettingsRestore", html)
+        self.assertIn("oauthGcpTosCheckbox", html)
+        self.assertIn("useHubModeCheckbox", html)
+
+        node_script = """
+        const html = require('fs').readFileSync('agy_proxy/templates/dashboard.html', 'utf8');
+        const cardMatch = html.match(/function renderAccountCard\\(acc\\) \\{([\\s\\S]*?)\\n    \\}/);
+        if (!cardMatch) throw new Error("Could not extract renderAccountCard");
+        const renderAvatar = () => '<div>avatar</div>';
+        const formatResetBadge = () => 'Active';
+        const renderCard = new Function('acc', 'cliActiveAccountId', 'ideActiveAccountId', 'renderAvatar', 'formatResetBadge', 'standaloneActiveAccountId',
+            cardMatch[1]
+        );
+        const gcpAcc = {
+            account_id: 'acc_gcp_ui',
+            email: 'corp@company.com',
+            enabled: true,
+            auth_method: 'consumer',
+            is_gcp_tos: true,
+            tier_badge: 'GCP Enterprise',
+            ai_credits: { total: 500, minimum: 10, credits: [] },
+            rate_limited: false,
+            rate_limited_models: {},
+            quota_details: {
+                gemini: { percent: 100, fraction: 1.0, '5h': { percent: 100, fraction: 1.0 }, weekly: { percent: 100, fraction: 1.0 } },
+                '3p': { percent: 100, fraction: 1.0, '5h': { percent: 100, fraction: 1.0 }, weekly: { percent: 100, fraction: 1.0 } }
+            }
+        };
+        const out = renderCard(gcpAcc, null, null, renderAvatar, formatResetBadge, null);
+        if (!out.includes('GCP ToS')) throw new Error("Missing GCP ToS badge in card");
+        if (!out.includes('500 cr')) throw new Error("Missing 500 cr badge in card");
+        console.log("OK");
+        """
+        proc = subprocess.run(["node", "-e", node_script], capture_output=True, text=True)
+        self.assertEqual(proc.returncode, 0, f"Node script failed: {proc.stderr}")
+        self.assertIn("OK", proc.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

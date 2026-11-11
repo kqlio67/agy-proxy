@@ -47,6 +47,8 @@ class BaseAccountSession:
         self.rate_limited_models: dict[str, float] = {}  # model_group -> reset_timestamp
         self.supports_claude_5_5: bool = kwargs.get("supports_claude_5_5", False)
         self.unsupported_models: set[str] = set(kwargs.get("unsupported_models") or [])
+        self.is_gcp_tos: bool = bool(kwargs.get("is_gcp_tos", False))
+        self.available_credits: list[dict[str, Any]] = list(kwargs.get("available_credits") or [])
         self._lock = asyncio.Lock()
         self._http_client: httpx.AsyncClient | None = None
 
@@ -297,16 +299,51 @@ class BaseAccountSession:
             return "Google AI Ultra"
         if tid == "g1-pro-tier":
             return "Google AI Pro"
-        if tid == "standard-tier":
+        if tid == "standard-tier" or getattr(self, "is_gcp_tos", False):
             return "GCP Enterprise"
         return "Free Tier"
+
+    @property
+    def ai_credits(self) -> dict[str, Any]:
+        """Structured summary of Google One AI / CloudCode availableCredits."""
+        tier_info = getattr(self, "tier_info", {}) or {}
+        paid_tier = tier_info.get("paidTier") or {}
+        credits = getattr(self, "available_credits", None) or paid_tier.get("availableCredits") or []
+        if not isinstance(credits, list) or not credits:
+            return {"total": 0, "minimum": 0, "credits": []}
+        total = 0
+        minimum = 0
+        normalized: list[dict[str, Any]] = []
+        for c in credits:
+            if not isinstance(c, dict):
+                continue
+            ctype = c.get("creditType") or c.get("type") or "UNKNOWN"
+            try:
+                amt = int(float(c.get("creditAmount") or 0))
+            except (TypeError, ValueError):
+                amt = 0
+            try:
+                min_amt = int(float(c.get("minimumCreditAmountForUsage") or 0))
+            except (TypeError, ValueError):
+                min_amt = 0
+            total += amt
+            minimum = max(minimum, min_amt)
+            normalized.append({
+                "creditType": ctype,
+                "creditAmount": amt,
+                "minimumCreditAmountForUsage": min_amt,
+            })
+        return {"total": total, "minimum": minimum, "credits": normalized}
 
     @property
     def has_g1_credits(self) -> bool:
         tier_info = getattr(self, "tier_info", {}) or {}
         paid_tier = tier_info.get("paidTier") or {}
-        credits = paid_tier.get("availableCredits") or []
-        return any(c.get("creditType") == "GOOGLE_ONE_AI" for c in credits)
+        credits = paid_tier.get("availableCredits") or getattr(self, "available_credits", None) or []
+        return any(
+            isinstance(c, dict) and c.get("creditType") in ("GOOGLE_ONE_AI", 1, "1")
+            for c in credits
+        )
 
     def to_dict(self) -> dict[str, Any]:
         now = time.time()
@@ -322,9 +359,12 @@ class BaseAccountSession:
             "project_id": getattr(self, "project_id", None),
             "is_primary": self.is_primary,
             "enabled": self.enabled,
+            "is_gcp_tos": bool(getattr(self, "is_gcp_tos", False)),
             "tier_id": self.tier_id,
             "tier_badge": self.tier_badge,
             "has_g1_credits": self.has_g1_credits,
+            "available_credits": list(getattr(self, "available_credits", None) or []),
+            "ai_credits": self.ai_credits,
             "tier_name": getattr(self, "tier_info", {}).get("name", self.tier_badge),
             "tier_info": getattr(self, "tier_info", {}),
             "region_code": getattr(self, "region_code", None),

@@ -2982,6 +2982,144 @@ class TestOAuthFlowRedirectUri(unittest.TestCase):
         self.assertEqual(failover_cands[0].account_id, "acc_sec2")
 
 
+class TestGcpTosAndAiCredits(unittest.TestCase):
+    """Unit tests for v2.6.0 dual OAuth clients, dual CloudCode endpoints, and AI credits."""
+
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.accounts_file = Path(self.temp_dir.name) / "accounts.json"
+        self.pool = AccountPool(accounts_file=self.accounts_file)
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def test_get_cloudcode_base_url_and_cloudflare_override(self):
+        import os
+        from agy_proxy.auth.constants import (
+            CLOUDCODE_CONSUMER_BASE_URL,
+            CLOUDCODE_GCP_TOS_BASE_URL,
+            get_cloudcode_base_url,
+        )
+
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("CLOUDFLARE_UPSTREAM_URL", None)
+            self.assertEqual(get_cloudcode_base_url(False), CLOUDCODE_CONSUMER_BASE_URL)
+            self.assertEqual(get_cloudcode_base_url(True), CLOUDCODE_GCP_TOS_BASE_URL)
+
+        with patch.dict(os.environ, {"CLOUDFLARE_UPSTREAM_URL": "https://edge.example.workers.dev/"}):
+            self.assertEqual(get_cloudcode_base_url(False), "https://edge.example.workers.dev")
+            self.assertEqual(get_cloudcode_base_url(True), "https://edge.example.workers.dev")
+
+    def test_dual_oauth_flow_and_persistence_for_gcp_tos(self):
+        from agy_proxy.auth.constants import (
+            CLOUDCODE_GCP_TOS_BASE_URL,
+            GCP_TOS_CLIENT_ID,
+            GCP_TOS_CLIENT_SECRET,
+        )
+
+        async def run_test():
+            flow = self.pool.start_oauth_flow(is_gcp_tos=True)
+            self.assertTrue(flow["is_gcp_tos"])
+            self.assertIn(GCP_TOS_CLIENT_ID, flow["auth_url"])
+
+            captured_post = {}
+
+            async def mock_post(*args, **kwargs):
+                url_str = str(args) + str(kwargs)
+                if "oauth2.googleapis.com" in url_str:
+                    data = kwargs.get("data") or (args[1] if len(args) > 1 else {})
+                    captured_post.update(dict(data))
+                    resp = MagicMock()
+                    resp.status_code = 200
+                    resp.json = MagicMock(return_value={
+                        "access_token": "gcp_access_tok",
+                        "refresh_token": "1//gcp_refresh_tok",
+                        "expires_in": 3600,
+                    })
+                    return resp
+                resp = MagicMock()
+                resp.status_code = 200
+                resp.json = MagicMock(return_value={})
+                return resp
+
+            with patch.object(httpx.AsyncClient, "post", side_effect=mock_post), \
+                 patch.object(AntigravityOAuthSession, "fetch_user_info", new_callable=AsyncMock, return_value={"email": "corp@company.com", "name": "Corp User"}), \
+                 patch.object(AntigravityOAuthSession, "initialize_project", new_callable=AsyncMock, return_value="corp-proj-1"), \
+                 patch.object(AntigravityOAuthSession, "fetch_cloudcode_user_info", new_callable=AsyncMock), \
+                 patch.object(AntigravityOAuthSession, "fetch_quota", new_callable=AsyncMock), \
+                 patch.object(AntigravityOAuthSession, "fetch_models", new_callable=AsyncMock):
+                acc = await self.pool.complete_oauth_flow(
+                    code_or_url=f"https://antigravity.google/oauth-callback?code=4/0AXgcp&state={flow['state']}",
+                )
+                self.assertEqual(captured_post["client_id"], GCP_TOS_CLIENT_ID)
+                self.assertEqual(captured_post["client_secret"], GCP_TOS_CLIENT_SECRET)
+                self.assertTrue(acc.is_gcp_tos)
+                self.assertEqual(acc.client_id, GCP_TOS_CLIENT_ID)
+                self.assertEqual(acc.cloudcode_base_url, CLOUDCODE_GCP_TOS_BASE_URL)
+                self.assertEqual(acc.tier_badge, "GCP Enterprise")
+
+            # Verify accounts.json preserves is_gcp_tos across reload
+            reloaded_pool = AccountPool(accounts_file=self.accounts_file)
+            reloaded_pool.load_accounts()
+            reloaded_acc = reloaded_pool.accounts[acc.account_id]
+            self.assertTrue(reloaded_acc.is_gcp_tos)
+            self.assertEqual(reloaded_acc.client_id, GCP_TOS_CLIENT_ID)
+            self.assertEqual(reloaded_acc.cloudcode_base_url, CLOUDCODE_GCP_TOS_BASE_URL)
+
+        asyncio.run(run_test())
+
+    def test_load_code_assist_parses_ai_credits_and_uses_gcp_tos(self):
+        from agy_proxy.auth.constants import CLOUDCODE_GCP_TOS_BASE_URL
+
+        async def run_test():
+            acc = AntigravityOAuthSession(
+                account_id="acc_credits_1",
+                email="pro_credits@gmail.com",
+                refresh_token="rf_credits",
+                access_token="ya29.valid_tok",
+                expiry_timestamp=time.time() + 3600,
+            )
+
+            posted_urls = []
+
+            async def mock_post(url, **kwargs):
+                posted_urls.append(url)
+                resp = MagicMock()
+                resp.status_code = 200
+                if "loadCodeAssist" in url:
+                    resp.json = MagicMock(return_value={
+                        "cloudaicompanionProject": "proj-credits-42",
+                        "currentTier": {"id": "g1-pro-tier", "name": "Google AI Pro", "usesGcpTos": True},
+                        "paidTier": {
+                            "id": "g1-pro-tier",
+                            "availableCredits": [
+                                {"creditType": "GOOGLE_ONE_AI", "creditAmount": 500, "minimumCreditAmountForUsage": 10}
+                            ],
+                        },
+                    })
+                else:
+                    resp.json = MagicMock(return_value={})
+                return resp
+
+            mock_client = MagicMock()
+            mock_client.post = AsyncMock(side_effect=mock_post)
+            with patch.object(acc, "get_http_client", return_value=mock_client):
+                proj = await acc.initialize_project(force=True)
+
+            self.assertEqual(proj, "proj-credits-42")
+            self.assertTrue(acc.is_gcp_tos)
+            self.assertTrue(acc.has_g1_credits)
+            self.assertEqual(acc.tier_badge, "Google AI Pro")
+            self.assertEqual(acc.ai_credits["total"], 500)
+            self.assertEqual(acc.ai_credits["minimum"], 10)
+            self.assertEqual(acc.ai_credits["credits"][0]["creditType"], "GOOGLE_ONE_AI")
+            self.assertEqual(acc.cloudcode_base_url, CLOUDCODE_GCP_TOS_BASE_URL)
+            self.assertTrue(any(u.startswith("https://daily-cloudcode-pa.googleapis.com/v1internal:loadCodeAssist") for u in posted_urls))
+            self.assertTrue(any(u.startswith("https://cloudcode-pa.googleapis.com/v1internal:onboardUser") for u in posted_urls))
+
+        asyncio.run(run_test())
+
+
 if __name__ == "__main__":
     unittest.main()
 

@@ -11,11 +11,27 @@ logger = logging.getLogger("agy_proxy.auth")
 
 DEFAULT_CLIENT_ID = "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com"
 DEFAULT_CLIENT_SECRET = "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"
+GCP_TOS_CLIENT_ID = "884354919052-36trc1jjb3tguiac32ov6cod268c5blh.apps.googleusercontent.com"
+GCP_TOS_CLIENT_SECRET = "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"
 OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token"
 USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo"
-CLOUDCODE_BASE_URL = os.environ.get("CLOUDFLARE_UPSTREAM_URL", "https://daily-cloudcode-pa.googleapis.com").rstrip("/")
+CLOUDCODE_CONSUMER_BASE_URL = "https://daily-cloudcode-pa.googleapis.com"
+CLOUDCODE_GCP_TOS_BASE_URL = "https://cloudcode-pa.googleapis.com"
+CLOUDCODE_BASE_URL = os.environ.get("CLOUDFLARE_UPSTREAM_URL", CLOUDCODE_CONSUMER_BASE_URL).rstrip("/")
 GENAI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
 REDIRECT_URI = "https://antigravity.google/oauth-callback"
+AGY_CLI_AUTO_UPDATER_URL = "https://antigravity-cli-auto-updater-974169037036.us-central1.run.app"
+AGY_IDE_AUTO_UPDATER_URL = "https://antigravity-ide-auto-updater-974169037036.us-central1.run.app"
+
+
+def get_cloudcode_base_url(is_gcp_tos: bool = False) -> str:
+    """Returns the CloudCode base URL for consumer (daily-cloudcode-pa) or GCP ToS (cloudcode-pa) accounts."""
+    override = os.environ.get("CLOUDFLARE_UPSTREAM_URL", "").strip()
+    if override:
+        return override.rstrip("/")
+    if is_gcp_tos:
+        return CLOUDCODE_GCP_TOS_BASE_URL
+    return CLOUDCODE_BASE_URL
 
 SCOPES = [
     "https://www.googleapis.com/auth/cloud-platform",

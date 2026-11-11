@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 import httpx
 
-from agy_proxy.auth import CLOUDCODE_BASE_URL, GENAI_BASE_URL
+from agy_proxy.auth import CLOUDCODE_BASE_URL, GENAI_BASE_URL, get_cloudcode_base_url
 
 logger = logging.getLogger("agy_proxy.compactor")
 
@@ -999,8 +999,13 @@ async def _call_summarizer_llm(
                     "userAgent": "antigravity",
                     "requestType": "checkpoint",
                 }
+                upstream_base = (
+                    get_cloudcode_base_url(True)
+                    if getattr(acc, "is_gcp_tos", False)
+                    else CLOUDCODE_BASE_URL
+                )
                 resp = await client.post(
-                    f"{CLOUDCODE_BASE_URL}/v1internal:generateContent",
+                    f"{upstream_base}/v1internal:generateContent",
                     headers=headers,
                     json=payload,
                     timeout=timeout,

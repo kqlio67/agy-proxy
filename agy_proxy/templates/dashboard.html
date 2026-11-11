@@ -861,7 +861,7 @@
         </div>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
 
         <!-- 1. Cache Cleaner Card -->
         <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3 flex flex-col hover:border-emerald-500/40 transition">
@@ -913,7 +913,35 @@
           </div>
         </div>
 
-        <!-- 3. Remote SSH Reverse Tunnel Card -->
+        <!-- 3. Zero-Patch IDE v2.6 Settings Card -->
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3 flex flex-col hover:border-indigo-500/40 transition">
+          <div class="space-y-1">
+            <div class="font-bold text-slate-200 text-sm flex items-center justify-between">
+              <span class="flex items-center space-x-2">
+                <div class="w-6 h-6 rounded-lg bg-indigo-600/20 text-indigo-400 flex items-center justify-center text-xs">
+                  <i class="fa-solid fa-sliders"></i>
+                </div>
+                <span>Zero-Patch IDE v2.6</span>
+              </span>
+              <span id="ideSettingsStatusBadge" class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 font-mono font-semibold">...</span>
+            </div>
+            <p class="text-[11px] text-slate-400 leading-snug">Writes <code class="font-mono text-indigo-300">jetski.cloudCodeUrl</code> and <code class="font-mono text-indigo-300">antigravity.serverArgs</code> into IDE <code class="font-mono">settings.json</code>.</p>
+          </div>
+          <div class="pt-2 mt-auto">
+            <div class="grid grid-cols-2 gap-2">
+              <button onclick="triggerIdeSettingsApply()" id="ideSettingsApplyBtn" class="py-1.5 px-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-center text-xs transition flex items-center justify-center space-x-1 shadow-sm">
+                <i class="fa-solid fa-check text-[10px]"></i>
+                <span>Apply</span>
+              </button>
+              <button onclick="triggerIdeSettingsRestore()" id="ideSettingsRestoreBtn" class="py-1.5 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-center text-xs transition flex items-center justify-center space-x-1 border border-slate-700">
+                <i class="fa-solid fa-rotate-left text-[10px]"></i>
+                <span>Restore</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. Remote SSH Reverse Tunnel Card -->
         <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3 flex flex-col hover:border-purple-500/40 transition">
           <div class="space-y-1">
             <div class="font-bold text-slate-200 text-sm flex items-center justify-between">
@@ -1385,6 +1413,10 @@ https://your-tunnel.trycloudflare.com/v1</pre>
           <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
           <span>Open in Browser</span>
         </a>
+        <label class="inline-flex items-center space-x-2 text-xs text-slate-300 cursor-pointer ml-auto" title="Prefer native Antigravity v2.6+ agy --hub launcher when installed">
+          <input type="checkbox" id="useHubModeCheckbox" class="rounded bg-slate-800 border-slate-700 text-cyan-600 focus:ring-0">
+          <span>Use <code class="font-mono text-cyan-300">agy --hub</code> (v2.6+)</span>
+        </label>
       </div>
     </div>
 
@@ -1587,6 +1619,10 @@ https://your-tunnel.trycloudflare.com/v1</pre>
               <span>Refresh Link</span>
             </button>
           </div>
+          <label class="flex items-center space-x-2 pt-1.5 text-slate-300 cursor-pointer select-none">
+            <input type="checkbox" id="oauthGcpTosCheckbox" onchange="initOAuthFlow(true)" class="rounded bg-slate-800 border-slate-700 text-indigo-600 focus:ring-0">
+            <span>Enterprise / GCP ToS OAuth (<code class="font-mono text-blue-300">cloudcode-pa</code>)</span>
+          </label>
         </div>
 
         <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
@@ -2427,11 +2463,12 @@ ightarrow$ v1.0.3</p>
     async function triggerWebLaunch(restart = false) {
       try {
         const endpoint = restart ? '/api/web/restart' : '/api/web/launch';
+        const useHub = Boolean(document.getElementById('useHubModeCheckbox')?.checked);
         showToast(restart ? 'Restarting Antigravity Web Mode...' : 'Starting Antigravity Web Mode...', 'info');
         const res = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ restart: restart, kill_electron: false })
+          body: JSON.stringify({ restart: restart, kill_electron: false, use_hub: useHub })
         });
         const data = await res.json();
         if (res.ok && data.status === 'ok') {
@@ -4434,6 +4471,14 @@ ightarrow$ v1.0.3</p>
         }
       }
 
+      const gcpTosBadgeHtml = (Boolean(acc.is_gcp_tos) && !isApiKey && !isWeb)
+        ? '<span class="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-300 font-semibold border border-blue-500/30 flex items-center gap-1 shrink-0 shadow-sm" title="Routed via GCP ToS endpoint (cloudcode-pa.googleapis.com)"><i class="fa-solid fa-building-shield text-blue-400 text-[9px]"></i><span>GCP ToS</span></span>'
+        : '';
+      const aiCreditsTotal = (acc.ai_credits && Number(acc.ai_credits.total) > 0) ? Number(acc.ai_credits.total) : 0;
+      const aiCreditsBadgeHtml = (aiCreditsTotal > 0 && !isApiKey && !isWeb)
+        ? `<span class="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 font-semibold border border-emerald-500/30 flex items-center gap-1 shrink-0 shadow-sm" title="Available Google One / CloudCode AI Credits"><i class="fa-solid fa-coins text-emerald-400 text-[9px]"></i><span>${aiCreditsTotal} cr</span></span>`
+        : '';
+
       return `
         <div class="p-4 sm:p-5 rounded-2xl border transition space-y-3 relative overflow-hidden min-w-0 ${
           isBothActive
@@ -4460,6 +4505,8 @@ ightarrow$ v1.0.3</p>
                     ? '<span class="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30 flex items-center space-x-1 shrink-0 shadow-sm"><i class="fa-solid fa-star text-amber-400 text-[9px]"></i><span>Primary</span></span>' 
                     : `<button onclick="setPrimaryAccount('${acc.account_id}')" class="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-slate-800/90 hover:bg-indigo-600 hover:text-white text-slate-400 border border-slate-700 transition flex items-center space-x-1 shrink-0" title="Set as primary active account"><i class="fa-regular fa-star text-[9px]"></i><span>Set Primary</span></button>`}
                   ${tierBadgeHtml}
+                  ${gcpTosBadgeHtml}
+                  ${aiCreditsBadgeHtml}
                   ${agyActiveCardBadge}
                   ${maxAccountCooldown > 0 ? `<span class="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-semibold border border-amber-500/30 flex items-center space-x-1 shrink-0 shadow-sm" title="Rate limit cooldown active: resets in ${formatCooldown(maxAccountCooldown)}"><i class="fa-solid fa-clock-rotate-left text-amber-400 text-[9px]"></i><span>Cooldown (${formatCooldown(maxAccountCooldown)})</span></span>` : ((!isApiKey && !isWeb && geminiIsExhausted && claudeIsExhausted) ? '<span class="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 font-semibold border border-red-500/30 shrink-0">Exhausted</span>' : '')}
                   ${!isEnabled ? '<span class="text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-medium border border-slate-700 shrink-0">Paused</span>' : ''}
@@ -4600,6 +4647,14 @@ ightarrow$ v1.0.3</p>
         }
       }
 
+      const gcpTosBadgeHtml = (Boolean(acc.is_gcp_tos) && !isApiKey && !isWeb)
+        ? '<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-300 font-semibold border border-blue-500/30 inline-flex items-center gap-1 shadow-sm" title="Routed via GCP ToS endpoint (cloudcode-pa.googleapis.com)"><i class="fa-solid fa-building-shield text-blue-400 text-[8px]"></i><span>GCP ToS</span></span>'
+        : '';
+      const aiCreditsTotal = (acc.ai_credits && Number(acc.ai_credits.total) > 0) ? Number(acc.ai_credits.total) : 0;
+      const aiCreditsBadgeHtml = (aiCreditsTotal > 0 && !isApiKey && !isWeb)
+        ? `<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 font-semibold border border-emerald-500/30 inline-flex items-center gap-1 shadow-sm" title="Available Google One / CloudCode AI Credits"><i class="fa-solid fa-coins text-emerald-400 text-[8px]"></i><span>${aiCreditsTotal} cr</span></span>`
+        : '';
+
       return `
         <tr class="hover:bg-slate-800/40 transition ${!isEnabled ? 'opacity-50' : ''} ${isCliActive ? 'bg-emerald-500/[0.03]' : (isHubActive ? 'bg-cyan-500/[0.03]' : (isIdeActive ? 'bg-purple-500/[0.03]' : ''))}">
           <td class="w-8 px-3 py-3 text-center">
@@ -4633,6 +4688,8 @@ ightarrow$ v1.0.3</p>
                   ? '<span class="inline-flex items-center text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20"><i class="fa-solid fa-key mr-1"></i> API Key</span>'
                   : '<span class="inline-flex items-center text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"><i class="fa-brands fa-google mr-1"></i> OAuth</span>')}
               ${tierBadgeHtml}
+              ${gcpTosBadgeHtml}
+              ${aiCreditsBadgeHtml}
               ${maxAccountCooldown > 0 ? `<span class="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 font-mono"><i class="fa-solid fa-clock-rotate-left mr-1 text-[8px]"></i>Cooldown (${formatCooldown(maxAccountCooldown)})</span>` : ((!isApiKey && !isWeb && geminiIsExhausted && claudeIsExhausted) ? '<span class="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 font-mono">Exhausted</span>' : '')}
               ${!isEnabled ? '<span class="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">Paused</span>' : ''}
             </div>
@@ -5306,7 +5363,8 @@ ightarrow$ v1.0.3</p>
         link.classList.add('opacity-75', 'pointer-events-none');
       }
       try {
-        const res = await fetch('/api/accounts/oauth/start', { method: 'POST' });
+        const isGcpTos = Boolean(document.getElementById('oauthGcpTosCheckbox')?.checked);
+        const res = await fetch('/api/accounts/oauth/start?is_gcp_tos=' + (isGcpTos ? 'true' : 'false'), { method: 'POST' });
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
         currentOAuthState = data.state;
@@ -5386,6 +5444,7 @@ ightarrow$ v1.0.3</p>
       if (document.getElementById('webAuthUserInput')) document.getElementById('webAuthUserInput').value = '0';
       if (document.getElementById('webForceNewCheckbox')) document.getElementById('webForceNewCheckbox').checked = false;
       if (document.getElementById('webCdpPortInput')) document.getElementById('webCdpPortInput').value = '9222';
+      if (document.getElementById('oauthGcpTosCheckbox')) document.getElementById('oauthGcpTosCheckbox').checked = false;
       if (document.getElementById('provNameInput')) document.getElementById('provNameInput').value = '';
       if (document.getElementById('provIdInput')) document.getElementById('provIdInput').value = '';
       if (document.getElementById('provUrlInput')) document.getElementById('provUrlInput').value = '';
@@ -5565,6 +5624,7 @@ ightarrow$ v1.0.3</p>
       } catch (e) {}
 
       try {
+        const isGcpTos = Boolean(document.getElementById('oauthGcpTosCheckbox')?.checked);
         const res = await fetch('/api/accounts/oauth/callback', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -5572,6 +5632,7 @@ ightarrow$ v1.0.3</p>
             code: codeToSend,
             state: stateToSend,
             code_verifier: currentOAuthVerifier,
+            is_gcp_tos: isGcpTos,
             proxy_url: document.getElementById("addProxyUrlInput").value.trim() || undefined,
           })
         });
@@ -6957,6 +7018,59 @@ ${data.stderr || data.stdout || data.error}`;
         }
       } catch (e) {
         console.debug('Failed to fetch autoguard status', e);
+      }
+
+      // 3. Zero-Patch IDE v2.6 Settings Status
+      try {
+        const r = await fetch('/api/patch/ide-settings');
+        if (r.ok) {
+          const d = await r.json();
+          const badge = document.getElementById('ideSettingsStatusBadge');
+          if (badge) {
+            if (d.configured) {
+              badge.textContent = 'Configured';
+              badge.className = 'text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-mono font-semibold';
+            } else if (d.exists) {
+              badge.textContent = 'Unlinked';
+              badge.className = 'text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 font-mono font-semibold';
+            } else {
+              badge.textContent = 'Ready';
+              badge.className = 'text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 font-mono font-semibold';
+            }
+          }
+        }
+      } catch (e) {
+        console.debug('Failed to fetch IDE settings status', e);
+      }
+    }
+
+    async function triggerIdeSettingsApply() {
+      try {
+        const r = await fetch('/api/patch/ide-settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+        const d = await r.json();
+        if (r.ok && d.success) {
+          showToast(`IDE settings updated (${d.settings_file})`, 'success');
+          loadSuiteStatus();
+        } else {
+          showToast(d.detail || d.error || 'Failed to update IDE settings', 'error');
+        }
+      } catch (e) {
+        showToast('Failed to update IDE settings: ' + e.message, 'error');
+      }
+    }
+
+    async function triggerIdeSettingsRestore() {
+      try {
+        const r = await fetch('/api/patch/ide-settings/restore', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+        const d = await r.json();
+        if (r.ok && d.success) {
+          showToast(`IDE settings restored (${d.status || 'ok'})`, 'info');
+          loadSuiteStatus();
+        } else {
+          showToast(d.detail || d.error || 'Failed to restore IDE settings', 'error');
+        }
+      } catch (e) {
+        showToast('Failed to restore IDE settings: ' + e.message, 'error');
       }
     }
 

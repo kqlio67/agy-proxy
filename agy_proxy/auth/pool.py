@@ -31,6 +31,8 @@ from agy_proxy.auth.constants import (
     DEFAULT_CLIENT_SECRET,
     DEFAULT_TOKEN_FILE,
     DEFAULT_WEB_SESSIONS_FILE,
+    GCP_TOS_CLIENT_ID,
+    GCP_TOS_CLIENT_SECRET,
     LEGACY_ACCOUNTS_FILES,
     OAUTH_TOKEN_URL,
     REDIRECT_URI,
@@ -207,6 +209,7 @@ class AccountPool:
         self.accounts: dict[str, AccountSession] = {}
         self.round_robin_index = 0
         self.pending_pkce_flows: dict[str, tuple[str, float, str]] = {}  # state -> (verifier, timestamp, redirect_uri)
+        self.pending_oauth_meta: dict[str, dict[str, Any]] = {}  # state -> {is_gcp_tos, ts}
         self.last_quota_refresh_time: float = 0.0
         self._lock = asyncio.Lock()
         self._save_lock = threading.RLock()
@@ -523,6 +526,9 @@ class AccountPool:
                     _load_sensitive_data(acc_id, item)
                     
                     proxy_val = item.get("proxy_url") or item.get("proxy") or existing_stats.get(acc_id, {}).get("proxy_url")
+                    item_gcp_tos = bool(item.get("is_gcp_tos", False) or item.get("client_id") == GCP_TOS_CLIENT_ID)
+                    item_client_id = item.get("client_id") or (GCP_TOS_CLIENT_ID if item_gcp_tos else DEFAULT_CLIENT_ID)
+                    item_client_secret = item.get("client_secret") or (GCP_TOS_CLIENT_SECRET if item_client_id == GCP_TOS_CLIENT_ID else DEFAULT_CLIENT_SECRET)
                     acc = AccountSession(
                         account_id=acc_id,
                         refresh_token=item.get("refresh_token", ""),
@@ -534,6 +540,10 @@ class AccountPool:
                         auth_method="consumer",
                         project_id=item.get("project_id"),
                         region_code=item.get("region_code") or existing_stats.get(acc_id, {}).get("region_code"),
+                        client_id=item_client_id,
+                        client_secret=item_client_secret,
+                        is_gcp_tos=item_gcp_tos,
+                        available_credits=item.get("available_credits"),
                         is_primary=bool(item.get("is_primary", acc_id == "primary" or len(self.accounts) == 0)),
                         enabled=bool(item.get("enabled", True)),
                         on_token_refreshed=self.save_accounts,
@@ -697,6 +707,14 @@ class AccountPool:
                         matched_acc.name = parsed["name"]
                     if parsed.get("picture") and not matched_acc.picture:
                         matched_acc.picture = parsed["picture"]
+                    if parsed.get("is_gcp_tos"):
+                        matched_acc.is_gcp_tos = True
+                    if parsed.get("client_id"):
+                        matched_acc.client_id = parsed["client_id"]
+                        if parsed.get("client_secret"):
+                            matched_acc.client_secret = parsed["client_secret"]
+                        elif parsed["client_id"] == GCP_TOS_CLIENT_ID:
+                            matched_acc.client_secret = GCP_TOS_CLIENT_SECRET
                     for a in self.accounts.values():
                         if a.auth_method == "consumer":
                             a.is_primary = False
@@ -707,6 +725,9 @@ class AccountPool:
                     acc_id = f"acc_{os.urandom(4).hex()}"
                     for a in self.accounts.values():
                         a.is_primary = False
+                    p_gcp_tos = bool(parsed.get("is_gcp_tos", False))
+                    p_cid = parsed.get("client_id") or (GCP_TOS_CLIENT_ID if p_gcp_tos else DEFAULT_CLIENT_ID)
+                    p_csec = parsed.get("client_secret") or (GCP_TOS_CLIENT_SECRET if p_cid == GCP_TOS_CLIENT_ID else DEFAULT_CLIENT_SECRET)
                     new_acc = AccountSession(
                         account_id=acc_id,
                         refresh_token=parsed.get("refresh_token", ""),
@@ -717,6 +738,9 @@ class AccountPool:
                         picture=parsed.get("picture"),
                         auth_method=parsed.get("auth_method", "consumer"),
                         project_id=parsed.get("project_id"),
+                        client_id=p_cid,
+                        client_secret=p_csec,
+                        is_gcp_tos=p_gcp_tos,
                         id_token=parsed.get("id_token"),
                         is_primary=True,
                         enabled=True,
@@ -732,6 +756,9 @@ class AccountPool:
                 parsed = parse_antigravity_token_file(t_path)
                 if parsed and (parsed.get("refresh_token") or parsed.get("access_token")):
                     acc_id = f"acc_{os.urandom(4).hex()}"
+                    p_gcp_tos = bool(parsed.get("is_gcp_tos", False))
+                    p_cid = parsed.get("client_id") or (GCP_TOS_CLIENT_ID if p_gcp_tos else DEFAULT_CLIENT_ID)
+                    p_csec = parsed.get("client_secret") or (GCP_TOS_CLIENT_SECRET if p_cid == GCP_TOS_CLIENT_ID else DEFAULT_CLIENT_SECRET)
                     primary_acc = AccountSession(
                         account_id=acc_id,
                         refresh_token=parsed.get("refresh_token", ""),
@@ -742,6 +769,9 @@ class AccountPool:
                         picture=parsed.get("picture"),
                         auth_method=parsed.get("auth_method", "consumer"),
                         project_id=parsed.get("project_id"),
+                        client_id=p_cid,
+                        client_secret=p_csec,
+                        is_gcp_tos=p_gcp_tos,
                         id_token=parsed.get("id_token"),
                         is_primary=True,
                         enabled=True,
@@ -852,6 +882,13 @@ class AccountPool:
                         "enabled": acc.enabled,
                         "is_primary": acc.is_primary,
                     }
+                    if getattr(acc, "is_gcp_tos", False):
+                        entry_dict["is_gcp_tos"] = True
+                    acc_cid = getattr(acc, "client_id", DEFAULT_CLIENT_ID)
+                    if acc_cid and acc_cid != DEFAULT_CLIENT_ID:
+                        entry_dict["client_id"] = acc_cid
+                    if getattr(acc, "available_credits", None):
+                        entry_dict["available_credits"] = acc.available_credits
                     if getattr(acc, "proxy_url", None):
                         entry_dict["proxy_url"] = acc.proxy_url
                     sensitive = {
@@ -1494,23 +1531,34 @@ class AccountPool:
 
         return combined_models
 
-    def start_oauth_flow(self, redirect_uri: str | None = None) -> dict[str, str]:
+    def start_oauth_flow(self, redirect_uri: str | None = None, is_gcp_tos: bool = False) -> dict[str, Any]:
         """Generates PKCE authorization URL and tracks the verifier and redirect_uri."""
         actual_redirect = redirect_uri or REDIRECT_URI
         verifier, challenge, state = generate_pkce_pair()
-        auth_url = get_authorization_url(challenge, state, redirect_uri=actual_redirect)
-        self.pending_pkce_flows[state] = (verifier, time.time(), actual_redirect)
+        auth_url = get_authorization_url(
+            challenge,
+            state,
+            redirect_uri=actual_redirect,
+            is_gcp_tos=bool(is_gcp_tos),
+        )
+        now = time.time()
+        self.pending_pkce_flows[state] = (verifier, now, actual_redirect)
+        self.pending_oauth_meta[state] = {"is_gcp_tos": bool(is_gcp_tos), "ts": now}
 
         # Clean old flows > 10m
-        now = time.time()
         for k in list(self.pending_pkce_flows.keys()):
             if now - self.pending_pkce_flows[k][1] > 600:
                 del self.pending_pkce_flows[k]
+                self.pending_oauth_meta.pop(k, None)
+        for k in list(self.pending_oauth_meta.keys()):
+            if now - self.pending_oauth_meta[k].get("ts", 0) > 600:
+                self.pending_oauth_meta.pop(k, None)
 
         return {
             "auth_url": auth_url,
             "state": state,
             "code_verifier": verifier,
+            "is_gcp_tos": bool(is_gcp_tos),
         }
 
     async def complete_oauth_flow(
@@ -1520,6 +1568,7 @@ class AccountPool:
         state: str | None = None,
         proxy_url: str | None = None,
         redirect_uri: str | None = None,
+        is_gcp_tos: bool = False,
     ) -> AccountSession:
         """Exchanges auth code for tokens and registers new AccountSession."""
         code = code_or_url.strip()
@@ -1533,6 +1582,9 @@ class AccountPool:
                 if parsed_tok and parsed_tok.get("refresh_token"):
                     rf = parsed_tok["refresh_token"]
                     acc_tok = parsed_tok.get("access_token")
+                    tok_gcp_tos = bool(is_gcp_tos or parsed_tok.get("is_gcp_tos", False))
+                    tok_cid = parsed_tok.get("client_id") or (GCP_TOS_CLIENT_ID if tok_gcp_tos else DEFAULT_CLIENT_ID)
+                    tok_csec = parsed_tok.get("client_secret") or (GCP_TOS_CLIENT_SECRET if tok_cid == GCP_TOS_CLIENT_ID else DEFAULT_CLIENT_SECRET)
                     acc_id = f"acc_{os.urandom(4).hex()}"
                     acc = AccountSession(
                         account_id=acc_id,
@@ -1544,6 +1596,9 @@ class AccountPool:
                         picture=parsed_tok.get("picture"),
                         project_id=parsed_tok.get("project_id"),
                         auth_method=parsed_tok.get("auth_method", "consumer"),
+                        client_id=tok_cid,
+                        client_secret=tok_csec,
+                        is_gcp_tos=tok_gcp_tos,
                         is_primary=len(self.accounts) == 0,
                         on_token_refreshed=self.save_accounts,
                         proxy_url=proxy_url,
@@ -1567,6 +1622,11 @@ class AccountPool:
                         matched_acc.refresh_token = rf
                         matched_acc.access_token = acc.access_token
                         matched_acc.expiry_timestamp = acc.expiry_timestamp
+                        matched_acc.client_id = acc.client_id
+                        matched_acc.client_secret = acc.client_secret
+                        matched_acc.is_gcp_tos = acc.is_gcp_tos
+                        if acc.available_credits:
+                            matched_acc.available_credits = acc.available_credits
                         if proxy_url:
                             matched_acc.set_proxy_url(proxy_url)
                         if acc.email and acc.email != "unknown@gmail.com":
@@ -1591,10 +1651,15 @@ class AccountPool:
         # 2. Handle raw OAuth Refresh Token pasted directly (starts with 1//...)
         if code.startswith("1//"):
             acc_id = f"acc_{os.urandom(4).hex()}"
+            raw_cid = GCP_TOS_CLIENT_ID if is_gcp_tos else DEFAULT_CLIENT_ID
+            raw_csec = GCP_TOS_CLIENT_SECRET if is_gcp_tos else DEFAULT_CLIENT_SECRET
             acc = AccountSession(
                 account_id=acc_id,
                 refresh_token=code,
                 auth_method="consumer",
+                client_id=raw_cid,
+                client_secret=raw_csec,
+                is_gcp_tos=bool(is_gcp_tos),
                 is_primary=len(self.accounts) == 0,
                 on_token_refreshed=self.save_accounts,
                 proxy_url=proxy_url,
@@ -1617,6 +1682,11 @@ class AccountPool:
                 matched_acc.refresh_token = code
                 matched_acc.access_token = acc.access_token
                 matched_acc.expiry_timestamp = acc.expiry_timestamp
+                matched_acc.client_id = acc.client_id
+                matched_acc.client_secret = acc.client_secret
+                matched_acc.is_gcp_tos = acc.is_gcp_tos
+                if acc.available_credits:
+                    matched_acc.available_credits = acc.available_credits
                 self.save_accounts()
                 return matched_acc
 
@@ -1648,6 +1718,7 @@ class AccountPool:
         if "code=" in code:
             code = code.split("code=")[-1].split("&")[0]
 
+        flow_meta = self.pending_oauth_meta.get(state, {}) if state else {}
         if state and state in self.pending_pkce_flows:
             flow_info = self.pending_pkce_flows[state]
             # Server-tracked verifier for this state takes precedence over potentially stale frontend state
@@ -1658,12 +1729,18 @@ class AccountPool:
         if not verifier:
             # Default fallback verifier if user passes raw code
             if self.pending_pkce_flows:
-                last_flow = list(self.pending_pkce_flows.values())[-1]
+                last_state, last_flow = list(self.pending_pkce_flows.items())[-1]
                 verifier = last_flow[0]
+                if not flow_meta:
+                    flow_meta = self.pending_oauth_meta.get(last_state, {})
                 if not redirect_uri and len(last_flow) > 2 and last_flow[2]:
                     actual_redirect_uri = last_flow[2]
             else:
                 raise ValueError("Missing code_verifier for PKCE exchange. Please start login flow first.")
+
+        use_gcp_tos = bool(is_gcp_tos or flow_meta.get("is_gcp_tos", False))
+        oauth_client_id = GCP_TOS_CLIENT_ID if use_gcp_tos else DEFAULT_CLIENT_ID
+        oauth_client_secret = GCP_TOS_CLIENT_SECRET if use_gcp_tos else DEFAULT_CLIENT_SECRET
 
         client_kwargs = {"timeout": 30.0}
         if proxy_url:
@@ -1671,8 +1748,8 @@ class AccountPool:
 
         async with httpx.AsyncClient(**client_kwargs) as client:
             data = {
-                "client_id": DEFAULT_CLIENT_ID,
-                "client_secret": DEFAULT_CLIENT_SECRET,
+                "client_id": oauth_client_id,
+                "client_secret": oauth_client_secret,
                 "code": code,
                 "code_verifier": verifier,
                 "grant_type": "authorization_code",
@@ -1684,6 +1761,8 @@ class AccountPool:
 
             if state and state in self.pending_pkce_flows:
                 self.pending_pkce_flows.pop(state, None)
+            if state:
+                self.pending_oauth_meta.pop(state, None)
 
             token_data = resp.json()
             access_token = token_data.get("access_token")
@@ -1708,6 +1787,9 @@ class AccountPool:
                 email=initial_email,
                 name=initial_name,
                 picture=initial_picture,
+                client_id=oauth_client_id,
+                client_secret=oauth_client_secret,
+                is_gcp_tos=use_gcp_tos,
                 id_token=id_token,
                 is_primary=len(self.accounts) == 0,
                 on_token_refreshed=self.save_accounts,
@@ -1735,6 +1817,11 @@ class AccountPool:
                 matched_acc.refresh_token = refresh_token
                 matched_acc.access_token = access_token
                 matched_acc.expiry_timestamp = time.time() + float(expires_in)
+                matched_acc.client_id = oauth_client_id
+                matched_acc.client_secret = oauth_client_secret
+                matched_acc.is_gcp_tos = acc.is_gcp_tos
+                if acc.available_credits:
+                    matched_acc.available_credits = acc.available_credits
                 if proxy_url:
                     matched_acc.set_proxy_url(proxy_url)
                 if id_token:

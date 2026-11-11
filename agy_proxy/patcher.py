@@ -1,8 +1,11 @@
+import json
 import logging
 import os
+import platform
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -757,7 +760,12 @@ def get_patch_status(
     proxy_url: str = DEFAULT_PROXY_URL,
 ) -> Dict[str, Any]:
     patcher = LanguageServerPatcher(target_path=target_path, proxy_url=proxy_url)
-    return patcher.status()
+    st = patcher.status()
+    try:
+        st["ide_settings"] = AntigravityIDESettingsConfigurator(proxy_url=proxy_url).status()
+    except Exception:
+        pass
+    return st
 
 
 def restart_language_server(target_path: Optional[str | Path] = None) -> List[int]:
@@ -907,10 +915,20 @@ class DesktopLauncher:
         results: Dict[str, Any] = {}
 
         orig_bin = "/opt/Antigravity/antigravity"
-        which_antigravity = shutil.which("antigravity")
+        for cand_bin in (
+            "/opt/Antigravity IDE/antigravity-ide",
+            "/opt/Antigravity IDE/antigravity",
+            "/opt/Antigravity/antigravity",
+        ):
+            if Path(cand_bin).is_file():
+                orig_bin = cand_bin
+                break
         cli_path = self.get_cli_wrapper_path()
-        if which_antigravity and Path(which_antigravity).resolve() != cli_path.resolve():
-            orig_bin = which_antigravity
+        for bin_cmd in ("antigravity-ide", "antigravity"):
+            which_antigravity = shutil.which(bin_cmd)
+            if which_antigravity and Path(which_antigravity).resolve() != cli_path.resolve():
+                orig_bin = which_antigravity
+                break
 
         # 1. CLI wrapper
         cli_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1000,4 +1018,206 @@ if (Test-Path $antigravityExe) {{
     Write-Error "Antigravity.exe not found at $antigravityExe"
 }}
 """
+
+
+class AntigravityIDESettingsConfigurator:
+    """
+    Zero-Patch configurator for Antigravity IDE v2.6+ (`User/settings.json`).
+    Writes native IDE extension settings (`jetski.cloudCodeUrl` and `antigravity.serverArgs`)
+    so the Electron IDE and `agy --hub` route through agy-proxy without touching any binary files.
+    """
+
+    APP_DIRS = ("Antigravity IDE", "Antigravity", "Code")
+
+    def __init__(
+        self,
+        proxy_url: str = DEFAULT_PROXY_URL,
+        settings_path: Optional[str | Path] = None,
+    ):
+        self.proxy_url = proxy_url.rstrip("/")
+        self.settings_path = Path(settings_path).expanduser() if settings_path else None
+
+    @classmethod
+    def get_candidate_settings_paths(cls) -> List[Path]:
+        system = platform.system()
+        home = Path.home()
+        paths: List[Path] = []
+        if system == "Windows":
+            appdata = os.environ.get("APPDATA")
+            if appdata:
+                for app_dir in cls.APP_DIRS:
+                    paths.append(Path(appdata) / app_dir / "User" / "settings.json")
+        elif system == "Darwin":
+            for app_dir in cls.APP_DIRS:
+                paths.append(home / "Library" / "Application Support" / app_dir / "User" / "settings.json")
+        else:
+            for app_dir in cls.APP_DIRS:
+                paths.append(home / ".config" / app_dir / "User" / "settings.json")
+        return paths
+
+    def resolve_settings_path(self) -> Path:
+        if self.settings_path:
+            return self.settings_path
+        candidates = self.get_candidate_settings_paths()
+        for cand in candidates:
+            if cand.is_file():
+                return cand
+        for cand in candidates:
+            if cand.parent.parent.exists():
+                return cand
+        return candidates[0] if candidates else (Path.home() / ".config" / "Antigravity IDE" / "User" / "settings.json")
+
+    @staticmethod
+    def _strip_injected_server_args(args: Any) -> List[str]:
+        if not isinstance(args, list):
+            return []
+        cleaned: List[str] = []
+        skip_next = False
+        for item in args:
+            if skip_next:
+                skip_next = False
+                continue
+            s = str(item)
+            if s in ("--cloud_code_endpoint", "--api_server_url"):
+                skip_next = True
+                continue
+            if s.startswith("--cloud_code_endpoint=") or s.startswith("--api_server_url="):
+                continue
+            cleaned.append(s)
+        return cleaned
+
+    @staticmethod
+    def _read_settings_json(path: Path) -> Dict[str, Any]:
+        if not path.is_file():
+            return {}
+        raw = path.read_text(encoding="utf-8").strip()
+        if not raw:
+            return {}
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            # Handle VS Code JSONC full-line // comments gracefully
+            filtered_lines = [line for line in raw.splitlines() if not line.lstrip().startswith("//")]
+            data = json.loads("\n".join(filtered_lines))
+        if not isinstance(data, dict):
+            raise ValueError(f"Expected JSON object in {path}")
+        return data
+
+    @staticmethod
+    def _write_settings_json(path: Path, data: Dict[str, Any]) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(
+            mode="w", dir=str(path.parent), delete=False, encoding="utf-8", suffix=".tmp"
+        ) as tmp:
+            json.dump(data, tmp, indent=4, ensure_ascii=False)
+            tmp.write("\n")
+            tmp_name = tmp.name
+        os.replace(tmp_name, path)
+
+    def apply(self) -> Dict[str, Any]:
+        target = self.resolve_settings_path()
+        bak_path = target.with_name(f"{target.name}.agy_proxy_bak")
+        try:
+            if target.is_file() and not bak_path.exists():
+                shutil.copy2(target, bak_path)
+            data = self._read_settings_json(target)
+            data["jetski.cloudCodeUrl"] = self.proxy_url
+            cleaned_args = self._strip_injected_server_args(data.get("antigravity.serverArgs"))
+            cleaned_args.append(f"--cloud_code_endpoint={self.proxy_url}")
+            cleaned_args.append(f"--api_server_url={self.proxy_url}")
+            data["antigravity.serverArgs"] = cleaned_args
+            self._write_settings_json(target, data)
+            return {
+                "success": True,
+                "status": "applied",
+                "settings_file": str(target),
+                "proxy_url": self.proxy_url,
+                "backup_file": str(bak_path) if bak_path.exists() else None,
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "settings_file": str(target),
+            }
+
+    def restore(self) -> Dict[str, Any]:
+        target = self.resolve_settings_path()
+        bak_path = target.with_name(f"{target.name}.agy_proxy_bak")
+        try:
+            if not target.is_file():
+                return {
+                    "success": True,
+                    "status": "not_found",
+                    "settings_file": str(target),
+                }
+            data = self._read_settings_json(target)
+            changed = False
+            if "jetski.cloudCodeUrl" in data:
+                del data["jetski.cloudCodeUrl"]
+                changed = True
+            if "antigravity.serverArgs" in data:
+                cleaned = self._strip_injected_server_args(data.get("antigravity.serverArgs"))
+                if cleaned:
+                    data["antigravity.serverArgs"] = cleaned
+                else:
+                    del data["antigravity.serverArgs"]
+                changed = True
+            if changed:
+                self._write_settings_json(target, data)
+            if bak_path.is_file():
+                try:
+                    bak_path.unlink()
+                except Exception:
+                    pass
+            return {
+                "success": True,
+                "status": "restored",
+                "changed": changed,
+                "settings_file": str(target),
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "settings_file": str(target),
+            }
+
+    def status(self) -> Dict[str, Any]:
+        target = self.resolve_settings_path()
+        bak_path = target.with_name(f"{target.name}.agy_proxy_bak")
+        exists = target.is_file()
+        jetski_url = None
+        server_args: List[str] = []
+        configured = False
+        parse_error = None
+        if exists:
+            try:
+                data = self._read_settings_json(target)
+                jetski_url = data.get("jetski.cloudCodeUrl")
+                raw_args = data.get("antigravity.serverArgs")
+                if isinstance(raw_args, list):
+                    server_args = [str(x) for x in raw_args]
+                has_cc_flag = any(
+                    a == f"--cloud_code_endpoint={self.proxy_url}"
+                    or (isinstance(jetski_url, str) and jetski_url.rstrip("/") == self.proxy_url)
+                    for a in ([""] + server_args)
+                )
+                configured = (
+                    isinstance(jetski_url, str) and jetski_url.rstrip("/") == self.proxy_url
+                ) or (f"--cloud_code_endpoint={self.proxy_url}" in server_args)
+            except Exception as e:
+                parse_error = str(e)
+
+        return {
+            "settings_file": str(target),
+            "exists": exists,
+            "configured": configured,
+            "jetski_cloud_code_url": jetski_url,
+            "antigravity_server_args": server_args,
+            "backup_exists": bak_path.is_file(),
+            "proxy_url": self.proxy_url,
+            "error": parse_error,
+        }
+
 

@@ -772,6 +772,59 @@ def find_language_server(
     return None
 
 
+def find_agy_cli_binary(custom_path: Optional[str | Path] = None) -> Optional[Path]:
+    """
+    Locates the Antigravity CLI v2+ (`agy`) binary capable of running `--hub` Web Hub mode.
+    Checks custom_path, AGY_CLI_BIN env var, ~/.gemini/bin/agy, ~/.gemini/antigravity-cli/agy, and PATH.
+    """
+    bin_names = ["agy.exe", "agy"] if sys.platform == "win32" else ["agy"]
+
+    def _check_path(candidate: Path) -> Optional[Path]:
+        try:
+            if candidate.is_file() and candidate.name.lower() in ("agy", "agy.exe"):
+                if is_binary_executable(candidate):
+                    return candidate.resolve()
+            elif candidate.is_dir():
+                for bn in bin_names:
+                    sub = candidate / bn
+                    if sub.is_file() and is_binary_executable(sub):
+                        return sub.resolve()
+        except Exception:
+            pass
+        return None
+
+    if custom_path:
+        res = _check_path(Path(custom_path).expanduser())
+        if res:
+            return res
+
+    env_bin = os.environ.get("AGY_CLI_BIN")
+    if env_bin:
+        res = _check_path(Path(env_bin).expanduser())
+        if res:
+            return res
+
+    home = Path.home()
+    candidates = [
+        home / ".gemini" / "bin" / bn for bn in bin_names
+    ] + [
+        home / ".gemini" / "antigravity-cli" / bn for bn in bin_names
+    ] + [
+        DEFAULT_BIN_DIR / bn for bn in bin_names
+    ]
+    for cand in candidates:
+        res = _check_path(cand)
+        if res:
+            return res
+
+    which_agy = shutil.which("agy")
+    if which_agy:
+        res = _check_path(Path(which_agy))
+        if res:
+            return res
+    return None
+
+
 def is_port_in_use(port: int, host: str = "127.0.0.1") -> bool:
     """Checks if a local TCP port is already open/listening, accounting for socket reuse."""
     try:
@@ -804,34 +857,62 @@ def get_running_instances() -> Dict[str, Any]:
             cmd_str = " ".join(cmd)
             name = (p.info.get("name") or "").lower()
 
-            # Check for language_server
+            # Check for language_server or agy --hub
+            bin_name = os.path.basename(cmd[0]).lower() if cmd else ""
             is_ls = (
                 "language_server" in name
                 or "language-server" in name
                 or any("language_server" in os.path.basename(arg) for arg in cmd)
             )
+            is_hub = (
+                bin_name in ("agy", "agy.exe")
+                and "--hub" in cmd
+            )
 
-            # Ignore proxy itself (unless it's language_server with --web_bundle_path in ~/.config/agy-proxy)
-            if not is_ls and ("agy_proxy" in cmd_str or "agy-proxy" in cmd_str or "test_web_launcher" in cmd_str):
+            # Ignore proxy itself (unless it's language_server or agy --hub)
+            if not is_ls and not is_hub and ("agy_proxy" in cmd_str or "agy-proxy" in cmd_str or "test_web_launcher" in cmd_str):
                 continue
 
             # Check for Electron Antigravity
             is_electron = False
-            bin_name = os.path.basename(cmd[0]).lower() if cmd else ""
             if (
                 name in ("antigravity", "antigravity-ide")
                 or bin_name in ("antigravity", "antigravity-ide")
-            ) and "language_server" not in cmd_str:
+            ) and "language_server" not in cmd_str and not is_hub:
                 is_electron = True
             elif (
                 "/opt/antigravity/antigravity" in cmd_str.lower()
                 or "/opt/antigravity ide/antigravity" in cmd_str.lower()
-            ) and "language_server" not in cmd_str:
+            ) and "language_server" not in cmd_str and not is_hub:
                 is_electron = True
 
             if is_electron:
                 electron_pids.append(pid)
                 electron_details.append({"pid": pid, "cmd": cmd_str[:120]})
+                continue
+
+            # Check for agy --hub
+            if is_hub:
+                hub_port = None
+                for i, arg in enumerate(cmd):
+                    if arg in ("--hub-port", "--https_server_port") and i + 1 < len(cmd):
+                        try:
+                            hub_port = int(cmd[i + 1])
+                        except ValueError:
+                            pass
+                    elif arg.startswith("--hub-port=") or arg.startswith("--https_server_port="):
+                        try:
+                            hub_port = int(arg.split("=", 1)[1])
+                        except ValueError:
+                            pass
+                ls_pids.append(pid)
+                ls_details.append({
+                    "pid": pid,
+                    "standalone": True,
+                    "hub_mode": True,
+                    "web_port": hub_port,
+                    "cmd": cmd_str[:160],
+                })
                 continue
 
             # Check for language_server
@@ -854,6 +935,7 @@ def get_running_instances() -> Dict[str, Any]:
                 ls_details.append({
                     "pid": pid,
                     "standalone": is_standalone,
+                    "hub_mode": False,
                     "web_port": web_port,
                     "cmd": cmd_str[:160],
                 })
@@ -1767,6 +1849,37 @@ def build_web_args(
     return args
 
 
+def build_hub_args(
+    agy_path: Path,
+    port: int = DEFAULT_WEB_PORT,
+    csrf_token: Optional[str] = None,
+    proxy_url: Optional[str] = DEFAULT_PROXY_URL,
+    direct: bool = False,
+    extra_args: Optional[List[str]] = None,
+) -> List[str]:
+    """Constructs command line arguments for launching Antigravity CLI v2+ in Web Hub mode (`agy --hub`)."""
+    token = csrf_token or get_csrf_token()
+    args = [
+        str(agy_path),
+        "--hub",
+        f"--hub-port={port}",
+        "--app_data_dir=antigravity",
+        f"--csrf_token={token}",
+        "--disable_telemetry=true",
+    ]
+    if proxy_url and not direct:
+        clean_url = proxy_url.rstrip("/")
+        args.extend([f"--api_server_url={clean_url}", f"--cloud_code_endpoint={clean_url}"])
+    else:
+        args.extend([
+            f"--api_server_url={DEFAULT_GOOGLE_API_URL}",
+            f"--cloud_code_endpoint={DEFAULT_GOOGLE_CC_ENDPOINT}",
+        ])
+    if extra_args:
+        args.extend(extra_args)
+    return args
+
+
 BROWSER_OPEN_COOLDOWN_SECONDS: float = 10.0
 
 
@@ -1974,21 +2087,29 @@ def launch_antigravity_web(
     patched: bool = False,
     force_patch: bool = False,
     bundle_dir: Optional[str | Path] = None,
+    use_hub: bool = False,
 ) -> int:
     """
     Main entry point for starting Antigravity in browser Web Mode.
-    Handles discovery, Electron cleanup, proxy detection, browser opening, and process lifecycle.
+    Handles discovery (language_server --standalone or `agy --hub`), Electron cleanup,
+    proxy detection, browser opening, and process lifecycle.
     """
-    resolved_ls = find_language_server(custom_path=ls_path or editor_path, interactive=True)
-    if not resolved_ls or not resolved_ls.is_file():
-        console.print("[bold red]❌ Error: Could not locate Antigravity language_server binary.[/bold red]")
-        console.print("Please install Antigravity or specify the path via [bold cyan]--ls-path /path/to/binary[/bold cyan] or [bold cyan]-e /path/to/editor[/bold cyan].")
-        console.print("You can also configure it permanently with: [bold cyan]agy-proxy config set ls-path <PATH>[/bold cyan]")
-        return 1
-
-    # Set ANTIGRAVITY_HARNESS_PATH so Python SDK and tools can find the running harness
-    os.environ["ANTIGRAVITY_HARNESS_PATH"] = str(resolved_ls)
-    patch_webm_encoder(resolved_ls)
+    hub_mode = bool(use_hub)
+    if hub_mode:
+        resolved_ls = find_agy_cli_binary(custom_path=ls_path or editor_path)
+        if not resolved_ls or not resolved_ls.is_file():
+            console.print("[bold red]❌ Error: Could not locate `agy` CLI binary for --hub mode.[/bold red]")
+            console.print("Expected `~/.gemini/bin/agy` or specify via `AGY_CLI_BIN=/path/to/agy`.")
+            return 1
+    else:
+        resolved_ls = find_language_server(custom_path=ls_path or editor_path, interactive=True)
+        if not resolved_ls or not resolved_ls.is_file():
+            console.print("[bold red]❌ Error: Could not locate Antigravity language_server binary.[/bold red]")
+            console.print("Please install Antigravity or specify the path via [bold cyan]--ls-path /path/to/binary[/bold cyan] or [bold cyan]-e /path/to/editor[/bold cyan].")
+            console.print("You can also configure it permanently with: [bold cyan]agy-proxy config set ls-path <PATH>[/bold cyan]")
+            return 1
+        os.environ["ANTIGRAVITY_HARNESS_PATH"] = str(resolved_ls)
+        patch_webm_encoder(resolved_ls)
 
     # Prepare log path
     effective_log_path = Path(log_path) if log_path else Path.home() / ".config" / "Antigravity" / "logs" / "language_server.log"
@@ -2082,15 +2203,24 @@ def launch_antigravity_web(
             console.print(f"[bold red]❌ Failed to prepare patched web bundle: {e}[/bold red]")
             return 1
 
-    cmd = build_web_args(
-        ls_path=resolved_ls,
-        port=port,
-        csrf_token=token,
-        proxy_url=effective_proxy_url if proxy_alive else None,
-        ide_version=ide_version,
-        direct=direct,
-        web_bundle_path=target_bundle,
-    )
+    if hub_mode:
+        cmd = build_hub_args(
+            agy_path=resolved_ls,
+            port=port,
+            csrf_token=token,
+            proxy_url=effective_proxy_url if proxy_alive else None,
+            direct=direct,
+        )
+    else:
+        cmd = build_web_args(
+            ls_path=resolved_ls,
+            port=port,
+            csrf_token=token,
+            proxy_url=effective_proxy_url if proxy_alive else None,
+            ide_version=ide_version,
+            direct=direct,
+            web_bundle_path=target_bundle,
+        )
 
     print_web_banner(
         url=url,
@@ -2172,6 +2302,8 @@ def launch_antigravity_web(
         clean_proxy = effective_proxy_url.rstrip("/")
         proc_env["CLOUD_CODE_URL"] = clean_proxy
         proc_env["USER_INFO_OVERRIDE_URL"] = f"{clean_proxy}/oauth2/v2/userinfo"
+    if hub_mode:
+        proc_env["AGY_ENABLE_HUB"] = "1"
     proc_env["ANTIGRAVITY_VSCODE_HOST"] = "1"
 
     initial_log_offset = 0

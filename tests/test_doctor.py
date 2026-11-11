@@ -34,7 +34,11 @@ class TestDoctor(unittest.IsolatedAsyncioTestCase):
              patch("httpx.AsyncClient.post", return_value=mock_resp):
             res = await check_network_endpoints()
             self.assertIsInstance(res, list)
-            self.assertTrue(len(res) >= 3)
+            self.assertTrue(len(res) >= 4)
+            names = [item["name"] for item in res]
+            urls = [item["url"] for item in res]
+            self.assertIn("Google CloudCode GCP API", names)
+            self.assertIn("https://cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels", urls)
             for item in res:
                 self.assertEqual(item["status"], "OK")
 

@@ -5,7 +5,11 @@ Gemini Web browser session support, quota tracking, and failover routing.
 """
 
 from agy_proxy.auth.constants import (
+    AGY_CLI_AUTO_UPDATER_URL,
+    AGY_IDE_AUTO_UPDATER_URL,
     CLOUDCODE_BASE_URL,
+    CLOUDCODE_CONSUMER_BASE_URL,
+    CLOUDCODE_GCP_TOS_BASE_URL,
     CONFIG_DIR,
     DEFAULT_ACCOUNTS_FILE,
     DEFAULT_API_KEYS_FILE,
@@ -13,6 +17,8 @@ from agy_proxy.auth.constants import (
     DEFAULT_CLIENT_SECRET,
     DEFAULT_TOKEN_FILE,
     DEFAULT_WEB_SESSIONS_FILE,
+    GCP_TOS_CLIENT_ID,
+    GCP_TOS_CLIENT_SECRET,
     GENAI_BASE_URL,
     LEGACY_ACCOUNTS_FILES,
     OAUTH_TOKEN_URL,
@@ -20,6 +26,7 @@ from agy_proxy.auth.constants import (
     SCOPES,
     USER_AGENT,
     USERINFO_URL,
+    get_cloudcode_base_url,
     logger,
 )
 from agy_proxy.auth.token_utils import (
@@ -59,7 +66,11 @@ from agy_proxy.auth.pool import (
 
 __all__ = [
     # Constants
+    "AGY_CLI_AUTO_UPDATER_URL",
+    "AGY_IDE_AUTO_UPDATER_URL",
     "CLOUDCODE_BASE_URL",
+    "CLOUDCODE_CONSUMER_BASE_URL",
+    "CLOUDCODE_GCP_TOS_BASE_URL",
     "CONFIG_DIR",
     "DEFAULT_ACCOUNTS_FILE",
     "DEFAULT_API_KEYS_FILE",
@@ -67,6 +78,8 @@ __all__ = [
     "DEFAULT_CLIENT_SECRET",
     "DEFAULT_TOKEN_FILE",
     "DEFAULT_WEB_SESSIONS_FILE",
+    "GCP_TOS_CLIENT_ID",
+    "GCP_TOS_CLIENT_SECRET",
     "GENAI_BASE_URL",
     "LEGACY_ACCOUNTS_FILES",
     "OAUTH_TOKEN_URL",
@@ -74,6 +87,7 @@ __all__ = [
     "SCOPES",
     "USER_AGENT",
     "USERINFO_URL",
+    "get_cloudcode_base_url",
     "logger",
     # Token utils
     "CANDIDATE_TOKEN_FILES",

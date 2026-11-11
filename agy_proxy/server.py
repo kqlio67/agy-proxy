@@ -40,7 +40,15 @@ else:
     STATIC_DIR = Path(__file__).parent / "static"
 from pydantic import BaseModel
 
-from agy_proxy.auth import AccountPool, AuthManager, USER_AGENT, REDIRECT_URI
+from agy_proxy.auth import (
+    AccountPool,
+    AuthManager,
+    CLOUDCODE_BASE_URL,
+    CLOUDCODE_GCP_TOS_BASE_URL,
+    REDIRECT_URI,
+    USER_AGENT,
+    get_cloudcode_base_url,
+)
 from agy_proxy.client import CloudCodeClient
 from agy_proxy.models import (
     AnthropicRequest,
@@ -84,6 +92,7 @@ class OAuthCallbackRequest(BaseModel):
     code_verifier: str | None = None
     proxy_url: str | None = None
     redirect_uri: str | None = None
+    is_gcp_tos: bool = False
 
 
 # -----------------------------------------------------------------------------
@@ -399,7 +408,31 @@ def _get_default_passthrough_response(action_key: str) -> dict[str, Any]:
             "agentPlugins": plugins_list,
             "plugins": plugins_list,
         }
-    elif action_key in ("fetchAdminControls", "writeTrajectoryAcls"):
+    elif action_key == "listCascadeNuxes":
+        return _get_default_passthrough_response("cascadeNuxes")
+    elif action_key == "listAgentPlugins":
+        return _get_default_passthrough_response("agentPlugins")
+    elif action_key == "listBuildWithGooglePlugins":
+        return _get_default_passthrough_response("buildWithGooglePlugins")
+    elif action_key == "setUserSettings":
+        return {"userSettings": {}}
+    elif action_key == "getHealth":
+        return {"status": "ok"}
+    elif action_key == "checkUrlDenylist":
+        return {"isDenylisted": False}
+    elif action_key == "checkUrlAntivirus":
+        return {"verdict": "SAFE"}
+    elif action_key == "provisionConversationBundleDir":
+        return {"bundleDir": ""}
+    elif action_key == "getBundleWriteMint":
+        return {}
+    elif action_key == "battleModeOverrides":
+        return {}
+    elif action_key == "battleModeAutoTrigger":
+        return {"shouldAutoTrigger": False}
+    elif action_key == "listWebDocsOptions":
+        return {"options": []}
+    elif action_key in ("fetchAdminControls", "writeTrajectoryAcls", "WriteTrajectoryACLs", "getAgentPlugin"):
         return {}
     return {}
 
@@ -595,6 +628,7 @@ def create_app(
     global _GLOBAL_ACCOUNT_POOL
     _GLOBAL_ACCOUNT_POOL = pool
 
+    _SERVER_INSTANCE_ID = str(uuid.uuid4())
     client = CloudCodeClient(pool)
 
     @asynccontextmanager
@@ -1130,8 +1164,9 @@ def create_app(
                             }
                         }
                         async with httpx.AsyncClient(timeout=1.5) as http_client:
+                            cc_base = get_cloudcode_base_url(True) if getattr(acc, "is_gcp_tos", False) else CLOUDCODE_BASE_URL
                             resp = await http_client.post(
-                                "https://daily-cloudcode-pa.googleapis.com/v1internal:countTokens",
+                                f"{cc_base}/v1internal:countTokens",
                                 headers=headers,
                                 json=post_data,
                             )
@@ -1198,6 +1233,15 @@ def create_app(
     async def health_check():
         acc_count = len(pool.accounts)
         return {"status": "ok", "accounts_count": acc_count}
+
+    @app.get("/healthz")
+    async def healthz_check():
+        acc_count = len(pool.accounts)
+        return {
+            "status": "ok",
+            "accounts_count": acc_count,
+            "instanceId": _SERVER_INSTANCE_ID,
+        }
 
     @app.get("/api/info")
     async def get_proxy_info():
@@ -1281,6 +1325,10 @@ def create_app(
                 entry["access_token"] = getattr(acc, "access_token", "")
                 entry["id_token"] = getattr(acc, "id_token", "")
                 entry["expiry_timestamp"] = getattr(acc, "expiry_timestamp", 0.0)
+                if getattr(acc, "is_gcp_tos", False):
+                    entry["is_gcp_tos"] = True
+                if getattr(acc, "available_credits", None):
+                    entry["available_credits"] = list(acc.available_credits)
             elif acc.auth_method == "api_key":
                 entry["api_key"] = getattr(acc, "api_key", "")
             elif acc.auth_method == "gemini_web":
@@ -1314,6 +1362,8 @@ def create_app(
 
                 if am == "consumer":
                     from agy_proxy.auth.base import AccountSession
+                    from agy_proxy.auth.constants import GCP_TOS_CLIENT_ID
+                    item_gcp_tos = bool(item.get("is_gcp_tos", False) or item.get("client_id") == GCP_TOS_CLIENT_ID)
                     acc = AccountSession(
                         account_id=acc_id,
                         refresh_token=item.get("refresh_token", ""),
@@ -1329,6 +1379,8 @@ def create_app(
                         enabled=bool(item.get("enabled", True)),
                         proxy_url=item.get("proxy_url"),
                         id_token=item.get("id_token"),
+                        is_gcp_tos=item_gcp_tos,
+                        available_credits=item.get("available_credits") or [],
                         on_token_refreshed=pool.save_accounts,
                     )
                 elif am == "api_key":
@@ -1406,20 +1458,43 @@ def create_app(
         return {"status": "ok", "refreshed": refreshed}
 
     @app.post("/api/accounts/oauth/start")
-    async def start_account_oauth(redirect_uri: str | None = None):
-        flow_data = pool.start_oauth_flow(redirect_uri=redirect_uri or REDIRECT_URI)
+    async def start_account_oauth(
+        request: Request,
+        redirect_uri: str | None = None,
+        is_gcp_tos: bool = False,
+    ):
+        eff_redirect = redirect_uri
+        eff_gcp_tos = bool(is_gcp_tos)
+        try:
+            raw = await request.body()
+            if raw:
+                payload = json.loads(raw)
+                if isinstance(payload, dict):
+                    if payload.get("redirect_uri"):
+                        eff_redirect = str(payload["redirect_uri"])
+                    if "is_gcp_tos" in payload:
+                        eff_gcp_tos = bool(payload["is_gcp_tos"])
+        except Exception:
+            pass
+        flow_data = pool.start_oauth_flow(
+            redirect_uri=eff_redirect or REDIRECT_URI,
+            is_gcp_tos=eff_gcp_tos,
+        )
         return flow_data
 
     @app.post("/api/accounts/oauth/callback")
     async def complete_account_oauth(req: OAuthCallbackRequest):
         try:
-            acc = await pool.complete_oauth_flow(
-                code_or_url=req.code,
-                verifier=req.code_verifier,
-                state=req.state,
-                proxy_url=req.proxy_url,
-                redirect_uri=req.redirect_uri,
-            )
+            cb_kwargs: dict[str, Any] = {
+                "code_or_url": req.code,
+                "verifier": req.code_verifier,
+                "state": req.state,
+                "proxy_url": req.proxy_url,
+                "redirect_uri": req.redirect_uri,
+            }
+            if req.is_gcp_tos:
+                cb_kwargs["is_gcp_tos"] = True
+            acc = await pool.complete_oauth_flow(**cb_kwargs)
             return acc.to_dict()
         except Exception as e:
             logger.error("OAuth callback error: %s", e)
@@ -1494,10 +1569,11 @@ def create_app(
         no_open: bool = False
         browser: str | None = None
         restart: bool = False
+        use_hub: bool = False
 
     @app.post("/api/web/launch")
     async def launch_antigravity_web_endpoint(req: WebLaunchRequest):
-        """Launches Antigravity in browser-based Web Mode (No Electron)."""
+        """Launches Antigravity in browser-based Web Mode (No Electron or agy --hub)."""
         try:
             from agy_proxy.web_launcher import launch_antigravity_web
             code = launch_antigravity_web(
@@ -1507,6 +1583,7 @@ def create_app(
                 browser=req.browser,
                 detach=True,
                 restart=req.restart,
+                use_hub=req.use_hub,
             )
             return {"status": "ok" if code == 0 else "error", "code": code, "url": f"https://127.0.0.1:{req.port}/"}
         except Exception as e:
@@ -2168,6 +2245,82 @@ def create_app(
     async def stop_autoguard_endpoint():
         from agy_proxy.patcher import AutoGuard
         return AutoGuard().stop_daemon()
+
+    def _default_ide_proxy_url(request: Request) -> str:
+        scheme = request.url.scheme or "http"
+        host = request.url.hostname or "127.0.0.1"
+        if host in ("testserver", "0.0.0.0", "::"):
+            host = "127.0.0.1"
+        port = request.url.port or 8000
+        return f"{scheme}://{host}:{port}"
+
+    @app.get("/api/patch/ide-settings")
+    async def get_ide_settings_status(
+        request: Request,
+        proxy_url: str | None = None,
+        settings_path: str | None = None,
+    ):
+        from agy_proxy.patcher import AntigravityIDESettingsConfigurator
+        eff_url = (proxy_url or _default_ide_proxy_url(request)).rstrip("/")
+        return AntigravityIDESettingsConfigurator(
+            proxy_url=eff_url,
+            settings_path=settings_path,
+        ).status()
+
+    @app.post("/api/patch/ide-settings")
+    async def apply_ide_settings_endpoint(request: Request):
+        from agy_proxy.patcher import AntigravityIDESettingsConfigurator
+        body: dict[str, Any] = {}
+        try:
+            parsed = await request.json()
+            if isinstance(parsed, dict):
+                body = parsed
+        except Exception:
+            body = {}
+        eff_url = (
+            body.get("proxy_url")
+            or request.query_params.get("proxy_url")
+            or _default_ide_proxy_url(request)
+        )
+        sp = body.get("settings_path") or request.query_params.get("settings_path")
+        res = AntigravityIDESettingsConfigurator(
+            proxy_url=str(eff_url).rstrip("/"),
+            settings_path=sp,
+        ).apply()
+        if not res.get("success"):
+            raise HTTPException(
+                status_code=400,
+                detail=res.get("error") or "Failed to apply IDE settings",
+            )
+        return res
+
+    @app.post("/api/patch/ide-settings/restore")
+    @app.delete("/api/patch/ide-settings")
+    async def restore_ide_settings_endpoint(request: Request):
+        from agy_proxy.patcher import AntigravityIDESettingsConfigurator
+        body: dict[str, Any] = {}
+        try:
+            parsed = await request.json()
+            if isinstance(parsed, dict):
+                body = parsed
+        except Exception:
+            body = {}
+        eff_url = (
+            body.get("proxy_url")
+            or request.query_params.get("proxy_url")
+            or _default_ide_proxy_url(request)
+        )
+        sp = body.get("settings_path") or request.query_params.get("settings_path")
+        res = AntigravityIDESettingsConfigurator(
+            proxy_url=str(eff_url).rstrip("/"),
+            settings_path=sp,
+        ).restore()
+        if not res.get("success"):
+            raise HTTPException(
+                status_code=400,
+                detail=res.get("error") or "Failed to restore IDE settings",
+            )
+        return res
 
     @app.get("/api/context/settings")
     async def get_compactor_settings():
@@ -3768,9 +3921,14 @@ def create_app(
                             "contents": contents,
                         }
                     }
+                    cc_base = (
+                        get_cloudcode_base_url(True)
+                        if getattr(acc, "is_gcp_tos", False)
+                        else CLOUDCODE_BASE_URL
+                    )
                     async with httpx.AsyncClient(timeout=2.0) as http_client:
                         resp = await http_client.post(
-                            "https://daily-cloudcode-pa.googleapis.com/v1internal:countTokens",
+                            f"{cc_base}/v1internal:countTokens",
                             headers=headers,
                             json=post_data,
                         )
@@ -4266,18 +4424,81 @@ def create_app(
             candidates = [a for a in candidates if getattr(a, "auth_method", "") != "gemini_web"]
 
         # Action key normalized
-        action_key = (action or action_path or "").split("?")[0].strip(":")
+        clean_ap = action_path.split("?")[0].strip("/") if action_path else ""
+        action_key = (action or clean_ap or "").split("?")[0].strip(":/")
+        if ":" in action_key:
+            action_key = action_key.split(":")[-1]
+        elif "/" in action_key:
+            action_key = action_key.split("/")[-1]
         route_desc = f"/v1internal:{action}" if action else f"/v1internal/{action_path}"
+        check_act = (action or (clean_ap.split(":")[-1].split("/")[-1] if clean_ap else "")).split("?")[0]
+        check_act_lower = check_act.lower() if check_act else ""
+
+        if check_act_lower == "gethealth":
+            return JSONResponse(
+                content={"status": "ok", "instanceId": _SERVER_INSTANCE_ID},
+                status_code=200,
+            )
+
+        # Telemetry & Trajectory Sinkhole: immediately return 200 OK for tracking / telemetry actions
+        telemetry_actions = {
+            "recordCodeAssistMetrics",
+            "writeTrajectoryAcls",
+            "WriteTrajectoryACLs",
+            "recordPromptEvent",
+            "recordTrajectory",
+            "recordCommandExecution",
+            "recordEvent",
+            "recordTrajectoryAnalytics",
+            "registerInteraction",
+            "uploadPerformanceProfile",
+        }
+        if check_act in telemetry_actions or (
+            check_act_lower and check_act_lower.startswith(("record", "writetrajectory"))
+        ):
+            logger.debug("[Telemetry Sinkhole] Dropped telemetry action: %s", check_act)
+            return JSONResponse(content={}, status_code=200)
+
+        if action_key == "setUserSettings" and isinstance(body, dict):
+            incoming_settings = body.get("userSettings") if isinstance(body.get("userSettings"), dict) else body
+            if isinstance(incoming_settings, dict):
+                us_entry = _PASSTHROUGH_METADATA_CACHE.setdefault("setUserSettings", {"userSettings": {}})
+                if not isinstance(us_entry.get("userSettings"), dict):
+                    us_entry["userSettings"] = {}
+                us_entry["userSettings"].update(copy.deepcopy(incoming_settings))
+
+                ui_entry = _PASSTHROUGH_METADATA_CACHE.get("fetchUserInfo")
+                if not isinstance(ui_entry, dict):
+                    ui_entry = _get_default_passthrough_response("fetchUserInfo")
+                    _PASSTHROUGH_METADATA_CACHE["fetchUserInfo"] = ui_entry
+                if not isinstance(ui_entry.get("userSettings"), dict):
+                    ui_entry["userSettings"] = {}
+                ui_entry["userSettings"].update(copy.deepcopy(incoming_settings))
+                _save_passthrough_cache()
+
         is_metadata = action_key in (
             "fetchAvailableModels",
             "loadCodeAssist",
             "listExperiments",
             "fetchUserInfo",
+            "setUserSettings",
             "retrieveUserQuotaSummary",
             "cascadeNuxes",
+            "listCascadeNuxes",
             "agentPlugins",
+            "listAgentPlugins",
+            "getAgentPlugin",
             "fetchAdminControls",
             "buildWithGooglePlugins",
+            "listBuildWithGooglePlugins",
+            "checkUrlDenylist",
+            "checkUrlAntivirus",
+            "provisionConversationBundleDir",
+            "getBundleWriteMint",
+            "battleModeOverrides",
+            "battleModeAutoTrigger",
+            "listWebDocsOptions",
+            "getHealth",
         )
 
         if not candidates:
@@ -4341,11 +4562,11 @@ def create_app(
             timeout_sec = 2.5
         else:
             timeout_sec = 8.0
-        from agy_proxy.auth import CLOUDCODE_BASE_URL
         COLON_ACTIONS = {
             "loadCodeAssist",
             "onboardUser",
             "fetchUserInfo",
+            "setUserSettings",
             "retrieveUserQuotaSummary",
             "fetchAvailableModels",
             "listExperiments",
@@ -4354,45 +4575,59 @@ def create_app(
             "countTokens",
             "recordCodeAssistMetrics",
             "writeTrajectoryAcls",
+            "WriteTrajectoryACLs",
             "fetchAdminControls",
             "rewriteUri",
             "fetchFromTrawlerCache",
             "buildWithGooglePlugins",
+            "listBuildWithGooglePlugins",
+            "listCascadeNuxes",
+            "listAgentPlugins",
+            "getAgentPlugin",
+            "checkUrlDenylist",
+            "checkUrlAntivirus",
+            "provisionConversationBundleDir",
+            "getBundleWriteMint",
+            "battleModeOverrides",
+            "battleModeAutoTrigger",
+            "listWebDocsOptions",
+            "recordTrajectoryAnalytics",
+            "registerInteraction",
+            "uploadPerformanceProfile",
+            "getHealth",
         }
-        if action:
-            target_url = f"{CLOUDCODE_BASE_URL}/v1internal:{action}"
-        elif action_path:
-            clean_ap = action_path.split("?")[0].strip("/")
-            if "streamGenerateContent" in clean_ap:
-                target_url = f"{CLOUDCODE_BASE_URL}/v1internal:streamGenerateContent"
-            elif "generateContent" in clean_ap:
-                target_url = f"{CLOUDCODE_BASE_URL}/v1internal:generateContent"
-            elif clean_ap in COLON_ACTIONS or any(clean_ap.endswith(f":{ca}") or clean_ap.endswith(f"/{ca}") for ca in COLON_ACTIONS):
-                matched_act = clean_ap.split(":")[-1].split("/")[-1]
-                target_url = f"{CLOUDCODE_BASE_URL}/v1internal:{matched_act}"
-            else:
-                target_url = f"{CLOUDCODE_BASE_URL}/v1internal/{action_path}"
-        else:
-            target_url = f"{CLOUDCODE_BASE_URL}/v1internal"
 
-        # Telemetry & Trajectory Sinkhole: immediately return 200 OK for tracking / telemetry actions
-        telemetry_actions = {
-            "recordCodeAssistMetrics",
-            "writeTrajectoryAcls",
-            "recordPromptEvent",
-            "recordTrajectory",
-            "recordCommandExecution",
-            "recordEvent",
-        }
-        check_act = action or (clean_ap.split(":")[-1].split("/")[-1] if action_path else "")
-        if check_act in telemetry_actions or (check_act and (check_act.startswith("record") or check_act.startswith("writeTrajectory"))):
-            logger.debug("[Telemetry Sinkhole] Dropped telemetry action: %s", check_act)
-            return JSONResponse(content={}, status_code=200)
+        def _build_cc_target_url(cc_base_url: str) -> str:
+            base = cc_base_url.rstrip("/")
+            if action:
+                return f"{base}/v1internal:{action}"
+            elif clean_ap:
+                if "streamGenerateContent" in clean_ap:
+                    return f"{base}/v1internal:streamGenerateContent"
+                elif "generateContent" in clean_ap:
+                    return f"{base}/v1internal:generateContent"
+                elif clean_ap in COLON_ACTIONS or any(
+                    clean_ap.endswith(f":{ca}") or clean_ap.endswith(f"/{ca}")
+                    for ca in COLON_ACTIONS
+                ):
+                    matched_act = clean_ap.split(":")[-1].split("/")[-1]
+                    return f"{base}/v1internal:{matched_act}"
+                else:
+                    return f"{base}/v1internal/{action_path}"
+            return f"{base}/v1internal"
+
+        def _acc_cc_base(acc_obj) -> str:
+            return (
+                get_cloudcode_base_url(True)
+                if getattr(acc_obj, "is_gcp_tos", False)
+                else CLOUDCODE_BASE_URL
+            )
 
         last_error = ""
 
         # 4. Multi-candidate failover loop
         for acc_idx, acc in enumerate(candidates):
+            target_url = _build_cc_target_url(_acc_cc_base(acc))
             is_last = (acc_idx == len(candidates) - 1)
             acc_label = getattr(acc, "email", acc.account_id)
             if is_generation:
@@ -5005,7 +5240,8 @@ def create_app(
                                     alt_headers = await alt_acc.get_auth_headers()
                                     _apply_client_user_agent(alt_headers)
                                     alt_c = await alt_acc.get_http_client()
-                                    alt_resp = await alt_c.post(target_url, headers=alt_headers, json=alt_body, params=query_params, timeout=timeout_sec)
+                                    alt_target_url = _build_cc_target_url(_acc_cc_base(alt_acc))
+                                    alt_resp = await alt_c.post(alt_target_url, headers=alt_headers, json=alt_body, params=query_params, timeout=timeout_sec)
                                     if alt_resp.status_code == 200:
                                         logger.info("[%s] ✅ Alternate account failover to %s succeeded!", alt_label, req_model)
                                         resp = alt_resp
@@ -5103,14 +5339,15 @@ def create_app(
                                 fb_headers = await fb_acc.get_auth_headers()
                                 _apply_client_user_agent(fb_headers)
                                 fb_c = await fb_acc.get_http_client()
+                                fb_target_url = _build_cc_target_url(_acc_cc_base(fb_acc))
                                 if is_streaming_call and isinstance(fb_c, httpx.AsyncClient):
                                     timeout_obj = httpx.Timeout(timeout_sec, connect=20.0, read=timeout_sec, write=120.0, pool=60.0)
-                                    req_send = fb_c.build_request("POST", target_url, headers=fb_headers, json=fb_body, params=query_params, timeout=timeout_obj)
+                                    req_send = fb_c.build_request("POST", fb_target_url, headers=fb_headers, json=fb_body, params=query_params, timeout=timeout_obj)
                                     fb_resp = await fb_c.send(req_send, stream=True)
                                     if fb_resp.status_code != 200:
                                         await fb_resp.aread()
                                 else:
-                                    fb_resp = await fb_c.post(target_url, headers=fb_headers, json=fb_body, params=query_params, timeout=timeout_sec)
+                                    fb_resp = await fb_c.post(fb_target_url, headers=fb_headers, json=fb_body, params=query_params, timeout=timeout_sec)
                                 if fb_resp.status_code == 200:
                                     logger.info("[%s] ✅ Capacity fallback to %s succeeded seamlessly!", fb_label, fallback_model)
                                     resp = fb_resp
@@ -5194,14 +5431,15 @@ def create_app(
                                 fb_headers = await fb_acc.get_auth_headers()
                                 _apply_client_user_agent(fb_headers)
                                 fb_c = await fb_acc.get_http_client()
+                                fb_target_url = _build_cc_target_url(_acc_cc_base(fb_acc))
                                 if is_streaming_call and isinstance(fb_c, httpx.AsyncClient):
                                     timeout_obj = httpx.Timeout(timeout_sec, connect=20.0, read=timeout_sec, write=120.0, pool=60.0)
-                                    req_send = fb_c.build_request("POST", target_url, headers=fb_headers, json=fb_body, params=query_params, timeout=timeout_obj)
+                                    req_send = fb_c.build_request("POST", fb_target_url, headers=fb_headers, json=fb_body, params=query_params, timeout=timeout_obj)
                                     fb_resp = await fb_c.send(req_send, stream=True)
                                     if fb_resp.status_code != 200:
                                         await fb_resp.aread()
                                 else:
-                                    fb_resp = await fb_c.post(target_url, headers=fb_headers, json=fb_body, params=query_params, timeout=timeout_sec)
+                                    fb_resp = await fb_c.post(fb_target_url, headers=fb_headers, json=fb_body, params=query_params, timeout=timeout_sec)
                                 if fb_resp.status_code == 200:
                                     logger.info("[%s] ✅ Fallback to %s succeeded! Generation continuing seamlessly.", fb_label, fallback_model)
                                     resp = fb_resp
@@ -5282,14 +5520,15 @@ def create_app(
                                 fb_headers = await fb_acc.get_auth_headers()
                                 _apply_client_user_agent(fb_headers)
                                 fb_c = await fb_acc.get_http_client()
+                                fb_target_url = _build_cc_target_url(_acc_cc_base(fb_acc))
                                 if is_streaming_call and isinstance(fb_c, httpx.AsyncClient):
                                     timeout_obj = httpx.Timeout(timeout_sec, connect=20.0, read=timeout_sec, write=120.0, pool=60.0)
-                                    req_send = fb_c.build_request("POST", target_url, headers=fb_headers, json=fallback_body, params=query_params, timeout=timeout_obj)
+                                    req_send = fb_c.build_request("POST", fb_target_url, headers=fb_headers, json=fallback_body, params=query_params, timeout=timeout_obj)
                                     fb_resp = await fb_c.send(req_send, stream=True)
                                     if fb_resp.status_code != 200:
                                         await fb_resp.aread()
                                 else:
-                                    fb_resp = await fb_c.post(target_url, headers=fb_headers, json=fallback_body, params=query_params, timeout=timeout_sec)
+                                    fb_resp = await fb_c.post(fb_target_url, headers=fb_headers, json=fallback_body, params=query_params, timeout=timeout_sec)
 
                                 if fb_resp.status_code == 200:
                                     logger.info("[%s] ✅ Fallback to %s succeeded! Generation continuing seamlessly.", fb_label, DEFAULT_MODEL)

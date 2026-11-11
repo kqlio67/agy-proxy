@@ -14,7 +14,7 @@ from typing import Any
 from collections.abc import AsyncGenerator
 import httpx
 
-from agy_proxy.auth import AccountPool, AuthManager, CLOUDCODE_BASE_URL
+from agy_proxy.auth import AccountPool, AuthManager, CLOUDCODE_BASE_URL, get_cloudcode_base_url
 from agy_proxy.cache import google_context_cache, session_affinity
 from agy_proxy.converter import (
     DEFAULT_SAFETY_SETTINGS,
@@ -845,7 +845,12 @@ class CloudCodeClient:
                         url = f"https://generativelanguage.googleapis.com/v1beta/models/{clean_model}:streamGenerateContent?alt=sse&key={acc.refresh_token}"
                     else:
                         project = await acc.initialize_project()
-                        url = f"{CLOUDCODE_BASE_URL}/{endpoint}"
+                        upstream_base = (
+                            get_cloudcode_base_url(True)
+                            if getattr(acc, "is_gcp_tos", False)
+                            else CLOUDCODE_BASE_URL
+                        )
+                        url = f"{upstream_base}/{endpoint}"
                         payload = payload_builder_fn(project)
                         from agy_proxy.models import is_argon_model, resolve_cloudcode_argon_model
                         raw_backend_m = payload.get("model", model_name)

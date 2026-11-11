@@ -15,7 +15,16 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from agy_proxy.auth import AccountPool, AccountSession, CLOUDCODE_BASE_URL, GENAI_BASE_URL, OAUTH_TOKEN_URL, find_existing_token_file, quota_percentages
+from agy_proxy.auth import (
+    AccountPool,
+    AccountSession,
+    CLOUDCODE_BASE_URL,
+    CLOUDCODE_GCP_TOS_BASE_URL,
+    GENAI_BASE_URL,
+    OAUTH_TOKEN_URL,
+    find_existing_token_file,
+    quota_percentages,
+)
 
 console = Console()
 
@@ -69,6 +78,7 @@ async def check_network_endpoints(cloudflare_url: str = None) -> list[dict[str, 
     endpoints = [
         ("Google OAuth Server", OAUTH_TOKEN_URL, "POST"),
         ("Google CloudCode API", f"{CLOUDCODE_BASE_URL}/fetchAvailableModels", "POST"),
+        ("Google CloudCode GCP API", f"{CLOUDCODE_GCP_TOS_BASE_URL}/v1internal:fetchAvailableModels", "POST"),
         ("Google AI Studio API", f"{GENAI_BASE_URL}/models", "GET"),
     ]
     if cloudflare_url or os.environ.get("CLOUDFLARE_UPSTREAM_URL"):
@@ -253,7 +263,12 @@ async def run_doctor(host: str = "127.0.0.1", port: int = 8000, cloudflare_url: 
                     expiry_text = f"Valid ({remaining_sec}s left)"
                 else:
                     expiry_text = "[dim]Expired → refreshed just now[/dim]" if live.get("token_ok") else "[dim]Expired[/dim]"
-                auth_type_str = "Google OAuth"
+                auth_type_str = "Google OAuth (GCP ToS)" if getattr(acc, "is_gcp_tos", False) else "Google OAuth"
+                ai_cred_total = int((getattr(acc, "ai_credits", None) or {}).get("total", 0) or 0)
+                if ai_cred_total > 0:
+                    auth_type_str += f" [dim]({ai_cred_total} cr)[/dim]"
+                elif getattr(acc, "has_g1_credits", False):
+                    auth_type_str += " [dim](G1)[/dim]"
 
             gemini_q, claude_q = quota_percentages(live.get("quota_summary") or {})
             if gemini_q == "?" and claude_q == "?":
@@ -306,7 +321,8 @@ async def run_doctor(host: str = "127.0.0.1", port: int = 8000, cloudflare_url: 
     web_table.add_column("Details", style="white")
 
     try:
-        from agy_proxy.web_launcher import find_language_server, get_web_status
+        from agy_proxy.web_launcher import find_agy_cli_binary, find_language_server, get_web_status
+        from agy_proxy.patcher import AntigravityIDESettingsConfigurator
         ls_bin = find_language_server()
         if ls_bin:
             is_patched = Path(str(ls_bin) + ".real").is_file()
@@ -338,6 +354,18 @@ async def run_doctor(host: str = "127.0.0.1", port: int = 8000, cloudflare_url: 
             web_table.add_row("Electron GUI Footprint", "[bold yellow]⚠️ High RAM Overhead[/bold yellow]", "Running Electron window detected. Close it or run `agy-proxy web -k`")
         else:
             web_table.add_row("Electron GUI Footprint", "[bold green]✅ Optimized (0 MB)[/bold green]", "Electron is not running. Memory saved (RAM freed)!")
+
+        agy_bin = find_agy_cli_binary()
+        if agy_bin:
+            web_table.add_row("agy CLI (v2.6 Hub)", "[bold green]✅ Found[/bold green]", f"{agy_bin} (Supports `agy-proxy web --hub`)")
+        else:
+            web_table.add_row("agy CLI (v2.6 Hub)", "[dim]Not Found[/dim]", "Optional (`agy --hub` Web Hub fallback active)")
+
+        ide_cfg = AntigravityIDESettingsConfigurator(proxy_url=f"http://{host}:{port}").status()
+        if ide_cfg.get("configured"):
+            web_table.add_row("IDE Settings (Zero-Patch)", "[bold green]✅ Configured[/bold green]", f"{ide_cfg.get('settings_file')} -> {ide_cfg.get('proxy_url')}")
+        else:
+            web_table.add_row("IDE Settings (Zero-Patch)", "[dim]Unconfigured[/dim]", f"{ide_cfg.get('settings_file')} (Apply via `agy-proxy patch ide-settings --apply`)")
     except Exception as e:
         web_table.add_row("Web Mode Diagnostics", "[dim]Error[/dim]", str(e))
 

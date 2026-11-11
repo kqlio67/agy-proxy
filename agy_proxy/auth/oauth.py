@@ -14,9 +14,12 @@ from agy_proxy.auth.constants import (
     CLOUDCODE_BASE_URL,
     DEFAULT_CLIENT_ID,
     DEFAULT_CLIENT_SECRET,
+    GCP_TOS_CLIENT_ID,
+    GCP_TOS_CLIENT_SECRET,
     OAUTH_TOKEN_URL,
     USER_AGENT,
     USERINFO_URL,
+    get_cloudcode_base_url,
     logger,
 )
 from agy_proxy.auth.token_utils import _decode_jwt_payload
@@ -47,8 +50,17 @@ class AntigravityOAuthSession(AccountSession):
         is_primary: bool = False,
         enabled: bool = True,
         on_token_refreshed: Any | None = None,
+        is_gcp_tos: bool = False,
         **kwargs,
     ):
+        resolved_gcp_tos = bool(is_gcp_tos or kwargs.pop("is_gcp_tos", False) or client_id == GCP_TOS_CLIENT_ID)
+        if resolved_gcp_tos and client_id == DEFAULT_CLIENT_ID:
+            client_id = GCP_TOS_CLIENT_ID
+            if client_secret == DEFAULT_CLIENT_SECRET:
+                client_secret = GCP_TOS_CLIENT_SECRET
+        elif client_id == GCP_TOS_CLIENT_ID and client_secret == DEFAULT_CLIENT_SECRET:
+            client_secret = GCP_TOS_CLIENT_SECRET
+
         super().__init__(
             account_id=account_id,
             name=name,
@@ -58,6 +70,7 @@ class AntigravityOAuthSession(AccountSession):
             is_primary=is_primary,
             enabled=enabled,
             on_token_refreshed=on_token_refreshed,
+            is_gcp_tos=resolved_gcp_tos,
             **kwargs,
         )
         self.refresh_token = refresh_token
@@ -69,6 +82,10 @@ class AntigravityOAuthSession(AccountSession):
         self.client_secret = client_secret
         self.id_token = kwargs.get("id_token")
         self.tier_info: dict[str, Any] = kwargs.get("tier_info") or {}
+        if not self.available_credits and isinstance(self.tier_info.get("paidTier"), dict):
+            paid_credits = self.tier_info["paidTier"].get("availableCredits")
+            if isinstance(paid_credits, list):
+                self.available_credits = list(paid_credits)
 
         models_init = kwargs.get("available_models")
         if isinstance(models_init, list):
@@ -190,6 +207,15 @@ class AntigravityOAuthSession(AccountSession):
             logger.debug("[%s] Error fetching user info: %s", self.email, e)
         return {}
 
+    @property
+    def cloudcode_base_url(self) -> str:
+        """Returns the CloudCode base URL appropriate for consumer or GCP ToS accounts."""
+        if getattr(self, "is_gcp_tos", False):
+            return get_cloudcode_base_url(True)
+        if CLOUDCODE_BASE_URL != "https://daily-cloudcode-pa.googleapis.com":
+            return CLOUDCODE_BASE_URL
+        return get_cloudcode_base_url(False)
+
     async def initialize_project(self, force: bool = False) -> str:
         """Discovers active CloudCode project ID and tier for this account."""
         if self.project_id and not force:
@@ -197,18 +223,30 @@ class AntigravityOAuthSession(AccountSession):
 
         headers = await self.get_auth_headers()
         client = await self.get_http_client()
+        base_url = self.cloudcode_base_url
 
         try:
             resp = await client.post(
-                f"{CLOUDCODE_BASE_URL}/v1internal:loadCodeAssist",
+                f"{base_url}/v1internal:loadCodeAssist",
                 headers=headers,
                 json={"metadata": {"ideType": "ANTIGRAVITY"}},
             )
             if resp.status_code == 200:
                 data = resp.json()
-                self.tier_info = data.get("currentTier", {})
-                if "paidTier" in data and isinstance(data["paidTier"], dict):
-                    self.tier_info["paidTier"] = data["paidTier"]
+                self.tier_info = data.get("currentTier", {}) if isinstance(data.get("currentTier"), dict) else {}
+                paid_tier = data.get("paidTier")
+                if isinstance(paid_tier, dict):
+                    self.tier_info["paidTier"] = paid_tier
+                    credits = paid_tier.get("availableCredits")
+                    if isinstance(credits, list):
+                        self.available_credits = list(credits)
+                uses_gcp_tos = bool(
+                    data.get("isGcpTos")
+                    or self.tier_info.get("usesGcpTos")
+                    or (isinstance(paid_tier, dict) and paid_tier.get("usesGcpTos"))
+                )
+                if uses_gcp_tos:
+                    self.is_gcp_tos = True
                 self.project_id = data.get("cloudaicompanionProject") or "aicode-consumers"
                 logger.info("[%s] Discovered project: %s (Tier: %s / %s)", self.email, self.project_id, self.tier_id, self.tier_badge)
                 # Automatically ensure account is onboarded to grant backend serviceUsage permissions
@@ -231,9 +269,10 @@ class AntigravityOAuthSession(AccountSession):
         """
         headers = await self.get_auth_headers()
         client = await self.get_http_client()
+        base_url = self.cloudcode_base_url
         try:
             resp = await client.post(
-                f"{CLOUDCODE_BASE_URL}/v1internal:onboardUser",
+                f"{base_url}/v1internal:onboardUser",
                 headers=headers,
                 json={"tierId": tier_id, "metadata": {"ideType": "ANTIGRAVITY"}},
             )
@@ -250,9 +289,10 @@ class AntigravityOAuthSession(AccountSession):
         project = await self.initialize_project()
         headers = await self.get_auth_headers()
         client = await self.get_http_client()
+        base_url = self.cloudcode_base_url
         try:
             resp = await client.post(
-                f"{CLOUDCODE_BASE_URL}/v1internal:fetchUserInfo",
+                f"{base_url}/v1internal:fetchUserInfo",
                 headers=headers,
                 json={"project": project},
             )
@@ -267,14 +307,33 @@ class AntigravityOAuthSession(AccountSession):
             logger.debug("[%s] Error fetching CloudCode user info: %s", self.email, e)
         return {}
 
+    async def fetch_admin_controls(self) -> dict[str, Any]:
+        """Fetches Enterprise/Workspace CloudCode admin controls (IDE v2.6)."""
+        project = await self.initialize_project()
+        headers = await self.get_auth_headers()
+        client = await self.get_http_client()
+        base_url = self.cloudcode_base_url
+        try:
+            resp = await client.post(
+                f"{base_url}/v1internal:fetchAdminControls",
+                headers=headers,
+                json={"project": project},
+            )
+            if resp.status_code == 200:
+                return resp.json()
+        except Exception as e:
+            logger.debug("[%s] fetchAdminControls error: %s", self.email, e)
+        return {}
+
     async def fetch_quota(self) -> dict[str, Any]:
         """Fetches live quota summary and bucket remaining fractions."""
         project = await self.initialize_project()
         headers = await self.get_auth_headers()
         client = await self.get_http_client()
+        base_url = self.cloudcode_base_url
         try:
             resp = await client.post(
-                f"{CLOUDCODE_BASE_URL}/v1internal:retrieveUserQuotaSummary",
+                f"{base_url}/v1internal:retrieveUserQuotaSummary",
                 headers=headers,
                 json={"project": project},
             )
@@ -306,9 +365,10 @@ class AntigravityOAuthSession(AccountSession):
         project = await self.initialize_project()
         headers = await self.get_auth_headers()
         client = await self.get_http_client()
+        base_url = self.cloudcode_base_url
         try:
             resp = await client.post(
-                f"{CLOUDCODE_BASE_URL}/v1internal:fetchAvailableModels",
+                f"{base_url}/v1internal:fetchAvailableModels",
                 headers=headers,
                 json={"project": project},
             )
@@ -675,6 +735,9 @@ class AntigravityOAuthSession(AccountSession):
         d["tier_id"] = self.tier_id
         d["tier_badge"] = self.tier_badge
         d["has_g1_credits"] = self.has_g1_credits
+        d["is_gcp_tos"] = bool(getattr(self, "is_gcp_tos", False))
+        d["available_credits"] = list(getattr(self, "available_credits", None) or [])
+        d["ai_credits"] = self.ai_credits
         d["tier_name"] = self.tier_info.get("name") or self.tier_badge
         d["disabled_reason"] = getattr(self, "disabled_reason", None)
         return d

@@ -883,6 +883,73 @@ def test_real_main_js_syntax_if_present():
         assert res.returncode == 0, f"Real main.js has syntax error: {res.stderr}"
 
 
+def test_find_agy_cli_binary_and_build_hub_args(tmp_path, monkeypatch):
+    from agy_proxy.web_launcher import build_hub_args, find_agy_cli_binary
+
+    fake_agy = tmp_path / "agy"
+    fake_agy.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    fake_agy.chmod(0o755)
+
+    monkeypatch.setenv("AGY_CLI_BIN", str(fake_agy))
+    found = find_agy_cli_binary()
+    assert found == fake_agy.resolve()
+
+    hub_proxy_args = build_hub_args(
+        agy_path=found,
+        port=44888,
+        csrf_token="tok_hub_1",
+        proxy_url="http://127.0.0.1:8000/",
+        direct=False,
+    )
+    assert str(found) == hub_proxy_args[0]
+    assert "--hub" in hub_proxy_args
+    assert "--hub-port=44888" in hub_proxy_args
+    assert "--csrf_token=tok_hub_1" in hub_proxy_args
+    assert "--cloud_code_endpoint=http://127.0.0.1:8000" in hub_proxy_args
+    assert "--api_server_url=http://127.0.0.1:8000" in hub_proxy_args
+
+    hub_direct_args = build_hub_args(
+        agy_path=found,
+        port=44888,
+        csrf_token="tok_hub_2",
+        proxy_url="http://127.0.0.1:8000",
+        direct=True,
+    )
+    assert f"--cloud_code_endpoint={DEFAULT_GOOGLE_CC_ENDPOINT}" in hub_direct_args
+    assert f"--api_server_url={DEFAULT_GOOGLE_API_URL}" in hub_direct_args
+
+
+def test_get_running_instances_detects_agy_hub(monkeypatch):
+    from agy_proxy.web_launcher import get_running_instances
+
+    fake_proc = MagicMock()
+    fake_proc.info = {
+        "pid": 999991,
+        "name": "agy",
+        "cmdline": ["/home/user/.gemini/bin/agy", "--hub", "--hub-port=44741"],
+    }
+
+    with patch("agy_proxy.web_launcher.psutil.process_iter", return_value=[fake_proc]):
+        res = get_running_instances()
+
+    assert res["language_server_running"] is True
+    assert 999991 in res["language_server_pids"]
+    details = [d for d in res["language_server_details"] if d["pid"] == 999991]
+    assert len(details) == 1
+    assert details[0]["hub_mode"] is True
+    assert details[0]["standalone"] is True
+    assert details[0]["web_port"] == 44741
+
+
+def test_cli_web_hub_flag_parsing():
+    parser = build_parser()
+    args = parser.parse_args(["web", "--hub", "--port", "44900"])
+    assert args.subcommand == "web"
+    assert args.hub is True
+    assert args.port == 44900
+
+
+
 
 
 

@@ -341,6 +341,13 @@ class TestCliLoggingFilters(unittest.TestCase):
         self.assertTrue(f.filter(make_record('POST https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse 200 OK')))
         self.assertTrue(f.filter(make_record('[Mi TV] gemini-3.8-flash-high (Antigravity OAuth)')))
 
+        # 5. v2.6.0 telemetry / health / Jetski metadata polling paths must be filtered
+        self.assertFalse(f.filter(make_record('127.0.0.1:50000 - "GET /healthz HTTP/1.1" 200 OK')))
+        self.assertFalse(f.filter(make_record("CloudCode passthrough: /v1internal:WriteTrajectoryACLs")))
+        self.assertFalse(f.filter(make_record("CloudCode passthrough: /v1internal:registerInteraction")))
+        self.assertFalse(f.filter(make_record("CloudCode passthrough: /v1internal:setUserSettings")))
+        self.assertFalse(f.filter(make_record("CloudCode passthrough: /v1internal:getHealth")))
+
     def test_websocket_noise_filter_behavior(self):
         import logging
 
@@ -619,6 +626,68 @@ class TestClaudeCliCommand(unittest.TestCase):
         self.assertEqual(res.returncode, 0)
         self.assertIn("Antigravity Proxy", res.stdout)
 
+
+class TestCliV26Subcommands(unittest.TestCase):
+    """Tests v2.6.0 CLI flags and subcommands: auth login --gcp-tos, switch --sync-ide-db, patch ide-settings."""
+
+    def test_auth_login_gcp_tos_dispatch(self):
+        calls = []
+
+        async def spy_login(**kwargs):
+            calls.append(kwargs)
+
+        with patch("agy_proxy.cli.handle_auth_login", side_effect=spy_login):
+            with patch.object(sys, "argv", ["agy-proxy", "auth", "login", "--gcp-tos"]):
+                cli.main()
+        self.assertEqual(len(calls), 1)
+        self.assertTrue(calls[0]["is_gcp_tos"])
+
+    def test_switch_sync_ide_db_dispatch(self):
+        calls = []
+
+        async def spy_switch(**kwargs):
+            calls.append(kwargs)
+
+        with patch("agy_proxy.cli.handle_switch_command", side_effect=spy_switch):
+            with patch.object(sys, "argv", ["agy-proxy", "switch", "user@example.com", "--sync-ide-db"]):
+                cli.main()
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0]["target"], "user@example.com")
+        self.assertTrue(calls[0]["sync_vscdb"])
+
+    def test_patch_ide_settings_cli_apply_status_restore(self):
+        import json
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings_path = Path(tmpdir) / "settings.json"
+            settings_path.write_text('{"editor.fontSize": 13}\n', encoding="utf-8")
+
+            with patch.object(
+                sys,
+                "argv",
+                ["agy-proxy", "patch", "ide-settings", "--apply", "--url", "http://127.0.0.1:8000", "--settings-path", str(settings_path)],
+            ):
+                cli.main()
+
+            data = json.loads(settings_path.read_text(encoding="utf-8"))
+            self.assertEqual(data["jetski.cloudCodeUrl"], "http://127.0.0.1:8000")
+
+            with patch.object(
+                sys,
+                "argv",
+                ["agy-proxy", "patch", "ide-settings", "--status", "--settings-path", str(settings_path)],
+            ):
+                cli.main()
+
+            with patch.object(
+                sys,
+                "argv",
+                ["agy-proxy", "patch", "ide-settings", "--restore", "--settings-path", str(settings_path)],
+            ):
+                cli.main()
+
+            restored = json.loads(settings_path.read_text(encoding="utf-8"))
+            self.assertNotIn("jetski.cloudCodeUrl", restored)
+            self.assertEqual(restored["editor.fontSize"], 13)
 
 
 if __name__ == "__main__":

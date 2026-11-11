@@ -189,5 +189,77 @@ class TestLanguageServerPatcher(unittest.TestCase):
         self.assertFalse(st3["backup_exists"])
 
 
+class TestAntigravityIDESettingsConfigurator(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.settings_path = Path(self.temp_dir.name) / "Antigravity IDE" / "User" / "settings.json"
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def test_apply_status_restore_and_jsonc_preservation(self):
+        import json
+        from agy_proxy.patcher import AntigravityIDESettingsConfigurator, get_patch_status
+
+        self.settings_path.parent.mkdir(parents=True, exist_ok=True)
+        # Write JSONC with // comment and unrelated settings + pre-existing arg
+        self.settings_path.write_text(
+            '// User settings comment\n'
+            '{\n'
+            '    "editor.fontSize": 14,\n'
+            '    "antigravity.serverArgs": ["--custom-flag=1", "--cloud_code_endpoint=http://old:9999"]\n'
+            '}\n',
+            encoding="utf-8",
+        )
+
+        cfg = AntigravityIDESettingsConfigurator(
+            proxy_url="http://127.0.0.1:8000",
+            settings_path=self.settings_path,
+        )
+
+        st_before = cfg.status()
+        self.assertTrue(st_before["exists"])
+        self.assertFalse(st_before["configured"])
+
+        res_apply = cfg.apply()
+        self.assertTrue(res_apply["success"])
+        self.assertEqual(res_apply["status"], "applied")
+
+        # Idempotent second apply should not duplicate args
+        res_apply2 = cfg.apply()
+        self.assertTrue(res_apply2["success"])
+
+        parsed = json.loads(self.settings_path.read_text(encoding="utf-8"))
+        self.assertEqual(parsed["editor.fontSize"], 14)
+        self.assertEqual(parsed["jetski.cloudCodeUrl"], "http://127.0.0.1:8000")
+        args = parsed["antigravity.serverArgs"]
+        self.assertIn("--custom-flag=1", args)
+        self.assertEqual(args.count("--cloud_code_endpoint=http://127.0.0.1:8000"), 1)
+        self.assertEqual(args.count("--api_server_url=http://127.0.0.1:8000"), 1)
+        self.assertNotIn("--cloud_code_endpoint=http://old:9999", args)
+
+        bak_file = self.settings_path.with_name("settings.json.agy_proxy_bak")
+        self.assertTrue(bak_file.is_file())
+
+        st_after = cfg.status()
+        self.assertTrue(st_after["configured"])
+        self.assertTrue(st_after["backup_exists"])
+
+        # Restore removes injected keys while preserving unrelated keys
+        res_restore = cfg.restore()
+        self.assertTrue(res_restore["success"])
+        self.assertTrue(res_restore["changed"])
+        self.assertFalse(bak_file.exists())
+
+        restored = json.loads(self.settings_path.read_text(encoding="utf-8"))
+        self.assertEqual(restored["editor.fontSize"], 14)
+        self.assertNotIn("jetski.cloudCodeUrl", restored)
+        self.assertEqual(restored["antigravity.serverArgs"], ["--custom-flag=1"])
+
+        # get_patch_status exposes ide_settings key
+        full_st = get_patch_status(target_path=str(Path(self.temp_dir.name) / "nonexistent_ls"))
+        self.assertIn("ide_settings", full_st)
+
+
 if __name__ == "__main__":
     unittest.main()
