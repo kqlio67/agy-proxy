@@ -1249,7 +1249,7 @@ def patch_web_bundle(bundle_dir: Path) -> bool:
         replacement_v3b_ret = (
             f'if(t&&typeof a.label==="string"&&(a.label.startsWith("──")||a.label.includes("────"))){{'
             f'var cleanTitle=a.label.replace(/^[─\\s]+|[─\\s]+$/g,"");'
-            f'var icon=cleanTitle==="Default"?"★ ":(cleanTitle==="Web"?"✦ ":(cleanTitle==="Antigravity"?"⚡ ":""));'
+            f'var icon=cleanTitle==="Default"?"★ ":(cleanTitle==="Antigravity"?"⚡ ":(cleanTitle==="Web"?"✦ ":(cleanTitle.includes("External")?"🧠 ":(cleanTitle.includes("Fast")?"⚡ ":(cleanTitle.includes("Image")?"🎨 ":"")))));'
             f'return {react_id}.createElement("div",{{key:a.label,className:"px-2 pt-2.5 pb-1 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider select-none flex items-center gap-2 opacity-85"}},'
             f'cleanTitle?{react_id}.createElement("span",{{className:"shrink-0 font-medium flex items-center gap-1"}},icon+cleanTitle):null,'
             f'{react_id}.createElement("div",{{className:"h-px flex-1 bg-border/60"}}))}}'
@@ -1259,13 +1259,13 @@ def patch_web_bundle(bundle_dir: Path) -> bool:
     else:
         for item_comp in ["zM", "WM"]:
             target_v3b_ret = f'return A.createElement({item_comp},{{"data-testid":"model-selector-item"'
-            replacement_v3b_ret = f'if(t&&typeof a.label==="string"&&(a.label.startsWith("──")||a.label.includes("────"))){{var cleanTitle=a.label.replace(/^[─\\s]+|[─\\s]+$/g,"");var icon=cleanTitle==="Default"?"★ ":(cleanTitle==="Web"?"✦ ":(cleanTitle==="Antigravity"?"⚡ ":""));return A.createElement("div",{{key:a.label,className:"px-2 pt-2.5 pb-1 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider select-none flex items-center gap-2 opacity-85"}},cleanTitle?A.createElement("span",{{className:"shrink-0 font-medium flex items-center gap-1"}},icon+cleanTitle):null,A.createElement("div",{{className:"h-px flex-1 bg-border/60"}}))}}return A.createElement({item_comp},{{"data-testid":"model-selector-item"'
+            replacement_v3b_ret = f'if(t&&typeof a.label==="string"&&(a.label.startsWith("──")||a.label.includes("────"))){{var cleanTitle=a.label.replace(/^[─\\s]+|[─\\s]+$/g,"");var icon=cleanTitle==="Default"?"★ ":(cleanTitle==="Antigravity"?"⚡ ":(cleanTitle==="Web"?"✦ ":(cleanTitle.includes("External")?"🧠 ":(cleanTitle.includes("Fast")?"⚡ ":(cleanTitle.includes("Image")?"🎨 ":"")))));return A.createElement("div",{{key:a.label,className:"px-2 pt-2.5 pb-1 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider select-none flex items-center gap-2 opacity-85"}},cleanTitle?A.createElement("span",{{className:"shrink-0 font-medium flex items-center gap-1"}},icon+cleanTitle):null,A.createElement("div",{{className:"h-px flex-1 bg-border/60"}}))}}return A.createElement({item_comp},{{"data-testid":"model-selector-item"'
             if target_v3b_ret in js:
                 js = js.replace(target_v3b_ret, replacement_v3b_ret, 1)
                 break
 
     # 1.8 Inject Model Enum Map, __enhanceUserStatus and state provider (dynamic structural matching + static fallback)
-    if "_agyEnhanced" not in js or "_sep_ordered_v16" not in js or "agy.selectedModelLabel" not in js:
+    if "_sep_ordered_v17" not in js or "agy.selectedModelLabel" not in js:
         enhancer_common = '''var MODEL_ENUM_MAP={
 "gemini-4-carbon":1670,"gemini-4-carbon-disabled":1670,"Gemini 4 Carbon":1670,
 "gemini-4-argon":1417,"gemini-4-argon-high":1417,"gemini-4-argon-medium":1418,"gemini-4-argon-low":1419,"gemini-4-argon-disabled":1417,
@@ -1312,9 +1312,15 @@ def patch_web_bundle(bundle_dir: Path) -> bool:
 "tab_flash_lite_preview":1019,"tab_jump_flash_lite_preview":1028,
 "Tab Flash Lite Preview [Unlimited]":1019,"Tab Jump Prediction [Unlimited]":1028
 };
-var __enhanceUserStatus=function(b){if(!b||!b.cascadeModelConfigData||b._agyEnhanced)return b;try{var isProxyActive=false;try{if(typeof window!=="undefined"&&window.__AGY_PROXY_ACTIVE__!==undefined){isProxyActive=Boolean(window.__AGY_PROXY_ACTIVE__)}else if(typeof localStorage!=="undefined"&&localStorage.getItem("agy.proxyActive")!==null){isProxyActive=localStorage.getItem("agy.proxyActive")==="true"}}catch(e){}var d=b.cascadeModelConfigData,origConfigs=d.clientModelConfigs||[],origSorts=d.clientModelSorts||[],newConfigs=origConfigs.map(m=>{var c=Object.assign({},m);if(c.tagTitle==="Notice"||c.tagTitle==="Unavailable"||(c.tagDescription&&(c.tagDescription.includes("no longer")||c.tagDescription.includes("removed")||c.tagDescription.includes("retired")))){delete c.tagTitle;delete c.tagDescription};if(c.modelId==="gemini-4-argon-disabled"||c.label==="Gemini 4 Argon"||c.label==="gemini-4-argon"){c.label="Gemini 4 Argon (High)";c.modelId="gemini-4-argon-high";c.value=1417};c.disabled=!1;if(!c.quotaInfo||c.quotaInfo.remainingFraction<=0||c.quotaInfo.resetTime){c.quotaInfo={remainingFraction:1}};delete c.betaWarningMessage;return c}),existingLabels=new Set(newConfigs.map(m=>m.label)),template=newConfigs.find(m=>!m.disabled)||newConfigs[0]||{},cleanTemplate=Object.assign({},template);delete cleanTemplate.quotaInfo;delete cleanTemplate.tagTitle;delete cleanTemplate.tagDescription;delete cleanTemplate.modelAlias;delete cleanTemplate.betaWarningMessage;var newSorts=JSON.parse(JSON.stringify(origSorts)),recGroup=newSorts.find(s=>s.name&&s.name.toLowerCase()==="recommended")?.groups?.[0];!recGroup&&newSorts.length>0&&newSorts[0].groups&&(recGroup=newSorts[0].groups[0]);var defaultModels=[{label:"Gemini 3.8 Flash (High)",alias:"gemini-3.8-flash-high"},{label:"Gemini 3.8 Flash (Medium)",alias:"gemini-3.8-flash-medium"},{label:"Gemini 3.8 Flash (Low)",alias:"gemini-3.8-flash-low"},{label:"Claude Sonnet 4.6 (Thinking)",alias:"claude-sonnet-4-6"},{label:"Claude Opus 4.6 (Thinking)",alias:"claude-opus-4-6-thinking"},{label:"Claude 4.5 Haiku",alias:"claude-haiku-4-5"},{label:"GPT-OSS 120B (Medium)",alias:"gpt-oss-120b-medium"},{label:"Gemini 4 Argon (High)",alias:"gemini-4-argon-high"},{label:"Gemini 4 Argon (Medium)",alias:"gemini-4-argon-medium"},{label:"Gemini 4 Argon (Low)",alias:"gemini-4-argon-low"},{label:"Gemini 4 Carbon",alias:"gemini-4-carbon"}],webModels=[{label:"Gemini 4 Argon (Web) (High)",alias:"gemini-4-argon-web-high"},{label:"Gemini 4 Argon (Web) (Medium)",alias:"gemini-4-argon-web-medium"},{label:"Gemini 4 Argon (Web) (Low)",alias:"gemini-4-argon-web-low"},{label:"Gemini 4 Argon (Web) (Agent)",alias:"gemini-4-argon-web-task"},{label:"Gemini 4 Argon (Web) (Spark Agent)",alias:"gemini-4-argon-web-spark"},{label:"Gemini 3.8 Flash (Web) (High)",alias:"gemini-3.8-flash-web-high"},{label:"Gemini 3.8 Flash (Web) (Medium)",alias:"gemini-3.8-flash-web-medium"},{label:"Gemini 3.8 Flash (Web) (Low)",alias:"gemini-3.8-flash-web-low"},{label:"Gemini 3.8 Flash (Web) (Agent)",alias:"gemini-3.8-flash-web-task"},{label:"Gemini 3.8 Flash (Web) (Spark Agent)",alias:"gemini-3.8-flash-web-spark"},{label:"Gemini 3.1 Pro (Web) (High)",alias:"gemini-3.1-pro-web-high"},{label:"Gemini 3.1 Pro (Web) (Medium)",alias:"gemini-3.1-pro-web-medium"},{label:"Gemini 3.1 Pro (Web) (Low)",alias:"gemini-3.1-pro-web-low"},{label:"Gemini 3.5 Flash-Lite (Web) (High)",alias:"gemini-3.5-flash-lite-web-high"},{label:"Gemini 3.5 Flash-Lite (Web) (Medium)",alias:"gemini-3.5-flash-lite-web-medium"},{label:"Gemini 3.5 Flash-Lite (Web) (Low)",alias:"gemini-3.5-flash-lite-web-low"}],agyModels=[{label:"Claude Sonnet 5.5 (High)",alias:"claude-sonnet-5-5-high"},{label:"Claude Sonnet 5.5 (Medium)",alias:"claude-sonnet-5-5-medium"},{label:"Claude Sonnet 5.5 (Low)",alias:"claude-sonnet-5-5-low"},{label:"Claude Opus 5.5 (High)",alias:"claude-opus-5-5-high"},{label:"Claude Opus 5.5 (Medium)",alias:"claude-opus-5-5-medium"},{label:"Claude Opus 5.5 (Low)",alias:"claude-opus-5-5-low"},{label:"Claude 4.5 Haiku (Thinking)",alias:"claude-haiku-4-5-thinking"},{label:"Gemini 3.8 Flash (Tiered)",alias:"gemini-3.8-flash-tiered"},{label:"Gemini 3.5 Flash Lite",alias:"gemini-3.5-flash-lite"},{label:"Gemini 3.5 Flash-Lite (High)",alias:"gemini-3.5-flash-lite-high"},{label:"Gemini 3.5 Flash-Lite (Medium)",alias:"gemini-3.5-flash-lite-medium"},{label:"Gemini 3.5 Flash-Lite (Low)",alias:"gemini-3.5-flash-lite-low"},{label:"Gemini 3.1 Flash Lite",alias:"gemini-3.1-flash-lite"},{label:"Gemini 3 Flash",alias:"gemini-3-flash"},{label:"Gemini 2.5 Pro",alias:"gemini-2.5-pro"},{label:"Gemini 2.5 Flash",alias:"gemini-2.5-flash"},{label:"Gemini 2.5 Flash Lite",alias:"gemini-2.5-flash-lite"},{label:"Gemini 2.5 Flash (Thinking)",alias:"gemini-2.5-flash-thinking"}],tabModels=[{label:"Tab Flash Lite Preview [Unlimited]",alias:"tab_flash_lite_preview"},{label:"Tab Jump Prediction [Unlimited]",alias:"tab_jump_flash_lite_preview"}],imageModels=[{label:"Gemini 3.1 Flash (Image)",alias:"gemini-3.1-flash-image"}];var addSep=function(secLabel,secId){if(!existingLabels.has(secLabel)){var sepEntry=Object.assign({},cleanTemplate,{label:secLabel,disabled:!0,isRecommended:!1,modelId:secId,modelOrAlias:{"$typeName":"exa.codeium_common_pb.ModelOrAlias",choice:{case:"alias",value:secId}},supportedMimeTypes:{}});delete sepEntry.tagTitle;delete sepEntry.tagDescription;delete sepEntry.quotaInfo;delete sepEntry.betaWarningMessage;newConfigs.push(sepEntry);existingLabels.add(secLabel)}};var addModels=function(items){for(var item of items){if(!existingLabels.has(item.label)){var enumVal=MODEL_ENUM_MAP[item.alias]||MODEL_ENUM_MAP[item.label]||1500;var isImg=item.alias.includes("image")||item.alias.includes("claude")||item.alias.includes("gemini")||item.alias.includes("gpt");var mimes=isImg?Object.assign({},(cleanTemplate.supportedMimeTypes||{}),{"image/jpeg":!0,"image/png":!0,"image/webp":!0,"image/heic":!0,"image/heif":!0,"image/gif":!0}):{};var entry=Object.assign({},cleanTemplate,{label:item.label,disabled:!1,isRecommended:!0,modelId:item.alias,value:enumVal,modelOrAlias:{"$typeName":"exa.codeium_common_pb.ModelOrAlias",choice:{case:"model",value:enumVal}},supportedMimeTypes:mimes,quotaInfo:{remainingFraction:1}});delete entry.modelAlias;delete entry.tagTitle;delete entry.tagDescription;delete entry.betaWarningMessage;newConfigs.push(entry);existingLabels.add(item.label)}}};var extModels=(typeof window!=="undefined"&&Array.isArray(window.__AGY_EXTERNAL_MODELS__))?window.__AGY_EXTERNAL_MODELS__:[];
-addSep("── Default ──────────────────","sep_default");addModels(defaultModels);if(isProxyActive){addSep("── Web ──────────────────","sep_web");addModels(webModels)};if(extModels.length>0){addSep("── External AI ──────────────","sep_ext");addModels(extModels)};addSep("── Antigravity ───────────","sep_agy");addModels(agyModels);addSep("── Fast Completion (Unlimited) ───","sep_tab");addModels(tabModels);addSep("── Image Generation ─────────","sep_img");addModels(imageModels);if(recGroup){var ordered=[];ordered.push("── Default ──────────────────");var defaultBaseLabels=["Gemini 3.8 Flash (High)","Claude Sonnet 4.6 (Thinking)","Claude Opus 4.6 (Thinking)","Claude 4.5 Haiku",existingLabels.has("GPT-OSS 120B (Medium)")?"GPT-OSS 120B (Medium)":"GPT-OSS 120B","Gemini 4 Argon (High)","Gemini 4 Carbon"];defaultBaseLabels.forEach(lbl=>{if(existingLabels.has(lbl)&&!ordered.includes(lbl)){ordered.push(lbl)}});if(isProxyActive){ordered.push("── Web ──────────────────");webModels.forEach(m=>{!ordered.includes(m.label)&&ordered.push(m.label)})};if(extModels.length>0){ordered.push("── External AI ──────────────");extModels.forEach(m=>{!ordered.includes(m.label)&&ordered.push(m.label)})};ordered.push("── Antigravity ───────────");agyModels.forEach(m=>{!ordered.includes(m.label)&&ordered.push(m.label)});ordered.push("── Fast Completion (Unlimited) ───");tabModels.forEach(m=>{!ordered.includes(m.label)&&ordered.push(m.label)});ordered.push("── Image Generation ─────────");imageModels.forEach(m=>{!ordered.includes(m.label)&&ordered.push(m.label)});recGroup.modelLabels=ordered}return Object.assign({},b,{_agyEnhanced:!0,_sep_ordered_v16:!0,_proxyActive:isProxyActive,cascadeModelConfigData:Object.assign({},d,{clientModelConfigs:newConfigs,clientModelSorts:newSorts})})}catch(err){console.error("[AGY-Proxy] enhanceUserStatus failed:",err);return b}};
+var __enhanceUserStatus=function(b){if(!b||!b.cascadeModelConfigData)return b;try{var isProxyActive=false;try{if(typeof window!=="undefined"&&window.__AGY_PROXY_ACTIVE__!==undefined){isProxyActive=Boolean(window.__AGY_PROXY_ACTIVE__)}else if(typeof localStorage!=="undefined"&&localStorage.getItem("agy.proxyActive")!==null){isProxyActive=localStorage.getItem("agy.proxyActive")==="true"}}catch(e){}var d=b.cascadeModelConfigData,origConfigs=d.clientModelConfigs||[],origSorts=d.clientModelSorts||[],newConfigs=origConfigs.map(m=>{var c=Object.assign({},m);if(c.tagTitle==="Notice"||c.tagTitle==="Unavailable"||(c.tagDescription&&(c.tagDescription.includes("no longer")||c.tagDescription.includes("removed")||c.tagDescription.includes("retired")))){delete c.tagTitle;delete c.tagDescription};if(c.modelId==="gemini-4-argon-disabled"||c.label==="Gemini 4 Argon"||c.label==="gemini-4-argon"){c.label="Gemini 4 Argon (High)";c.modelId="gemini-4-argon-high";c.value=1417};c.disabled=!1;if(!c.quotaInfo||c.quotaInfo.remainingFraction<=0||c.quotaInfo.resetTime){c.quotaInfo={remainingFraction:1}};delete c.betaWarningMessage;return c}),existingLabels=new Set(newConfigs.map(m=>m.label)),template=newConfigs.find(m=>!m.disabled)||newConfigs[0]||{},cleanTemplate=Object.assign({},template);delete cleanTemplate.quotaInfo;delete cleanTemplate.tagTitle;delete cleanTemplate.tagDescription;delete cleanTemplate.modelAlias;delete cleanTemplate.betaWarningMessage;var newSorts=JSON.parse(JSON.stringify(origSorts)),recGroup=newSorts.find(s=>s.name&&s.name.toLowerCase()==="recommended")?.groups?.[0];!recGroup&&newSorts.length>0&&newSorts[0].groups&&(recGroup=newSorts[0].groups[0]);var defaultModels=[{label:"Gemini 3.8 Flash (High)",alias:"gemini-3.8-flash-high"},{label:"Gemini 3.8 Flash (Medium)",alias:"gemini-3.8-flash-medium"},{label:"Gemini 3.8 Flash (Low)",alias:"gemini-3.8-flash-low"},{label:"Claude Sonnet 4.6 (Thinking)",alias:"claude-sonnet-4-6"},{label:"Claude Opus 4.6 (Thinking)",alias:"claude-opus-4-6-thinking"},{label:"Claude 4.5 Haiku",alias:"claude-haiku-4-5"},{label:"GPT-OSS 120B (Medium)",alias:"gpt-oss-120b-medium"},{label:"Gemini 4 Argon (High)",alias:"gemini-4-argon-high"},{label:"Gemini 4 Argon (Medium)",alias:"gemini-4-argon-medium"},{label:"Gemini 4 Argon (Low)",alias:"gemini-4-argon-low"},{label:"Gemini 4 Carbon",alias:"gemini-4-carbon"}],agyModels=[{label:"Claude Sonnet 5.5 (High)",alias:"claude-sonnet-5-5-high"},{label:"Claude Sonnet 5.5 (Medium)",alias:"claude-sonnet-5-5-medium"},{label:"Claude Sonnet 5.5 (Low)",alias:"claude-sonnet-5-5-low"},{label:"Claude Opus 5.5 (High)",alias:"claude-opus-5-5-high"},{label:"Claude Opus 5.5 (Medium)",alias:"claude-opus-5-5-medium"},{label:"Claude Opus 5.5 (Low)",alias:"claude-opus-5-5-low"},{label:"Claude 4.5 Haiku (Thinking)",alias:"claude-haiku-4-5-thinking"},{label:"Gemini 3.8 Flash (Tiered)",alias:"gemini-3.8-flash-tiered"},{label:"Gemini 3.5 Flash Lite",alias:"gemini-3.5-flash-lite"},{label:"Gemini 3.5 Flash-Lite (High)",alias:"gemini-3.5-flash-lite-high"},{label:"Gemini 3.5 Flash-Lite (Medium)",alias:"gemini-3.5-flash-lite-medium"},{label:"Gemini 3.5 Flash-Lite (Low)",alias:"gemini-3.5-flash-lite-low"},{label:"Gemini 3.1 Flash Lite",alias:"gemini-3.1-flash-lite"},{label:"Gemini 3 Flash",alias:"gemini-3-flash"},{label:"Gemini 2.5 Pro",alias:"gemini-2.5-pro"},{label:"Gemini 2.5 Flash",alias:"gemini-2.5-flash"},{label:"Gemini 2.5 Flash Lite",alias:"gemini-2.5-flash-lite"},{label:"Gemini 2.5 Flash (Thinking)",alias:"gemini-2.5-flash-thinking"}],baseWebModels=[{label:"Gemini 4 Argon (Web) (High)",alias:"gemini-4-argon-web-high"},{label:"Gemini 4 Argon (Web) (Medium)",alias:"gemini-4-argon-web-medium"},{label:"Gemini 4 Argon (Web) (Low)",alias:"gemini-4-argon-web-low"},{label:"Gemini 4 Argon (Web) (Agent)",alias:"gemini-4-argon-web-task"},{label:"Gemini 4 Argon (Web) (Spark Agent)",alias:"gemini-4-argon-web-spark"},{label:"Gemini 3.8 Flash (Web) (High)",alias:"gemini-3.8-flash-web-high"},{label:"Gemini 3.8 Flash (Web) (Medium)",alias:"gemini-3.8-flash-web-medium"},{label:"Gemini 3.8 Flash (Web) (Low)",alias:"gemini-3.8-flash-web-low"},{label:"Gemini 3.8 Flash (Web) (Agent)",alias:"gemini-3.8-flash-web-task"},{label:"Gemini 3.8 Flash (Web) (Spark Agent)",alias:"gemini-3.8-flash-web-spark"},{label:"Gemini 3.1 Pro (Web) (High)",alias:"gemini-3.1-pro-web-high"},{label:"Gemini 3.1 Pro (Web) (Medium)",alias:"gemini-3.1-pro-web-medium"},{label:"Gemini 3.1 Pro (Web) (Low)",alias:"gemini-3.1-pro-web-low"},{label:"Gemini 3.5 Flash-Lite (Web) (High)",alias:"gemini-3.5-flash-lite-web-high"},{label:"Gemini 3.5 Flash-Lite (Web) (Medium)",alias:"gemini-3.5-flash-lite-web-medium"},{label:"Gemini 3.5 Flash-Lite (Web) (Low)",alias:"gemini-3.5-flash-lite-web-low"}],dynWeb=(typeof window!=="undefined"&&Array.isArray(window.__AGY_WEB_MODELS__))?window.__AGY_WEB_MODELS__:[],webModels=[...baseWebModels],existingWebAliases=new Set(webModels.map(m=>m.alias));dynWeb.forEach(wm=>{if(wm&&wm.alias&&!existingWebAliases.has(wm.alias)){webModels.push(wm);existingWebAliases.add(wm.alias)}});var extModels=(typeof window!=="undefined"&&Array.isArray(window.__AGY_EXTERNAL_MODELS__))?window.__AGY_EXTERNAL_MODELS__:[],tabModels=[{label:"Tab Flash Lite Preview [Unlimited]",alias:"tab_flash_lite_preview"},{label:"Tab Jump Prediction [Unlimited]",alias:"tab_jump_flash_lite_preview"}],imageModels=[{label:"Gemini 3.1 Flash (Image)",alias:"gemini-3.1-flash-image"}];if(b._agyEnhanced){var curConfigs=b.cascadeModelConfigData?.clientModelConfigs||[],curIds=new Set(curConfigs.map(m=>m.modelId)),hasNewExt=extModels.some(m=>!curIds.has(m.alias)),hasNewWeb=dynWeb.some(m=>!curIds.has(m.alias));if(!hasNewExt&&!hasNewWeb)return b};var addSep=function(secLabel,secId){if(!existingLabels.has(secLabel)){var sepEntry=Object.assign({},cleanTemplate,{label:secLabel,disabled:!0,isRecommended:!1,modelId:secId,modelOrAlias:{"$typeName":"exa.codeium_common_pb.ModelOrAlias",choice:{case:"alias",value:secId}},supportedMimeTypes:{}});delete sepEntry.tagTitle;delete sepEntry.tagDescription;delete sepEntry.quotaInfo;delete sepEntry.betaWarningMessage;newConfigs.push(sepEntry);existingLabels.add(secLabel)}};var addModels=function(items){for(var item of items){if(!existingLabels.has(item.label)){var enumVal=MODEL_ENUM_MAP[item.alias]||MODEL_ENUM_MAP[item.label]||1500;var isImg=item.alias.includes("image")||item.alias.includes("claude")||item.alias.includes("gemini")||item.alias.includes("gpt");var mimes=isImg?Object.assign({},(cleanTemplate.supportedMimeTypes||{}),{"image/jpeg":!0,"image/png":!0,"image/webp":!0,"image/heic":!0,"image/heif":!0,"image/gif":!0}):{};var entry=Object.assign({},cleanTemplate,{label:item.label,disabled:!1,isRecommended:!0,modelId:item.alias,value:enumVal,modelOrAlias:{"$typeName":"exa.codeium_common_pb.ModelOrAlias",choice:{case:"model",value:enumVal}},supportedMimeTypes:mimes,quotaInfo:{remainingFraction:1}});delete entry.modelAlias;delete entry.tagTitle;delete entry.tagDescription;delete entry.betaWarningMessage;newConfigs.push(entry);existingLabels.add(item.label)}}};addSep("── Default ──────────────────","sep_default");addModels(defaultModels);addSep("── Antigravity ───────────","sep_agy");addModels(agyModels);if(isProxyActive){addSep("── Web ──────────────────","sep_web");addModels(webModels)};if(extModels.length>0){addSep("── External AI ──────────────","sep_ext");addModels(extModels)};addSep("── Fast Completion (Unlimited) ───","sep_tab");addModels(tabModels);addSep("── Image Generation ─────────","sep_img");addModels(imageModels);if(recGroup){var ordered=[];ordered.push("── Default ──────────────────");var defaultBaseLabels=["Gemini 3.8 Flash (High)","Claude Sonnet 4.6 (Thinking)","Claude Opus 4.6 (Thinking)","Claude 4.5 Haiku",existingLabels.has("GPT-OSS 120B (Medium)")?"GPT-OSS 120B (Medium)":"GPT-OSS 120B","Gemini 4 Argon (High)","Gemini 4 Carbon"];defaultBaseLabels.forEach(lbl=>{if(existingLabels.has(lbl)&&!ordered.includes(lbl)){ordered.push(lbl)}});ordered.push("── Antigravity ───────────");agyModels.forEach(m=>{!ordered.includes(m.label)&&ordered.push(m.label)});if(isProxyActive){ordered.push("── Web ──────────────────");webModels.forEach(m=>{!ordered.includes(m.label)&&ordered.push(m.label)})};if(extModels.length>0){ordered.push("── External AI ──────────────");extModels.forEach(m=>{!ordered.includes(m.label)&&ordered.push(m.label)})};ordered.push("── Fast Completion (Unlimited) ───");tabModels.forEach(m=>{!ordered.includes(m.label)&&ordered.push(m.label)});ordered.push("── Image Generation ─────────");imageModels.forEach(m=>{!ordered.includes(m.label)&&ordered.push(m.label)});recGroup.modelLabels=ordered}return Object.assign({},b,{_agyEnhanced:!0,_sep_ordered_v16:!0,_sep_ordered_v17:!0,_proxyActive:isProxyActive,cascadeModelConfigData:Object.assign({},d,{clientModelConfigs:newConfigs,clientModelSorts:newSorts})})}catch(err){console.error("[AGY-Proxy] enhanceUserStatus failed:",err);return b}};
 '''
+        # If an earlier version of __enhanceUserStatus is present in js, replace it cleanly in place
+        m_old = re.search(r"var MODEL_ENUM_MAP=\{.*?console\.error\(\"\[AGY-Proxy\] enhanceUserStatus failed:\",\s*err\);return b\}\};", js, re.DOTALL)
+        if m_old:
+            js = js[:m_old.start()] + enhancer_common + js[m_old.end():]
+            applied_provider_patch = True
+        else:
+            applied_provider_patch = False
         # Dynamic structural matching for React State Provider
         prov_re = re.compile(
             r"function\s+([A-Za-z0-9_$]+)\(\{\s*"
@@ -1721,7 +1727,7 @@ def is_bundle_patched(bundle_dir: Path) -> bool:
         return (
             "restrictToCorpDomain:!1" in content
             and "MODEL_ENUM_MAP" in content
-            and "_sep_ordered_v16" in content
+            and "_sep_ordered_v17" in content
             and "tab_flash_lite_preview" in content
             and "gemini-3.1-flash-image" in content
             and "agy.selectedModelLabel" in content
@@ -1730,17 +1736,23 @@ def is_bundle_patched(bundle_dir: Path) -> bool:
         return False
 
 
-def sync_bundle_proxy_mode(bundle_dir: Path, proxy_active: bool) -> None:
+def sync_bundle_proxy_mode(
+    bundle_dir: Optional[Path] = None,
+    proxy_active: bool = True,
+    proxy_url: Optional[str] = None,
+) -> None:
     """
-    Updates the runtime proxy mode state in index.html so the UI knows
-    whether to show Web models (when proxy is active) or only native Antigravity models (direct mode).
+    Updates the runtime proxy mode state and dynamic model lists in index.html so the UI
+    instantly displays Web models, External AI models, and provides background auto-sync.
     """
-    index_html_path = bundle_dir / "index.html"
+    target_dir = bundle_dir or DEFAULT_BUNDLE_DIR
+    index_html_path = target_dir / "index.html"
     if not index_html_path.is_file():
         return
     try:
         html = index_html_path.read_text(encoding="utf-8")
         val_str = "true" if proxy_active else "false"
+        effective_proxy_url = (proxy_url or DEFAULT_PROXY_URL).rstrip("/")
 
         ext_json = "[]"
         try:
@@ -1755,15 +1767,80 @@ def sync_bundle_proxy_mode(bundle_dir: Path, proxy_active: bool) -> None:
         except Exception:
             pass
 
-        script_pattern = re.compile(r'window\.__AGY_PROXY_ACTIVE__\s*=\s*(?:true|false);.*?window\.__AGY_EXTERNAL_MODELS__\s*=\s*\[.*?\];', re.DOTALL)
-        new_stmt = f'window.__AGY_PROXY_ACTIVE__ = {val_str}; window.__AGY_EXTERNAL_MODELS__ = {ext_json}; try {{ localStorage.setItem("agy.proxyActive", "{val_str}"); }} catch (e) {{}}'
+        web_json = "[]"
+        try:
+            from agy_proxy.models import EXACT_MODEL_METADATA
+            import json
+            web_models_list = []
+            for m_id, meta in EXACT_MODEL_METADATA.items():
+                if "-web" in m_id or "web-" in m_id:
+                    disp = meta.get("displayName") or m_id
+                    web_models_list.append({"label": disp, "alias": m_id})
+            web_json = json.dumps(web_models_list)
+        except Exception:
+            pass
 
+        new_stmt = (
+            f'window.__AGY_PROXY_ACTIVE__ = {val_str}; '
+            f'window.__AGY_EXTERNAL_MODELS__ = {ext_json}; '
+            f'window.__AGY_WEB_MODELS__ = {web_json}; '
+            f'try {{ localStorage.setItem("agy.proxyActive", "{val_str}"); '
+            f'var _cExt = localStorage.getItem("agy.externalModels"); '
+            f'if (_cExt) {{ var _pe = JSON.parse(_cExt); if (Array.isArray(_pe) && _pe.length > 0) window.__AGY_EXTERNAL_MODELS__ = _pe; }} '
+            f'var _cWeb = localStorage.getItem("agy.webModels"); '
+            f'if (_cWeb) {{ var _pw = JSON.parse(_cWeb); if (Array.isArray(_pw) && _pw.length > 0) window.__AGY_WEB_MODELS__ = _pw; }} '
+            f'}} catch (e) {{}}'
+        )
+
+        bg_sync_script = (
+            f'<script id="agy-dynamic-sync">\n'
+            f'  (function() {{\n'
+            f'    var pUrl = "{effective_proxy_url}";\n'
+            f'    function _syncModels() {{\n'
+            f'      fetch(pUrl + "/api/providers").then(function(r) {{ return r.json(); }}).then(function(d) {{\n'
+            f'        if (d && Array.isArray(d.active_models)) {{\n'
+            f'          var em = d.active_models.map(function(m) {{ return {{ label: m.display_name + " [" + m.provider_name + "]", alias: m.id }}; }});\n'
+            f'          window.__AGY_EXTERNAL_MODELS__ = em;\n'
+            f'          try {{ localStorage.setItem("agy.externalModels", JSON.stringify(em)); }} catch(e) {{}}\n'
+            f'        }}\n'
+            f'      }}).catch(function() {{}});\n'
+            f'      fetch(pUrl + "/api/models").then(function(r) {{ return r.json(); }}).then(function(d) {{\n'
+            f'        if (d && d.models) {{\n'
+            f'          var wm = [];\n'
+            f'          for (var id in d.models) {{\n'
+            f'            if (id.includes("-web") || id.includes("web-")) {{\n'
+            f'              var mi = d.models[id];\n'
+            f'              wm.push({{ label: (mi && mi.displayName) || id, alias: id }});\n'
+            f'            }}\n'
+            f'          }}\n'
+            f'          if (wm.length > 0) {{\n'
+            f'            window.__AGY_WEB_MODELS__ = wm;\n'
+            f'            try {{ localStorage.setItem("agy.webModels", JSON.stringify(wm)); }} catch(e) {{}}\n'
+            f'          }}\n'
+            f'        }}\n'
+            f'      }}).catch(function() {{}});\n'
+            f'    }}\n'
+            f'    try {{ _syncModels(); window.addEventListener("focus", _syncModels); setInterval(_syncModels, 15000); }} catch(e) {{}}\n'
+            f'  }})();\n'
+            f'</script>'
+        )
+
+        script_pattern = re.compile(
+            r'window\.__AGY_PROXY_ACTIVE__\s*=\s*(?:true|false);.*?try\s*\{\s*localStorage\.setItem\("agy\.proxyActive",\s*"(?:true|false)"\);\s*.*?\}\s*catch\s*\(e\)\s*\{\}',
+            re.DOTALL
+        )
         if script_pattern.search(html):
             html = script_pattern.sub(new_stmt, html)
         elif re.search(r'window\.__AGY_PROXY_ACTIVE__\s*=\s*(?:true|false);?', html):
             html = re.sub(r'window\.__AGY_PROXY_ACTIVE__\s*=\s*(?:true|false);?', new_stmt, html)
         elif "</head>" in html:
             html = html.replace("</head>", f"    <script>{new_stmt}</script>\n  </head>")
+
+        # Inject or update background sync script
+        if '<script id="agy-dynamic-sync">' in html:
+            html = re.sub(r'<script id="agy-dynamic-sync">[\s\S]*?</script>', bg_sync_script, html)
+        elif "</head>" in html:
+            html = html.replace("</head>", f"  {bg_sync_script}\n  </head>")
 
         # Strip any legacy status bar injection or hide styles so official status bar remains visible
         if "<!-- agy-proxy Native Status Bar Integration -->" in html:

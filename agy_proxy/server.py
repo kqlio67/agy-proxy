@@ -1686,6 +1686,11 @@ def create_app(
                 d["message"] = (
                     "Gemini Web account added but no cookies found — open Chrome/Helium with gemini.google.com logged in, or paste cookies/HAR."
                 )
+            try:
+                from agy_proxy.web_launcher import sync_bundle_proxy_mode
+                sync_bundle_proxy_mode()
+            except Exception:
+                pass
             return d
         except Exception as e:
             logger.error("Error adding Gemini Web account: %s", e)
@@ -2051,6 +2056,11 @@ def create_app(
         try:
             cfg = ExternalProviderConfig(**provider_data)
             external_provider_manager.add_or_update_provider(cfg)
+            try:
+                from agy_proxy.web_launcher import sync_bundle_proxy_mode
+                sync_bundle_proxy_mode()
+            except Exception:
+                pass
             return {"status": "ok", "provider": cfg.model_dump()}
         except Exception as e:
             logger.error("Failed to add external provider: %s", e)
@@ -2062,6 +2072,11 @@ def create_app(
         deleted = external_provider_manager.remove_provider(provider_id)
         if not deleted:
             raise HTTPException(status_code=404, detail="Provider not found")
+        try:
+            from agy_proxy.web_launcher import sync_bundle_proxy_mode
+            sync_bundle_proxy_mode()
+        except Exception:
+            pass
         return {"status": "deleted", "provider_id": provider_id}
 
     @app.post("/api/providers/{provider_id}/toggle")
@@ -2071,6 +2086,11 @@ def create_app(
         success = external_provider_manager.toggle_provider(provider_id, enabled=en)
         if not success:
             raise HTTPException(status_code=404, detail="Provider not found")
+        try:
+            from agy_proxy.web_launcher import sync_bundle_proxy_mode
+            sync_bundle_proxy_mode()
+        except Exception:
+            pass
         return {"status": "ok", "provider_id": provider_id, "enabled": external_provider_manager.providers[provider_id].enabled}
 
     @app.post("/api/providers/{provider_id}/test")
@@ -2103,6 +2123,11 @@ def create_app(
                 if d.id not in existing_ids:
                     cfg.models.append(d)
             external_provider_manager.save()
+            try:
+                from agy_proxy.web_launcher import sync_bundle_proxy_mode
+                sync_bundle_proxy_mode()
+            except Exception:
+                pass
         return {
             "status": "ok",
             "provider_id": provider_id,

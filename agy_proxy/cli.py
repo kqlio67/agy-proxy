@@ -1787,6 +1787,11 @@ def handle_providers_command(args: argparse.Namespace) -> None:
                     cfg.models.append(d)
                     added += 1
             external_provider_manager.save()
+            try:
+                from agy_proxy.web_launcher import sync_bundle_proxy_mode
+                sync_bundle_proxy_mode()
+            except Exception:
+                pass
             console.print(f"[bold green]✓ Discovered {len(discovered)} model(s), added {added} new model(s) to '{cfg.name}' catalog![/bold green]")
             for d in discovered:
                 console.print(f"  • [bold white]{d.id}[/bold white] - {d.display_name}")
@@ -1800,6 +1805,11 @@ def handle_providers_command(args: argparse.Namespace) -> None:
             sys.exit(1)
         success = external_provider_manager.toggle_provider(target)
         if success:
+            try:
+                from agy_proxy.web_launcher import sync_bundle_proxy_mode
+                sync_bundle_proxy_mode()
+            except Exception:
+                pass
             st = "[bold green]ENABLED[/bold green]" if external_provider_manager.providers[target].enabled else "[dim red]DISABLED[/dim red]"
             console.print(f"Provider [bold cyan]{target}[/bold cyan] is now {st}.")
         else:
@@ -1816,6 +1826,11 @@ def handle_providers_command(args: argparse.Namespace) -> None:
             cfg_dict["enabled"] = True
             cfg = ExternalProviderConfig(**cfg_dict)
             external_provider_manager.add_or_update_provider(cfg)
+            try:
+                from agy_proxy.web_launcher import sync_bundle_proxy_mode
+                sync_bundle_proxy_mode()
+            except Exception:
+                pass
             console.print(f"[bold green]✓ Added provider from preset '{preset_key}':[/bold green] [cyan]{cfg.name}[/cyan] ({cfg.base_url})")
         else:
             pid = getattr(args, "id", None) or getattr(args, "target", None)
@@ -1835,6 +1850,11 @@ def handle_providers_command(args: argparse.Namespace) -> None:
                 enabled=True,
             )
             external_provider_manager.add_or_update_provider(cfg)
+            try:
+                from agy_proxy.web_launcher import sync_bundle_proxy_mode
+                sync_bundle_proxy_mode()
+            except Exception:
+                pass
             console.print(f"[bold green]✓ Added custom provider:[/bold green] [cyan]{cfg.name}[/cyan] ({cfg.base_url})")
 
     elif action == "routing":
