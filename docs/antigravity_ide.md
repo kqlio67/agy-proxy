@@ -91,6 +91,91 @@ agy-proxy patch restore -y
 
 ---
 
+---
+
+## ⚡ Zero-Patch IDE Settings Mode (`patch ide-settings`)
+
+Starting with Antigravity IDE v2.6.0+, you can route IDE model traffic through `agy-proxy` **without modifying or wrapping any binary files** on your filesystem. This method sets `jetski.cloudCodeUrl` in the official user configuration file.
+
+### How to use:
+
+```bash
+# Check current IDE settings status:
+agy-proxy patch ide-settings --status
+
+# Apply zero-patch routing to proxy (default: http://127.0.0.1:8000):
+agy-proxy patch ide-settings --apply
+
+# Apply with custom proxy URL:
+agy-proxy patch ide-settings --apply --url http://127.0.0.1:8080
+
+# Restore original official settings:
+agy-proxy patch ide-settings --restore
+```
+
+Configured target file locations:
+- **Linux**: `~/.config/Antigravity/User/settings.json`
+- **macOS**: `~/Library/Application Support/Antigravity/User/settings.json`
+- **Windows**: `%APPDATA%\Antigravity\User\settings.json`
+
+---
+
+## 🔄 Direct SQLite State Sync (`--sync-ide-db`)
+
+Antigravity IDE stores active OAuth tokens inside its SQLite database (`state.vscdb`) as a serialized Protobuf blob under the key `antigravityUnifiedStateSync.oauthToken`.
+
+`agy-proxy` includes a built-in pure-Python Protobuf codec that directly injects any active account from your proxy pool into the IDE:
+
+```bash
+# Switch to another account and sync it directly into the IDE database:
+agy-proxy switch "developer@gmail.com" --sync-ide-db
+
+# Rotate to the highest quota account and sync to IDE:
+agy-proxy switch --next --sync-ide-db
+```
+
+> [!TIP]
+> When switching with `--sync-ide-db`, the IDE detects the updated token without requiring you to log in through the browser again.
+
+---
+
+## 🏢 Dual OAuth Client Architecture (`--gcp-tos`)
+
+Google supports two distinct OAuth clients for Antigravity:
+1. **Consumer Client**: Standard individual accounts (`DEFAULT_CLIENT_ID`).
+2. **GCP ToS Client**: Accounts enrolled under Google Cloud Platform Terms of Service (`GCP_TOS_CLIENT_ID`).
+
+To connect a GCP ToS enterprise or workspace account:
+```bash
+# Log in with GCP ToS OAuth client:
+agy-proxy auth login --gcp-tos
+```
+`agy-proxy` automatically routes requests for GCP ToS accounts to `https://cloudcode-pa.googleapis.com` while routing consumer accounts to `https://daily-cloudcode-pa.sandbox.googleapis.com`.
+
+---
+
+## 🖥️ Non-Destructive Desktop Launcher (`patch launcher`)
+
+Instead of patching binaries, you can install user-level desktop overrides and wrapper executables:
+
+```bash
+# Install desktop launcher override and CLI wrappers:
+agy-proxy patch launcher --install
+
+# Check launcher status:
+agy-proxy patch launcher
+
+# Remove launcher overrides:
+agy-proxy patch launcher --uninstall
+```
+
+Installed components:
+- Desktop entry: `~/.local/share/applications/antigravity.desktop` (injects `CLOUD_CODE_URL`).
+- IDE CLI wrapper: `~/.local/bin/antigravity`
+- agy CLI wrapper: `~/.local/bin/agy-proxy-exec`
+
+---
+
 ## 📑 Command & Flag Reference
 
 | Flag | Description |

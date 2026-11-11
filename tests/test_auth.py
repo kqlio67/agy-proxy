@@ -2374,9 +2374,9 @@ class TestGeminiWebSession(unittest.TestCase):
     def test_gemini_web_default_bl(self):
         """Verify the updated default build label."""
         from agy_proxy.auth.gemini_web import GeminiWebSession
-        self.assertEqual(GeminiWebSession._DEFAULT_BL, "boq_gemini-web-uiserver_20261028.12_p0")
+        self.assertEqual(GeminiWebSession._DEFAULT_BL, "boq_gemini-web-uiserver_20261110.19_p0")
         session = GeminiWebSession(account_id="test_bl", cookies={"__Secure-1PSID": "mock_psid"})
-        self.assertEqual(session._bl_token, "boq_gemini-web-uiserver_20261028.12_p0")
+        self.assertEqual(session._bl_token, "boq_gemini-web-uiserver_20261110.19_p0")
 
     def test_gemini_web_make_sapisidhash_and_get_hash(self):
         """Verify SAPISIDHASH creation and session integration."""

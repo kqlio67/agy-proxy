@@ -114,17 +114,34 @@ agy-proxy codex -m claude-sonnet-4-6
 ```
 👉 *Detailed guide: [OpenAI Codex CLI Integration](docs/codex_cli.md)*
 
-### 4. 🖥️ Antigravity IDE Patcher
-Route Antigravity IDE's internal `language_server` through `agy-proxy`:
+### 4. 💻 Google Antigravity CLI (`agy` v1.5.5) & ACP Server
+Run the official Google Antigravity CLI coding agent or start the ACP stdio server for Zed & Neovim:
 ```bash
+# Autonomous mode with proxy routing:
+agy-proxy agy --mode auto
+
+# Specific account with maximum reasoning effort and auto-approved tools:
+agy-proxy agy -a user@example.com --mode auto --effort max --danger
+
+# Start Agent Client Protocol (ACP) stdio server for Zed / Neovim:
+agy-proxy acp --danger
+```
+👉 *Detailed guide: [Antigravity CLI & ACP Stdio Server Guide](docs/antigravity_cli.md)*
+
+### 5. 🖥️ Antigravity IDE (Zero-Patch & SQLite Sync)
+Route Antigravity IDE through `agy-proxy` without modifying binaries or sync pool tokens directly to IDE SQLite DB:
+```bash
+# Zero-Patch mode (routes via settings.json without binary modifications):
+agy-proxy patch ide-settings --apply
+
+# Switch account and sync directly into IDE SQLite DB (state.vscdb):
+agy-proxy switch "user@example.com" --sync-ide-db
+
 # Check current patch status:
 agy-proxy patch status
 
-# Patch automatically with live health watchdog:
+# Binary patch with live health watchdog (optional fallback):
 agy-proxy patch install -y
-
-# Restore original binary at any time:
-agy-proxy patch restore -y
 ```
 👉 *Detailed guide: [Antigravity IDE Integration Guide](docs/antigravity_ide.md)*
 
@@ -136,7 +153,8 @@ All in-depth technical guides, configuration references, and tutorials are organ
 
 | Section | Topic | Description |
 | :--- | :--- | :--- |
-| 🖥️ | [Antigravity IDE Integration](docs/antigravity_ide.md) | `language_server` patcher, automatic discovery, live watchdog, and flag table. |
+| 💻 | [Antigravity CLI & ACP Guide](docs/antigravity_cli.md) | Official `agy` v1.5.5 runner, ACP stdio server for Zed & Neovim, autonomous execution. |
+| 🖥️ | [Antigravity IDE Integration](docs/antigravity_ide.md) | Zero-Patch mode, SQLite Protobuf state sync, Dual OAuth, and binary patcher. |
 | 🚀 | [Web Mode & Patched Hub](docs/web_mode.md) | No-Electron optimization, unlocked Web Terminal, File Explorer, Battle Mode. |
 | 🤖 | [Claude Code CLI Guide](docs/claude_code.md) | 1-click runner, direct vanilla mode, binary patcher, selective MCP, and debloater. |
 | ⌨️ | [OpenAI Codex CLI Guide](docs/codex_cli.md) | Interactive model launcher and `~/.codex/config.toml` setup. |

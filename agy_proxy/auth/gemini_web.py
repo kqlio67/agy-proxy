@@ -243,7 +243,7 @@ class GeminiWebSession(AccountSession):
         "SEARCH_SAMESITE",
     ]
     # Build label — extracted from first StreamGenerate response or hard-coded fallback
-    _DEFAULT_BL = "boq_gemini-web-uiserver_20261028.12_p0"
+    _DEFAULT_BL = "boq_gemini-web-uiserver_20261110.19_p0"
 
     MODEL_CONFIGS: dict[str, dict[str, Any]] = {
         # -------------------------------------------------------------
@@ -558,6 +558,9 @@ class GeminiWebSession(AccountSession):
         self._req_id: int = 4257099
         self.cdp_port: int = cdp_port
         self.project_id: str | None = project_id
+        self._dynamic_hashes_synced: bool = False
+        # Instance copy of MODEL_CONFIGS so dynamic updates are safely isolated
+        self.MODEL_CONFIGS = {k: dict(v) for k, v in self.MODEL_CONFIGS.items()}
         self.region_code: str | None = region_code
         self.expiry_timestamp: float = expiry_timestamp or (time.time() + 86400.0)
         self.available_models: dict[str, Any] = {
@@ -1200,10 +1203,16 @@ class GeminiWebSession(AccountSession):
                 if m_wiz:
                     try:
                         wiz = json.loads(m_wiz.group(1))
-                        for k, v in wiz.items():
-                            if isinstance(v, str) and (v.startswith("AFWLbD") or k in ("SNlM0e", "thykhd")):
-                                self._at_token = v
-                                break
+                        # Explicitly prioritize primary SNlM0e token over secondary thykhd
+                        if "SNlM0e" in wiz and isinstance(wiz["SNlM0e"], str):
+                            self._at_token = wiz["SNlM0e"]
+                        elif "thykhd" in wiz and isinstance(wiz["thykhd"], str):
+                            self._at_token = wiz["thykhd"]
+                        else:
+                            for k, v in wiz.items():
+                                if isinstance(v, str) and (v.startswith("AFWLbD") or v.startswith("AFk0") or k in ("SNlM0e", "thykhd")):
+                                    self._at_token = v
+                                    break
                         if "cfb2h" in wiz and isinstance(wiz["cfb2h"], str):
                             self._bl_token = wiz["cfb2h"]
                             logger.debug("[GeminiWeb] Build label bl extracted from WIZ_global_data (%s)", self._bl_token)
@@ -1248,7 +1257,13 @@ class GeminiWebSession(AccountSession):
             return self._at_token
         if self._at_token and not force_refresh:
             return self._at_token
-        return await self._fetch_at_token(force=force_refresh)
+        token = await self._fetch_at_token(force=force_refresh)
+        if token and not self._dynamic_hashes_synced:
+            try:
+                await self.fetch_dynamic_model_hashes()
+            except Exception as e:
+                logger.debug("[GeminiWeb] Auto fetch dynamic model hashes on AT refresh: %s", e)
+        return token
 
     # ------------------------------------------------------------------ #
     # Auth interface (compatible with BaseAccountSession)
@@ -2004,31 +2019,57 @@ class GeminiWebSession(AccountSession):
     def _extract_model_hashes_from_data(cls, data: Any) -> dict[str, str]:
         """
         Recursively extracts dynamic model hashes (16-char hex strings)
-        associated with model identifiers or model_ids from batchexecute RPC qpEbW response.
+        associated with model identifiers or model_ids from Google batchexecute RPC otAQ7b (or legacy qpEbW).
+        Supports Google's live structure [hash, name, full_name, ...] at inner[15] as well as generic mocks.
         """
         found_hashes: dict[str, str] = {}
         hex16_regex = re.compile(r"^[0-9a-f]{16}$")
 
-        def walk(node: Any, context: list[Any]) -> None:
-            if isinstance(node, str) and hex16_regex.match(node):
-                ctx_strs = [str(x).lower() for x in context if isinstance(x, (str, int))]
-                if any("argon" in s or "gemini-4" in s for s in ctx_strs) or 8 in context:
-                    found_hashes["gemini-4-argon"] = node
-                elif any("flash-lite" in s or "3.5" in s for s in ctx_strs) or 6 in context:
-                    found_hashes["gemini-3.5-flash-lite"] = node
-                elif any("pro" in s or "3.1" in s for s in ctx_strs) or 3 in context:
-                    found_hashes["gemini-3.1-pro"] = node
-                elif any("flash" in s or "3.8" in s for s in ctx_strs) or 1 in context:
-                    found_hashes["gemini-3.8-flash"] = node
+        def _match_model_name(text: str, h: str) -> None:
+            t = text.lower()
+            if "flash-lite" in t or "3.5 flash-lite" in t:
+                found_hashes["gemini-3.5-flash-lite"] = h
+            elif "flash" in t or "3.8 flash" in t:
+                found_hashes["gemini-3.8-flash"] = h
+            elif "pro" in t or "3.1 pro" in t:
+                found_hashes["gemini-3.1-pro"] = h
+            elif any(x in t for x in ("carbon", "argon", "ultra", "gemini-4", "4 carbon", "4 argon")):
+                found_hashes["gemini-4-argon"] = h
 
-            if isinstance(node, list):
-                for item in node:
-                    walk(item, context + [node[0]] if node and not isinstance(node[0], (dict, list)) else context)
-            elif isinstance(node, dict):
-                for k, v in node.items():
-                    walk(v, context + [k])
+        def _parse_candidate(item: Any) -> None:
+            if not (isinstance(item, list) and len(item) >= 2):
+                return
+            # Google otAQ7b format: [hash, name, full_name, ...]
+            if isinstance(item[0], str) and hex16_regex.match(item[0]) and isinstance(item[1], str) and not hex16_regex.match(item[1]):
+                h = item[0]
+                names = (str(item[1]) + " " + (str(item[2]) if len(item) > 2 else "")).strip()
+                _match_model_name(names, h)
+                return
+            # Legacy/mock format: [name, id, hash] or [name, hash]
+            for elem in item:
+                if isinstance(elem, str) and hex16_regex.match(elem):
+                    other_strs = " ".join([str(x) for x in item if isinstance(x, (str, int)) and str(x) != elem])
+                    _match_model_name(other_strs, elem)
 
-        walk(data, [])
+        # 1. Direct path check for Google otAQ7b: inner[15] contains array of active models
+        if isinstance(data, list) and len(data) > 15 and isinstance(data[15], list):
+            for m in data[15]:
+                _parse_candidate(m)
+
+        # 2. General walk if needed
+        if len(found_hashes) < 4:
+            def walk(node: Any) -> None:
+                if isinstance(node, list):
+                    for elem in node:
+                        _parse_candidate(elem)
+                    for elem in node:
+                        walk(elem)
+                elif isinstance(node, dict):
+                    for v in node.values():
+                        walk(v)
+
+            walk(data)
+
         return found_hashes
 
     async def fetch_dynamic_model_hashes(self) -> dict[str, str]:
@@ -2093,10 +2134,13 @@ class GeminiWebSession(AccountSession):
                     except Exception:
                         pass
 
-            for base_model, new_hash in extracted.items():
-                for cfg_key, cfg in self.MODEL_CONFIGS.items():
-                    if base_model in cfg_key:
-                        cfg["hash"] = new_hash
+            if extracted:
+                self._dynamic_hashes_synced = True
+                for base_model, new_hash in extracted.items():
+                    for cfg_key, cfg in self.MODEL_CONFIGS.items():
+                        if base_model in cfg_key:
+                            cfg["hash"] = new_hash
+                logger.info("[GeminiWeb] Dynamically synchronized model hashes: %s", extracted)
             return extracted
         except Exception as e:
             logger.debug("[GeminiWeb] Failed to fetch dynamic model hashes: %s", e)
@@ -2126,9 +2170,13 @@ class GeminiWebSession(AccountSession):
         res = await self.validate_live()
         ok = bool(res.get("token_ok"))
         if ok:
+            try:
+                await self.fetch_dynamic_model_hashes()
+            except Exception as e:
+                logger.debug("[GeminiWeb] Dynamic model hashes sync in test_connection: %s", e)
             return {
                 "ok": True,
-                "message": "Gemini Web session active! AT token verified. Ready for Gemini Web models (gemini-4-argon-web-high, gemini-3.8-flash-web-spark, etc.).",
+                "message": "Gemini Web session active! AT security token verified.",
                 "has_cookies": bool(self._cookies.get("__Secure-1PSID")),
                 "cookies_count": len(self._cookies),
                 "has_at_token": bool(self._at_token),

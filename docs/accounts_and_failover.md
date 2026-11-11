@@ -14,14 +14,17 @@ Navigate to `http://127.0.0.1:8000` in your browser:
 
 ### 2. Via CLI
 ```bash
-# Log in an OAuth Google account via PKCE browser flow:
-agy-proxy login
+# Log in a standard consumer Google account via PKCE browser flow:
+agy-proxy auth login
+
+# Log in an enterprise / GCP Terms of Service (GCP ToS) Google account:
+agy-proxy auth login --gcp-tos
 
 # Add an AI Studio API key:
-agy-proxy add-key "AIzaSy..." --name "My Work Key"
+agy-proxy auth api "AIzaSy..." --name "My Work Key"
 
 # List all accounts and remaining quotas:
-agy-proxy accounts
+agy-proxy auth list
 ```
 
 ---
@@ -91,8 +94,11 @@ agy-proxy switch --list
 # Switch to a specific account for both CLI and Standalone:
 agy-proxy switch "user@example.com"
 
+# Switch to a specific account AND sync directly into Antigravity IDE SQLite DB:
+agy-proxy switch "user@example.com" --sync-ide-db
+
 # Switch an account ONLY for the CLI terminal:
-agy-proxy switch "user@example.com" --cli-only
+agy-proxy switch "user@example.com" --cli
 
 # Switch an account ONLY for the Standalone Web Agent:
 agy-proxy switch "user@example.com" --standalone-only

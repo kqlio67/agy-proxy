@@ -39,6 +39,9 @@ agy-proxy web -k -o
 # Custom port or custom browser:
 agy-proxy web --port 44741 --browser helium
 
+# Launch Web Hub mode via native agy CLI (--hub):
+agy-proxy web --hub
+
 # Download standalone language_server binary on a server without Antigravity installed:
 agy-proxy web --download-server
 ```
@@ -135,6 +138,7 @@ agy-proxy web --patched -v
 | Option | Description |
 | :--- | :--- |
 | `-P, --patched` | Launch with feature-patched Web UI bundle (unlocks Web Terminal, File Explorer, Battle Mode). |
+| `--hub` | Launch Web Hub mode using native `agy --hub` CLI binary. |
 | `-k, --kill-electron` | Automatically terminate running Electron instances to free RAM. |
 | `-o, --open` | Open web browser on startup (default: `False` to prevent tab spam). |
 | `--no-open` | Explicitly prevent opening web browser on startup. |

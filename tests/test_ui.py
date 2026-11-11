@@ -107,8 +107,9 @@ class TestDashboardTemplate(unittest.TestCase):
     def test_dashboard_renders_tier_badges(self):
         html = get_dashboard_html()
         self.assertIn("AI Pro", html)
-        self.assertIn("Free Tier", html)
+        self.assertNotIn("Free Tier", html)
         self.assertIn("AI Studio", html)
+        self.assertIn("Web Pro", html)
         self.assertIn("g1-pro-tier", html)
 
     def test_dashboard_renders_hub_for_standalone_active_account(self):

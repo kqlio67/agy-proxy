@@ -69,6 +69,30 @@ Roo Code and Cline require robust tool calling and strict schema compatibility. 
 
 ---
 
+## ⚡ Zed & Neovim via Agent Client Protocol (ACP)
+
+You can connect **Zed**, **Neovim** (`avante.nvim` / `codecompanion.nvim`), and other ACP-compatible clients to Google Antigravity as an external agent via `agy-proxy acp`:
+
+```bash
+# Start ACP stdio server hooked to proxy:
+agy-proxy acp --danger
+```
+
+### Zed Configuration (`~/.config/zed/settings.json`)
+```json
+{
+  "agent": {
+    "provider": "acp",
+    "command": "agy-proxy",
+    "args": ["acp", "--danger"]
+  }
+}
+```
+
+👉 *Detailed guide: [Google Antigravity CLI & ACP Guide](antigravity_cli.md)*
+
+---
+
 ## 🧑‍💻 CLI Coding Agents (Aider, OpenCode)
 
 ### Aider

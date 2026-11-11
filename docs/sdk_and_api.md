@@ -102,6 +102,10 @@ edit_res = client.images.edit(
 | `ALL_PROXY` | *(None)* | Fallback proxy URL for network tunneling. |
 | `ANTIGRAVITY_LS_PATH` | *(Auto)* | Explicit path to `language_server` binary. |
 | `ANTIGRAVITY_EDITOR_PATH` | *(Auto)* | Path to Antigravity editor root directory. |
+| `CLOUD_CODE_URL` | `http://127.0.0.1:8000` | Redirects official `agy` CLI to route via `agy-proxy`. |
+| `AGY_ACCOUNT` | *(None)* | Selects active account for `agy` CLI sessions from proxy pool. |
+| `AGY_CLI_AUTO_COMPACT_OVERRIDE` | *(Auto)* | Controls `agy` CLI internal context auto-compaction (`1` or `0`). |
+| `ANTIGRAVITY_CLI_TELEMETRY` | `0` | Disables telemetry reporting in Antigravity CLI and ACP server. |
 
 ---
 
