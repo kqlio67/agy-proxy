@@ -1551,7 +1551,25 @@ addSep("── Default ──────────────────","
           "enable-sidecar-pill-auto-open": true,
           "enable-user-message-bubbles": true,
           "enable-github-decorator": true,
-          "enable-trajectory-debug-tools": true
+          "enable-trajectory-debug-tools": true,
+          "jetski-generative-ui-prompt": true,
+          "enable-customization-kind-flow": true,
+          "enable-advanced-builtin-workflow": true,
+          "enable-swarm-raw-tab": true,
+          "native-swarm-channels-local": true,
+          "enable-browser-subagent-webmcp": true,
+          "enable-browser-element-picker": true,
+          "enable-agent-omnitrace": true,
+          "enable-review": true,
+          "enable-side-question-rework": true,
+          "enable-thumbs-down-reroll": true,
+          "enable-help-slash-command": true,
+          "enable-enhanced-file-viewer": true,
+          "show_memory_operation_diffs": true,
+          "configure-artifact-width": true,
+          "cortex-snapshot-recording": true,
+          "cortex-snapshot-revert": true,
+          "enable-composer-connectors": true
         };
         delete curFlags["enable-agent-team"];
         delete curFlags["enable-concierge-agent"];
@@ -1598,13 +1616,18 @@ addSep("── Default ──────────────────","
     </script>
   </head>'''
 
-    if "Auto-unlock Developer" not in html:
-        if "  </head>" in html:
-            html = html.replace("  </head>", auto_script)
-        elif "</head>" in html:
-            html = html.replace("</head>", auto_script.strip() + "\n  </head>")
-        with open(index_html_path, "w", encoding="utf-8") as f:
-            f.write(html)
+    existing_script_pat = re.compile(
+        r"\s*<script>\s*// Antigravity Web Hub: Auto-unlock Developer[\s\S]*?</script>\s*</head>",
+        re.IGNORECASE,
+    )
+    if existing_script_pat.search(html):
+        html = existing_script_pat.sub("\n" + auto_script, html)
+    elif "  </head>" in html:
+        html = html.replace("  </head>", auto_script)
+    elif "</head>" in html:
+        html = html.replace("</head>", auto_script.strip() + "\n  </head>")
+    with open(index_html_path, "w", encoding="utf-8") as f:
+        f.write(html)
 
     # 3. Write .patched completion marker
     with open(bundle_dir / ".patched", "w", encoding="utf-8") as f:

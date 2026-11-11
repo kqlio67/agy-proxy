@@ -1523,6 +1523,97 @@ CURATED_SAFE_FLAGS: dict[str, dict[str, Any]] = {
         "category": "agents",
         "desc": "v2.31.0 Flag: Enables browser subagent v2 architecture",
     },
+    # --- Unlocked Hidden & Experimental Google Features (v2.31.0) ---
+    "jetski-generative-ui-prompt": {
+        "value": True,
+        "category": "ui_editor",
+        "desc": "Enables interactive generative HTML/JS widgets directly inside chat responses",
+    },
+    "enable-customization-kind-flow": {
+        "value": True,
+        "category": "automations",
+        "desc": "Enables saving and listing dynamic Python run_workflow agent orchestration scripts",
+    },
+    "enable-advanced-builtin-workflow": {
+        "value": True,
+        "category": "automations",
+        "desc": "Enables advanced built-in dynamic Python agent workflow templates",
+    },
+    "enable-swarm-raw-tab": {
+        "value": True,
+        "category": "agents",
+        "desc": "Exposes the raw inter-agent Swarm message board communication log tab",
+    },
+    "native-swarm-channels-local": {
+        "value": True,
+        "category": "agents",
+        "desc": "Enables local high-speed IPC channels for Swarm multi-agent coordination",
+    },
+    "enable-browser-subagent-webmcp": {
+        "value": True,
+        "category": "mcp",
+        "desc": "Allows the browser subagent to execute WebMCP tools directly on supported websites",
+    },
+    "enable-browser-element-picker": {
+        "value": True,
+        "category": "ui_editor",
+        "desc": "Enables interactive browser DOM element picker inside chat",
+    },
+    "enable-agent-omnitrace": {
+        "value": True,
+        "category": "agents",
+        "desc": "Enables full OmniTrace execution telemetry for agent trajectories",
+    },
+    "enable-review": {
+        "value": True,
+        "category": "agents",
+        "desc": "Enables the built-in automated Review Agent workflow",
+    },
+    "enable-side-question-rework": {
+        "value": True,
+        "category": "ui_editor",
+        "desc": "Enables /btw side-questions without interrupting the main running agent",
+    },
+    "enable-thumbs-down-reroll": {
+        "value": True,
+        "category": "ui_editor",
+        "desc": "Adds instant response reroll when clicking thumbs down",
+    },
+    "enable-help-slash-command": {
+        "value": True,
+        "category": "ui_editor",
+        "desc": "Enables the /help slash command in chat",
+    },
+    "enable-enhanced-file-viewer": {
+        "value": True,
+        "category": "ui_editor",
+        "desc": "Enables enhanced syntax-highlighted file viewer",
+    },
+    "show_memory_operation_diffs": {
+        "value": True,
+        "category": "ui_editor",
+        "desc": "Displays visual diffs whenever the agent creates or modifies persistent memories",
+    },
+    "configure-artifact-width": {
+        "value": True,
+        "category": "ui_editor",
+        "desc": "Allows resizing artifact pane widths freely",
+    },
+    "cortex-snapshot-recording": {
+        "value": True,
+        "category": "agents",
+        "desc": "Records workspace snapshots before each agent step for instant undo",
+    },
+    "cortex-snapshot-revert": {
+        "value": True,
+        "category": "agents",
+        "desc": "Enables instant revert to any historical agent workspace snapshot",
+    },
+    "enable-composer-connectors": {
+        "value": True,
+        "category": "tools_plugins",
+        "desc": "Enables quick tool & plugin connectors directly in the chat composer",
+    },
 }
 
 # Optimized non-bool flag overrides
