@@ -413,72 +413,86 @@
       </div>
 
       <!-- Account Filter & Search Toolbar -->
-      <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/80 text-xs">
-        <!-- Search Input -->
-        <div class="relative flex-1 max-w-md">
-          <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-500"></i>
-          <input
-            type="text"
-            id="accountSearchInput"
-            placeholder="Filter accounts by name, email, or key..."
-            class="w-full bg-slate-900 border border-slate-700/80 rounded-lg pl-8 pr-3 py-1.5 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition text-xs"
-            oninput="renderAccounts()"
-          >
+      <div class="flex flex-col gap-2.5 bg-slate-900/60 p-2.5 sm:p-3 rounded-xl border border-slate-800/80 text-xs">
+        <!-- Top Row: Search Input & Sort Dropdown -->
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+          <!-- Search Input -->
+          <div class="relative flex-1 min-w-[200px]">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-500"></i>
+            <input
+              type="text"
+              id="accountSearchInput"
+              placeholder="Filter by account, email, API key, model (e.g. deepseek, qwen)..."
+              class="w-full bg-slate-900 border border-slate-700/80 rounded-lg pl-8 pr-3 py-1.5 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition text-xs"
+              oninput="renderAccounts()"
+            >
+          </div>
+
+          <!-- Sort Select -->
+          <div class="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+            <select id="accountSortSelect" onchange="renderAccounts()" class="bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-slate-300 text-[11px] focus:outline-none focus:border-indigo-500">
+              <option value="default">Sort: Default (Primary first)</option>
+              <option value="quota-desc">Sort: Highest Quota</option>
+              <option value="quota-asc">Sort: Lowest Quota</option>
+              <option value="reqs-desc">Sort: Most Requests</option>
+              <option value="name-asc">Sort: Name (A-Z)</option>
+            </select>
+          </div>
         </div>
 
-        <!-- Filter Tabs & Sort Dropdown -->
-        <div class="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 max-w-full">
+        <!-- Filter Tabs (Responsive: side-by-side on desktop, wrapped on mobile) -->
+        <div class="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800/80">
           <!-- Filter Group 1: Providers / Ecosystems -->
-          <div class="flex items-center space-x-1 bg-slate-900 rounded-lg p-0.5 border border-slate-800 shrink-0" title="Filter by Provider / Ecosystem">
-            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-1.5 hidden sm:inline">Provider:</span>
-            <button onclick="setAccountFilter('all')" data-filter="all" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium bg-indigo-600 text-white shadow-sm transition flex items-center gap-1.5">
+          <div class="flex items-center space-x-1 bg-slate-900 rounded-lg p-0.5 border border-slate-800 shrink-0 max-w-full overflow-x-auto no-scrollbar" title="Filter by Provider / Ecosystem">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-2 shrink-0">Provider:</span>
+            <button onclick="setAccountFilter('all')" data-filter="all" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium bg-indigo-600 text-white shadow-sm transition flex items-center gap-1.5 shrink-0">
               <span>All</span>
               <span class="px-1.5 py-0.2 bg-white/20 rounded-full text-[10px] font-mono text-white" id="countAll">0</span>
             </button>
-            <button onclick="setAccountFilter('google')" data-filter="google" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-blue-400 transition flex items-center gap-1.5" title="Google Accounts (OAuth, Web & AI Studio)">
+            <button onclick="setAccountFilter('google')" data-filter="google" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-blue-400 transition flex items-center gap-1.5 shrink-0" title="Google Accounts (OAuth, Web & AI Studio)">
               <i class="fa-brands fa-google text-blue-400 text-[10px]"></i>
               <span>Google</span>
               <span class="px-1.5 py-0.2 bg-slate-800 rounded-full text-[10px] font-mono text-slate-300" id="countGoogle">0</span>
             </button>
-            <button onclick="setAccountFilter('deepseek')" data-filter="deepseek" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-cyan-400 transition flex items-center gap-1.5" title="DeepSeek Direct API">
+            <button onclick="setAccountFilter('deepseek')" data-filter="deepseek" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-cyan-400 transition flex items-center gap-1.5 shrink-0" title="DeepSeek Direct API">
               <i class="fa-solid fa-atom text-cyan-400 text-[10px]"></i>
               <span>DeepSeek</span>
               <span class="px-1.5 py-0.2 bg-slate-800 rounded-full text-[10px] font-mono text-slate-300" id="countDeepSeek">0</span>
             </button>
-            <button onclick="setAccountFilter('local')" data-filter="local" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-emerald-400 transition flex items-center gap-1.5" title="Local AI (Ollama & Offline LLMs)">
+            <button onclick="setAccountFilter('local')" data-filter="local" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-emerald-400 transition flex items-center gap-1.5 shrink-0" title="Local AI (Ollama & Offline LLMs)">
               <i class="fa-solid fa-server text-emerald-400 text-[10px]"></i>
               <span>Local AI</span>
               <span class="px-1.5 py-0.2 bg-slate-800 rounded-full text-[10px] font-mono text-slate-300" id="countLocal">0</span>
             </button>
-            <button onclick="setAccountFilter('gateways')" data-filter="gateways" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-purple-400 transition flex items-center gap-1.5" title="Cloud Gateways (OpenRouter, Groq, NVIDIA NIM)">
+            <button onclick="setAccountFilter('gateways')" data-filter="gateways" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-purple-400 transition flex items-center gap-1.5 shrink-0" title="Cloud Gateways (OpenRouter, Groq, NVIDIA NIM)">
               <i class="fa-solid fa-bolt text-purple-400 text-[10px]"></i>
               <span>Gateways</span>
               <span class="px-1.5 py-0.2 bg-slate-800 rounded-full text-[10px] font-mono text-slate-300" id="countGateways">0</span>
             </button>
           </div>
 
-          <!-- Divider line -->
-          <div class="h-5 w-[1px] bg-slate-800 shrink-0"></div>
+          <!-- Divider line (visible when wrapped side-by-side) -->
+          <div class="hidden md:block h-5 w-[1px] bg-slate-800 shrink-0"></div>
 
           <!-- Filter Group 2: Auth Methods & Status -->
-          <div class="flex items-center space-x-1 bg-slate-900 rounded-lg p-0.5 border border-slate-800 shrink-0" title="Filter by Authentication Type">
-            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-1.5 hidden sm:inline">Auth:</span>
-            <button onclick="setAccountFilter('oauth')" data-filter="oauth" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-indigo-300 transition flex items-center gap-1.5" title="Google OAuth 2.0 Accounts">
+          <div class="flex items-center space-x-1 bg-slate-900 rounded-lg p-0.5 border border-slate-800 shrink-0 max-w-full overflow-x-auto no-scrollbar" title="Filter by Authentication Type">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-2 shrink-0">Auth:</span>
+            <button onclick="setAccountFilter('oauth')" data-filter="oauth" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-indigo-300 transition flex items-center gap-1.5 shrink-0" title="Google OAuth 2.0 Accounts">
               <i class="fa-solid fa-shield-halved text-indigo-400 text-[10px]"></i>
               <span>OAuth</span>
               <span class="px-1.5 py-0.2 bg-slate-800 rounded-full text-[10px] font-mono text-slate-300" id="countOAuth">0</span>
             </button>
-            <button onclick="setAccountFilter('web')" data-filter="web" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-teal-300 transition flex items-center gap-1.5" title="Web Browser Sessions (Cookies / HAR)">
+            <button onclick="setAccountFilter('web')" data-filter="web" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-teal-300 transition flex items-center gap-1.5 shrink-0" title="Web Browser Sessions (Cookies / HAR)">
               <i class="fa-solid fa-globe text-teal-400 text-[10px]"></i>
               <span>Web</span>
               <span class="px-1.5 py-0.2 bg-slate-800 rounded-full text-[10px] font-mono text-slate-300" id="countWeb">0</span>
             </button>
-            <button onclick="setAccountFilter('apikey')" data-filter="apikey" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-amber-300 transition flex items-center gap-1.5" title="API Keys (Google AI Studio & DeepSeek Direct)">
+            <button onclick="setAccountFilter('apikey')" data-filter="apikey" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-amber-300 transition flex items-center gap-1.5 shrink-0" title="API Keys (Google AI Studio & DeepSeek Direct)">
               <i class="fa-solid fa-key text-amber-400 text-[10px]"></i>
               <span>API Keys</span>
               <span class="px-1.5 py-0.2 bg-slate-800 rounded-full text-[10px] font-mono text-slate-300" id="countApiKey">0</span>
             </button>
-            <button onclick="setAccountFilter('exhausted')" data-filter="exhausted" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-red-400 transition flex items-center gap-1.5" title="0% Quota Remaining">
+            <button onclick="setAccountFilter('exhausted')" data-filter="exhausted" class="acc-filter-btn px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-red-400 transition flex items-center gap-1.5 shrink-0" title="0% Quota Remaining">
               <i class="fa-solid fa-battery-empty text-red-400 text-[10px]"></i>
               <span>0%</span>
               <span class="px-1.5 py-0.2 bg-slate-800 rounded-full text-[10px] font-mono text-slate-300" id="countExhausted">0</span>
@@ -488,21 +502,6 @@
           <!-- Hidden compatibility elements -->
           <span id="countExternal" class="hidden">0</span>
           <div id="accountTypeFilters" class="hidden"></div>
-
-          <select id="accountSortSelect" onchange="renderAccounts()" class="bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-slate-300 text-[11px] focus:outline-none focus:border-indigo-500 shrink-0 ml-auto">
-            <option value="default">Sort: Default (Primary first)</option>
-            <option value="quota-desc">Sort: Highest Quota</option>
-            <option value="quota-asc">Sort: Lowest Quota</option>
-            <option value="reqs-desc">Sort: Most Requests</option>
-            <option value="name-asc">Sort: Name (A-Z)</option>
-          </select>
-        </div>
-            <option value="default">Sort: Default (Primary first)</option>
-            <option value="quota-desc">Sort: Highest Quota</option>
-            <option value="quota-asc">Sort: Lowest Quota</option>
-            <option value="reqs-desc">Sort: Most Requests</option>
-            <option value="name-asc">Sort: Name (A-Z)</option>
-          </select>
         </div>
       </div>
 
