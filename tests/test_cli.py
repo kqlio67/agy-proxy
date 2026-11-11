@@ -689,6 +689,84 @@ class TestCliV26Subcommands(unittest.TestCase):
             self.assertNotIn("jetski.cloudCodeUrl", restored)
             self.assertEqual(restored["editor.fontSize"], 13)
 
+    def test_handle_run_agy_invocation_and_env(self):
+        from unittest.mock import MagicMock
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+
+        with patch("agy_proxy.web_launcher.find_agy_cli_binary", return_value=Path("/fake/bin/agy")), \
+             patch("subprocess.run", return_value=mock_proc) as mock_run:
+            ret = cli.handle_run_agy(
+                port=8080,
+                account="vip@example.com",
+                mode="auto",
+                effort="max",
+                danger=True,
+                auto_compact=True,
+                extra_args=["--foo", "bar"],
+            )
+            self.assertEqual(ret, 0)
+            self.assertTrue(mock_run.called)
+            cmd, kwargs = mock_run.call_args
+            self.assertEqual(cmd[0], ["/fake/bin/agy", "--mode", "auto", "--effort", "max", "--dangerously-skip-permissions", "--foo", "bar"])
+            env = kwargs.get("env", {})
+            self.assertEqual(env.get("CLOUD_CODE_URL"), "http://127.0.0.1:8080")
+            self.assertEqual(env.get("AGY_ACCOUNT"), "vip@example.com")
+            self.assertEqual(env.get("ANTIGRAVITY_VSCODE_HOST"), "1")
+            self.assertEqual(env.get("AGY_CLI_AUTO_COMPACT_OVERRIDE"), "1")
+
+    def test_handle_run_agy_binary_not_found(self):
+        with patch("agy_proxy.web_launcher.find_agy_cli_binary", return_value=None):
+            ret = cli.handle_run_agy()
+            self.assertEqual(ret, 1)
+
+    def test_handle_run_acp_invocation_and_args(self):
+        from unittest.mock import MagicMock
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+
+        with patch("agy_proxy.web_launcher.find_agy_cli_binary", return_value=Path("/fake/bin/agy")), \
+             patch("subprocess.run", return_value=mock_proc) as mock_run:
+            ret = cli.handle_run_acp(
+                port=8080,
+                account="acp@example.com",
+                danger=True,
+                extra_args=["--process-per-session"],
+            )
+            self.assertEqual(ret, 0)
+            self.assertTrue(mock_run.called)
+            cmd, kwargs = mock_run.call_args
+            self.assertEqual(cmd[0], ["/fake/bin/agy", "acp", "--cloud_code_endpoint=http://127.0.0.1:8080", "--disable-telemetry", "--dangerously-skip-permissions", "--process-per-session"])
+            env = kwargs.get("env", {})
+            self.assertEqual(env.get("CLOUD_CODE_URL"), "http://127.0.0.1:8080")
+            self.assertEqual(env.get("AGY_ACCOUNT"), "acp@example.com")
+
+    def test_handle_run_acp_binary_not_found(self):
+        with patch("agy_proxy.web_launcher.find_agy_cli_binary", return_value=None):
+            ret = cli.handle_run_acp()
+            self.assertEqual(ret, 1)
+
+    def test_cli_main_agy_dispatch(self):
+        with patch("agy_proxy.cli.handle_run_agy", return_value=0) as mock_run_agy, \
+             patch("sys.exit") as mock_exit:
+            with patch.object(sys, "argv", ["agy-proxy", "agy", "--account", "dev@example.com", "--mode", "auto", "hello"]):
+                cli.main()
+            self.assertTrue(mock_run_agy.called)
+            self.assertEqual(mock_run_agy.call_args.kwargs.get("account"), "dev@example.com")
+            self.assertEqual(mock_run_agy.call_args.kwargs.get("mode"), "auto")
+            self.assertEqual(mock_run_agy.call_args.kwargs.get("extra_args"), ["hello"])
+            mock_exit.assert_called_with(0)
+
+    def test_cli_main_acp_dispatch(self):
+        with patch("agy_proxy.cli.handle_run_acp", return_value=0) as mock_run_acp, \
+             patch("sys.exit") as mock_exit:
+            with patch.object(sys, "argv", ["agy-proxy", "acp", "--account", "dev@example.com", "--danger"]):
+                cli.main()
+            self.assertTrue(mock_run_acp.called)
+            self.assertEqual(mock_run_acp.call_args.kwargs.get("account"), "dev@example.com")
+            self.assertTrue(mock_run_acp.call_args.kwargs.get("danger"))
+            mock_exit.assert_called_with(0)
+
 
 if __name__ == "__main__":
     unittest.main()

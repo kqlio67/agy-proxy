@@ -122,6 +122,58 @@ async def check_network_endpoints(cloudflare_url: str = None) -> list[dict[str, 
     return results
 
 
+def check_agy_cli() -> dict[str, Any]:
+    """Checks Antigravity CLI (`agy`) binary installation, path, and version."""
+    from agy_proxy.web_launcher import find_agy_cli_binary, get_agy_cli_version
+
+    agy_path = find_agy_cli_binary()
+    if not agy_path:
+        return {
+            "installed": False,
+            "path": None,
+            "version": None,
+            "detail": "Antigravity CLI not found in PATH or ~/.local/bin/agy",
+        }
+
+    ver = get_agy_cli_version(agy_path) or "Detected"
+    return {
+        "installed": True,
+        "path": str(agy_path),
+        "version": ver,
+        "detail": f"Installed at {agy_path}",
+    }
+
+
+def check_codex_cli() -> dict[str, Any]:
+    """Checks OpenAI Codex CLI installation, binary path, and version."""
+    codex_path = shutil.which("codex")
+    if not codex_path:
+        local_cand = Path.home() / ".local" / "bin" / "codex"
+        if local_cand.is_file() and os.access(local_cand, os.X_OK):
+            codex_path = str(local_cand)
+
+    if not codex_path:
+        return {
+            "installed": False,
+            "path": None,
+            "version": None,
+            "detail": "Codex CLI not found in PATH or ~/.local/bin/codex",
+        }
+
+    import subprocess
+    try:
+        ver_output = subprocess.check_output([codex_path, "--version"], stderr=subprocess.STDOUT, text=True, timeout=3).strip()
+    except Exception as e:
+        ver_output = f"Detected ({e})"
+
+    return {
+        "installed": True,
+        "path": str(codex_path),
+        "version": ver_output,
+        "detail": f"Installed at {codex_path}",
+    }
+
+
 def check_claude_cli() -> dict[str, Any]:
     """Checks Claude Code CLI installation, binary path, and version."""
     claude_path = shutil.which("claude")
@@ -292,12 +344,23 @@ async def run_doctor(host: str = "127.0.0.1", port: int = 8000, cloudflare_url: 
     console.print(pool_table)
     console.print("")
 
-    # 4. Coding Agent CLI Integration
-    agent_table = Table(title="4. Claude Code CLI Integration", border_style="blue", show_header=True)
-    agent_table.add_column("Check", style="cyan")
+    # 4. Coding Agent CLI Integrations (Antigravity agy, Claude Code, Codex)
+    agent_table = Table(title="4. Coding Agent CLI Integrations", border_style="blue", show_header=True)
+    agent_table.add_column("Integration", style="cyan")
     agent_table.add_column("Status", justify="center")
     agent_table.add_column("Details", style="white")
 
+    # Antigravity CLI (agy v1.5.5+)
+    agy_info = check_agy_cli()
+    if agy_info["installed"]:
+        agent_table.add_row("Antigravity CLI (agy)", "[bold green]✅ Found[/bold green]", f"v{agy_info['version']} ({agy_info['path']})")
+        agent_table.add_row("agy Runner (`agy-proxy agy`)", "[bold green]✅ Ready[/bold green]", "Run `agy-proxy agy --mode auto` (routed via proxy)")
+        agent_table.add_row("agy ACP Server (`agy-proxy acp`)", "[bold green]✅ Ready[/bold green]", "Agent Client Protocol stdio server for Zed / Neovim / IDEs")
+    else:
+        agent_table.add_row("Antigravity CLI (agy)", "[dim]Not Found[/dim]", agy_info["detail"])
+        agent_table.add_row("agy Runner (`agy-proxy agy`)", "[dim]Unavailable[/dim]", "Install Antigravity CLI into ~/.local/bin/agy or PATH")
+
+    # Claude Code
     cli_info = check_claude_cli()
     if cli_info["installed"]:
         agent_table.add_row("Claude Code CLI Binary", "[bold green]✅ Found[/bold green]", f"{cli_info['version']} ({cli_info['path']})")
@@ -306,10 +369,19 @@ async def run_doctor(host: str = "127.0.0.1", port: int = 8000, cloudflare_url: 
 
     has_claude = cli_info["installed"]
     agent_table.add_row(
-        "Claude Code Command (`agy-proxy claude`)",
+        "Claude Code (`agy-proxy claude`)",
         "[bold green]✅ Ready[/bold green]" if has_claude else "[dim]Optional (Install via npm)[/dim]",
         "Run `agy-proxy claude` from any directory" if has_claude else "Install: npm install -g @anthropic-ai/claude-code"
     )
+
+    # OpenAI Codex
+    codex_info = check_codex_cli()
+    if codex_info["installed"]:
+        agent_table.add_row("OpenAI Codex CLI Binary", "[bold green]✅ Found[/bold green]", f"{codex_info['version']} ({codex_info['path']})")
+        agent_table.add_row("Codex Command (`agy-proxy codex`)", "[bold green]✅ Ready[/bold green]", "Run `agy-proxy codex` with full model catalog")
+    else:
+        agent_table.add_row("OpenAI Codex CLI Binary", "[dim]Not Found[/dim]", codex_info["detail"])
+        agent_table.add_row("Codex Command (`agy-proxy codex`)", "[dim]Optional[/dim]", "Run `agy-proxy setup-codex` or install codex CLI")
 
     console.print(agent_table)
     console.print("")
@@ -378,6 +450,8 @@ async def run_doctor(host: str = "127.0.0.1", port: int = 8000, cloudflare_url: 
             "[bold green]🎉 ALL SYSTEMS OPERATIONAL AND HEALTHY![/bold green]\n"
             f"[white]• Web Dashboard:[/white] [cyan]http://{host}:{port}[/cyan]\n"
             f"[white]• OpenAI API Base:[/white] [yellow]http://{host}:{port}/v1[/yellow]\n"
+            f"[white]• Antigravity CLI:[/white] [magenta]agy-proxy agy[/magenta]\n"
+            f"[white]• ACP Stdio Server:[/white] [magenta]agy-proxy acp[/magenta]\n"
             f"[white]• Claude Code CLI:[/white] [magenta]agy-proxy claude[/magenta]\n"
             f"[white]• OpenAI Codex CLI:[/white] [magenta]agy-proxy codex[/magenta]",
             title="[bold green]Doctor Verdict[/bold green]",

@@ -806,6 +806,8 @@ def find_agy_cli_binary(custom_path: Optional[str | Path] = None) -> Optional[Pa
 
     home = Path.home()
     candidates = [
+        home / ".local" / "bin" / bn for bn in bin_names
+    ] + [
         home / ".gemini" / "bin" / bn for bn in bin_names
     ] + [
         home / ".gemini" / "antigravity-cli" / bn for bn in bin_names
@@ -822,6 +824,26 @@ def find_agy_cli_binary(custom_path: Optional[str | Path] = None) -> Optional[Pa
         res = _check_path(Path(which_agy))
         if res:
             return res
+    return None
+
+
+def get_agy_cli_version(bin_path: Optional[str | Path] = None) -> Optional[str]:
+    """Retrieves the version string of the agy CLI binary (e.g. '1.5.5')."""
+    resolved = Path(bin_path) if bin_path else find_agy_cli_binary()
+    if not resolved or not resolved.is_file():
+        return None
+    try:
+        proc = subprocess.run(
+            [str(resolved), "--version"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=2.5,
+        )
+        if proc.returncode == 0 and proc.stdout.strip():
+            return proc.stdout.strip().splitlines()[0].strip()
+    except Exception:
+        pass
     return None
 
 

@@ -12,6 +12,7 @@ import re
 import shutil
 import sys
 import urllib.parse
+from typing import Optional, Dict, Any, List
 import uvicorn
 from rich.console import Console, Group
 from rich.panel import Panel
@@ -1073,6 +1074,125 @@ def handle_run_codex(port: int = 8000, model: str = "gemini-3.8-flash-high", ext
         pass
 
 
+def handle_run_agy(
+    port: int = 8000,
+    url: Optional[str] = None,
+    account: Optional[str] = None,
+    mode: Optional[str] = None,
+    effort: Optional[str] = None,
+    danger: bool = False,
+    auto_compact: Optional[bool] = None,
+    custom_bin: Optional[str] = None,
+    extra_args: Optional[list] = None,
+) -> int:
+    """Launches Antigravity CLI (agy v1.5.5+) routed through agy-proxy."""
+    import subprocess
+    from agy_proxy.web_launcher import find_agy_cli_binary, get_agy_cli_version
+
+    agy_bin = find_agy_cli_binary(custom_path=custom_bin)
+    if not agy_bin:
+        console.print("[bold red]Error:[/bold red] Antigravity CLI binary ('agy') was not found.")
+        console.print("[dim]Checked: ~/.local/bin/agy, PATH, ~/.gemini/bin/agy, and AGY_CLI_BIN.[/dim]")
+        console.print("[dim]Ensure Antigravity CLI is installed or pass -t /path/to/agy.[/dim]")
+        return 1
+
+    proxy_url = (url or f"http://127.0.0.1:{port}").rstrip("/")
+    cli_ver = get_agy_cli_version(agy_bin) or "unknown"
+
+    cmd = [str(agy_bin)]
+    if mode:
+        cmd.extend(["--mode", mode])
+    if effort:
+        cmd.extend(["--effort", effort])
+    if danger:
+        cmd.append("--dangerously-skip-permissions")
+    if extra_args:
+        cmd.extend(extra_args)
+
+    env = dict(os.environ)
+    env["CLOUD_CODE_URL"] = proxy_url
+    env["ANTIGRAVITY_VSCODE_HOST"] = "1"
+    env["ANTIGRAVITY_CLI_TELEMETRY"] = "0"
+    if account:
+        env["AGY_ACCOUNT"] = account
+    if auto_compact is not None:
+        env["AGY_CLI_AUTO_COMPACT_OVERRIDE"] = "1" if auto_compact else "0"
+
+    target_cwd = os.environ.get("AGY_CALLER_CWD") or os.getcwd()
+
+    details = [f"Proxy URL: [bold yellow]{proxy_url}[/bold yellow]"]
+    if account:
+        details.append(f"Account: [bold green]{account}[/bold green]")
+    if mode:
+        details.append(f"Mode: [bold cyan]{mode}[/bold cyan]")
+    if effort:
+        details.append(f"Effort: [bold magenta]{effort}[/bold magenta]")
+    if danger:
+        details.append("[bold red]⚡ Danger mode (auto-approved)[/bold red]")
+
+    console.print(Panel(
+        "\n".join(details),
+        title=f"[bold white]🚀 Launching Antigravity CLI (agy v{cli_ver}) via Proxy[/bold white]",
+        border_style="cyan",
+        padding=(0, 1),
+    ))
+
+    try:
+        proc = subprocess.run(cmd, env=env, cwd=target_cwd)
+        return proc.returncode
+    except KeyboardInterrupt:
+        return 130
+
+
+def handle_run_acp(
+    port: int = 8000,
+    url: Optional[str] = None,
+    account: Optional[str] = None,
+    danger: bool = False,
+    custom_bin: Optional[str] = None,
+    extra_args: Optional[list] = None,
+) -> int:
+    """Starts Antigravity ACP (Agent Client Protocol) stdio server routed through agy-proxy."""
+    import subprocess
+    from agy_proxy.web_launcher import find_agy_cli_binary
+
+    agy_bin = find_agy_cli_binary(custom_path=custom_bin)
+    if not agy_bin:
+        sys.stderr.write("[agy-proxy] Error: agy binary not found in PATH or ~/.local/bin/agy\n")
+        return 1
+
+    proxy_url = (url or f"http://127.0.0.1:{port}").rstrip("/")
+
+    cmd = [
+        str(agy_bin),
+        "acp",
+        f"--cloud_code_endpoint={proxy_url}",
+        "--disable-telemetry",
+    ]
+    if danger:
+        cmd.append("--dangerously-skip-permissions")
+    if extra_args:
+        cmd.extend(extra_args)
+
+    env = dict(os.environ)
+    env["CLOUD_CODE_URL"] = proxy_url
+    env["ANTIGRAVITY_VSCODE_HOST"] = "1"
+    env["ANTIGRAVITY_CLI_TELEMETRY"] = "0"
+    if account:
+        env["AGY_ACCOUNT"] = account
+
+    target_cwd = os.environ.get("AGY_CALLER_CWD") or os.getcwd()
+
+    sys.stderr.write(f"[agy-proxy] ACP server connected to proxy at {proxy_url} (binary: {agy_bin})\n")
+    sys.stderr.flush()
+
+    try:
+        proc = subprocess.run(cmd, env=env, cwd=target_cwd)
+        return proc.returncode
+    except KeyboardInterrupt:
+        return 130
+
+
 def handle_experiments_command(args):
     """Command for inspecting and managing Antigravity experimental flags."""
     from agy_proxy.experiments import (
@@ -1443,7 +1563,9 @@ def handle_patch_command(args: argparse.Namespace) -> None:
             res = launcher.install()
             console.print("[bold green]✓ Non-destructive launcher installed successfully![/bold green]")
             console.print(f"  • Desktop File: {res.get('desktop_file')}")
-            console.print(f"  • CLI Wrapper:  {res.get('cli_wrapper')}")
+            console.print(f"  • IDE Wrapper:  {res.get('cli_wrapper')}")
+            if res.get("agy_cli_wrapper"):
+                console.print(f"  • agy Wrapper:  {res.get('agy_cli_wrapper')}")
         elif getattr(args, "uninstall", False):
             res = launcher.uninstall()
             console.print(f"[bold yellow]✓ Removed: {', '.join(res.get('removed', []))}[/bold yellow]")
@@ -1451,9 +1573,11 @@ def handle_patch_command(args: argparse.Namespace) -> None:
             st = launcher.status()
             cli_st = "[bold green]INSTALLED[/bold green]" if st.get("cli_wrapper_installed") else "[dim]NOT INSTALLED[/dim]"
             desk_st = "[bold green]INSTALLED[/bold green]" if st.get("desktop_file_installed") else "[dim]NOT INSTALLED[/dim]"
+            agy_wrap_st = "[bold green]INSTALLED[/bold green]" if st.get("agy_cli_wrapper_installed") else "[dim]NOT INSTALLED[/dim]"
             console.print(Panel(
                 f"[bold cyan]Desktop Launcher Override:[/bold cyan] {desk_st} ({st.get('desktop_file_path')})\n"
-                f"[bold cyan]CLI Wrapper (~/.local/bin):[/bold cyan] {cli_st} ({st.get('cli_wrapper_path')})\n"
+                f"[bold cyan]IDE Wrapper (~/.local/bin):[/bold cyan] {cli_st} ({st.get('cli_wrapper_path')})\n"
+                f"[bold cyan]agy CLI Runner (~/.local/bin):[/bold cyan] {agy_wrap_st} ({st.get('agy_cli_wrapper_path')})\n"
                 f"[bold cyan]Proxy Route Target:[/bold cyan] {st.get('proxy_url')}",
                 title="[bold white]Non-Destructive Launcher Status[/bold white]",
                 border_style="cyan",
@@ -1938,6 +2062,49 @@ def build_parser() -> argparse.ArgumentParser:
     codex_run_p.add_argument("--port", "-p", type=int, default=8000, help="Proxy server port (default: 8000)")
     codex_run_p.add_argument("--model", "-m", type=str, default="gemini-3.8-flash-high", help="Model to use (default: gemini-3.8-flash-high)")
 
+    # agy CLI runner (agy-proxy agy / agy-proxy cli)
+    agy_run_p = subparsers.add_parser(
+        "agy",
+        aliases=["run-agy", "cli"],
+        help="Launch Antigravity CLI (agy v1.5.5+) routed through agy-proxy with account & mode control",
+    )
+    agy_run_p.add_argument("--port", "-p", type=int, default=8000, help="Proxy server port (default: 8000)")
+    agy_run_p.add_argument("--url", type=str, default=None, help="Custom proxy base URL (e.g. http://127.0.0.1:8000)")
+    agy_run_p.add_argument("--account", "-a", type=str, default=None, help="Target account ID or email from account pool (injected as AGY_ACCOUNT)")
+    agy_run_p.add_argument("--mode", "-m", choices=["auto", "accept-edits", "plan"], default=None, help="Agent execution mode (auto, accept-edits, plan)")
+    agy_run_p.add_argument("--effort", "-e", choices=["low", "medium", "high", "xhigh", "max"], default=None, help="Reasoning effort level (low|medium|high|xhigh|max)")
+    agy_run_p.add_argument(
+        "--danger",
+        "--dangerously-skip-permissions",
+        "--yolo",
+        dest="danger",
+        action="store_true",
+        help="Auto-approve tool permissions without interactive prompting",
+    )
+    agy_run_p.add_argument("--auto-compact", dest="auto_compact", action="store_true", default=None, help="Force enable agy CLI auto-compaction (AGY_CLI_AUTO_COMPACT_OVERRIDE=1)")
+    agy_run_p.add_argument("--no-auto-compact", dest="no_auto_compact", action="store_true", help="Disable agy CLI auto-compaction (AGY_CLI_AUTO_COMPACT_OVERRIDE=0)")
+    agy_run_p.add_argument("-t", "--target", "--bin", dest="custom_bin", default=None, help="Explicit path to agy CLI binary")
+    agy_run_p.epilog = "Note: All extra arguments, subcommands, flags, prompts, or files are passed directly to the agy CLI binary."
+
+    # acp stdio server runner (agy-proxy acp)
+    acp_run_p = subparsers.add_parser(
+        "acp",
+        aliases=["run-acp"],
+        help="Start Antigravity Agent Client Protocol (ACP) stdio server routed through agy-proxy for editor integration",
+    )
+    acp_run_p.add_argument("--port", "-p", type=int, default=8000, help="Proxy server port (default: 8000)")
+    acp_run_p.add_argument("--url", type=str, default=None, help="Custom proxy base URL (e.g. http://127.0.0.1:8000)")
+    acp_run_p.add_argument("--account", "-a", type=str, default=None, help="Target account ID or email from account pool (injected as AGY_ACCOUNT)")
+    acp_run_p.add_argument(
+        "--danger",
+        "--dangerously-skip-permissions",
+        dest="danger",
+        action="store_true",
+        help="Auto-approve tool permissions without interactive prompting",
+    )
+    acp_run_p.add_argument("-t", "--target", "--bin", dest="custom_bin", default=None, help="Explicit path to agy CLI binary")
+    acp_run_p.epilog = "Note: Stdio JSON-RPC stream is preserved intact for direct connection by Zed, Neovim, Emacs, or Cursor."
+
     # experiments subcommand (agy-proxy experiments)
     exp_parser = subparsers.add_parser(
         "experiments",
@@ -2258,8 +2425,15 @@ def main():
     parser = build_parser()
     args, unknown = parser.parse_known_args()
 
-    if getattr(args, "subcommand", None) in ("codex", "run-codex", "claude", "run-claude"):
-        arg_attr = "codex_args" if args.subcommand in ("codex", "run-codex") else "claude_args"
+    if getattr(args, "subcommand", None) in ("codex", "run-codex", "claude", "run-claude", "agy", "run-agy", "cli", "acp", "run-acp"):
+        if args.subcommand in ("codex", "run-codex"):
+            arg_attr = "codex_args"
+        elif args.subcommand in ("claude", "run-claude"):
+            arg_attr = "claude_args"
+        elif args.subcommand in ("acp", "run-acp"):
+            arg_attr = "acp_args"
+        else:
+            arg_attr = "agy_args"
         setattr(args, arg_attr, unknown)
     elif unknown:
         parser.error(f"unrecognized arguments: {' '.join(unknown)}")
@@ -2410,6 +2584,36 @@ def main():
             model=getattr(args, "model", "gemini-3.8-flash-high"),
             extra_args=getattr(args, "codex_args", []),
         )
+        return
+    elif args.subcommand in ("agy", "run-agy", "cli"):
+        auto_comp = None
+        if getattr(args, "auto_compact", False):
+            auto_comp = True
+        elif getattr(args, "no_auto_compact", False):
+            auto_comp = False
+        res = handle_run_agy(
+            port=getattr(args, "port", 8000),
+            url=getattr(args, "url", None),
+            account=getattr(args, "account", None),
+            mode=getattr(args, "mode", None),
+            effort=getattr(args, "effort", None),
+            danger=getattr(args, "danger", False),
+            auto_compact=auto_comp,
+            custom_bin=getattr(args, "custom_bin", None),
+            extra_args=getattr(args, "agy_args", []),
+        )
+        sys.exit(res)
+        return
+    elif args.subcommand in ("acp", "run-acp"):
+        res = handle_run_acp(
+            port=getattr(args, "port", 8000),
+            url=getattr(args, "url", None),
+            account=getattr(args, "account", None),
+            danger=getattr(args, "danger", False),
+            custom_bin=getattr(args, "custom_bin", None),
+            extra_args=getattr(args, "acp_args", []),
+        )
+        sys.exit(res)
         return
     elif args.subcommand in ("experiments", "exp"):
         handle_experiments_command(args)

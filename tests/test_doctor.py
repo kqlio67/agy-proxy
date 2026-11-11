@@ -6,10 +6,28 @@ import unittest
 from unittest.mock import AsyncMock, patch
 
 from agy_proxy.auth import AccountSession
-from agy_proxy.doctor import validate_account_live, check_network_endpoints
+from agy_proxy.doctor import validate_account_live, check_network_endpoints, check_agy_cli, check_codex_cli
 
 
 class TestDoctor(unittest.IsolatedAsyncioTestCase):
+    def test_check_agy_cli(self):
+        res = check_agy_cli()
+        self.assertIsInstance(res, dict)
+        self.assertIn("installed", res)
+        self.assertIn("path", res)
+        self.assertIn("version", res)
+        # If installed on local test machine:
+        if res["installed"]:
+            self.assertIsNotNone(res["version"])
+            self.assertTrue(len(res["version"]) > 0)
+
+    def test_check_codex_cli(self):
+        res = check_codex_cli()
+        self.assertIsInstance(res, dict)
+        self.assertIn("installed", res)
+        self.assertIn("path", res)
+        self.assertIn("version", res)
+
     async def test_validate_account_live_api_key(self):
         acc = AccountSession(
             account_id="doc_acc_1",

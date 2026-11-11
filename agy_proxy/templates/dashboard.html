@@ -798,6 +798,10 @@
             <i class="fa-solid fa-copy text-emerald-400 group-hover:scale-110 transition text-xs"></i>
             <span class="font-bold text-white">AGY CLI</span>
           </button>
+          <button onclick="copySnippet('acp')" class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-cyan-500/50 text-xs font-mono transition flex items-center space-x-2 group shadow-sm" title="Copy ACP Stdio Server command for Zed/Neovim">
+            <i class="fa-solid fa-network-wired text-cyan-400 group-hover:scale-110 transition text-xs"></i>
+            <span class="font-bold text-white">ACP Server</span>
+          </button>
           <button onclick="copySnippet('codex')" class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700/80 text-xs font-mono transition flex items-center space-x-2 group shadow-sm" title="Copy OpenAI Codex CLI command">
             <i class="fa-solid fa-terminal text-teal-400 group-hover:scale-110 transition text-xs"></i>
             <span class="font-bold text-white">Codex CLI</span>
@@ -1040,6 +1044,40 @@ agy-proxy web
 
 # Patched Web Hub (Terminal & Models):
 agy-proxy web --patched -k -o</pre>
+          </div>
+        </div>
+
+        <!-- 0. Antigravity CLI (agy v1.5.5) & ACP -->
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800/90 space-y-3 flex flex-col hover:border-emerald-500/40 transition group">
+          <div class="space-y-1">
+            <div class="font-bold text-slate-200 text-sm flex items-center justify-between">
+              <span class="flex items-center space-x-2">
+                <div class="w-6 h-6 rounded-lg bg-emerald-600/20 text-emerald-400 flex items-center justify-center text-xs">
+                  <i class="fa-solid fa-terminal"></i>
+                </div>
+                <span>Antigravity CLI (agy)</span>
+              </span>
+              <div class="flex items-center space-x-1">
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold font-mono">v1.5.5</span>
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-semibold font-mono">ACP Stdio</span>
+              </div>
+            </div>
+            <p class="text-[11px] text-slate-400 leading-snug">Native terminal agent and Agent Client Protocol stdio server for Zed & Neovim.</p>
+          </div>
+
+          <div class="relative bg-slate-950 rounded-xl border border-slate-800 p-2.5 flex-1 flex flex-col justify-center">
+            <button onclick="copySnippet('codeAgyCli', this)" class="absolute top-2 right-2 px-2 py-1 rounded-md bg-slate-800/80 hover:bg-emerald-600 text-slate-300 hover:text-white text-[10px] transition flex items-center space-x-1 shadow" title="Copy code">
+              <i class="fa-regular fa-copy"></i>
+              <span>Copy</span>
+            </button>
+            <pre id="codeAgyCli" class="text-slate-300 font-mono text-[11px] overflow-x-auto custom-scrollbar pr-12"># 1-Click agy CLI Runner:
+agy-proxy agy --mode auto
+
+# Specific account & effort:
+agy-proxy agy -a user@gmail.com -e max
+
+# ACP Stdio Server (Zed / Neovim):
+agy-proxy acp</pre>
           </div>
         </div>
 
@@ -2350,8 +2388,11 @@ ightarrow$ v1.0.3</p>
         text = `export ANTHROPIC_BASE_URL="http://127.0.0.1:8000" && claude --settings '{"availableModels": ["anthropic.gemini-3.8-flash-high", "anthropic.gemini-4-argon", "anthropic.gemini-3.8-flash-tiered"]}'`;
         name = 'Claude Code launcher';
       } else if (param === 'agy') {
-        text = `agy --model gemini-4-argon --dangerously-skip-permissions`;
-        name = 'AGY command';
+        text = `agy-proxy agy --mode auto`;
+        name = 'Antigravity CLI launcher';
+      } else if (param === 'acp') {
+        text = `agy-proxy acp`;
+        name = 'ACP Stdio Server launcher';
       } else if (param === 'codex') {
         text = `OPENAI_API_KEY="dummy" codex -c 'openai_base_url="http://127.0.0.1:8000/v1"' -m "gemini-3.8-flash-high"`;
         name = 'Codex CLI launcher';
