@@ -845,23 +845,6 @@ def test_patch_web_bundle_v2_31_0_mic_and_carbon(tmp_path):
     assert '"gemini-4-carbon":1670' in patched_js
     # Verify mic enhancement injected
     assert 'autoGainControl:!0,googEchoCancellation:!0' in patched_js
-    # Verify slash command caching and /deepagent injection
-    assert '__AGY_CACHED_SLASH_COMMANDS__' in patched_js
-    assert 'daItem.name="deepagent"' in patched_js
-    assert '<deepagent_effort>' in patched_js
-    # Ensure there are no literal unescaped newlines and it is valid JS syntax
-    import json
-    import re
-    import shutil
-    import subprocess
-    match = re.search(r"daItem\.info\.modelFacingText=(.*?);}", patched_js)
-    assert match is not None
-    parsed = json.loads(match.group(1))
-    assert "<deepagent_effort>" in parsed
-    assert "Spend the effort" in parsed
-    if shutil.which("node"):
-        res = subprocess.run(["node", "-e", f"var x = {match.group(1)};"], capture_output=True, text=True)
-        assert res.returncode == 0, f"JS Syntax error in modelFacingText: {res.stderr}"
 
     patched_html = (bundle / "index.html").read_text(encoding="utf-8")
     assert '"enable-swarm-overview": true' in patched_html
@@ -869,7 +852,7 @@ def test_patch_web_bundle_v2_31_0_mic_and_carbon(tmp_path):
 
 
 def test_patch_web_bundle_arbitrary_var_and_carbon_base(tmp_path):
-    """Verifies that patch_web_bundle handles arbitrary minified var names (qa) and includes Carbon in defaultBaseLabels."""
+    """Verifies that patch_web_bundle handles Carbon in defaultBaseLabels and preserves bundle integrity."""
     from agy_proxy.web_launcher import patch_web_bundle
 
     bundle = tmp_path / "qa_bundle"
@@ -886,11 +869,9 @@ def test_patch_web_bundle_arbitrary_var_and_carbon_base(tmp_path):
     assert patch_web_bundle(bundle) is True
 
     patched_js = (bundle / "main.js").read_text(encoding="utf-8")
-    assert '__AGY_CACHED_SLASH_COMMANDS__' in patched_js
-    assert 'daItem.name="deepagent"' in patched_js
-    assert '<deepagent_effort>' in patched_js
-    assert 'D&&c&&F.sideQuestion&&qa.unshift' in patched_js
+    assert 'autoGainControl:!0,googEchoCancellation:!0' in patched_js
     assert '"Gemini 4 Carbon"' in patched_js
+
 
 
 def test_real_main_js_syntax_if_present():

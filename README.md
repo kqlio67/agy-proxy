@@ -84,9 +84,6 @@ agy-proxy web --patched -k -o
 agy-proxy web --download-server
 ```
 
-> [!TIP]
-> **`/deepagent` Slash Command & Persistent Shortcuts**: The patched web bundle injects the `/deepagent` slash command in chat, escalating tasks into deep reasoning mode with multi-pass verification and evidence-based rigor (`<deepagent_effort>`), while caching slash commands in localStorage against network dropouts.
-
 👉 *Detailed guide: [Antigravity Web Mode & Patched Hub](docs/web_mode.md)*
 
 ### 2. 🤖 Claude Code CLI (Proxy or Direct Vanilla)

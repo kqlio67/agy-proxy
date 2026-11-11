@@ -1449,69 +1449,6 @@ addSep("── Default ──────────────────","
         js = js.replace(old_mic_target, new_mic_target)
         logger.info("Enhanced microphone capture: enabled AGC, highpass filter, and Google noise cancellation constraints")
 
-    # 1.16 Ensure slash commands never disappear and inject /deepagent alias alongside /boost
-    da_effort_text = (
-        "<deepagent_effort>\n"
-        "This task has been explicitly escalated for deep work. Spend the effort.\n\n"
-        "## Effort\n\n"
-        "Err on the side of one more verification pass rather than fewer. Another pass is cheap compared to handing back an incomplete solution.\n\n"
-        "## Evidence\n\n"
-        "Apply these rules to your own conclusions before you report them:\n"
-        "1. Ruling out alternatives does NOT confirm the remaining hypothesis. If you ruled out hypotheses B and C, hypothesis A is still UNVERIFIED until direct, positive evidence supports it.\n"
-        "2. Every conclusion must cite direct evidence (specific code, config, log output, or observed behavior).\n"
-        "3. Classify each conclusion as: Confirmed, Ruled out, or Unverified.\n"
-        '4. "Likely" and "probably" are red flags. Do not use hedging language.\n'
-        "5. Multiple competing explanations = not converged. Iterate until definitive.\n\n"
-        "## Engineering\n"
-        "- Challenge fragile constraints. If a requirement seems to force an unsound design, implement the sound version and flag the discrepancy.\n"
-        "- Do not weaken tests to pass. Never modify, skip, or delete an existing test to make your change look successful.\n"
-        "- Do not special-case the test. Solve the general problem.\n"
-        "- Keep the diff focused. Unrelated refactors add regression risk.\n"
-        "</deepagent_effort>"
-    )
-    da_effort_json = json.dumps(da_effort_text)
-    slash_usememo_pat = re.compile(
-        r'useMemo\)\(\(\)=>\{(?:\s*if\(Q\.data&&Q\.data\.length>0\)[\s\S]*?return\s+([a-zA-Z0-9_$]+)\},|var\s+([a-zA-Z0-9_$]+)=\[\.\.\.\(P\.data\?\?\[\]\),\.\.\.\(O\.data\?\?\[\]\),\.\.\.\(Q\.data\?\?\[\]\)\];([\s\S]*?)return\s+\2\},)'
-    )
-
-    def make_slash_repl(m: re.Match) -> str:
-        v = m.group(2) or m.group(1) or "ra"
-        mid = (
-            m.group(3)
-            if m.group(2)
-            else f'D&&c&&F.sideQuestion&&{v}.unshift({{"$typeName":"exa.cortex_pb.WorkflowSpec",name:"btw",description:"Ask a quick question without interrupting the main conversation.",path:"btw",content:""}});'
-        )
-        fallback_spec = '{"$typeName":"exa.cortex_pb.WorkflowSpec",path:"deepagent",content:""}'
-        return (
-            f"useMemo)(()=>"
-            f"{{"
-            f"if(Q.data&&Q.data.length>0){{try{{window.__AGY_CACHED_SLASH_COMMANDS__=Q.data}}catch(e){{}}}}"
-            f'var cachedCmds=(typeof window!=="undefined"&&window.__AGY_CACHED_SLASH_COMMANDS__)?window.__AGY_CACHED_SLASH_COMMANDS__:[];'
-            f"var qData=(Q.data&&Q.data.length>0)?Q.data:cachedCmds;"
-            f"var {v}=[...(P.data??[]),...(O.data??[]),...(qData??[])];"
-            f"{mid}"
-            f'var boostItem={v}.find(x=>x?.info?.name==="boost"||x?.name==="boost"||x?.title==="boost");'
-            f'var hasDeepagent={v}.some(x=>x?.info?.name==="deepagent"||x?.name==="deepagent"||x?.title==="deepagent");'
-            f"if(!hasDeepagent){{"
-            f"try{{"
-            f"var daItem=boostItem?JSON.parse(JSON.stringify(boostItem)):{fallback_spec};"
-            f"if(!daItem.info){{daItem.info={{}};}}"
-            f"if(daItem.info){{"
-            f'daItem.info.name="deepagent";'
-            f"daItem.info.modelFacingText={da_effort_json};"
-            f"}}"
-            f'daItem.name="deepagent";daItem.title="deepagent";'
-            f'daItem.description="Run task with single-agent deep reasoning, multi-pass verification, and evidence-based rigor.";'
-            f"{v}.push(daItem);"
-            f"}}catch(e){{}}"
-            f"}}"
-            f"return {v}}},"
-        )
-
-    if slash_usememo_pat.search(js):
-        js = slash_usememo_pat.sub(make_slash_repl, js, count=1)
-        logger.info("Patched slash commands useMemo: Cached commands against dropouts and injected /deepagent alias alongside /boost")
-
     with open(main_js_path, "w", encoding="utf-8") as f:
         f.write(js)
 
