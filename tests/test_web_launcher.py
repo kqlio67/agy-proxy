@@ -832,6 +832,7 @@ def test_patch_web_bundle_v2_31_0_mic_and_carbon(tmp_path):
     raw_js = (
         'var tk=a=>a.modelOrAlias?{label:a.label,value:1}; '
         'kz({channelCount:1,echoCancellation:!0,noiseSuppression:!0},l); '
+        'useMemo)(()=>{var ra=[...(P.data??[]),...(O.data??[]),...(Q.data??[])];C&&c&&F.sideQuestion&&ra.unshift({$typeName:"exa.cortex_pb.WorkflowSpec",name:"btw",description:"Ask a quick question without interrupting the main conversation.",path:"btw",content:""});return ra}, '
         'function gMa({children:a,userStatus:b}){return .Provider,{value:g},a)}'
     )
     (bundle / "main.js").write_text(raw_js, encoding="utf-8")
@@ -844,6 +845,9 @@ def test_patch_web_bundle_v2_31_0_mic_and_carbon(tmp_path):
     assert '"gemini-4-carbon":1670' in patched_js
     # Verify mic enhancement injected
     assert 'autoGainControl:!0,googEchoCancellation:!0' in patched_js
+    # Verify slash command caching and /deepagent injection
+    assert '__AGY_CACHED_SLASH_COMMANDS__' in patched_js
+    assert 'daItem.name="deepagent"' in patched_js
 
     patched_html = (bundle / "index.html").read_text(encoding="utf-8")
     assert '"enable-swarm-overview": true' in patched_html

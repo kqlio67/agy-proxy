@@ -1448,6 +1448,31 @@ addSep("── Default ──────────────────","
         js = js.replace(old_mic_target, new_mic_target)
         logger.info("Enhanced microphone capture: enabled AGC, highpass filter, and Google noise cancellation constraints")
 
+    # 1.16 Ensure slash commands never disappear and inject /deepagent alias alongside /boost
+    slash_usememo_target = 'useMemo)(()=>{var ra=[...(P.data??[]),...(O.data??[]),...(Q.data??[])];C&&c&&F.sideQuestion&&ra.unshift({$typeName:"exa.cortex_pb.WorkflowSpec",name:"btw",description:"Ask a quick question without interrupting the main conversation.",path:"btw",content:""});return ra},'
+    slash_usememo_repl = (
+        'useMemo)(()=>{'
+        'if(Q.data&&Q.data.length>0){try{window.__AGY_CACHED_SLASH_COMMANDS__=Q.data}catch(e){}}'
+        'var qData=(Q.data&&Q.data.length>0)?Q.data:(window.__AGY_CACHED_SLASH_COMMANDS__||[]);'
+        'var ra=[...(P.data??[]),...(O.data??[]),...qData];'
+        'C&&c&&F.sideQuestion&&ra.unshift({$typeName:"exa.cortex_pb.WorkflowSpec",name:"btw",description:"Ask a quick question without interrupting the main conversation.",path:"btw",content:""});'
+        'var boostItem=ra.find(x=>x?.info?.name==="boost"||x?.name==="boost"||x?.title==="boost");'
+        'var hasDeepagent=ra.some(x=>x?.info?.name==="deepagent"||x?.name==="deepagent"||x?.title==="deepagent");'
+        'if(boostItem&&!hasDeepagent){'
+        'try{'
+        'var daItem=JSON.parse(JSON.stringify(boostItem));'
+        'if(daItem.info){daItem.info.name="deepagent"}'
+        'daItem.name="deepagent";daItem.title="deepagent";'
+        'daItem.description="Invoke the DeepAgent multi-agent orchestrator (DeepCoder & DeepInvestigator) for complex tasks.";'
+        'ra.push(daItem);'
+        '}catch(e){}'
+        '}'
+        'return ra},'
+    )
+    if slash_usememo_target in js:
+        js = js.replace(slash_usememo_target, slash_usememo_repl)
+        logger.info("Patched slash commands useMemo: Cached commands against dropouts and injected /deepagent alias alongside /boost")
+
     with open(main_js_path, "w", encoding="utf-8") as f:
         f.write(js)
 
