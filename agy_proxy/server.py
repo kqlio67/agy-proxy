@@ -1805,10 +1805,11 @@ def create_app(
         access_token: str | None = None
         raw_har: str | None = None
         proxy_url: str | None = None
+        is_guest: bool = False
 
     @app.post("/api/accounts/chatgpt-web")
     async def add_account_chatgpt_web(req: AddChatGPTWebRequest):
-        """Adds or updates a ChatGPT Web session from access token, JWT, or HAR export."""
+        """Adds or updates a ChatGPT Web session from access token, JWT, HAR export, or Zero-Auth Guest mode."""
         from agy_proxy.providers import external_provider_manager, ExternalProviderConfig, ExternalModelConfig
         from agy_proxy.providers.chatgpt_web import extract_chatgpt_token_from_har
 
@@ -1823,8 +1824,9 @@ def create_app(
                 email = em
                 user_id = uid
 
-        if not token:
+        if not token and not req.is_guest:
             candidate_paths = [
+                Path("~/.config/agy-proxy/har/chatgpt.com(авторизації).har"),
                 Path("~/.config/agy-proxy/har/chatgpt.com.har"),
                 Path.home() / "chatgpt.com.har",
                 Path.cwd() / "chatgpt.com.har",
@@ -1838,10 +1840,19 @@ def create_app(
                         user_id = uid
                         break
 
-        if not token:
-            raise HTTPException(status_code=400, detail="No ChatGPT accessToken or session token found in input or HAR data.")
+        # Zero-Auth Guest mode if requested or token is guest keyword
+        if req.is_guest or token.lower() in ("guest", "anonymous", "zero-auth", "none"):
+            token = "zero-auth"
+            email = "Zero-Auth Guest"
+            p_name = req.name or "ChatGPT Web (Zero-Auth Guest)"
+        elif not token:
+            # Default to Zero-Auth Guest mode if no token provided
+            token = "zero-auth"
+            email = "Zero-Auth Guest"
+            p_name = req.name or "ChatGPT Web (Zero-Auth Guest)"
+        else:
+            p_name = req.name or (f"ChatGPT Web ({email})" if email else "ChatGPT Web Session")
 
-        p_name = req.name or (f"ChatGPT Web ({email})" if email else "ChatGPT Web Session")
         cfg = ExternalProviderConfig(
             id="chatgpt-web",
             name=p_name,
@@ -1863,7 +1874,8 @@ def create_app(
             "provider_id": "chatgpt-web",
             "name": p_name,
             "email": email,
-            "message": f"Successfully configured ChatGPT Web session{f' for {email}' if email else ''}!",
+            "guest_mode": token == "zero-auth",
+            "message": f"Successfully configured {p_name}!",
         }
 
     @app.get("/api/accounts/chatgpt-web/detect-har")
@@ -1871,6 +1883,7 @@ def create_app(
         """Detects and previews local chatgpt.com.har file if present on host."""
         from agy_proxy.providers.chatgpt_web import extract_chatgpt_token_from_har
         candidate_paths = [
+            Path("~/.config/agy-proxy/har/chatgpt.com(авторизації).har"),
             Path("~/.config/agy-proxy/har/chatgpt.com.har"),
             Path.home() / "chatgpt.com.har",
             Path.cwd() / "chatgpt.com.har",

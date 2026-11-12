@@ -1909,6 +1909,24 @@ https://your-tunnel.trycloudflare.com/v1</pre>
               <span>Auto-Fill</span>
             </button>
           </div>
+          <div id="chatgptZeroAuthHelperContainer" class="hidden p-3.5 rounded-2xl bg-gradient-to-r from-emerald-950/60 to-slate-900/60 border border-emerald-500/40 flex items-center justify-between gap-3 text-xs shadow-md">
+            <div class="flex items-center space-x-2.5 min-w-0">
+              <div class="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+                <i class="fa-solid fa-bolt text-sm"></i>
+              </div>
+              <div class="min-w-0">
+                <div class="text-white font-bold flex items-center gap-1.5">
+                  <span>⚡ Zero-Auth Guest Mode</span>
+                  <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/30 text-emerald-200">100% Free</span>
+                </div>
+                <div class="text-[11px] text-emerald-300">Вхід та кукіси не потрібні. Прямий доступ через Octane conduit pipeline.</div>
+              </div>
+            </div>
+            <button type="button" onclick="enableChatGPTZeroAuth()" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs transition shrink-0 flex items-center space-x-1.5 shadow active:scale-95">
+              <i class="fa-solid fa-sparkles text-[11px]"></i>
+              <span>Use Free Guest</span>
+            </button>
+          </div>
           <div class="space-y-2.5 pt-1">
             <div>
               <label class="text-[11px] text-slate-400 block mb-1 font-medium">Session Name / Label</label>
@@ -4837,8 +4855,8 @@ ightarrow$ v1.0.3</p>
             <!-- Auth & Latency Info -->
             <div class="flex items-center justify-between text-[11px] pt-2.5 text-slate-400">
               <span class="flex items-center gap-1 font-mono text-[10px]">
-                <i class="fa-solid ${(p.provider_type === 'deepseek_web' || p.id === 'deepseek-web' || p.provider_type === 'chatgpt_web' || p.id === 'chatgpt-web') ? 'fa-shield-halved text-emerald-400' : 'fa-key text-slate-500'} text-[9px]"></i>
-                ${(p.provider_type === 'deepseek_web' || p.id === 'deepseek-web') ? 'Web Session (PoW Verified)' : ((p.provider_type === 'chatgpt_web' || p.id === 'chatgpt-web') ? 'Web Session (Sentinel PoW)' : (p.api_key ? 'API Key Set' : 'No Key (Local)'))}
+                <i class="fa-solid ${(p.provider_type === 'deepseek_web' || p.id === 'deepseek-web') ? 'fa-shield-halved text-cyan-400' : ((p.provider_type === 'chatgpt_web' || p.id === 'chatgpt-web') ? ((!p.api_key || p.api_key === 'zero-auth' || p.api_key === 'guest') ? 'fa-bolt text-amber-400' : 'fa-shield-halved text-emerald-400') : (p.api_key ? 'fa-key text-slate-500' : 'fa-cube text-slate-500'))} text-[9px]"></i>
+                ${(p.provider_type === 'deepseek_web' || p.id === 'deepseek-web') ? 'Web Session (PoW Verified)' : ((p.provider_type === 'chatgpt_web' || p.id === 'chatgpt-web') ? ((!p.api_key || p.api_key === 'zero-auth' || p.api_key === 'guest') ? 'Zero-Auth Guest (No Login)' : 'Web Session (Sentinel PoW)') : (p.api_key ? 'API Key Set' : 'No Key (Local)'))}
               </span>
               <span id="prov-ping-${p.id}" class="text-[10px] font-mono text-slate-300 glass-pill px-2.5 py-0.5 rounded-full flex items-center gap-1.5">
                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>Ready
@@ -6547,13 +6565,17 @@ ightarrow$ v1.0.3</p>
         } else if (methodId === 'openai_web') {
           if (webTitle) webTitle.innerHTML = '<i class="fa-solid fa-brain mr-2 text-emerald-400"></i> ChatGPT Web Session';
           if (webBadge) webBadge.innerText = 'ChatGPT Web';
-          if (webDesc) webDesc.innerHTML = 'Connect an active browser session from <a href="https://chatgpt.com" target="_blank" class="text-emerald-400 underline">chatgpt.com</a>. Paste your accessToken (JWT), <code class="font-mono text-emerald-300">__Secure-next-auth.session-token</code>, or <code class="font-mono text-emerald-300">.har</code> export:';
+          if (webDesc) webDesc.innerHTML = 'Connect an active browser session from <a href="https://chatgpt.com" target="_blank" class="text-emerald-400 underline">chatgpt.com</a>, or choose 100% Free <b>Zero-Auth Guest mode</b>:';
           if (webExtra) webExtra.classList.add('hidden');
-          if (webName) webName.placeholder = 'e.g. ChatGPT Web (Personal)';
-          if (webCookies) webCookies.placeholder = 'Paste accessToken, session token, or chatgpt.com.har JSON here...';
-          if (webHint) webHint.innerText = 'paste accessToken or .har JSON';
+          if (webName) webName.placeholder = 'e.g. ChatGPT Web (Personal) or ChatGPT Zero-Auth';
+          if (webCookies) webCookies.placeholder = 'Paste accessToken, session token, or chatgpt.com.har JSON here (or click Zero-Auth Guest)...';
+          if (webHint) webHint.innerText = 'accessToken, .har, or zero-auth';
+          const zeroAuthContainer = document.getElementById('chatgptZeroAuthHelperContainer');
+          if (zeroAuthContainer) zeroAuthContainer.classList.remove('hidden');
           checkAndShowLocalHarOption('openai_web');
         } else if (methodId === 'deepseek_web') {
+          const zeroAuthContainer = document.getElementById('chatgptZeroAuthHelperContainer');
+          if (zeroAuthContainer) zeroAuthContainer.classList.add('hidden');
           if (webTitle) webTitle.innerHTML = '<i class="fa-solid fa-atom mr-2 text-cyan-400"></i> DeepSeek Web Session';
           if (webBadge) webBadge.innerText = 'DeepSeek Web';
           if (webDesc) webDesc.innerHTML = 'Connect an active web session from <a href="https://chat.deepseek.com" target="_blank" class="text-cyan-400 underline">chat.deepseek.com</a>. Paste your <code class="font-mono text-cyan-300">userToken</code> or raw <code class="font-mono text-cyan-300">.har</code> export JSON:';
@@ -6566,6 +6588,8 @@ ightarrow$ v1.0.3</p>
         if (methodId !== 'deepseek_web' && methodId !== 'openai_web') {
           const harContainer = document.getElementById('localHarHelperContainer');
           if (harContainer) harContainer.classList.add('hidden');
+          const zeroAuthContainer = document.getElementById('chatgptZeroAuthHelperContainer');
+          if (zeroAuthContainer) zeroAuthContainer.classList.add('hidden');
         }
       } else {
         // API / Local / Gateway provider
@@ -6695,6 +6719,14 @@ ightarrow$ v1.0.3</p>
         }
         showToast(`Auto-loaded ${isCgpt ? 'ChatGPT' : 'DeepSeek'} session from local HAR!`, 'success');
       }
+    }
+
+    function enableChatGPTZeroAuth() {
+      const cookiesInput = document.getElementById('webCookiesInput');
+      const nameInput = document.getElementById('webNameInput');
+      if (cookiesInput) cookiesInput.value = 'zero-auth';
+      if (nameInput) nameInput.value = 'ChatGPT Web (Zero-Auth Guest)';
+      showToast('Обрано безкоштовний режим Zero-Auth Guest! Натисніть "Add to Pool" для збереження.', 'info');
     }
 
     async function openAddAccountModal(initialTab = 'oauth') {
@@ -6920,14 +6952,16 @@ ightarrow$ v1.0.3</p>
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Authenticating & Solving Sentinel PoW...';
 
         try {
+          const isGuest = !rawData || rawData.toLowerCase() === 'zero-auth' || rawData.toLowerCase() === 'guest';
           const res = await fetch('/api/accounts/chatgpt-web', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               name: name,
-              access_token: rawData && !rawData.includes('{') ? rawData : null,
-              raw_har: rawData && rawData.includes('{') ? rawData : (rawData ? rawData : null),
+              access_token: isGuest ? null : (rawData && !rawData.includes('{') ? rawData : null),
+              raw_har: isGuest ? null : (rawData && rawData.includes('{') ? rawData : (rawData ? rawData : null)),
               proxy_url: proxyUrl,
+              is_guest: isGuest,
             })
           });
           if (!res.ok) {
