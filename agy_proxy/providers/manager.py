@@ -28,7 +28,12 @@ ROUTING_FILE = Path.home() / ".config" / "agy-proxy" / "routing_settings.json"
 
 def _create_provider_instance(config: ExternalProviderConfig) -> BaseExternalProvider:
     """Factory creating the appropriate provider instance."""
-    if config.provider_type == "ollama" or config.id == "ollama":
+    p_type = (config.provider_type or "").lower()
+    p_id = (config.id or "").lower()
+    if p_type == "anthropic" or p_id == "anthropic":
+        from agy_proxy.providers.anthropic import AnthropicProvider
+        return AnthropicProvider(config)
+    if p_type == "ollama" or p_id == "ollama":
         return OllamaProvider(config)
     return OpenAICompatProvider(config)
 
@@ -60,6 +65,17 @@ class ExternalProviderManager:
                         self.providers = {k: ExternalProviderConfig(**v) for k, v in data.items()}
             except Exception as e:
                 logger.error("Failed to load external providers from %s: %s", self.config_path, e)
+
+            # Backfill any missing default presets (e.g. anthropic, openai) as disabled templates
+            modified = False
+            for pid, preset in DEFAULT_PROVIDER_PRESETS.items():
+                if pid not in self.providers:
+                    preset_copy = dict(preset)
+                    preset_copy["enabled"] = False
+                    self.providers[pid] = ExternalProviderConfig(**preset_copy)
+                    modified = True
+            if modified:
+                self.save()
         else:
             # Initialize with default presets as disabled templates if no file exists
             self.providers = {}

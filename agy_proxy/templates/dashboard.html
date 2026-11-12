@@ -500,6 +500,16 @@
               <span>Google</span>
               <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300" id="countGoogle">0</span>
             </button>
+            <button onclick="setAccountFilter('anthropic')" data-filter="anthropic" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-amber-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0" title="Anthropic Claude Direct AI">
+              <i class="fa-solid fa-cube text-amber-400 text-[10px]"></i>
+              <span>Anthropic</span>
+              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300" id="countAnthropic">0</span>
+            </button>
+            <button onclick="setAccountFilter('openai')" data-filter="openai" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-emerald-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0" title="OpenAI Direct AI (GPT-4o, o1, o3-mini)">
+              <i class="fa-solid fa-brain text-emerald-400 text-[10px]"></i>
+              <span>OpenAI</span>
+              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300" id="countOpenAI">0</span>
+            </button>
             <button onclick="setAccountFilter('deepseek')" data-filter="deepseek" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-cyan-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0" title="DeepSeek Direct API">
               <i class="fa-solid fa-atom text-cyan-400 text-[10px]"></i>
               <span>DeepSeek</span>
@@ -2324,6 +2334,8 @@ ightarrow$ v1.0.3</p>
         if (isMatch) {
           let activeClass = 'bg-indigo-600/30 text-indigo-200 border-indigo-500/50 shadow-[0_0_12px_rgba(99,102,241,0.25)]';
           if (filter === 'google') activeClass = 'bg-blue-600/30 text-blue-200 border-blue-500/50 shadow-[0_0_12px_rgba(59,130,246,0.3)]';
+          else if (filter === 'anthropic') activeClass = 'bg-amber-600/30 text-amber-200 border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.3)]';
+          else if (filter === 'openai') activeClass = 'bg-emerald-600/30 text-emerald-200 border-emerald-500/50 shadow-[0_0_12px_rgba(16,185,129,0.3)]';
           else if (filter === 'deepseek') activeClass = 'bg-cyan-600/30 text-cyan-200 border-cyan-500/50 shadow-[0_0_12px_rgba(6,182,212,0.3)]';
           else if (filter === 'local') activeClass = 'bg-emerald-600/30 text-emerald-200 border-emerald-500/50 shadow-[0_0_12px_rgba(16,185,129,0.3)]';
           else if (filter === 'gateways') activeClass = 'bg-purple-600/30 text-purple-200 border-purple-500/50 shadow-[0_0_12px_rgba(168,85,247,0.3)]';
@@ -3587,6 +3599,15 @@ ightarrow$ v1.0.3</p>
       }
 
       // Split external providers into categories
+      const anthropicProviders = rawProvidersData.filter(p => {
+        const id = (p.id || '').toLowerCase();
+        const ptype = (p.provider_type || '').toLowerCase();
+        return id.includes('anthropic') || ptype.includes('anthropic');
+      });
+      const openaiProviders = rawProvidersData.filter(p => {
+        const id = (p.id || '').toLowerCase();
+        return (id.includes('openai') || id === 'chatgpt') && !id.includes('openrouter');
+      });
       const deepseekProviders = rawProvidersData.filter(p => (p.id || '').toLowerCase().includes('deepseek'));
       const localProviders = rawProvidersData.filter(p => {
         const id = (p.id || '').toLowerCase();
@@ -3594,7 +3615,10 @@ ightarrow$ v1.0.3</p>
       });
       const gatewayProviders = rawProvidersData.filter(p => {
         const id = (p.id || '').toLowerCase();
-        return !id.includes('deepseek') && !id.includes('ollama') && !id.includes('lmstudio') && !id.includes('local');
+        const ptype = (p.provider_type || '').toLowerCase();
+        return !id.includes('anthropic') && !ptype.includes('anthropic') &&
+               !(id.includes('openai') && !id.includes('openrouter')) &&
+               !id.includes('deepseek') && !id.includes('ollama') && !id.includes('lmstudio') && !id.includes('local');
       });
 
       const filterProvList = (list) => {
@@ -3608,17 +3632,21 @@ ightarrow$ v1.0.3</p>
         });
       };
 
+      const matchedAnthropic = filterProvList(anthropicProviders);
+      const matchedOpenAI = filterProvList(openaiProviders);
       const matchedDeepseek = filterProvList(deepseekProviders);
       const matchedLocal = filterProvList(localProviders);
       const matchedGateways = filterProvList(gatewayProviders);
 
       let totalExternal = rawProvidersData.length;
       let totalGoogle = totalAll;
-      let countApiKeysAll = totalApiKey + deepseekProviders.length;
+      let countApiKeysAll = totalApiKey + deepseekProviders.length + anthropicProviders.length + openaiProviders.length;
 
       if (document.getElementById('countAll')) document.getElementById('countAll').innerText = totalAll + totalExternal;
       if (document.getElementById('navActivePoolCounter')) document.getElementById('navActivePoolCounter').innerText = totalAll;
       if (document.getElementById('countGoogle')) document.getElementById('countGoogle').innerText = totalGoogle;
+      if (document.getElementById('countAnthropic')) document.getElementById('countAnthropic').innerText = anthropicProviders.length;
+      if (document.getElementById('countOpenAI')) document.getElementById('countOpenAI').innerText = openaiProviders.length;
       if (document.getElementById('countDeepSeek')) document.getElementById('countDeepSeek').innerText = deepseekProviders.length;
       if (document.getElementById('countLocal')) document.getElementById('countLocal').innerText = localProviders.length;
       if (document.getElementById('countGateways')) document.getElementById('countGateways').innerText = gatewayProviders.length;
@@ -3629,6 +3657,36 @@ ightarrow$ v1.0.3</p>
       if (document.getElementById('countExhausted')) document.getElementById('countExhausted').innerText = totalExhausted;
 
       document.getElementById('accountPoolCount').innerText = `${totalAll + totalExternal} source${(totalAll + totalExternal) === 1 ? '' : 's'}`;
+
+      if (currentAccountFilter === 'anthropic') {
+        container.innerHTML = renderProviderEcosystemSection({
+          sectionId: 'anthropic',
+          title: 'Anthropic Claude Direct AI',
+          icon: 'fa-solid fa-cube',
+          iconColor: { bg: 'bg-amber-500/15', border: 'border-amber-500/30', text: 'text-amber-400', pillBg: 'bg-amber-500/20', pillText: 'text-amber-300', pillBorder: 'border-amber-500/30', addBtnBg: 'bg-amber-600 hover:bg-amber-500' },
+          count: matchedAnthropic.length,
+          desc: 'Direct Anthropic Messages API connection (Claude 3.7 Sonnet, Claude 3.5 Haiku, Opus)',
+          addTab: 'anthropic',
+          providers: matchedAnthropic,
+          showFailoverBanner: false
+        });
+        return;
+      }
+
+      if (currentAccountFilter === 'openai') {
+        container.innerHTML = renderProviderEcosystemSection({
+          sectionId: 'openai',
+          title: 'OpenAI Direct AI',
+          icon: 'fa-solid fa-brain',
+          iconColor: { bg: 'bg-emerald-500/15', border: 'border-emerald-500/30', text: 'text-emerald-400', pillBg: 'bg-emerald-500/20', pillText: 'text-emerald-300', pillBorder: 'border-emerald-500/30', addBtnBg: 'bg-emerald-600 hover:bg-emerald-500' },
+          count: matchedOpenAI.length,
+          desc: 'Direct OpenAI REST connection (GPT-4o, o1, o3-mini, GPT-4.5)',
+          addTab: 'openai',
+          providers: matchedOpenAI,
+          showFailoverBanner: false
+        });
+        return;
+      }
 
       if (currentAccountFilter === 'deepseek') {
         container.innerHTML = renderProviderEcosystemSection({
@@ -3805,7 +3863,37 @@ ightarrow$ v1.0.3</p>
           );
         }
 
-        // Section 4: DeepSeek Direct AI
+        // Section 4: Anthropic Claude Direct AI
+        if (matchedAnthropic.length > 0 || (!searchQ && anthropicProviders.length > 0)) {
+          fullHtml += renderProviderEcosystemSection({
+            sectionId: 'anthropic',
+            title: 'Anthropic Claude Direct AI',
+            icon: 'fa-solid fa-cube',
+            iconColor: { bg: 'bg-amber-500/15', border: 'border-amber-500/30', text: 'text-amber-400', pillBg: 'bg-amber-500/20', pillText: 'text-amber-300', pillBorder: 'border-amber-500/30', addBtnBg: 'bg-amber-600 hover:bg-amber-500' },
+            count: matchedAnthropic.length,
+            desc: 'Direct Anthropic Messages API connection (Claude 3.7 Sonnet, Claude 3.5 Haiku, Opus)',
+            addTab: 'anthropic',
+            providers: matchedAnthropic,
+            showFailoverBanner: false
+          });
+        }
+
+        // Section 5: OpenAI Direct AI
+        if (matchedOpenAI.length > 0 || (!searchQ && openaiProviders.length > 0)) {
+          fullHtml += renderProviderEcosystemSection({
+            sectionId: 'openai',
+            title: 'OpenAI Direct AI',
+            icon: 'fa-solid fa-brain',
+            iconColor: { bg: 'bg-emerald-500/15', border: 'border-emerald-500/30', text: 'text-emerald-400', pillBg: 'bg-emerald-500/20', pillText: 'text-emerald-300', pillBorder: 'border-emerald-500/30', addBtnBg: 'bg-emerald-600 hover:bg-emerald-500' },
+            count: matchedOpenAI.length,
+            desc: 'Direct OpenAI REST connection (GPT-4o, o1, o3-mini, GPT-4.5)',
+            addTab: 'openai',
+            providers: matchedOpenAI,
+            showFailoverBanner: false
+          });
+        }
+
+        // Section 6: DeepSeek Direct AI
         if (matchedDeepseek.length > 0 || (!searchQ && deepseekProviders.length > 0)) {
           fullHtml += renderProviderEcosystemSection({
             sectionId: 'deepseek',
@@ -4453,7 +4541,15 @@ ightarrow$ v1.0.3</p>
       let bgIcon = 'bg-purple-500/15 border-purple-500/30';
       let categoryBadge = '';
       const idLower = (p.id || '').toLowerCase();
-      if (idLower.includes('ollama') || idLower.includes('lmstudio') || idLower.includes('local')) {
+      if (idLower.includes('anthropic') || (p.provider_type || '').toLowerCase().includes('anthropic')) {
+        iconClass = 'fa-solid fa-cube text-amber-400';
+        bgIcon = 'bg-amber-500/15 border-amber-500/30';
+        categoryBadge = '<span class="text-[9px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20"><i class="fa-solid fa-cube text-[8px] mr-1"></i>Direct Anthropic</span>';
+      } else if (idLower.includes('openai') && !idLower.includes('openrouter')) {
+        iconClass = 'fa-solid fa-brain text-emerald-400';
+        bgIcon = 'bg-emerald-500/15 border-emerald-500/30';
+        categoryBadge = '<span class="text-[9px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20"><i class="fa-solid fa-brain text-[8px] mr-1"></i>Direct OpenAI</span>';
+      } else if (idLower.includes('ollama') || idLower.includes('lmstudio') || idLower.includes('local')) {
         iconClass = 'fa-solid fa-server text-emerald-400';
         bgIcon = 'bg-emerald-500/15 border-emerald-500/30';
         categoryBadge = '<span class="text-[9px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20"><i class="fa-solid fa-server text-[8px] mr-1"></i>Local AI</span>';
@@ -4640,14 +4736,19 @@ ightarrow$ v1.0.3</p>
 
     async function toggleProviderGroup(groupName, enable) {
       let targets = [];
-      if (groupName === 'deepseek') targets = rawProvidersData.filter(p => (p.id || '').toLowerCase().includes('deepseek'));
+      if (groupName === 'anthropic') targets = rawProvidersData.filter(p => (p.id || '').toLowerCase().includes('anthropic'));
+      else if (groupName === 'openai') targets = rawProvidersData.filter(p => (p.id || '').toLowerCase().includes('openai') && !p.id.toLowerCase().includes('openrouter'));
+      else if (groupName === 'deepseek') targets = rawProvidersData.filter(p => (p.id || '').toLowerCase().includes('deepseek'));
       else if (groupName === 'local') targets = rawProvidersData.filter(p => {
         const id = (p.id || '').toLowerCase();
         return id.includes('ollama') || id.includes('lmstudio') || id.includes('local');
       });
       else if (groupName === 'gateways') targets = rawProvidersData.filter(p => {
         const id = (p.id || '').toLowerCase();
-        return !id.includes('deepseek') && !id.includes('ollama') && !id.includes('lmstudio') && !id.includes('local');
+        const ptype = (p.provider_type || '').toLowerCase();
+        return !id.includes('anthropic') && !ptype.includes('anthropic') &&
+               !(id.includes('openai') && !id.includes('openrouter')) &&
+               !id.includes('deepseek') && !id.includes('ollama') && !id.includes('lmstudio') && !id.includes('local');
       });
       else targets = rawProvidersData;
 
@@ -5975,9 +6076,9 @@ ightarrow$ v1.0.3</p>
         const btn = document.getElementById(`ecoBtn-${k}`);
         if (!btn) return;
         if (k === ecoId) {
-          btn.className = 'eco-btn p-2 rounded-xl border flex flex-col items-center justify-center gap-1 transition text-center bg-indigo-600/20 border-indigo-500/50 text-white shadow-sm ring-1 ring-indigo-500/40';
+          btn.className = 'eco-btn p-2.5 rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition text-center bg-indigo-600/25 border-indigo-500/50 text-white shadow-sm ring-1 ring-indigo-500/30';
         } else {
-          btn.className = 'eco-btn p-2 rounded-xl border flex flex-col items-center justify-center gap-1 transition text-center bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700';
+          btn.className = 'eco-btn p-2.5 rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition text-center glass-well border-white/[0.08] text-slate-400 hover:text-white hover:border-white/[0.2]';
         }
       });
 
