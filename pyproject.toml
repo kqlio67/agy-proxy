@@ -21,6 +21,8 @@ dependencies = [
     "duckduckgo-search>=8.1.1",
     "beautifulsoup4>=4.15.0",
     "lxml>=6.1.3",
+    "wasmtime>=50.0.0",
+    "deepseek-pow>=0.0.1",
 ]
 
 [project.scripts]

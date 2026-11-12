@@ -33,6 +33,9 @@ def _create_provider_instance(config: ExternalProviderConfig) -> BaseExternalPro
     if p_type == "anthropic" or p_id == "anthropic":
         from agy_proxy.providers.anthropic import AnthropicProvider
         return AnthropicProvider(config)
+    if p_type == "deepseek_web" or p_id == "deepseek-web" or p_id == "deepseek_web":
+        from agy_proxy.providers.deepseek_web import DeepSeekWebProvider
+        return DeepSeekWebProvider(config)
     if p_type == "ollama" or p_id == "ollama":
         return OllamaProvider(config)
     return OpenAICompatProvider(config)
@@ -66,7 +69,7 @@ class ExternalProviderManager:
             except Exception as e:
                 logger.error("Failed to load external providers from %s: %s", self.config_path, e)
 
-            # Backfill any missing default presets (e.g. anthropic, openai) as disabled templates
+            # Backfill any missing default presets (e.g. anthropic, openai, deepseek-web) as templates
             modified = False
             for pid, preset in DEFAULT_PROVIDER_PRESETS.items():
                 if pid not in self.providers:
@@ -74,6 +77,20 @@ class ExternalProviderManager:
                     preset_copy["enabled"] = False
                     self.providers[pid] = ExternalProviderConfig(**preset_copy)
                     modified = True
+
+            # If deepseek-web has no token, auto-detect from local chat.deepseek.com.har if available
+            if "deepseek-web" in self.providers and not self.providers["deepseek-web"].api_key:
+                from agy_proxy.providers.deepseek_web import extract_deepseek_token_from_har
+                har_path = Path("~/.config/agy-proxy/har/chat.deepseek.com.har")
+                if har_path.is_file():
+                    tok, em, uid = extract_deepseek_token_from_har(str(har_path))
+                    if tok:
+                        self.providers["deepseek-web"].api_key = tok
+                        self.providers["deepseek-web"].enabled = True
+                        if em:
+                            self.providers["deepseek-web"].name = f"DeepSeek Web ({em})"
+                        modified = True
+
             if modified:
                 self.save()
         else:
@@ -158,24 +175,10 @@ class ExternalProviderManager:
         return True
 
     def is_external_model(self, model_name: str) -> bool:
-        """Determines if a model name refers to an external provider."""
+        """Determines if a model name refers to an enabled external provider."""
         if not model_name:
             return False
-        clean = model_name.strip()
-        # 1. Check explicit provider prefix e.g. "openrouter/...", "ollama/...", "nvidia/..."
-        for p_id in self.providers.keys():
-            if clean.startswith(f"{p_id}/"):
-                return True
-
-        # 2. Check if model ID matches any enabled model in an enabled provider
-        for p_id, p_cfg in self.providers.items():
-            if not p_cfg.enabled:
-                continue
-            for m in p_cfg.models:
-                if m.enabled and (m.id == clean or f"{p_id}/{m.id}" == clean):
-                    return True
-
-        return False
+        return self.resolve_model(model_name) is not None
 
     def resolve_model(self, model_name: str) -> tuple[BaseExternalProvider, str, ExternalModelConfig | None] | None:
         """

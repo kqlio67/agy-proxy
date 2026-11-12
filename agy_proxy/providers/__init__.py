@@ -15,12 +15,16 @@ from agy_proxy.providers.manager import (
     ExternalProviderManager,
     external_provider_manager,
 )
+from agy_proxy.providers.anthropic import AnthropicProvider
+from agy_proxy.providers.deepseek_web import DeepSeekWebProvider
 from agy_proxy.providers.ollama import OllamaProvider
 from agy_proxy.providers.openai_compat import OpenAICompatProvider
 
 __all__ = [
+    "AnthropicProvider",
     "BaseExternalProvider",
     "DEFAULT_PROVIDER_PRESETS",
+    "DeepSeekWebProvider",
     "ExternalModelConfig",
     "ExternalProviderConfig",
     "ExternalProviderManager",

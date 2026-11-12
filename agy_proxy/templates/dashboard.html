@@ -457,101 +457,137 @@
         </div>
       </div>
 
-      <!-- Account Filter & Search Toolbar -->
-      <div class="flex flex-col gap-2.5 glass-panel p-2.5 sm:p-3 rounded-2xl border border-white/[0.08] text-xs shadow-md">
-        <!-- Top Row: Search Input & Sort Dropdown -->
+      <!-- Account Filter & Search Toolbar (Obsidian Liquid Glass) -->
+      <div class="glass-panel p-3 sm:p-4 rounded-2xl border border-white/[0.08] text-xs shadow-lg space-y-3 bg-[#0a0e17]/85 backdrop-blur-xl relative overflow-hidden">
+        <div class="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/[0.12] to-transparent pointer-events-none"></div>
+
+        <!-- Row 1: Search Input & Controls -->
         <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
           <!-- Search Input -->
-          <div class="relative flex-1 min-w-[200px]">
-            <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+          <div class="relative flex-1 min-w-0">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs pointer-events-none"></i>
             <input
               type="text"
               id="accountSearchInput"
-              placeholder="Filter by account, email, API key, model (e.g. deepseek, qwen)..."
-              class="w-full bg-slate-900/60 backdrop-blur-md border border-white/[0.08] focus:border-indigo-500/60 focus:ring-2 focus:ring-indigo-500/20 rounded-xl pl-9 pr-12 py-2 text-white placeholder-slate-400 transition text-xs font-medium"
-              oninput="renderAccounts()"
+              placeholder="Search accounts, emails, keys, models..."
+              class="w-full bg-black/40 backdrop-blur-md border border-white/[0.08] focus:border-indigo-500/60 focus:ring-2 focus:ring-indigo-500/20 rounded-xl pl-9 pr-16 py-2 text-white placeholder-slate-400 transition text-xs font-medium"
+              oninput="onAccountSearchInput(this.value)"
             >
-            <span class="absolute right-2.5 top-2 hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-medium text-slate-400 bg-white/[0.05] border border-white/[0.08] pointer-events-none">⌘K</span>
+            <div class="absolute right-2.5 top-2 flex items-center space-x-1.5">
+              <button id="clearAccountSearchBtn" onclick="clearAccountSearch()" class="hidden text-slate-400 hover:text-white transition text-xs p-0.5 rounded" title="Clear search">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+              <span class="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-medium text-slate-400 bg-white/[0.05] border border-white/[0.08] pointer-events-none">⌘K</span>
+            </div>
           </div>
 
-          <!-- Sort Select -->
-          <div class="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-            <select id="accountSortSelect" onchange="renderAccounts()" class="bg-slate-900/60 backdrop-blur-md border border-white/[0.08] focus:border-indigo-500/60 focus:ring-2 focus:ring-indigo-500/20 rounded-xl px-3 py-2 text-slate-300 text-xs font-medium focus:outline-none transition cursor-pointer">
-              <option value="default">Sort: Default (Primary first)</option>
-              <option value="quota-desc">Sort: Highest Quota</option>
-              <option value="quota-asc">Sort: Lowest Quota</option>
-              <option value="reqs-desc">Sort: Most Requests</option>
-              <option value="name-asc">Sort: Name (A-Z)</option>
-            </select>
+          <!-- Controls: Sort & Quick Actions -->
+          <div class="flex items-center justify-between sm:justify-end gap-2 shrink-0">
+            <!-- Sort Dropdown -->
+            <div class="relative flex items-center flex-1 sm:flex-initial">
+              <i class="fa-solid fa-arrow-down-short-wide absolute left-2.5 text-slate-400 text-[11px] pointer-events-none"></i>
+              <select id="accountSortSelect" onchange="renderAccounts()" class="w-full sm:w-auto bg-black/40 backdrop-blur-md border border-white/[0.08] hover:border-white/[0.15] focus:border-indigo-500/60 focus:ring-2 focus:ring-indigo-500/20 rounded-xl pl-7 pr-8 py-2 text-slate-200 text-xs font-medium focus:outline-none transition cursor-pointer appearance-none">
+                <option value="default">Sort: Default (Primary first)</option>
+                <option value="quota-desc">Sort: Highest Quota</option>
+                <option value="quota-asc">Sort: Lowest Quota</option>
+                <option value="reqs-desc">Sort: Most Requests</option>
+                <option value="name-asc">Sort: Name (A-Z)</option>
+              </select>
+              <i class="fa-solid fa-chevron-down absolute right-2.5 text-slate-400 text-[9px] pointer-events-none"></i>
+            </div>
+
+            <!-- View Switcher (Mobile icon fallback) -->
+            <div class="flex items-center bg-black/40 rounded-xl border border-white/[0.08] p-0.5 sm:hidden shrink-0">
+              <button onclick="setAccountView('grid')" class="p-1.5 rounded-lg text-slate-400 hover:text-white transition" title="Grid View">
+                <i class="fa-solid fa-grip text-xs"></i>
+              </button>
+              <button onclick="setAccountView('table')" class="p-1.5 rounded-lg text-slate-400 hover:text-white transition" title="Compact View">
+                <i class="fa-solid fa-list text-xs"></i>
+              </button>
+            </div>
           </div>
         </div>
 
-        <!-- Filter Tabs (Responsive: side-by-side on desktop, wrapped on mobile) -->
-        <div class="flex flex-wrap items-center gap-2 pt-2 border-t border-white/[0.06]">
-          <!-- Filter Group 1: Providers / Ecosystems -->
-          <div class="flex items-center space-x-1 glass-well rounded-xl p-1 shrink-0 max-w-full overflow-x-auto no-scrollbar" title="Filter by Provider / Ecosystem">
-            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-2 shrink-0">Provider:</span>
-            <button onclick="setAccountFilter('all')" data-filter="all" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium bg-indigo-600/30 text-indigo-200 border border-indigo-500/50 shadow-[0_0_12px_rgba(99,102,241,0.25)] transition-all flex items-center gap-1.5 shrink-0">
+        <!-- Filter Pill Tracks (Dual-Tier Fluid Navigation) -->
+        <div class="space-y-2 pt-2 border-t border-white/[0.06]">
+          <!-- Tier 1: Ecosystems & Labs -->
+          <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth py-0.5 px-0.5" id="tierEcosystemPills" title="Filter by Ecosystem / Provider">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 shrink-0 mr-1 flex items-center gap-1">
+              <i class="fa-solid fa-layer-group text-[9px]"></i>
+              <span class="hidden sm:inline">Provider:</span>
+            </span>
+
+            <button onclick="setAccountFilter('all')" data-filter="all" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium bg-indigo-600/30 text-indigo-200 border border-indigo-500/50 shadow-[0_0_12px_rgba(99,102,241,0.25)] transition-all flex items-center gap-1.5 shrink-0 active:scale-95">
               <span>All</span>
               <span class="px-1.5 py-0.2 bg-white/20 rounded-full text-[10px] font-mono text-white font-bold" id="countAll">0</span>
             </button>
-            <button onclick="setAccountFilter('google')" data-filter="google" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-blue-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0" title="Google Accounts (OAuth, Web & AI Studio)">
+
+            <button onclick="setAccountFilter('google')" data-filter="google" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-blue-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="Google Accounts (OAuth, Gemini Web, AI Studio)">
               <i class="fa-brands fa-google text-blue-400 text-[10px]"></i>
               <span>Google</span>
-              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300" id="countGoogle">0</span>
+              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countGoogle">0</span>
             </button>
-            <button onclick="setAccountFilter('anthropic')" data-filter="anthropic" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-amber-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0" title="Anthropic Claude Direct AI">
-              <i class="fa-solid fa-cube text-amber-400 text-[10px]"></i>
-              <span>Anthropic</span>
-              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300" id="countAnthropic">0</span>
-            </button>
-            <button onclick="setAccountFilter('openai')" data-filter="openai" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-emerald-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0" title="OpenAI Direct AI (GPT-4o, o1, o3-mini)">
-              <i class="fa-solid fa-brain text-emerald-400 text-[10px]"></i>
-              <span>OpenAI</span>
-              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300" id="countOpenAI">0</span>
-            </button>
-            <button onclick="setAccountFilter('deepseek')" data-filter="deepseek" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-cyan-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0" title="DeepSeek Direct API">
+
+            <button onclick="setAccountFilter('deepseek')" data-filter="deepseek" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-cyan-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="DeepSeek (Web Free & Direct API)">
               <i class="fa-solid fa-atom text-cyan-400 text-[10px]"></i>
               <span>DeepSeek</span>
-              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300" id="countDeepSeek">0</span>
+              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countDeepSeek">0</span>
             </button>
-            <button onclick="setAccountFilter('local')" data-filter="local" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-emerald-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0" title="Local AI (Ollama & Offline LLMs)">
+
+            <button onclick="setAccountFilter('anthropic')" data-filter="anthropic" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-amber-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="Anthropic Claude Direct AI">
+              <i class="fa-solid fa-cube text-amber-400 text-[10px]"></i>
+              <span>Anthropic</span>
+              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countAnthropic">0</span>
+            </button>
+
+            <button onclick="setAccountFilter('openai')" data-filter="openai" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-emerald-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="OpenAI Direct AI (GPT-4o, o1, o3-mini)">
+              <i class="fa-solid fa-brain text-emerald-400 text-[10px]"></i>
+              <span>OpenAI</span>
+              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countOpenAI">0</span>
+            </button>
+
+            <button onclick="setAccountFilter('local')" data-filter="local" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-emerald-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="Local AI (Ollama & Offline LLMs)">
               <i class="fa-solid fa-server text-emerald-400 text-[10px]"></i>
               <span>Local AI</span>
-              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300" id="countLocal">0</span>
+              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countLocal">0</span>
             </button>
-            <button onclick="setAccountFilter('gateways')" data-filter="gateways" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-purple-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0" title="Cloud Gateways (OpenRouter, Groq, NVIDIA NIM)">
-              <i class="fa-solid fa-bolt text-purple-400 text-[10px]"></i>
+
+            <button onclick="setAccountFilter('gateways')" data-filter="gateways" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-purple-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="Cloud Gateways (OpenRouter, Groq, NVIDIA NIM)">
+              <i class="fa-solid fa-cloud-bolt text-purple-400 text-[10px]"></i>
               <span>Gateways</span>
-              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300" id="countGateways">0</span>
+              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countGateways">0</span>
             </button>
           </div>
 
-          <!-- Divider line (visible when wrapped side-by-side) -->
-          <div class="hidden md:block h-5 w-[1px] bg-white/[0.08] shrink-0"></div>
+          <!-- Tier 2: Auth Methods & Health Status -->
+          <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth py-0.5 px-0.5" id="tierAuthPills" title="Filter by Authentication Type & Status">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 shrink-0 mr-1 flex items-center gap-1">
+              <i class="fa-solid fa-key text-[9px]"></i>
+              <span class="hidden sm:inline">Auth:</span>
+            </span>
 
-          <!-- Filter Group 2: Auth Methods & Status -->
-          <div class="flex items-center space-x-1 glass-well rounded-xl p-1 shrink-0 max-w-full overflow-x-auto no-scrollbar" title="Filter by Authentication Type">
-            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-2 shrink-0">Auth:</span>
-            <button onclick="setAccountFilter('oauth')" data-filter="oauth" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-indigo-300 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0" title="Google OAuth 2.0 Accounts">
+            <button onclick="setAccountFilter('oauth')" data-filter="oauth" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-indigo-300 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="Google OAuth 2.0 Accounts">
               <i class="fa-solid fa-shield-halved text-indigo-400 text-[10px]"></i>
               <span>OAuth</span>
-              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300" id="countOAuth">0</span>
+              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countOAuth">0</span>
             </button>
-            <button onclick="setAccountFilter('web')" data-filter="web" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-teal-300 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0" title="Web Browser Sessions (Cookies / HAR)">
+
+            <button onclick="setAccountFilter('web')" data-filter="web" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-teal-300 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="Web Browser Sessions (Gemini Web & DeepSeek Web)">
               <i class="fa-solid fa-globe text-teal-400 text-[10px]"></i>
-              <span>Web</span>
-              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300" id="countWeb">0</span>
+              <span>Web Sessions</span>
+              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countWeb">0</span>
             </button>
-            <button onclick="setAccountFilter('apikey')" data-filter="apikey" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-amber-300 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0" title="API Keys (Google AI Studio & DeepSeek Direct)">
+
+            <button onclick="setAccountFilter('apikey')" data-filter="apikey" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-amber-300 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="API Keys (Google AI Studio, DeepSeek, Anthropic, OpenAI)">
               <i class="fa-solid fa-key text-amber-400 text-[10px]"></i>
               <span>API Keys</span>
-              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300" id="countApiKey">0</span>
+              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countApiKey">0</span>
             </button>
-            <button onclick="setAccountFilter('exhausted')" data-filter="exhausted" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-rose-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0" title="0% Quota Remaining">
+
+            <button onclick="setAccountFilter('exhausted')" data-filter="exhausted" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-rose-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="0% Quota Remaining">
               <i class="fa-solid fa-battery-empty text-rose-400 text-[10px]"></i>
-              <span>0%</span>
-              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300" id="countExhausted">0</span>
+              <span>0% Quota</span>
+              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countExhausted">0</span>
             </button>
           </div>
 
@@ -1733,7 +1769,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
 
   <!-- Add Account Modal -->
   <div id="addAccountModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 hidden">
-    <div class="glass-panel bg-[#090d16]/95 border border-white/[0.12] rounded-3xl max-w-lg w-full p-5 sm:p-6 space-y-5 shadow-[0_25px_70px_rgba(0,0,0,0.85)] max-h-[92vh] overflow-y-auto no-scrollbar relative">
+    <div class="glass-panel bg-[#090d16]/95 border border-white/[0.12] rounded-3xl max-w-2xl w-full p-5 sm:p-6 space-y-5 shadow-[0_25px_70px_rgba(0,0,0,0.85)] max-h-[92vh] overflow-y-auto no-scrollbar relative">
       <div class="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/[0.15] to-transparent pointer-events-none"></div>
       <div class="flex items-center justify-between border-b border-white/[0.08] pb-4">
         <h3 class="text-base sm:text-lg font-bold text-white flex items-center">
@@ -1750,30 +1786,30 @@ https://your-tunnel.trycloudflare.com/v1</pre>
           <label class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">1. Platform / Ecosystem</label>
           <span class="text-[10px] text-slate-500 font-mono">Select target provider</span>
         </div>
-        <div class="grid grid-cols-3 sm:grid-cols-6 gap-2" id="providerEcosystemGrid">
-          <button type="button" onclick="selectEcosystem('google')" id="ecoBtn-google" class="eco-btn p-2.5 rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition text-center bg-indigo-600/25 border-indigo-500/50 text-white shadow-sm ring-1 ring-indigo-500/30">
-            <i class="fa-brands fa-google text-base text-blue-400"></i>
-            <span class="text-[11px] font-semibold truncate w-full">Google</span>
+        <div class="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-2.5" id="providerEcosystemGrid">
+          <button type="button" onclick="selectEcosystem('google')" id="ecoBtn-google" class="eco-btn p-2 sm:p-2.5 rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition text-center bg-indigo-600/25 border-indigo-500/50 text-white shadow-sm ring-1 ring-indigo-500/30 active:scale-95">
+            <i class="fa-brands fa-google text-lg text-blue-400"></i>
+            <span class="text-[11px] sm:text-xs font-semibold whitespace-nowrap">Google</span>
           </button>
-          <button type="button" onclick="selectEcosystem('anthropic')" id="ecoBtn-anthropic" class="eco-btn p-2.5 rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition text-center glass-well border-white/[0.08] text-slate-400 hover:text-white hover:border-white/[0.2]">
-            <i class="fa-solid fa-cube text-base text-amber-400"></i>
-            <span class="text-[11px] font-semibold truncate w-full">Anthropic</span>
+          <button type="button" onclick="selectEcosystem('anthropic')" id="ecoBtn-anthropic" class="eco-btn p-2 sm:p-2.5 rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition text-center glass-well border-white/[0.08] text-slate-400 hover:text-white hover:border-white/[0.2] active:scale-95">
+            <i class="fa-solid fa-cube text-lg text-amber-400"></i>
+            <span class="text-[11px] sm:text-xs font-semibold whitespace-nowrap">Anthropic</span>
           </button>
-          <button type="button" onclick="selectEcosystem('openai')" id="ecoBtn-openai" class="eco-btn p-2.5 rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition text-center glass-well border-white/[0.08] text-slate-400 hover:text-white hover:border-white/[0.2]">
-            <i class="fa-solid fa-brain text-base text-emerald-400"></i>
-            <span class="text-[11px] font-semibold truncate w-full">OpenAI</span>
+          <button type="button" onclick="selectEcosystem('openai')" id="ecoBtn-openai" class="eco-btn p-2 sm:p-2.5 rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition text-center glass-well border-white/[0.08] text-slate-400 hover:text-white hover:border-white/[0.2] active:scale-95">
+            <i class="fa-solid fa-brain text-lg text-emerald-400"></i>
+            <span class="text-[11px] sm:text-xs font-semibold whitespace-nowrap">OpenAI</span>
           </button>
-          <button type="button" onclick="selectEcosystem('deepseek')" id="ecoBtn-deepseek" class="eco-btn p-2.5 rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition text-center glass-well border-white/[0.08] text-slate-400 hover:text-white hover:border-white/[0.2]">
-            <i class="fa-solid fa-atom text-base text-cyan-400"></i>
-            <span class="text-[11px] font-semibold truncate w-full">DeepSeek</span>
+          <button type="button" onclick="selectEcosystem('deepseek')" id="ecoBtn-deepseek" class="eco-btn p-2 sm:p-2.5 rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition text-center glass-well border-white/[0.08] text-slate-400 hover:text-white hover:border-white/[0.2] active:scale-95">
+            <i class="fa-solid fa-atom text-lg text-cyan-400"></i>
+            <span class="text-[11px] sm:text-xs font-semibold whitespace-nowrap">DeepSeek</span>
           </button>
-          <button type="button" onclick="selectEcosystem('ollama')" id="ecoBtn-ollama" class="eco-btn p-2.5 rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition text-center glass-well border-white/[0.08] text-slate-400 hover:text-white hover:border-white/[0.2]">
-            <i class="fa-solid fa-server text-base text-teal-400"></i>
-            <span class="text-[11px] font-semibold truncate w-full">Local AI</span>
+          <button type="button" onclick="selectEcosystem('ollama')" id="ecoBtn-ollama" class="eco-btn p-2 sm:p-2.5 rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition text-center glass-well border-white/[0.08] text-slate-400 hover:text-white hover:border-white/[0.2] active:scale-95">
+            <i class="fa-solid fa-server text-lg text-teal-400"></i>
+            <span class="text-[11px] sm:text-xs font-semibold whitespace-nowrap">Local AI</span>
           </button>
-          <button type="button" onclick="selectEcosystem('gateways')" id="ecoBtn-gateways" class="eco-btn p-2.5 rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition text-center glass-well border-white/[0.08] text-slate-400 hover:text-white hover:border-white/[0.2]">
-            <i class="fa-solid fa-cloud-bolt text-base text-purple-400"></i>
-            <span class="text-[11px] font-semibold truncate w-full">Gateways</span>
+          <button type="button" onclick="selectEcosystem('gateways')" id="ecoBtn-gateways" class="eco-btn p-2 sm:p-2.5 rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition text-center glass-well border-white/[0.08] text-slate-400 hover:text-white hover:border-white/[0.2] active:scale-95">
+            <i class="fa-solid fa-cloud-bolt text-lg text-purple-400"></i>
+            <span class="text-[11px] sm:text-xs font-semibold whitespace-nowrap">Gateways</span>
           </button>
         </div>
       </div>
@@ -1861,6 +1897,24 @@ https://your-tunnel.trycloudflare.com/v1</pre>
             <span id="webModalBadge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-teal-500/20 text-teal-300 border border-teal-500/30">Browser Session</span>
           </div>
           <p class="text-slate-400" id="webModalDesc">Connect an active browser session from <a href="https://gemini.google.com" target="_blank" class="text-teal-400 underline">gemini.google.com</a>:</p>
+          <div id="localHarHelperContainer" class="hidden p-3.5 rounded-2xl bg-gradient-to-r from-cyan-950/60 to-slate-900/60 border border-cyan-500/40 flex items-center justify-between gap-3 text-xs shadow-md">
+            <div class="flex items-center space-x-2.5 min-w-0">
+              <div class="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
+                <i class="fa-solid fa-file-code text-sm"></i>
+              </div>
+              <div class="min-w-0">
+                <div class="text-white font-bold flex items-center gap-1.5">
+                  <span>⚡ Local HAR Detected</span>
+                  <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-cyan-500/30 text-cyan-200">PoW Ready</span>
+                </div>
+                <div class="text-[11px] text-cyan-300 font-mono truncate" id="localHarPathPreview">~/.config/agy-proxy/har/chat.deepseek.com.har</div>
+              </div>
+            </div>
+            <button type="button" onclick="applyDetectedLocalHar()" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white font-bold text-xs transition shrink-0 flex items-center space-x-1.5 shadow active:scale-95">
+              <i class="fa-solid fa-bolt text-[11px]"></i>
+              <span>Auto-Fill</span>
+            </button>
+          </div>
           <div class="space-y-2.5 pt-1">
             <div>
               <label class="text-[11px] text-slate-400 block mb-1 font-medium">Session Name / Label</label>
@@ -2326,6 +2380,23 @@ ightarrow$ v1.0.3</p>
       renderAccounts();
     }
 
+    function onAccountSearchInput(val) {
+      const clearBtn = document.getElementById('clearAccountSearchBtn');
+      if (clearBtn) {
+        if (val && val.trim().length > 0) clearBtn.classList.remove('hidden');
+        else clearBtn.classList.add('hidden');
+      }
+      renderAccounts();
+    }
+
+    function clearAccountSearch() {
+      const input = document.getElementById('accountSearchInput');
+      if (input) input.value = '';
+      const clearBtn = document.getElementById('clearAccountSearchBtn');
+      if (clearBtn) clearBtn.classList.add('hidden');
+      renderAccounts();
+    }
+
     function setAccountFilter(filter) {
       currentAccountFilter = filter;
       document.querySelectorAll('.acc-filter-btn').forEach(btn => {
@@ -2337,25 +2408,28 @@ ightarrow$ v1.0.3</p>
           else if (filter === 'anthropic') activeClass = 'bg-amber-600/30 text-amber-200 border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.3)]';
           else if (filter === 'openai') activeClass = 'bg-emerald-600/30 text-emerald-200 border-emerald-500/50 shadow-[0_0_12px_rgba(16,185,129,0.3)]';
           else if (filter === 'deepseek') activeClass = 'bg-cyan-600/30 text-cyan-200 border-cyan-500/50 shadow-[0_0_12px_rgba(6,182,212,0.3)]';
-          else if (filter === 'local') activeClass = 'bg-emerald-600/30 text-emerald-200 border-emerald-500/50 shadow-[0_0_12px_rgba(16,185,129,0.3)]';
-          else if (filter === 'gateways') activeClass = 'bg-purple-600/30 text-purple-200 border-purple-500/50 shadow-[0_0_12px_rgba(168,85,247,0.3)]';
+          else if (filter === 'local') activeClass = 'bg-teal-600/30 text-teal-200 border-teal-500/50 shadow-[0_0_12px_rgba(20,184,166,0.3)]';
+          else if (filter === 'gateways' || filter === 'external') activeClass = 'bg-purple-600/30 text-purple-200 border-purple-500/50 shadow-[0_0_12px_rgba(168,85,247,0.3)]';
+          else if (filter === 'oauth') activeClass = 'bg-indigo-600/30 text-indigo-200 border-indigo-500/50 shadow-[0_0_12px_rgba(99,102,241,0.25)]';
           else if (filter === 'web') activeClass = 'bg-teal-600/30 text-teal-200 border-teal-500/50 shadow-[0_0_12px_rgba(20,184,166,0.3)]';
           else if (filter === 'apikey') activeClass = 'bg-amber-600/30 text-amber-200 border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.3)]';
-          else if (filter === 'external') activeClass = 'bg-purple-600/30 text-purple-200 border-purple-500/50 shadow-[0_0_12px_rgba(168,85,247,0.3)]';
           else if (filter === 'exhausted') activeClass = 'bg-rose-600/30 text-rose-200 border-rose-500/50 shadow-[0_0_12px_rgba(244,63,94,0.3)]';
-          btn.className = `acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium ${activeClass} border transition-all flex items-center gap-1.5 shrink-0`;
+          btn.className = `acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium ${activeClass} border transition-all flex items-center gap-1.5 shrink-0 active:scale-95`;
           if (countBadge) countBadge.className = 'px-1.5 py-0.2 bg-white/20 rounded-full text-[10px] font-mono text-white font-bold';
         } else {
           let hoverClass = 'hover:text-white';
           if (btn.dataset.filter === 'google') hoverClass = 'hover:text-blue-400';
           else if (btn.dataset.filter === 'deepseek') hoverClass = 'hover:text-cyan-400';
-          else if (btn.dataset.filter === 'local') hoverClass = 'hover:text-emerald-400';
+          else if (btn.dataset.filter === 'anthropic') hoverClass = 'hover:text-amber-400';
+          else if (btn.dataset.filter === 'openai') hoverClass = 'hover:text-emerald-400';
+          else if (btn.dataset.filter === 'local') hoverClass = 'hover:text-teal-400';
           else if (btn.dataset.filter === 'gateways' || btn.dataset.filter === 'external') hoverClass = 'hover:text-purple-400';
+          else if (btn.dataset.filter === 'oauth') hoverClass = 'hover:text-indigo-300';
           else if (btn.dataset.filter === 'web') hoverClass = 'hover:text-teal-300';
           else if (btn.dataset.filter === 'apikey') hoverClass = 'hover:text-amber-300';
           else if (btn.dataset.filter === 'exhausted') hoverClass = 'hover:text-rose-400';
-          btn.className = `acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] ${hoverClass} hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0`;
-          if (countBadge) countBadge.className = 'px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300';
+          btn.className = `acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] ${hoverClass} hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95`;
+          if (countBadge) countBadge.className = 'px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold';
         }
       });
       renderAccounts();
@@ -3638,9 +3712,13 @@ ightarrow$ v1.0.3</p>
       const matchedLocal = filterProvList(localProviders);
       const matchedGateways = filterProvList(gatewayProviders);
 
+      const webProviders = rawProvidersData.filter(p => (p.id || '').toLowerCase().includes('web') || (p.provider_type || '').toLowerCase().includes('web'));
+      const directDeepseek = deepseekProviders.filter(p => !(p.id || '').toLowerCase().includes('web'));
+
       let totalExternal = rawProvidersData.length;
       let totalGoogle = totalAll;
-      let countApiKeysAll = totalApiKey + deepseekProviders.length + anthropicProviders.length + openaiProviders.length;
+      let totalWebSessions = totalWeb + webProviders.length;
+      let countApiKeysAll = totalApiKey + directDeepseek.length + anthropicProviders.length + openaiProviders.length;
 
       if (document.getElementById('countAll')) document.getElementById('countAll').innerText = totalAll + totalExternal;
       if (document.getElementById('navActivePoolCounter')) document.getElementById('navActivePoolCounter').innerText = totalAll;
@@ -3652,98 +3730,13 @@ ightarrow$ v1.0.3</p>
       if (document.getElementById('countGateways')) document.getElementById('countGateways').innerText = gatewayProviders.length;
       if (document.getElementById('countOAuth')) document.getElementById('countOAuth').innerText = totalOAuth;
       if (document.getElementById('countApiKey')) document.getElementById('countApiKey').innerText = countApiKeysAll;
-      if (document.getElementById('countWeb')) document.getElementById('countWeb').innerText = totalWeb;
+      if (document.getElementById('countWeb')) document.getElementById('countWeb').innerText = totalWebSessions;
       if (document.getElementById('countExternal')) document.getElementById('countExternal').innerText = totalExternal;
       if (document.getElementById('countExhausted')) document.getElementById('countExhausted').innerText = totalExhausted;
 
       document.getElementById('accountPoolCount').innerText = `${totalAll + totalExternal} source${(totalAll + totalExternal) === 1 ? '' : 's'}`;
 
-      if (currentAccountFilter === 'anthropic') {
-        container.innerHTML = renderProviderEcosystemSection({
-          sectionId: 'anthropic',
-          title: 'Anthropic Claude Direct AI',
-          icon: 'fa-solid fa-cube',
-          iconColor: { bg: 'bg-amber-500/15', border: 'border-amber-500/30', text: 'text-amber-400', pillBg: 'bg-amber-500/20', pillText: 'text-amber-300', pillBorder: 'border-amber-500/30', addBtnBg: 'bg-amber-600 hover:bg-amber-500' },
-          count: matchedAnthropic.length,
-          desc: 'Direct Anthropic Messages API connection (Claude 3.7 Sonnet, Claude 3.5 Haiku, Opus)',
-          addTab: 'anthropic',
-          providers: matchedAnthropic,
-          showFailoverBanner: false
-        });
-        return;
-      }
-
-      if (currentAccountFilter === 'openai') {
-        container.innerHTML = renderProviderEcosystemSection({
-          sectionId: 'openai',
-          title: 'OpenAI Direct AI',
-          icon: 'fa-solid fa-brain',
-          iconColor: { bg: 'bg-emerald-500/15', border: 'border-emerald-500/30', text: 'text-emerald-400', pillBg: 'bg-emerald-500/20', pillText: 'text-emerald-300', pillBorder: 'border-emerald-500/30', addBtnBg: 'bg-emerald-600 hover:bg-emerald-500' },
-          count: matchedOpenAI.length,
-          desc: 'Direct OpenAI REST connection (GPT-4o, o1, o3-mini, GPT-4.5)',
-          addTab: 'openai',
-          providers: matchedOpenAI,
-          showFailoverBanner: false
-        });
-        return;
-      }
-
-      if (currentAccountFilter === 'deepseek') {
-        container.innerHTML = renderProviderEcosystemSection({
-          sectionId: 'deepseek',
-          title: 'DeepSeek Direct AI',
-          icon: 'fa-solid fa-atom',
-          iconColor: { bg: 'bg-cyan-500/15', border: 'border-cyan-500/30', text: 'text-cyan-400', pillBg: 'bg-cyan-500/20', pillText: 'text-cyan-300', pillBorder: 'border-cyan-500/30', addBtnBg: 'bg-cyan-600 hover:bg-cyan-500' },
-          count: matchedDeepseek.length,
-          desc: 'Direct OpenAI-compatible API connection (deepseek-chat, deepseek-reasoner R1)',
-          addTab: 'deepseek',
-          providers: matchedDeepseek,
-          showFailoverBanner: false
-        });
-        return;
-      }
-
-      if (currentAccountFilter === 'local') {
-        container.innerHTML = renderProviderEcosystemSection({
-          sectionId: 'local',
-          title: 'Local AI Models (Ollama & Offline LLMs)',
-          icon: 'fa-solid fa-server',
-          iconColor: { bg: 'bg-emerald-500/15', border: 'border-emerald-500/30', text: 'text-emerald-400', pillBg: 'bg-emerald-500/20', pillText: 'text-emerald-300', pillBorder: 'border-emerald-500/30', addBtnBg: 'bg-emerald-600 hover:bg-emerald-500' },
-          count: matchedLocal.length,
-          desc: 'Local offline models on localhost:11434 — zero latency, unlimited tokens, private',
-          addTab: 'ollama',
-          providers: matchedLocal,
-          showFailoverBanner: false
-        });
-        return;
-      }
-
-      if (currentAccountFilter === 'gateways') {
-        container.innerHTML = renderProviderEcosystemSection({
-          sectionId: 'gateways',
-          title: 'Cloud Gateways & Fallback Hubs (OpenRouter, Groq, NVIDIA NIM)',
-          icon: 'fa-solid fa-bolt',
-          iconColor: { bg: 'bg-purple-500/15', border: 'border-purple-500/30', text: 'text-purple-400', pillBg: 'bg-purple-500/20', pillText: 'text-purple-300', pillBorder: 'border-purple-500/30', addBtnBg: 'bg-purple-600 hover:bg-purple-500' },
-          count: matchedGateways.length,
-          desc: 'Multi-model cloud aggregators with 429 auto-failover to external providers',
-          addTab: 'external',
-          providers: matchedGateways,
-          showFailoverBanner: true
-        });
-        return;
-      }
-
-      if (currentAccountFilter === 'external') {
-        container.innerHTML = renderExternalProvidersSection(currentAccountView === 'grid');
-        return;
-      }
-
-      if (totalAll === 0 && totalExternal === 0) {
-        container.innerHTML = '<div class="p-8 rounded-2xl bg-dark-card border border-dark-border text-center text-slate-500 text-sm">No accounts or external providers found. Click "Add Account" to connect one.</div>';
-        return;
-      }
-
-      // Filter
+      // Filter Google accounts
       let filtered = rawAccountsData.filter(acc => {
         const isApiKey = acc.auth_method === 'api_key';
         const isWeb = acc.auth_method === 'gemini_web';
@@ -3809,15 +3802,149 @@ ightarrow$ v1.0.3</p>
       // Always sync Playground account dropdown
       populatePlaygroundAccounts();
 
-      if (filtered.length === 0 && currentAccountFilter !== 'all' && currentAccountFilter !== 'apikey') {
-        container.innerHTML = `<div class="p-8 rounded-2xl bg-dark-card border border-dark-border text-center text-slate-500 text-sm">No accounts match the selected filter/search.</div>`;
-        return;
-      }
-
       // Group accounts by category
       const oauthAccounts = filtered.filter(a => a.auth_method === 'consumer' || (!a.auth_method && !a.api_key));
       const webAccounts = filtered.filter(a => a.auth_method === 'gemini_web');
       const apiKeyAccounts = filtered.filter(a => a.auth_method === 'api_key');
+
+      if (currentAccountFilter === 'anthropic') {
+        container.innerHTML = renderProviderEcosystemSection({
+          sectionId: 'anthropic',
+          title: 'Anthropic Claude Direct AI',
+          icon: 'fa-solid fa-cube',
+          iconColor: { bg: 'bg-amber-500/15', border: 'border-amber-500/30', text: 'text-amber-400', pillBg: 'bg-amber-500/20', pillText: 'text-amber-300', pillBorder: 'border-amber-500/30', addBtnBg: 'bg-amber-600 hover:bg-amber-500' },
+          count: matchedAnthropic.length,
+          desc: 'Direct Anthropic Messages API connection (Claude 3.7 Sonnet, Claude 3.5 Haiku, Opus)',
+          addTab: 'anthropic',
+          providers: matchedAnthropic,
+          showFailoverBanner: false
+        });
+        return;
+      }
+
+      if (currentAccountFilter === 'openai') {
+        container.innerHTML = renderProviderEcosystemSection({
+          sectionId: 'openai',
+          title: 'OpenAI Direct AI',
+          icon: 'fa-solid fa-brain',
+          iconColor: { bg: 'bg-emerald-500/15', border: 'border-emerald-500/30', text: 'text-emerald-400', pillBg: 'bg-emerald-500/20', pillText: 'text-emerald-300', pillBorder: 'border-emerald-500/30', addBtnBg: 'bg-emerald-600 hover:bg-emerald-500' },
+          count: matchedOpenAI.length,
+          desc: 'Direct OpenAI REST connection (GPT-4o, o1, o3-mini, GPT-4.5)',
+          addTab: 'openai',
+          providers: matchedOpenAI,
+          showFailoverBanner: false
+        });
+        return;
+      }
+
+      if (currentAccountFilter === 'deepseek') {
+        let dsHtml = '<div class="space-y-6">';
+        const matchedDsWeb = filterProvList(webProviders.filter(p => (p.id || '').includes('deepseek')));
+        const matchedDsDirect = filterProvList(directDeepseek);
+        if (matchedDsWeb.length > 0) {
+          dsHtml += renderProviderEcosystemSection({
+            sectionId: 'deepseek-web',
+            title: 'DeepSeek Web Sessions (Free with PoW)',
+            icon: 'fa-solid fa-globe',
+            iconColor: { bg: 'bg-teal-500/15', border: 'border-teal-500/30', text: 'text-teal-400', pillBg: 'bg-teal-500/20', pillText: 'text-teal-300', pillBorder: 'border-teal-500/30', addBtnBg: 'bg-teal-600 hover:bg-teal-500' },
+            count: matchedDsWeb.length,
+            desc: 'chat.deepseek.com web sessions with automated Proof-of-Work WASM challenge solver',
+            addTab: 'deepseek',
+            providers: matchedDsWeb,
+            showFailoverBanner: false
+          });
+        }
+        if (matchedDsDirect.length > 0) {
+          dsHtml += renderProviderEcosystemSection({
+            sectionId: 'deepseek-direct',
+            title: 'DeepSeek Direct AI (API Key)',
+            icon: 'fa-solid fa-atom',
+            iconColor: { bg: 'bg-cyan-500/15', border: 'border-cyan-500/30', text: 'text-cyan-400', pillBg: 'bg-cyan-500/20', pillText: 'text-cyan-300', pillBorder: 'border-cyan-500/30', addBtnBg: 'bg-cyan-600 hover:bg-cyan-500' },
+            count: matchedDsDirect.length,
+            desc: 'Direct OpenAI-compatible API connection (deepseek-chat, deepseek-reasoner R1)',
+            addTab: 'deepseek',
+            providers: matchedDsDirect,
+            showFailoverBanner: false
+          });
+        }
+        dsHtml += '</div>';
+        container.innerHTML = dsHtml;
+        return;
+      }
+
+      if (currentAccountFilter === 'web') {
+        let webHtml = '<div class="space-y-6">';
+        if (webAccounts.length > 0) {
+          webHtml += renderSection(
+            'Google Gemini Web Sessions',
+            'fa-solid fa-globe',
+            { bg: 'bg-teal-500/15', border: 'border-teal-500/30', text: 'text-teal-400', pillBg: 'bg-teal-500/20', pillText: 'text-teal-300', pillBorder: 'border-teal-500/30' },
+            webAccounts.length,
+            'Browser sessions from gemini.google.com via cookies or CDP',
+            'web',
+            webAccounts,
+            currentAccountView === 'grid'
+          );
+        }
+
+        const matchedWebProviders = filterProvList(webProviders);
+        if (matchedWebProviders.length > 0) {
+          webHtml += renderProviderEcosystemSection({
+            sectionId: 'web-providers',
+            title: 'DeepSeek Web Sessions (HAR / PoW)',
+            icon: 'fa-solid fa-atom',
+            iconColor: { bg: 'bg-cyan-500/15', border: 'border-cyan-500/30', text: 'text-cyan-400', pillBg: 'bg-cyan-500/20', pillText: 'text-cyan-300', pillBorder: 'border-cyan-500/30', addBtnBg: 'bg-cyan-600 hover:bg-cyan-500' },
+            count: matchedWebProviders.length,
+            desc: 'chat.deepseek.com sessions with automatic Proof-of-Work challenge solver',
+            addTab: 'deepseek',
+            providers: matchedWebProviders,
+            showFailoverBanner: false
+          });
+        }
+        webHtml += '</div>';
+        container.innerHTML = webHtml;
+        return;
+      }
+
+      if (currentAccountFilter === 'local') {
+        container.innerHTML = renderProviderEcosystemSection({
+          sectionId: 'local',
+          title: 'Local AI Models (Ollama & Offline LLMs)',
+          icon: 'fa-solid fa-server',
+          iconColor: { bg: 'bg-emerald-500/15', border: 'border-emerald-500/30', text: 'text-emerald-400', pillBg: 'bg-emerald-500/20', pillText: 'text-emerald-300', pillBorder: 'border-emerald-500/30', addBtnBg: 'bg-emerald-600 hover:bg-emerald-500' },
+          count: matchedLocal.length,
+          desc: 'Local offline models on localhost:11434 — zero latency, unlimited tokens, private',
+          addTab: 'ollama',
+          providers: matchedLocal,
+          showFailoverBanner: false
+        });
+        return;
+      }
+
+      if (currentAccountFilter === 'gateways') {
+        container.innerHTML = renderProviderEcosystemSection({
+          sectionId: 'gateways',
+          title: 'Cloud Gateways & Fallback Hubs (OpenRouter, Groq, NVIDIA NIM)',
+          icon: 'fa-solid fa-bolt',
+          iconColor: { bg: 'bg-purple-500/15', border: 'border-purple-500/30', text: 'text-purple-400', pillBg: 'bg-purple-500/20', pillText: 'text-purple-300', pillBorder: 'border-purple-500/30', addBtnBg: 'bg-purple-600 hover:bg-purple-500' },
+          count: matchedGateways.length,
+          desc: 'Multi-model cloud aggregators with 429 auto-failover to external providers',
+          addTab: 'external',
+          providers: matchedGateways,
+          showFailoverBanner: true
+        });
+        return;
+      }
+
+      if (currentAccountFilter === 'external') {
+        container.innerHTML = renderExternalProvidersSection(currentAccountView === 'grid');
+        return;
+      }
+
+      if (totalAll === 0 && totalExternal === 0) {
+        container.innerHTML = '<div class="p-8 rounded-2xl bg-dark-card border border-dark-border text-center text-slate-500 text-sm">No accounts or external providers found. Click "Add Account" to connect one.</div>';
+        return;
+      }
 
       if (currentAccountFilter === 'all') {
         let fullHtml = '<div class="space-y-8">';
@@ -3863,7 +3990,39 @@ ightarrow$ v1.0.3</p>
           );
         }
 
-        // Section 4: Anthropic Claude Direct AI
+        // Section 4: DeepSeek Web Sessions (if any)
+        const matchedDsWeb = filterProvList(webProviders.filter(p => (p.id || '').includes('deepseek')));
+        if (matchedDsWeb.length > 0 || (!searchQ && webProviders.some(p => (p.id || '').includes('deepseek')))) {
+          fullHtml += renderProviderEcosystemSection({
+            sectionId: 'deepseek-web',
+            title: 'DeepSeek Web Sessions (Free with PoW)',
+            icon: 'fa-solid fa-globe',
+            iconColor: { bg: 'bg-teal-500/15', border: 'border-teal-500/30', text: 'text-teal-400', pillBg: 'bg-teal-500/20', pillText: 'text-teal-300', pillBorder: 'border-teal-500/30', addBtnBg: 'bg-teal-600 hover:bg-teal-500' },
+            count: matchedDsWeb.length,
+            desc: 'chat.deepseek.com web sessions with automated Proof-of-Work WASM challenge solver',
+            addTab: 'deepseek',
+            providers: matchedDsWeb,
+            showFailoverBanner: false
+          });
+        }
+
+        // Section 5: DeepSeek Direct API
+        const matchedDsDirect = filterProvList(directDeepseek);
+        if (matchedDsDirect.length > 0 || (!searchQ && directDeepseek.length > 0)) {
+          fullHtml += renderProviderEcosystemSection({
+            sectionId: 'deepseek-direct',
+            title: 'DeepSeek Direct AI (API Key)',
+            icon: 'fa-solid fa-atom',
+            iconColor: { bg: 'bg-cyan-500/15', border: 'border-cyan-500/30', text: 'text-cyan-400', pillBg: 'bg-cyan-500/20', pillText: 'text-cyan-300', pillBorder: 'border-cyan-500/30', addBtnBg: 'bg-cyan-600 hover:bg-cyan-500' },
+            count: matchedDsDirect.length,
+            desc: 'Direct OpenAI-compatible API connection (deepseek-chat, deepseek-reasoner R1)',
+            addTab: 'deepseek',
+            providers: matchedDsDirect,
+            showFailoverBanner: false
+          });
+        }
+
+        // Section 6: Anthropic Claude Direct AI
         if (matchedAnthropic.length > 0 || (!searchQ && anthropicProviders.length > 0)) {
           fullHtml += renderProviderEcosystemSection({
             sectionId: 'anthropic',
@@ -3878,7 +4037,7 @@ ightarrow$ v1.0.3</p>
           });
         }
 
-        // Section 5: OpenAI Direct AI
+        // Section 7: OpenAI Direct AI
         if (matchedOpenAI.length > 0 || (!searchQ && openaiProviders.length > 0)) {
           fullHtml += renderProviderEcosystemSection({
             sectionId: 'openai',
@@ -3893,22 +4052,7 @@ ightarrow$ v1.0.3</p>
           });
         }
 
-        // Section 6: DeepSeek Direct AI
-        if (matchedDeepseek.length > 0 || (!searchQ && deepseekProviders.length > 0)) {
-          fullHtml += renderProviderEcosystemSection({
-            sectionId: 'deepseek',
-            title: 'DeepSeek Direct AI',
-            icon: 'fa-solid fa-atom',
-            iconColor: { bg: 'bg-cyan-500/15', border: 'border-cyan-500/30', text: 'text-cyan-400', pillBg: 'bg-cyan-500/20', pillText: 'text-cyan-300', pillBorder: 'border-cyan-500/30', addBtnBg: 'bg-cyan-600 hover:bg-cyan-500' },
-            count: matchedDeepseek.length,
-            desc: 'Direct OpenAI-compatible API connection (deepseek-chat, deepseek-reasoner R1)',
-            addTab: 'deepseek',
-            providers: matchedDeepseek,
-            showFailoverBanner: false
-          });
-        }
-
-        // Section 5: Local AI Models (Ollama)
+        // Section 8: Local AI Models (Ollama)
         if (matchedLocal.length > 0 || (!searchQ && localProviders.length > 0)) {
           fullHtml += renderProviderEcosystemSection({
             sectionId: 'local',
@@ -3923,7 +4067,7 @@ ightarrow$ v1.0.3</p>
           });
         }
 
-        // Section 6: Cloud Gateways (OpenRouter, Groq, NVIDIA NIM)
+        // Section 9: Cloud Gateways (OpenRouter, Groq, NVIDIA NIM)
         if (matchedGateways.length > 0 || (!searchQ && gatewayProviders.length > 0)) {
           fullHtml += renderProviderEcosystemSection({
             sectionId: 'gateways',
@@ -3976,33 +4120,62 @@ ightarrow$ v1.0.3</p>
         container.innerHTML = fullHtml;
       } else if (currentAccountFilter === 'apikey') {
         let fullHtml = '<div class="space-y-8">';
-        fullHtml += renderSection(
-          'Google AI Studio API Keys',
-          'fa-solid fa-key',
-          { bg: 'bg-amber-500/15', border: 'border-amber-500/30', text: 'text-amber-400', pillBg: 'bg-amber-500/20', pillText: 'text-amber-300', pillBorder: 'border-amber-500/30' },
-          apiKeyAccounts.length,
-          'Pay-as-you-go & free tier developer API keys via GenerativeLanguage REST',
-          'apikey',
-          apiKeyAccounts,
-          currentAccountView === 'grid'
-        );
-        if (matchedDeepseek.length > 0) {
+        if (apiKeyAccounts.length > 0) {
+          fullHtml += renderSection(
+            'Google AI Studio API Keys',
+            'fa-solid fa-key',
+            { bg: 'bg-amber-500/15', border: 'border-amber-500/30', text: 'text-amber-400', pillBg: 'bg-amber-500/20', pillText: 'text-amber-300', pillBorder: 'border-amber-500/30' },
+            apiKeyAccounts.length,
+            'Pay-as-you-go & free tier developer API keys via GenerativeLanguage REST',
+            'apikey',
+            apiKeyAccounts,
+            currentAccountView === 'grid'
+          );
+        }
+        const matchedDsDirect = filterProvList(directDeepseek);
+        if (matchedDsDirect.length > 0) {
           fullHtml += renderProviderEcosystemSection({
-            sectionId: 'deepseek',
-            title: 'DeepSeek Direct AI (API Key)',
+            sectionId: 'deepseek-api',
+            title: 'DeepSeek Direct API Keys',
             icon: 'fa-solid fa-atom',
             iconColor: { bg: 'bg-cyan-500/15', border: 'border-cyan-500/30', text: 'text-cyan-400', pillBg: 'bg-cyan-500/20', pillText: 'text-cyan-300', pillBorder: 'border-cyan-500/30', addBtnBg: 'bg-cyan-600 hover:bg-cyan-500' },
-            count: matchedDeepseek.length,
+            count: matchedDsDirect.length,
             desc: 'Direct OpenAI-compatible API connection via DeepSeek API Key',
             addTab: 'deepseek',
-            providers: matchedDeepseek,
+            providers: matchedDsDirect,
+            showFailoverBanner: false
+          });
+        }
+        if (matchedAnthropic.length > 0) {
+          fullHtml += renderProviderEcosystemSection({
+            sectionId: 'anthropic',
+            title: 'Anthropic Claude Direct AI Keys',
+            icon: 'fa-solid fa-cube',
+            iconColor: { bg: 'bg-amber-500/15', border: 'border-amber-500/30', text: 'text-amber-400', pillBg: 'bg-amber-500/20', pillText: 'text-amber-300', pillBorder: 'border-amber-500/30', addBtnBg: 'bg-amber-600 hover:bg-amber-500' },
+            count: matchedAnthropic.length,
+            desc: 'Direct Anthropic Messages API connection via Anthropic API Key',
+            addTab: 'anthropic',
+            providers: matchedAnthropic,
+            showFailoverBanner: false
+          });
+        }
+        if (matchedOpenAI.length > 0) {
+          fullHtml += renderProviderEcosystemSection({
+            sectionId: 'openai',
+            title: 'OpenAI Direct AI Keys',
+            icon: 'fa-solid fa-brain',
+            iconColor: { bg: 'bg-emerald-500/15', border: 'border-emerald-500/30', text: 'text-emerald-400', pillBg: 'bg-emerald-500/20', pillText: 'text-emerald-300', pillBorder: 'border-emerald-500/30', addBtnBg: 'bg-emerald-600 hover:bg-emerald-500' },
+            count: matchedOpenAI.length,
+            desc: 'Direct OpenAI REST connection via OpenAI API Key',
+            addTab: 'openai',
+            providers: matchedOpenAI,
             showFailoverBanner: false
           });
         }
         fullHtml += '</div>';
         container.innerHTML = fullHtml;
       } else {
-        // Filtered view (oauth, web, exhausted)
+        // Filtered view (oauth, exhausted)
         let title = 'Accounts';
         let icon = 'fa-solid fa-users';
         let iconColor = { bg: 'bg-indigo-500/15', border: 'border-indigo-500/30', text: 'text-indigo-400', pillBg: 'bg-indigo-500/20', pillText: 'text-indigo-300', pillBorder: 'border-indigo-500/30' };
@@ -4014,12 +4187,6 @@ ightarrow$ v1.0.3</p>
           icon = 'fa-solid fa-shield-halved';
           desc = 'Full integration with Claude Sonnet/Opus & Gemini quota rotation';
           addType = 'oauth';
-        } else if (currentAccountFilter === 'web') {
-          title = 'Gemini Web Browser Sessions';
-          icon = 'fa-solid fa-globe';
-          iconColor = { bg: 'bg-teal-500/15', border: 'border-teal-500/30', text: 'text-teal-400', pillBg: 'bg-teal-500/20', pillText: 'text-teal-300', pillBorder: 'border-teal-500/30' };
-          desc = 'Browser sessions from gemini.google.com (supports multiple accounts)';
-          addType = 'web';
         } else if (currentAccountFilter === 'exhausted') {
           title = 'Exhausted Quota Accounts (0%)';
           icon = 'fa-solid fa-battery-empty';
@@ -4553,6 +4720,10 @@ ightarrow$ v1.0.3</p>
         iconClass = 'fa-solid fa-server text-emerald-400';
         bgIcon = 'bg-emerald-500/15 border-emerald-500/30';
         categoryBadge = '<span class="text-[9px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20"><i class="fa-solid fa-server text-[8px] mr-1"></i>Local AI</span>';
+      } else if (idLower.includes('deepseek-web') || (p.provider_type || '').toLowerCase().includes('deepseek_web')) {
+        iconClass = 'fa-solid fa-globe text-cyan-400';
+        bgIcon = 'bg-cyan-500/15 border-cyan-500/30';
+        categoryBadge = '<span class="text-[9px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40"><i class="fa-solid fa-globe text-[8px] mr-1"></i>Web Session (PoW)</span>';
       } else if (idLower.includes('deepseek')) {
         iconClass = 'fa-solid fa-atom text-cyan-400';
         bgIcon = 'bg-cyan-500/15 border-cyan-500/30';
@@ -4617,8 +4788,8 @@ ightarrow$ v1.0.3</p>
             <!-- Auth & Latency Info -->
             <div class="flex items-center justify-between text-[11px] pt-2.5 text-slate-400">
               <span class="flex items-center gap-1 font-mono text-[10px]">
-                <i class="fa-solid fa-key text-[9px] text-slate-500"></i>
-                ${p.api_key ? 'API Key Set' : 'No Key (Local)'}
+                <i class="fa-solid ${(p.provider_type === 'deepseek_web' || p.id === 'deepseek-web') ? 'fa-shield-halved text-cyan-400' : 'fa-key text-slate-500'} text-[9px]"></i>
+                ${(p.provider_type === 'deepseek_web' || p.id === 'deepseek-web') ? 'Web Session (PoW Verified)' : (p.api_key ? 'API Key Set' : 'No Key (Local)')}
               </span>
               <span id="prov-ping-${p.id}" class="text-[10px] font-mono text-slate-300 glass-pill px-2.5 py-0.5 rounded-full flex items-center gap-1.5">
                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>Ready
@@ -6072,13 +6243,23 @@ ightarrow$ v1.0.3</p>
 
       // Update ecosystem buttons highlight
       const ecoKeys = ['google', 'anthropic', 'openai', 'deepseek', 'ollama', 'gateways'];
+      const ecoBrandStyles = {
+        google: 'bg-blue-600/25 border-blue-500/50 ring-blue-500/30 text-white',
+        anthropic: 'bg-amber-600/25 border-amber-500/50 ring-amber-500/30 text-white',
+        openai: 'bg-emerald-600/25 border-emerald-500/50 ring-emerald-500/30 text-white',
+        deepseek: 'bg-cyan-600/25 border-cyan-500/50 ring-cyan-500/30 text-white',
+        ollama: 'bg-teal-600/25 border-teal-500/50 ring-teal-500/30 text-white',
+        gateways: 'bg-purple-600/25 border-purple-500/50 ring-purple-500/30 text-white'
+      };
+
       ecoKeys.forEach(k => {
         const btn = document.getElementById(`ecoBtn-${k}`);
         if (!btn) return;
         if (k === ecoId) {
-          btn.className = 'eco-btn p-2.5 rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition text-center bg-indigo-600/25 border-indigo-500/50 text-white shadow-sm ring-1 ring-indigo-500/30';
+          const brandStyle = ecoBrandStyles[k] || 'bg-indigo-600/25 border-indigo-500/50 ring-indigo-500/30 text-white';
+          btn.className = `eco-btn p-2 sm:p-2.5 rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition text-center shadow-sm ring-1 ${brandStyle} active:scale-95`;
         } else {
-          btn.className = 'eco-btn p-2.5 rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition text-center glass-well border-white/[0.08] text-slate-400 hover:text-white hover:border-white/[0.2]';
+          btn.className = 'eco-btn p-2 sm:p-2.5 rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition text-center glass-well border-white/[0.08] text-slate-400 hover:text-white hover:border-white/[0.2] active:scale-95';
         }
       });
 
@@ -6189,11 +6370,16 @@ ightarrow$ v1.0.3</p>
         } else if (methodId === 'deepseek_web') {
           if (webTitle) webTitle.innerHTML = '<i class="fa-solid fa-atom mr-2 text-cyan-400"></i> DeepSeek Web Session';
           if (webBadge) webBadge.innerText = 'DeepSeek Web';
-          if (webDesc) webDesc.innerHTML = 'Connect an active browser session from <a href="https://chat.deepseek.com" target="_blank" class="text-cyan-400 underline">chat.deepseek.com</a>:';
+          if (webDesc) webDesc.innerHTML = 'Connect an active web session from <a href="https://chat.deepseek.com" target="_blank" class="text-cyan-400 underline">chat.deepseek.com</a>. Paste your <code class="font-mono text-cyan-300">userToken</code> or raw <code class="font-mono text-cyan-300">.har</code> export JSON:';
           if (webExtra) webExtra.classList.add('hidden');
-          if (webName) webName.placeholder = 'e.g. DeepSeek Web';
-          if (webCookies) webCookies.placeholder = 'Paste userToken cookie from chat.deepseek.com...';
-          if (webHint) webHint.innerText = 'paste userToken cookie or cURL';
+          if (webName) webName.placeholder = 'e.g. DeepSeek Web (Personal)';
+          if (webCookies) webCookies.placeholder = 'Paste userToken (BDW/...) or chat.deepseek.com.har export JSON here...';
+          if (webHint) webHint.innerText = 'paste userToken or .har JSON';
+          checkAndShowLocalHarOption();
+        }
+        if (methodId !== 'deepseek_web') {
+          const harContainer = document.getElementById('localHarHelperContainer');
+          if (harContainer) harContainer.classList.add('hidden');
         }
       } else {
         // API / Local / Gateway provider
@@ -6283,6 +6469,39 @@ ightarrow$ v1.0.3</p>
         if (nameInput && (!nameInput.value || nameInput.value === 'Gemini Web')) {
           nameInput.value = `Gemini Web (u/${idx})`;
         }
+      }
+    }
+
+    async function checkAndShowLocalHarOption() {
+      const container = document.getElementById('localHarHelperContainer');
+      if (!container) return;
+      try {
+        const res = await fetch('/api/accounts/deepseek-web/detect-har');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.found) {
+            container.classList.remove('hidden');
+            const previewEl = document.getElementById('localHarPathPreview');
+            if (previewEl) previewEl.innerText = `${data.path} (${data.email || 'Token found'})`;
+            window._detectedLocalHar = data;
+          } else {
+            container.classList.add('hidden');
+          }
+        }
+      } catch (e) {
+        container.classList.add('hidden');
+      }
+    }
+
+    function applyDetectedLocalHar() {
+      if (window._detectedLocalHar) {
+        const cookiesInput = document.getElementById('webCookiesInput');
+        const nameInput = document.getElementById('webNameInput');
+        if (cookiesInput) cookiesInput.value = window._detectedLocalHar.token;
+        if (nameInput && (!nameInput.value || nameInput.value === 'DeepSeek Web')) {
+          nameInput.value = `DeepSeek Web (${window._detectedLocalHar.email || 'HAR'})`;
+        }
+        showToast('Auto-loaded DeepSeek token from local HAR!', 'success');
       }
     }
 
@@ -6452,6 +6671,46 @@ ightarrow$ v1.0.3</p>
           await loadModels();
         } catch (err) {
           showToast('Failed to add Gemini Web session: ' + err.message, 'error');
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fa-solid fa-check"></i> Add to Pool';
+        }
+        return;
+      }
+
+      if (currentAuthMethod === 'deepseek_web') {
+        const name = document.getElementById('webNameInput').value.trim() || 'DeepSeek Web';
+        const rawData = document.getElementById('webCookiesInput').value.trim();
+        const proxyUrl = document.getElementById('addProxyUrlInput')?.value.trim() || null;
+
+        const btn = document.getElementById('submitAuthBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Authenticating & Solving PoW...';
+
+        try {
+          const res = await fetch('/api/accounts/deepseek-web', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: name,
+              user_token: rawData && !rawData.includes('{') ? rawData : null,
+              raw_har: rawData && rawData.includes('{') ? rawData : (rawData ? rawData : null),
+              proxy_url: proxyUrl,
+            })
+          });
+          if (!res.ok) {
+            const errText = await res.text();
+            let msg = errText;
+            try { msg = JSON.parse(errText).detail || errText; } catch(e){}
+            throw new Error(msg);
+          }
+          const data = await res.json();
+          showToast(data.message || 'DeepSeek Web session verified and added to pool!', 'success');
+          closeAddAccountModal();
+          await loadAccounts();
+          await loadModels();
+        } catch (err) {
+          showToast('Failed to add DeepSeek Web session: ' + err.message, 'error');
         } finally {
           btn.disabled = false;
           btn.innerHTML = '<i class="fa-solid fa-check"></i> Add to Pool';

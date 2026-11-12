@@ -1717,6 +1717,89 @@ def create_app(
             "cookies_count": len(acc._cookies),
         }
 
+    class AddDeepSeekWebRequest(BaseModel):
+        name: str | None = None
+        user_token: str | None = None
+        raw_har: str | None = None
+        proxy_url: str | None = None
+
+    @app.post("/api/accounts/deepseek-web")
+    async def add_account_deepseek_web(req: AddDeepSeekWebRequest):
+        """Adds or updates a DeepSeek Web session from user token or HAR export."""
+        from agy_proxy.providers import external_provider_manager, ExternalProviderConfig, ExternalModelConfig
+        from agy_proxy.providers.deepseek_web import extract_deepseek_token_from_har
+
+        token = (req.user_token or "").strip()
+        email = None
+        user_id = None
+
+        if req.raw_har:
+            t, em, uid = extract_deepseek_token_from_har(req.raw_har)
+            if t:
+                token = t
+            if em:
+                email = em
+            if uid:
+                user_id = uid
+
+        if not token:
+            default_har = Path("~/.config/agy-proxy/har/chat.deepseek.com.har")
+            if default_har.is_file():
+                t, em, uid = extract_deepseek_token_from_har(str(default_har))
+                if t:
+                    token = t
+                    email = em
+                    user_id = uid
+
+        if not token:
+            raise HTTPException(status_code=400, detail="No DeepSeek userToken found in input or HAR data.")
+
+        p_name = req.name or (f"DeepSeek Web ({email})" if email else "DeepSeek Web Session")
+        cfg = ExternalProviderConfig(
+            id="deepseek-web",
+            name=p_name,
+            provider_type="deepseek_web",
+            base_url="https://chat.deepseek.com/api/v0",
+            api_key=token,
+            proxy_url=req.proxy_url,
+            enabled=True,
+            models=[
+                ExternalModelConfig(id="deepseek-chat", display_name="DeepSeek V3 (Web Free)"),
+                ExternalModelConfig(id="deepseek-reasoner", display_name="DeepSeek R1 (Web Free)", supports_thinking=True),
+            ]
+        )
+        external_provider_manager.add_or_update_provider(cfg)
+        return {
+            "status": "ok",
+            "provider_id": "deepseek-web",
+            "name": p_name,
+            "email": email,
+            "message": f"Successfully configured DeepSeek Web session{f' for {email}' if email else ''}!",
+        }
+
+    @app.get("/api/accounts/deepseek-web/detect-har")
+    async def detect_local_deepseek_har():
+        """Detects and previews local chat.deepseek.com.har file if present on host."""
+        from agy_proxy.providers.deepseek_web import extract_deepseek_token_from_har
+        candidate_paths = [
+            Path("~/.config/agy-proxy/har/chat.deepseek.com.har"),
+            Path.home() / "chat.deepseek.com.har",
+            Path.cwd() / "chat.deepseek.com.har",
+        ]
+        for p in candidate_paths:
+            if p.is_file():
+                tok, email, uid = extract_deepseek_token_from_har(str(p))
+                if tok:
+                    return {
+                        "found": True,
+                        "path": str(p),
+                        "email": email,
+                        "user_id": uid,
+                        "token_preview": tok[:10] + "..." + tok[-6:],
+                        "token": tok,
+                    }
+        return {"found": False}
+
     @app.post("/api/accounts/{account_id}/test")
     async def test_account(account_id: str):
         """Tests connectivity and validity of an account (OAuth, API Key, or Gemini Web)."""
