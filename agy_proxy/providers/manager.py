@@ -36,6 +36,9 @@ def _create_provider_instance(config: ExternalProviderConfig) -> BaseExternalPro
     if p_type == "deepseek_web" or p_id == "deepseek-web" or p_id == "deepseek_web":
         from agy_proxy.providers.deepseek_web import DeepSeekWebProvider
         return DeepSeekWebProvider(config)
+    if p_type == "chatgpt_web" or p_id == "chatgpt-web" or p_id == "chatgpt_web":
+        from agy_proxy.providers.chatgpt_web import ChatGPTWebProvider
+        return ChatGPTWebProvider(config)
     if p_type == "ollama" or p_id == "ollama":
         return OllamaProvider(config)
     return OpenAICompatProvider(config)
@@ -203,15 +206,17 @@ class ExternalProviderManager:
                 matched_model = next((m for m in p_cfg.models if m.id == upstream_id), None)
                 return instance, upstream_id, matched_model
 
-        # 2. Exact match against configured models
-        for p_id, p_cfg in self.providers.items():
-            if not p_cfg.enabled:
-                continue
-            for m in p_cfg.models:
-                if m.enabled and m.id == clean:
-                    instance = self.get_provider_instance(p_id)
-                    if instance:
-                        return instance, m.id, m
+        # 2. Exact match against configured models (skip if colliding with native Antigravity models/aliases)
+        from agy_proxy.models import MODEL_ALIASES, VALID_CLOUDCODE_MODELS
+        if clean not in MODEL_ALIASES and clean not in VALID_CLOUDCODE_MODELS:
+            for p_id, p_cfg in self.providers.items():
+                if not p_cfg.enabled:
+                    continue
+                for m in p_cfg.models:
+                    if m.enabled and m.id == clean:
+                        instance = self.get_provider_instance(p_id)
+                        if instance:
+                            return instance, m.id, m
 
         return None
 

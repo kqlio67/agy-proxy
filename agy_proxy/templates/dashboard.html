@@ -3674,7 +3674,7 @@ ightarrow$ v1.0.3</p>
       });
       const openaiProviders = rawProvidersData.filter(p => {
         const id = (p.id || '').toLowerCase();
-        return (id.includes('openai') || id === 'chatgpt') && !id.includes('openrouter');
+        return (id.includes('openai') || id.includes('chatgpt')) && !id.includes('openrouter');
       });
       const deepseekProviders = rawProvidersData.filter(p => (p.id || '').toLowerCase().includes('deepseek'));
       const localProviders = rawProvidersData.filter(p => {
@@ -3686,6 +3686,7 @@ ightarrow$ v1.0.3</p>
         const ptype = (p.provider_type || '').toLowerCase();
         return !id.includes('anthropic') && !ptype.includes('anthropic') &&
                !(id.includes('openai') && !id.includes('openrouter')) &&
+               !id.includes('chatgpt') &&
                !id.includes('deepseek') && !id.includes('ollama') && !id.includes('lmstudio') && !id.includes('local');
       });
 
@@ -3817,17 +3818,35 @@ ightarrow$ v1.0.3</p>
       }
 
       if (currentAccountFilter === 'openai') {
-        container.innerHTML = renderProviderEcosystemSection({
+        let oaiHtml = '<div class="space-y-6">';
+        const matchedCgptWeb = filterProvList(webProviders.filter(p => (p.id || '').toLowerCase().includes('chatgpt')));
+        const matchedOaiDirect = filterProvList(openaiProviders.filter(p => !(p.id || '').toLowerCase().includes('chatgpt') && (p.provider_type || '').toLowerCase() !== 'chatgpt_web'));
+        if (matchedCgptWeb.length > 0) {
+          oaiHtml += renderProviderEcosystemSection({
+            sectionId: 'chatgpt-web',
+            title: 'ChatGPT Web Sessions (Free with Sentinel PoW)',
+            icon: 'fa-solid fa-globe',
+            iconColor: { bg: 'bg-emerald-500/15', border: 'border-emerald-500/30', text: 'text-emerald-400', pillBg: 'bg-emerald-500/20', pillText: 'text-emerald-300', pillBorder: 'border-emerald-500/30', addBtnBg: 'bg-emerald-600 hover:bg-emerald-500' },
+            count: matchedCgptWeb.length,
+            desc: 'chatgpt.com web sessions with automated Sentinel SHA3-512 Proof-of-Work challenge solver',
+            addTab: 'openai',
+            providers: matchedCgptWeb,
+            showFailoverBanner: false
+          });
+        }
+        oaiHtml += renderProviderEcosystemSection({
           sectionId: 'openai',
-          title: 'OpenAI Direct AI',
+          title: 'OpenAI Direct AI (API Key)',
           icon: 'fa-solid fa-brain',
           iconColor: { bg: 'bg-emerald-500/15', border: 'border-emerald-500/30', text: 'text-emerald-400', pillBg: 'bg-emerald-500/20', pillText: 'text-emerald-300', pillBorder: 'border-emerald-500/30', addBtnBg: 'bg-emerald-600 hover:bg-emerald-500' },
-          count: matchedOpenAI.length,
+          count: matchedOaiDirect.length,
           desc: 'Direct OpenAI REST connection (GPT-4o, o1, o3-mini, GPT-4.5)',
           addTab: 'openai',
-          providers: matchedOpenAI,
+          providers: matchedOaiDirect,
           showFailoverBanner: false
         });
+        oaiHtml += '</div>';
+        container.innerHTML = oaiHtml;
         return;
       }
 
@@ -3881,20 +3900,36 @@ ightarrow$ v1.0.3</p>
           );
         }
 
-        const matchedWebProviders = filterProvList(webProviders);
-        if (matchedWebProviders.length > 0) {
+        const matchedDsWeb = filterProvList(webProviders.filter(p => (p.id || '').toLowerCase().includes('deepseek')));
+        if (matchedDsWeb.length > 0) {
           webHtml += renderProviderEcosystemSection({
-            sectionId: 'web-providers',
-            title: 'DeepSeek Web Sessions (HAR / PoW)',
+            sectionId: 'deepseek-web',
+            title: 'DeepSeek Web Sessions (Free with PoW)',
             icon: 'fa-solid fa-atom',
             iconColor: { bg: 'bg-cyan-500/15', border: 'border-cyan-500/30', text: 'text-cyan-400', pillBg: 'bg-cyan-500/20', pillText: 'text-cyan-300', pillBorder: 'border-cyan-500/30', addBtnBg: 'bg-cyan-600 hover:bg-cyan-500' },
-            count: matchedWebProviders.length,
+            count: matchedDsWeb.length,
             desc: 'chat.deepseek.com sessions with automatic Proof-of-Work challenge solver',
             addTab: 'deepseek',
-            providers: matchedWebProviders,
+            providers: matchedDsWeb,
             showFailoverBanner: false
           });
         }
+
+        const matchedCgptWeb = filterProvList(webProviders.filter(p => (p.id || '').toLowerCase().includes('chatgpt')));
+        if (matchedCgptWeb.length > 0) {
+          webHtml += renderProviderEcosystemSection({
+            sectionId: 'chatgpt-web',
+            title: 'ChatGPT Web Sessions (Free with Sentinel PoW)',
+            icon: 'fa-solid fa-globe',
+            iconColor: { bg: 'bg-emerald-500/15', border: 'border-emerald-500/30', text: 'text-emerald-400', pillBg: 'bg-emerald-500/20', pillText: 'text-emerald-300', pillBorder: 'border-emerald-500/30', addBtnBg: 'bg-emerald-600 hover:bg-emerald-500' },
+            count: matchedCgptWeb.length,
+            desc: 'chatgpt.com web sessions with automated Sentinel SHA3-512 Proof-of-Work solver',
+            addTab: 'openai',
+            providers: matchedCgptWeb,
+            showFailoverBanner: false
+          });
+        }
+
         webHtml += '</div>';
         container.innerHTML = webHtml;
         return;
@@ -3996,6 +4031,22 @@ ightarrow$ v1.0.3</p>
             desc: 'chat.deepseek.com web sessions with automated Proof-of-Work WASM challenge solver',
             addTab: 'deepseek',
             providers: matchedDsWeb,
+            showFailoverBanner: false
+          });
+        }
+
+        // Section 4b: ChatGPT Web Sessions (if any)
+        const matchedCgptWeb = filterProvList(webProviders.filter(p => (p.id || '').includes('chatgpt')));
+        if (matchedCgptWeb.length > 0 || (!searchQ && webProviders.some(p => (p.id || '').includes('chatgpt')))) {
+          fullHtml += renderProviderEcosystemSection({
+            sectionId: 'chatgpt-web',
+            title: 'ChatGPT Web Sessions (Free with Sentinel PoW)',
+            icon: 'fa-solid fa-globe',
+            iconColor: { bg: 'bg-emerald-500/15', border: 'border-emerald-500/30', text: 'text-emerald-400', pillBg: 'bg-emerald-500/20', pillText: 'text-emerald-300', pillBorder: 'border-emerald-500/30', addBtnBg: 'bg-emerald-600 hover:bg-emerald-500' },
+            count: matchedCgptWeb.length,
+            desc: 'chatgpt.com web sessions with automated Sentinel SHA3-512 Proof-of-Work solver',
+            addTab: 'openai',
+            providers: matchedCgptWeb,
             showFailoverBanner: false
           });
         }
@@ -4706,6 +4757,10 @@ ightarrow$ v1.0.3</p>
         iconClass = 'fa-solid fa-cube text-amber-400';
         bgIcon = 'bg-amber-500/15 border-amber-500/30';
         categoryBadge = '<span class="text-[9px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20"><i class="fa-solid fa-cube text-[8px] mr-1"></i>Direct Anthropic</span>';
+      } else if (idLower.includes('chatgpt') || (p.provider_type || '').toLowerCase().includes('chatgpt_web')) {
+        iconClass = 'fa-solid fa-globe text-emerald-400';
+        bgIcon = 'bg-emerald-500/15 border-emerald-500/30';
+        categoryBadge = '<span class="text-[9px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"><i class="fa-solid fa-globe text-[8px] mr-1"></i>Web Session (PoW)</span>';
       } else if (idLower.includes('openai') && !idLower.includes('openrouter')) {
         iconClass = 'fa-solid fa-brain text-emerald-400';
         bgIcon = 'bg-emerald-500/15 border-emerald-500/30';
@@ -4782,8 +4837,8 @@ ightarrow$ v1.0.3</p>
             <!-- Auth & Latency Info -->
             <div class="flex items-center justify-between text-[11px] pt-2.5 text-slate-400">
               <span class="flex items-center gap-1 font-mono text-[10px]">
-                <i class="fa-solid ${(p.provider_type === 'deepseek_web' || p.id === 'deepseek-web') ? 'fa-shield-halved text-cyan-400' : 'fa-key text-slate-500'} text-[9px]"></i>
-                ${(p.provider_type === 'deepseek_web' || p.id === 'deepseek-web') ? 'Web Session (PoW Verified)' : (p.api_key ? 'API Key Set' : 'No Key (Local)')}
+                <i class="fa-solid ${(p.provider_type === 'deepseek_web' || p.id === 'deepseek-web' || p.provider_type === 'chatgpt_web' || p.id === 'chatgpt-web') ? 'fa-shield-halved text-emerald-400' : 'fa-key text-slate-500'} text-[9px]"></i>
+                ${(p.provider_type === 'deepseek_web' || p.id === 'deepseek-web') ? 'Web Session (PoW Verified)' : ((p.provider_type === 'chatgpt_web' || p.id === 'chatgpt-web') ? 'Web Session (Sentinel PoW)' : (p.api_key ? 'API Key Set' : 'No Key (Local)'))}
               </span>
               <span id="prov-ping-${p.id}" class="text-[10px] font-mono text-slate-300 glass-pill px-2.5 py-0.5 rounded-full flex items-center gap-1.5">
                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>Ready
@@ -6099,7 +6154,7 @@ ightarrow$ v1.0.3</p>
       if (activeProviders.length > 0) {
         const dsProv = activeProviders.filter(p => (p.id || '').toLowerCase().includes('deepseek'));
         const antProv = activeProviders.filter(p => (p.id || '').toLowerCase().includes('anthropic'));
-        const oaiProv = activeProviders.filter(p => (p.id || '').toLowerCase().includes('openai') && !(p.id || '').toLowerCase().includes('openrouter'));
+        const oaiProv = activeProviders.filter(p => ((p.id || '').toLowerCase().includes('openai') || (p.id || '').toLowerCase().includes('chatgpt')) && !(p.id || '').toLowerCase().includes('openrouter'));
         const locProv = activeProviders.filter(p => (p.id || '').toLowerCase().includes('ollama') || (p.id || '').toLowerCase().includes('local'));
         const gwProv = activeProviders.filter(p => !dsProv.includes(p) && !antProv.includes(p) && !oaiProv.includes(p) && !locProv.includes(p));
 
@@ -6108,7 +6163,7 @@ ightarrow$ v1.0.3</p>
           let grpHtml = `<optgroup label="${label}">`;
           list.forEach(p => {
             const mCount = (p.models || []).length;
-            const isWeb = p.provider_type === 'deepseek_web' || p.id === 'deepseek-web';
+            const isWeb = p.provider_type === 'deepseek_web' || p.id === 'deepseek-web' || p.provider_type === 'chatgpt_web' || p.id === 'chatgpt-web';
             const badge = isWeb ? '⚡' : (p.api_key ? '🔑' : '💻');
             grpHtml += `<option value="provider:${p.id}">${badge} ${p.name || p.id} (${mCount} models)</option>`;
           });
@@ -6118,6 +6173,7 @@ ightarrow$ v1.0.3</p>
 
         html += renderProvGroup('DeepSeek AI (Web Free PoW & Direct API)', dsProv);
         html += renderProvGroup('Anthropic Claude Direct AI', antProv);
+        html += renderProvGroup('OpenAI & ChatGPT Web (Free Sentinel PoW & API)', oaiProv);
         html += renderProvGroup('OpenAI Direct AI', oaiProv);
         html += renderProvGroup('Local AI (Ollama Localhost)', locProv);
         html += renderProvGroup('Cloud Gateways (OpenRouter, Groq, NVIDIA NIM)', gwProv);
@@ -6491,11 +6547,12 @@ ightarrow$ v1.0.3</p>
         } else if (methodId === 'openai_web') {
           if (webTitle) webTitle.innerHTML = '<i class="fa-solid fa-brain mr-2 text-emerald-400"></i> ChatGPT Web Session';
           if (webBadge) webBadge.innerText = 'ChatGPT Web';
-          if (webDesc) webDesc.innerHTML = 'Connect an active browser session from <a href="https://chatgpt.com" target="_blank" class="text-emerald-400 underline">chatgpt.com</a>:';
+          if (webDesc) webDesc.innerHTML = 'Connect an active browser session from <a href="https://chatgpt.com" target="_blank" class="text-emerald-400 underline">chatgpt.com</a>. Paste your accessToken (JWT), <code class="font-mono text-emerald-300">__Secure-next-auth.session-token</code>, or <code class="font-mono text-emerald-300">.har</code> export:';
           if (webExtra) webExtra.classList.add('hidden');
-          if (webName) webName.placeholder = 'e.g. ChatGPT Web Plus';
-          if (webCookies) webCookies.placeholder = 'Paste session token (__Secure-next-auth.session-token) or cURL copied from ChatGPT network tab...';
-          if (webHint) webHint.innerText = 'paste session token or cURL';
+          if (webName) webName.placeholder = 'e.g. ChatGPT Web (Personal)';
+          if (webCookies) webCookies.placeholder = 'Paste accessToken, session token, or chatgpt.com.har JSON here...';
+          if (webHint) webHint.innerText = 'paste accessToken or .har JSON';
+          checkAndShowLocalHarOption('openai_web');
         } else if (methodId === 'deepseek_web') {
           if (webTitle) webTitle.innerHTML = '<i class="fa-solid fa-atom mr-2 text-cyan-400"></i> DeepSeek Web Session';
           if (webBadge) webBadge.innerText = 'DeepSeek Web';
@@ -6504,9 +6561,9 @@ ightarrow$ v1.0.3</p>
           if (webName) webName.placeholder = 'e.g. DeepSeek Web (Personal)';
           if (webCookies) webCookies.placeholder = 'Paste userToken (BDW/...) or chat.deepseek.com.har export JSON here...';
           if (webHint) webHint.innerText = 'paste userToken or .har JSON';
-          checkAndShowLocalHarOption();
+          checkAndShowLocalHarOption('deepseek_web');
         }
-        if (methodId !== 'deepseek_web') {
+        if (methodId !== 'deepseek_web' && methodId !== 'openai_web') {
           const harContainer = document.getElementById('localHarHelperContainer');
           if (harContainer) harContainer.classList.add('hidden');
         }
@@ -6601,18 +6658,21 @@ ightarrow$ v1.0.3</p>
       }
     }
 
-    async function checkAndShowLocalHarOption() {
+    async function checkAndShowLocalHarOption(method = currentAuthMethod) {
       const container = document.getElementById('localHarHelperContainer');
       if (!container) return;
+      const endpoint = method === 'openai_web' 
+        ? '/api/accounts/chatgpt-web/detect-har' 
+        : '/api/accounts/deepseek-web/detect-har';
       try {
-        const res = await fetch('/api/accounts/deepseek-web/detect-har');
+        const res = await fetch(endpoint);
         if (res.ok) {
           const data = await res.json();
           if (data.found) {
             container.classList.remove('hidden');
             const previewEl = document.getElementById('localHarPathPreview');
             if (previewEl) previewEl.innerText = `${data.path} (${data.email || 'Token found'})`;
-            window._detectedLocalHar = data;
+            window._detectedLocalHar = { ...data, method: method };
           } else {
             container.classList.add('hidden');
           }
@@ -6627,10 +6687,13 @@ ightarrow$ v1.0.3</p>
         const cookiesInput = document.getElementById('webCookiesInput');
         const nameInput = document.getElementById('webNameInput');
         if (cookiesInput) cookiesInput.value = window._detectedLocalHar.token;
-        if (nameInput && (!nameInput.value || nameInput.value === 'DeepSeek Web')) {
-          nameInput.value = `DeepSeek Web (${window._detectedLocalHar.email || 'HAR'})`;
+        const isCgpt = window._detectedLocalHar.method === 'openai_web';
+        if (nameInput) {
+          nameInput.value = isCgpt 
+            ? `ChatGPT Web (${window._detectedLocalHar.email || 'HAR'})`
+            : `DeepSeek Web (${window._detectedLocalHar.email || 'HAR'})`;
         }
-        showToast('Auto-loaded DeepSeek token from local HAR!', 'success');
+        showToast(`Auto-loaded ${isCgpt ? 'ChatGPT' : 'DeepSeek'} session from local HAR!`, 'success');
       }
     }
 
@@ -6840,6 +6903,46 @@ ightarrow$ v1.0.3</p>
           await loadModels();
         } catch (err) {
           showToast('Failed to add DeepSeek Web session: ' + err.message, 'error');
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fa-solid fa-check"></i> Add to Pool';
+        }
+        return;
+      }
+
+      if (currentAuthMethod === 'openai_web') {
+        const name = document.getElementById('webNameInput').value.trim() || 'ChatGPT Web';
+        const rawData = document.getElementById('webCookiesInput').value.trim();
+        const proxyUrl = document.getElementById('addProxyUrlInput')?.value.trim() || null;
+
+        const btn = document.getElementById('submitAuthBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Authenticating & Solving Sentinel PoW...';
+
+        try {
+          const res = await fetch('/api/accounts/chatgpt-web', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: name,
+              access_token: rawData && !rawData.includes('{') ? rawData : null,
+              raw_har: rawData && rawData.includes('{') ? rawData : (rawData ? rawData : null),
+              proxy_url: proxyUrl,
+            })
+          });
+          if (!res.ok) {
+            const errText = await res.text();
+            let msg = errText;
+            try { msg = JSON.parse(errText).detail || errText; } catch(e){}
+            throw new Error(msg);
+          }
+          const data = await res.json();
+          showToast(data.message || 'ChatGPT Web session verified and added to pool!', 'success');
+          closeAddAccountModal();
+          await loadAccounts();
+          await loadModels();
+        } catch (err) {
+          showToast('Failed to add ChatGPT Web session: ' + err.message, 'error');
         } finally {
           btn.disabled = false;
           btn.innerHTML = '<i class="fa-solid fa-check"></i> Add to Pool';

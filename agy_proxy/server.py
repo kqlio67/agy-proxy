@@ -1800,6 +1800,95 @@ def create_app(
                     }
         return {"found": False}
 
+    class AddChatGPTWebRequest(BaseModel):
+        name: str | None = None
+        access_token: str | None = None
+        raw_har: str | None = None
+        proxy_url: str | None = None
+
+    @app.post("/api/accounts/chatgpt-web")
+    async def add_account_chatgpt_web(req: AddChatGPTWebRequest):
+        """Adds or updates a ChatGPT Web session from access token, JWT, or HAR export."""
+        from agy_proxy.providers import external_provider_manager, ExternalProviderConfig, ExternalModelConfig
+        from agy_proxy.providers.chatgpt_web import extract_chatgpt_token_from_har
+
+        token = (req.access_token or "").strip()
+        email = None
+        user_id = None
+
+        if req.raw_har:
+            t, em, uid = extract_chatgpt_token_from_har(req.raw_har)
+            if t:
+                token = t
+                email = em
+                user_id = uid
+
+        if not token:
+            candidate_paths = [
+                Path("~/.config/agy-proxy/har/chatgpt.com.har"),
+                Path.home() / "chatgpt.com.har",
+                Path.cwd() / "chatgpt.com.har",
+            ]
+            for p in candidate_paths:
+                if p.is_file():
+                    t, em, uid = extract_chatgpt_token_from_har(str(p))
+                    if t:
+                        token = t
+                        email = em
+                        user_id = uid
+                        break
+
+        if not token:
+            raise HTTPException(status_code=400, detail="No ChatGPT accessToken or session token found in input or HAR data.")
+
+        p_name = req.name or (f"ChatGPT Web ({email})" if email else "ChatGPT Web Session")
+        cfg = ExternalProviderConfig(
+            id="chatgpt-web",
+            name=p_name,
+            provider_type="chatgpt_web",
+            base_url="https://chatgpt.com/backend-api",
+            api_key=token,
+            proxy_url=req.proxy_url,
+            enabled=True,
+            models=[
+                ExternalModelConfig(id="gpt-4o", display_name="GPT-4o (Web Free)"),
+                ExternalModelConfig(id="gpt-4o-mini", display_name="GPT-4o mini (Web Free)"),
+                ExternalModelConfig(id="o3-mini", display_name="o3-mini (Web Free Reasoning)", supports_thinking=True),
+                ExternalModelConfig(id="chatgpt-4o-latest", display_name="ChatGPT-4o Latest (Web Free)"),
+            ]
+        )
+        external_provider_manager.add_or_update_provider(cfg)
+        return {
+            "status": "ok",
+            "provider_id": "chatgpt-web",
+            "name": p_name,
+            "email": email,
+            "message": f"Successfully configured ChatGPT Web session{f' for {email}' if email else ''}!",
+        }
+
+    @app.get("/api/accounts/chatgpt-web/detect-har")
+    async def detect_local_chatgpt_har():
+        """Detects and previews local chatgpt.com.har file if present on host."""
+        from agy_proxy.providers.chatgpt_web import extract_chatgpt_token_from_har
+        candidate_paths = [
+            Path("~/.config/agy-proxy/har/chatgpt.com.har"),
+            Path.home() / "chatgpt.com.har",
+            Path.cwd() / "chatgpt.com.har",
+        ]
+        for p in candidate_paths:
+            if p.is_file():
+                tok, email, uid = extract_chatgpt_token_from_har(str(p))
+                if tok:
+                    return {
+                        "found": True,
+                        "path": str(p),
+                        "email": email,
+                        "user_id": uid,
+                        "token_preview": tok[:10] + "..." + tok[-6:],
+                        "token": tok,
+                    }
+        return {"found": False}
+
     @app.post("/api/accounts/{account_id}/test")
     async def test_account(account_id: str):
         """Tests connectivity and validity of an account (OAuth, API Key, or Gemini Web)."""
