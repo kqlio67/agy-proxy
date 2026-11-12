@@ -508,56 +508,87 @@
           </div>
         </div>
 
-        <!-- Filter Pill Tracks (2-Level Company-First Liquid Glass Navigation) -->
-        <div class="pt-2.5 border-t border-white/[0.06] space-y-2">
-          <!-- Level 1: Company / Ecosystem Filter (Default: All) -->
-          <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth py-0.5 px-0.5" id="companyFilterTrack">
-            <span class="text-[10px] font-mono uppercase tracking-wider text-slate-500 mr-1 shrink-0 hidden sm:inline">Company</span>
-            <button onclick="setCompanyFilter('all')" data-company="all" class="company-filter-btn px-3 py-1.5 rounded-full text-xs font-medium bg-indigo-600/30 text-indigo-200 border border-indigo-500/50 shadow-[0_0_12px_rgba(99,102,241,0.25)] transition-all flex items-center gap-1.5 shrink-0 active:scale-95">
+        <!-- Filter Pill Track (Single-Row Company Navigation with Integrated Mode Dropdowns) -->
+        <div class="pt-2.5 border-t border-white/[0.06]">
+          <div class="flex flex-wrap items-center gap-1.5 py-0.5 px-0.5" id="companyFilterTrack">
+            <button type="button" onclick="setCompanyFilter('all')" data-company="all" class="company-filter-pill company-filter-btn px-3 py-1.5 rounded-full text-xs font-medium bg-indigo-600/30 text-indigo-200 border border-indigo-500/50 shadow-[0_0_12px_rgba(99,102,241,0.25)] transition-all flex items-center gap-1.5 shrink-0 active:scale-95">
               <i class="fa-solid fa-layer-group text-[10px]"></i>
               <span>All</span>
-              <span class="px-1.5 py-0.2 bg-white/20 rounded-full text-[10px] font-mono text-white font-bold" id="countAll">0</span>
+              <span class="company-count px-1.5 py-0.2 bg-white/20 rounded-full text-[10px] font-mono text-white font-bold" id="countAll">0</span>
             </button>
 
-            <button onclick="setCompanyFilter('google')" data-company="google" class="company-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-blue-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="Google (OAuth, Gemini Web, AI Studio API)">
-              <i class="fa-brands fa-google text-blue-400 text-[10px]"></i>
-              <span>Google</span>
-              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countGoogle">0</span>
-            </button>
+            <div data-company="google" class="company-filter-pill inline-flex items-center rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-blue-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all shrink-0">
+              <button type="button" onclick="onCompanyPillClick('google', event)" data-company="google" class="company-filter-btn pl-3 pr-1.5 py-1.5 flex items-center gap-1.5 active:scale-95" title="Google (OAuth, Gemini Web, AI Studio API)">
+                <i class="fa-brands fa-google text-blue-400 text-[10px]"></i>
+                <span>Google</span>
+                <span class="company-submode hidden text-[10px] font-mono font-semibold text-blue-300"></span>
+                <span class="company-count px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countGoogle">0</span>
+              </button>
+              <button type="button" onclick="toggleCompanyModeMenu('google', event)" data-company-chevron="google" class="pl-1 pr-2.5 py-1.5 rounded-r-full text-slate-400 hover:text-white border-l border-white/[0.06] transition" title="Google connection modes">
+                <i class="fa-solid fa-chevron-down text-[9px] transition-transform duration-150"></i>
+              </button>
+            </div>
 
-            <button onclick="setCompanyFilter('openai')" data-company="openai" class="company-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-emerald-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="OpenAI & ChatGPT (Web Sessions & API Keys)">
-              <i class="fa-solid fa-brain text-emerald-400 text-[10px]"></i>
-              <span>OpenAI</span>
-              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countOpenAI">0</span>
-            </button>
+            <div data-company="openai" class="company-filter-pill inline-flex items-center rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-emerald-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all shrink-0">
+              <button type="button" onclick="onCompanyPillClick('openai', event)" data-company="openai" class="company-filter-btn pl-3 pr-1.5 py-1.5 flex items-center gap-1.5 active:scale-95" title="OpenAI & ChatGPT (Web Sessions & API Keys)">
+                <i class="fa-solid fa-brain text-emerald-400 text-[10px]"></i>
+                <span>OpenAI</span>
+                <span class="company-submode hidden text-[10px] font-mono font-semibold text-emerald-300"></span>
+                <span class="company-count px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countOpenAI">0</span>
+              </button>
+              <button type="button" onclick="toggleCompanyModeMenu('openai', event)" data-company-chevron="openai" class="pl-1 pr-2.5 py-1.5 rounded-r-full text-slate-400 hover:text-white border-l border-white/[0.06] transition" title="OpenAI connection modes">
+                <i class="fa-solid fa-chevron-down text-[9px] transition-transform duration-150"></i>
+              </button>
+            </div>
 
-            <button onclick="setCompanyFilter('anthropic')" data-company="anthropic" class="company-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-amber-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="Anthropic Claude (API Keys & Web)">
-              <i class="fa-solid fa-cube text-amber-400 text-[10px]"></i>
-              <span>Anthropic</span>
-              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countAnthropic">0</span>
-            </button>
+            <div data-company="anthropic" class="company-filter-pill inline-flex items-center rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-amber-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all shrink-0">
+              <button type="button" onclick="onCompanyPillClick('anthropic', event)" data-company="anthropic" class="company-filter-btn pl-3 pr-1.5 py-1.5 flex items-center gap-1.5 active:scale-95" title="Anthropic Claude (API Keys & Web)">
+                <i class="fa-solid fa-cube text-amber-400 text-[10px]"></i>
+                <span>Anthropic</span>
+                <span class="company-submode hidden text-[10px] font-mono font-semibold text-amber-300"></span>
+                <span class="company-count px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countAnthropic">0</span>
+              </button>
+              <button type="button" onclick="toggleCompanyModeMenu('anthropic', event)" data-company-chevron="anthropic" class="pl-1 pr-2.5 py-1.5 rounded-r-full text-slate-400 hover:text-white border-l border-white/[0.06] transition" title="Anthropic connection modes">
+                <i class="fa-solid fa-chevron-down text-[9px] transition-transform duration-150"></i>
+              </button>
+            </div>
 
-            <button onclick="setCompanyFilter('deepseek')" data-company="deepseek" class="company-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-cyan-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="DeepSeek (Web Free & Direct API Keys)">
-              <i class="fa-solid fa-atom text-cyan-400 text-[10px]"></i>
-              <span>DeepSeek</span>
-              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countDeepSeek">0</span>
-            </button>
+            <div data-company="deepseek" class="company-filter-pill inline-flex items-center rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-cyan-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all shrink-0">
+              <button type="button" onclick="onCompanyPillClick('deepseek', event)" data-company="deepseek" class="company-filter-btn pl-3 pr-1.5 py-1.5 flex items-center gap-1.5 active:scale-95" title="DeepSeek (Web Free & Direct API Keys)">
+                <i class="fa-solid fa-atom text-cyan-400 text-[10px]"></i>
+                <span>DeepSeek</span>
+                <span class="company-submode hidden text-[10px] font-mono font-semibold text-cyan-300"></span>
+                <span class="company-count px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countDeepSeek">0</span>
+              </button>
+              <button type="button" onclick="toggleCompanyModeMenu('deepseek', event)" data-company-chevron="deepseek" class="pl-1 pr-2.5 py-1.5 rounded-r-full text-slate-400 hover:text-white border-l border-white/[0.06] transition" title="DeepSeek connection modes">
+                <i class="fa-solid fa-chevron-down text-[9px] transition-transform duration-150"></i>
+              </button>
+            </div>
 
-            <button onclick="setCompanyFilter('local')" data-company="local" class="company-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-teal-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="Local AI (Ollama & Offline LLMs)">
-              <i class="fa-solid fa-server text-teal-400 text-[10px]"></i>
-              <span>Local AI</span>
-              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countLocal">0</span>
-            </button>
+            <div data-company="local" class="company-filter-pill inline-flex items-center rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-teal-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all shrink-0">
+              <button type="button" onclick="onCompanyPillClick('local', event)" data-company="local" class="company-filter-btn pl-3 pr-1.5 py-1.5 flex items-center gap-1.5 active:scale-95" title="Local AI (Ollama & Offline LLMs)">
+                <i class="fa-solid fa-server text-teal-400 text-[10px]"></i>
+                <span>Local AI</span>
+                <span class="company-submode hidden text-[10px] font-mono font-semibold text-teal-300"></span>
+                <span class="company-count px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countLocal">0</span>
+              </button>
+              <button type="button" onclick="toggleCompanyModeMenu('local', event)" data-company-chevron="local" class="pl-1 pr-2.5 py-1.5 rounded-r-full text-slate-400 hover:text-white border-l border-white/[0.06] transition" title="Local AI connection modes">
+                <i class="fa-solid fa-chevron-down text-[9px] transition-transform duration-150"></i>
+              </button>
+            </div>
 
-            <button onclick="setCompanyFilter('gateways')" data-company="gateways" class="company-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-purple-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="Cloud Gateways (OpenRouter, Groq, NVIDIA NIM)">
-              <i class="fa-solid fa-cloud-bolt text-purple-400 text-[10px]"></i>
-              <span>Gateways</span>
-              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countGateways">0</span>
-            </button>
+            <div data-company="gateways" class="company-filter-pill inline-flex items-center rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-purple-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all shrink-0">
+              <button type="button" onclick="onCompanyPillClick('gateways', event)" data-company="gateways" class="company-filter-btn pl-3 pr-1.5 py-1.5 flex items-center gap-1.5 active:scale-95" title="Cloud Gateways (OpenRouter, Groq, NVIDIA NIM)">
+                <i class="fa-solid fa-cloud-bolt text-purple-400 text-[10px]"></i>
+                <span>Gateways</span>
+                <span class="company-submode hidden text-[10px] font-mono font-semibold text-purple-300"></span>
+                <span class="company-count px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countGateways">0</span>
+              </button>
+              <button type="button" onclick="toggleCompanyModeMenu('gateways', event)" data-company-chevron="gateways" class="pl-1 pr-2.5 py-1.5 rounded-r-full text-slate-400 hover:text-white border-l border-white/[0.06] transition" title="Gateway connection modes">
+                <i class="fa-solid fa-chevron-down text-[9px] transition-transform duration-150"></i>
+              </button>
+            </div>
           </div>
-
-          <!-- Level 2: Dynamic Available Connection Methods inside Selected Company (Default: All) -->
-          <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth py-0.5 px-0.5 border-t border-white/[0.04] pt-2" id="methodFilterTrack"></div>
           <div id="accountTypeFilters" class="hidden"></div>
         </div>
       </div>
@@ -2456,6 +2487,65 @@ ightarrow$ v1.0.3</p>
       renderAccounts();
     }
 
+    let openModeMenuCompany = null;
+
+    const MODE_META = {
+      all: { label: 'All', short: 'All', icon: 'fa-solid fa-border-all text-slate-300' },
+      oauth: { label: 'OAuth', short: 'OAuth', icon: 'fa-solid fa-shield-halved text-indigo-400' },
+      web: { label: 'Web', short: 'Web', icon: 'fa-solid fa-globe text-teal-400' },
+      apikey: { label: 'API Keys', short: 'API Keys', icon: 'fa-solid fa-key text-amber-400' },
+      local: { label: 'Local Server', short: 'Local', icon: 'fa-solid fa-server text-emerald-400' },
+      exhausted: { label: '0% Quota', short: '0% Quota', icon: 'fa-solid fa-battery-empty text-rose-400' },
+    };
+
+    function computeCompanyModeCounts(company) {
+      const counts = { all: 0, oauth: 0, web: 0, apikey: 0, local: 0, exhausted: 0 };
+      if (company === 'all' || company === 'google') {
+        (rawAccountsData || []).forEach(acc => {
+          counts.all++;
+          if (acc.auth_method === 'gemini_web') counts.web++;
+          else if (acc.auth_method === 'api_key') counts.apikey++;
+          else {
+            counts.oauth++;
+            const q = acc.quota_details || {};
+            const gQ = q.gemini || { percent: 100, fraction: 1.0 };
+            const cQ = q['3p'] || q.claude || { percent: 100, fraction: 1.0 };
+            const gPct = Math.round(gQ.percent ?? (gQ.fraction * 100));
+            const cPct = Math.round(cQ.percent ?? (cQ.fraction * 100));
+            if (gPct <= 0 && cPct <= 0) counts.exhausted++;
+          }
+        });
+      }
+      (rawProvidersData || []).forEach(p => {
+        const comp = classifyProviderCompany(p);
+        if (company !== 'all' && comp !== company) return;
+        const m = classifyProviderMethod(p);
+        counts.all++;
+        if (m === 'web') counts.web++;
+        else if (m === 'local') counts.local++;
+        else counts.apikey++;
+      });
+      return counts;
+    }
+
+    function getAllowedModesForCompany(company, counts = null) {
+      const c = counts || computeCompanyModeCounts(company);
+      const modesByCompany = {
+        all: ['all', 'oauth', 'web', 'apikey', 'local'],
+        google: ['all', 'oauth', 'web', 'apikey'],
+        openai: ['all', 'web', 'apikey'],
+        anthropic: c.web > 0 ? ['all', 'web', 'apikey'] : ['all', 'apikey'],
+        deepseek: ['all', 'web', 'apikey'],
+        local: ['all', 'local'],
+        gateways: ['all', 'apikey'],
+      };
+      const allowed = [...(modesByCompany[company] || ['all'])];
+      if ((company === 'all' || company === 'google') && c.exhausted > 0) {
+        allowed.push('exhausted');
+      }
+      return allowed;
+    }
+
     function updateCompanyPillStyles() {
       const activeStyles = {
         all: 'bg-indigo-600/30 text-indigo-200 border-indigo-500/50 shadow-[0_0_12px_rgba(99,102,241,0.25)]',
@@ -2475,113 +2565,149 @@ ightarrow$ v1.0.3</p>
         local: 'hover:text-teal-400',
         gateways: 'hover:text-purple-400',
       };
-      document.querySelectorAll('.company-filter-btn').forEach(btn => {
-        const comp = btn.dataset.company || 'all';
-        const countBadge = btn.querySelector('span:last-child');
-        if (comp === currentCompanyFilter) {
-          btn.className = `company-filter-btn px-3 py-1.5 rounded-full text-xs font-medium ${activeStyles[comp] || activeStyles.all} border transition-all flex items-center gap-1.5 shrink-0 active:scale-95`;
-          if (countBadge) countBadge.className = 'px-1.5 py-0.2 bg-white/20 rounded-full text-[10px] font-mono text-white font-bold';
+      document.querySelectorAll('.company-filter-pill').forEach(pill => {
+        const comp = pill.dataset.company || 'all';
+        const isAllPill = comp === 'all';
+        const isActive = comp === currentCompanyFilter;
+        const countBadge = pill.querySelector('.company-count');
+        const submodeEl = pill.querySelector('.company-submode');
+        const chevron = pill.querySelector('[data-company-chevron] i');
+
+        if (isAllPill) {
+          pill.className = isActive
+            ? `company-filter-pill company-filter-btn px-3 py-1.5 rounded-full text-xs font-medium ${activeStyles.all} border transition-all flex items-center gap-1.5 shrink-0 active:scale-95`
+            : `company-filter-pill company-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] ${hoverStyles.all} hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95`;
         } else {
-          btn.className = `company-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] ${hoverStyles[comp] || 'hover:text-white'} hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95`;
-          if (countBadge) countBadge.className = 'px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold';
+          pill.className = isActive
+            ? `company-filter-pill inline-flex items-center rounded-full text-xs font-medium ${activeStyles[comp] || activeStyles.all} border transition-all shrink-0`
+            : `company-filter-pill inline-flex items-center rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] ${hoverStyles[comp] || 'hover:text-white'} hover:bg-white/[0.06] hover:border-white/[0.12] transition-all shrink-0`;
+        }
+
+        if (countBadge) {
+          countBadge.className = isActive
+            ? 'company-count px-1.5 py-0.2 bg-white/20 rounded-full text-[10px] font-mono text-white font-bold'
+            : 'company-count px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold';
+        }
+        if (submodeEl) {
+          if (isActive && currentMethodFilter !== 'all') {
+            const mMeta = MODE_META[currentMethodFilter];
+            submodeEl.textContent = `· ${mMeta ? mMeta.short : currentMethodFilter}`;
+            submodeEl.classList.remove('hidden');
+          } else {
+            submodeEl.textContent = '';
+            submodeEl.classList.add('hidden');
+          }
+        }
+        if (chevron) {
+          chevron.style.transform = openModeMenuCompany === comp ? 'rotate(180deg)' : '';
         }
       });
     }
 
-    function renderMethodFilterPills(stats = null) {
-      const track = document.getElementById('methodFilterTrack');
-      if (!track) return;
-
-      // Compute counts inside currentCompanyFilter from raw data when stats not supplied
-      let counts = stats;
-      if (!counts) {
-        counts = { all: 0, oauth: 0, web: 0, apikey: 0, local: 0, exhausted: 0 };
-        if (currentCompanyFilter === 'all' || currentCompanyFilter === 'google') {
-          (rawAccountsData || []).forEach(acc => {
-            counts.all++;
-            if (acc.auth_method === 'gemini_web') counts.web++;
-            else if (acc.auth_method === 'api_key') counts.apikey++;
-            else {
-              counts.oauth++;
-              const q = acc.quota_details || {};
-              const gQ = q.gemini || { percent: 100, fraction: 1.0 };
-              const cQ = q['3p'] || q.claude || { percent: 100, fraction: 1.0 };
-              const gPct = Math.round(gQ.percent ?? (gQ.fraction * 100));
-              const cPct = Math.round(cQ.percent ?? (cQ.fraction * 100));
-              if (gPct <= 0 && cPct <= 0) counts.exhausted++;
-            }
-          });
-        }
-        (rawProvidersData || []).forEach(p => {
-          const comp = classifyProviderCompany(p);
-          if (currentCompanyFilter !== 'all' && comp !== currentCompanyFilter) return;
-          const m = classifyProviderMethod(p);
-          counts.all++;
-          if (m === 'web') counts.web++;
-          else if (m === 'local') counts.local++;
-          else counts.apikey++;
-        });
-      }
-
-      // Dynamic connection modes available for each company
-      const modesByCompany = {
-        all: ['all', 'oauth', 'web', 'apikey', 'local'],
-        google: ['all', 'oauth', 'web', 'apikey'],
-        openai: ['all', 'web', 'apikey'],
-        anthropic: counts.web > 0 ? ['all', 'web', 'apikey'] : ['all', 'apikey'],
-        deepseek: ['all', 'web', 'apikey'],
-        local: ['all', 'local'],
-        gateways: ['all', 'apikey'],
-      };
-
-      const allowed = [...(modesByCompany[currentCompanyFilter] || ['all'])];
-      if ((currentCompanyFilter === 'all' || currentCompanyFilter === 'google') && counts.exhausted > 0) {
-        allowed.push('exhausted');
-      }
+    function renderMethodFilterPills() {
+      const counts = computeCompanyModeCounts(currentCompanyFilter);
+      const allowed = getAllowedModesForCompany(currentCompanyFilter, counts);
       if (!allowed.includes(currentMethodFilter)) {
         currentMethodFilter = 'all';
       }
+      updateCompanyPillStyles();
+    }
 
-      const modeMeta = {
-        all: { label: 'All', icon: 'fa-solid fa-border-all text-slate-300', active: 'bg-white/15 text-white border-white/30', hover: 'hover:text-white' },
-        oauth: { label: 'OAuth', icon: 'fa-solid fa-shield-halved text-indigo-400', active: 'bg-indigo-600/30 text-indigo-200 border-indigo-500/50', hover: 'hover:text-indigo-300' },
-        web: { label: 'Web', icon: 'fa-solid fa-globe text-teal-400', active: 'bg-teal-600/30 text-teal-200 border-teal-500/50', hover: 'hover:text-teal-300' },
-        apikey: { label: 'API Keys', icon: 'fa-solid fa-key text-amber-400', active: 'bg-amber-600/30 text-amber-200 border-amber-500/50', hover: 'hover:text-amber-300' },
-        local: { label: 'Local Server', icon: 'fa-solid fa-server text-emerald-400', active: 'bg-emerald-600/30 text-emerald-200 border-emerald-500/50', hover: 'hover:text-emerald-300' },
-        exhausted: { label: '0% Quota', icon: 'fa-solid fa-battery-empty text-rose-400', active: 'bg-rose-600/30 text-rose-200 border-rose-500/50', hover: 'hover:text-rose-300' },
+    function closeCompanyModeMenu() {
+      const menu = document.getElementById('companyModeDropdown');
+      if (menu) menu.classList.add('hidden');
+      openModeMenuCompany = null;
+      updateCompanyPillStyles();
+    }
+
+    function onCompanyPillClick(company, event) {
+      if (event) event.stopPropagation();
+      if (currentCompanyFilter !== company) {
+        setCompanyFilter(company);
+      } else {
+        toggleCompanyModeMenu(company, event);
+      }
+    }
+
+    function toggleCompanyModeMenu(company, event) {
+      if (event) event.stopPropagation();
+      const menu = document.getElementById('companyModeDropdown');
+      if (!menu) return;
+
+      if (openModeMenuCompany === company && !menu.classList.contains('hidden')) {
+        closeCompanyModeMenu();
+        return;
+      }
+
+      const pill = document.querySelector(`.company-filter-pill[data-company="${company}"]`);
+      if (!pill) return;
+
+      const counts = computeCompanyModeCounts(company);
+      const allowed = getAllowedModesForCompany(company, counts);
+      const companyNames = {
+        google: 'Google',
+        openai: 'OpenAI & ChatGPT',
+        anthropic: 'Anthropic Claude',
+        deepseek: 'DeepSeek',
+        local: 'Local AI',
+        gateways: 'Cloud Gateways',
       };
 
-      let html = '<span class="text-[10px] font-mono uppercase tracking-wider text-slate-500 mr-1 shrink-0 hidden sm:inline">Available</span>';
+      let html = `<div class="px-2.5 py-1.5 text-[10px] font-mono uppercase tracking-wider text-slate-400 border-b border-white/[0.07] mb-1 flex items-center justify-between">
+        <span>${companyNames[company] || company}</span>
+        <span class="text-slate-500">${counts.all}</span>
+      </div>`;
+
       allowed.forEach(m => {
-        const meta = modeMeta[m];
-        const isActive = currentMethodFilter === m;
+        const meta = MODE_META[m] || MODE_META.all;
         const cnt = counts[m] || 0;
-        const cls = isActive
-          ? `px-2.5 py-1 rounded-full text-[11px] font-semibold ${meta.active} border transition-all flex items-center gap-1.5 shrink-0 active:scale-95`
-          : `px-2.5 py-1 rounded-full text-[11px] font-medium text-slate-400 bg-white/[0.025] border border-white/[0.05] ${meta.hover} hover:bg-white/[0.06] transition-all flex items-center gap-1.5 shrink-0 active:scale-95`;
-        const badgeCls = isActive
-          ? 'px-1.5 py-0.2 bg-white/20 rounded-full text-[10px] font-mono text-white font-bold'
-          : 'px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold';
-        html += `<button type="button" onclick="setMethodFilter('${m}')" data-method="${m}" class="${cls}">
-          <i class="${meta.icon} text-[9px]"></i>
-          <span>${meta.label}</span>
-          <span class="${badgeCls}">${cnt}</span>
+        const isSelected = currentCompanyFilter === company && currentMethodFilter === m;
+        html += `<button type="button" onclick="selectCompanyMode('${company}', '${m}')" class="w-full px-2.5 py-1.5 rounded-xl text-xs flex items-center justify-between gap-3 transition ${isSelected ? 'bg-indigo-600/25 text-white font-semibold border border-indigo-500/40' : 'text-slate-300 hover:text-white hover:bg-white/[0.06] border border-transparent'}">
+          <span class="flex items-center gap-2">
+            <i class="${meta.icon} text-[10px] w-3.5 text-center"></i>
+            <span>${meta.label}</span>
+          </span>
+          <span class="flex items-center gap-1.5">
+            <span class="px-1.5 py-0.2 rounded-full bg-white/[0.07] text-[10px] font-mono text-slate-300">${cnt}</span>
+            ${isSelected ? '<i class="fa-solid fa-check text-[10px] text-indigo-400"></i>' : ''}
+          </span>
         </button>`;
       });
-      track.innerHTML = html;
+
+      menu.innerHTML = html;
+      menu.classList.remove('hidden');
+      openModeMenuCompany = company;
+
+      const rect = pill.getBoundingClientRect();
+      const menuWidth = Math.max(210, menu.offsetWidth || 210);
+      const left = Math.min(Math.max(8, rect.left), window.innerWidth - menuWidth - 8);
+      const top = rect.bottom + 6;
+      menu.style.left = `${left}px`;
+      menu.style.top = `${top}px`;
+
+      updateCompanyPillStyles();
+    }
+
+    function selectCompanyMode(company, mode) {
+      currentCompanyFilter = company || 'all';
+      currentMethodFilter = mode || 'all';
+      currentAccountFilter = currentMethodFilter === 'all' ? currentCompanyFilter : currentMethodFilter;
+      closeCompanyModeMenu();
+      renderAccounts();
     }
 
     function setCompanyFilter(company) {
       currentCompanyFilter = company || 'all';
       currentMethodFilter = 'all'; // Always default to All inside company as requested
       currentAccountFilter = currentCompanyFilter;
-      updateCompanyPillStyles();
+      closeCompanyModeMenu();
       renderAccounts();
     }
 
     function setMethodFilter(method) {
       currentMethodFilter = method || 'all';
       currentAccountFilter = currentMethodFilter === 'all' ? currentCompanyFilter : currentMethodFilter;
+      closeCompanyModeMenu();
       renderAccounts();
     }
 
@@ -2597,6 +2723,21 @@ ightarrow$ v1.0.3</p>
         setMethodFilter(filter);
       }
     }
+
+    document.addEventListener('click', (e) => {
+      if (!openModeMenuCompany) return;
+      const menu = document.getElementById('companyModeDropdown');
+      const track = document.getElementById('companyFilterTrack');
+      if (menu && !menu.contains(e.target) && (!track || !track.contains(e.target))) {
+        closeCompanyModeMenu();
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && openModeMenuCompany) closeCompanyModeMenu();
+    });
+    window.addEventListener('resize', () => {
+      if (openModeMenuCompany) closeCompanyModeMenu();
+    });
 
     function getAccountInitials(acc) {
       const name = (acc.name || acc.email || 'User').trim();
@@ -8793,6 +8934,9 @@ ${data.stderr || data.stdout || data.error}`;
     setInterval(loadSuiteStatus, 15000);
     initTrafficInspector();
   </script>
+
+  <!-- Company Mode Popover Dropdown -->
+  <div id="companyModeDropdown" class="hidden fixed z-50 min-w-[215px] rounded-2xl glass-panel bg-[#0b101d]/95 backdrop-blur-xl border border-white/[0.12] shadow-2xl p-1.5 space-y-0.5"></div>
 
   <!-- Floating Toast Notifications Container -->
   <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none max-w-sm"></div>

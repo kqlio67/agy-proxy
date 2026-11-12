@@ -214,19 +214,22 @@ class TestDashboardTemplate(unittest.TestCase):
 
     def test_dashboard_provider_and_auth_filter_toolbar(self):
         html = get_dashboard_html()
-        # Verify Level 1 Company filter track & buttons
+        # Verify single-row Company filter track + integrated Mode dropdown popover
         self.assertIn('id="companyFilterTrack"', html)
-        self.assertIn('id="methodFilterTrack"', html)
+        self.assertIn('id="companyModeDropdown"', html)
         for comp in ("all", "google", "openai", "anthropic", "deepseek", "local", "gateways"):
             self.assertIn(f'data-company="{comp}"', html)
         for cnt_id in ("countAll", "countGoogle", "countAnthropic", "countOpenAI", "countDeepSeek", "countLocal", "countGateways"):
             self.assertIn(f'id="{cnt_id}"', html)
 
-        # Verify dynamic Level 2 connection-mode & company-grouped rendering functions
+        # Verify dynamic connection-mode & company-grouped rendering functions
         for fn in (
             "classifyProviderCompany",
             "classifyProviderMethod",
-            "renderMethodFilterPills",
+            "computeCompanyModeCounts",
+            "getAllowedModesForCompany",
+            "toggleCompanyModeMenu",
+            "selectCompanyMode",
             "setCompanyFilter",
             "setMethodFilter",
             "renderUnifiedGoogleSection",
