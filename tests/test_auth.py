@@ -2256,7 +2256,7 @@ class TestGeminiWebSession(unittest.TestCase):
         # 4. Compare directly against HAR files if available on system
         from pathlib import Path
         import urllib.parse
-        argon_har_path = Path("~/.config/agy-proxy/traffic/gemini.google.com-spark-argon.har")
+        argon_har_path = Path.home() / "tmp_gemini/trafic/gemini.google.com-spark-argon.har"
         if argon_har_path.exists():
             with open(argon_har_path, "r", encoding="utf-8") as f:
                 har_data = json.load(f)
