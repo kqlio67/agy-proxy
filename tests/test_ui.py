@@ -214,34 +214,35 @@ class TestDashboardTemplate(unittest.TestCase):
 
     def test_dashboard_provider_and_auth_filter_toolbar(self):
         html = get_dashboard_html()
-        # Verify separate Provider filters
-        self.assertIn('data-filter="google"', html)
-        self.assertIn('data-filter="anthropic"', html)
-        self.assertIn('data-filter="openai"', html)
-        self.assertIn('data-filter="deepseek"', html)
-        self.assertIn('data-filter="local"', html)
-        self.assertIn('data-filter="gateways"', html)
-        self.assertIn('id="countGoogle"', html)
-        self.assertIn('id="countAnthropic"', html)
-        self.assertIn('id="countOpenAI"', html)
-        self.assertIn('id="countDeepSeek"', html)
-        self.assertIn('id="countLocal"', html)
-        self.assertIn('id="countGateways"', html)
+        # Verify Level 1 Company filter track & buttons
+        self.assertIn('id="companyFilterTrack"', html)
+        self.assertIn('id="methodFilterTrack"', html)
+        for comp in ("all", "google", "openai", "anthropic", "deepseek", "local", "gateways"):
+            self.assertIn(f'data-company="{comp}"', html)
+        for cnt_id in ("countAll", "countGoogle", "countAnthropic", "countOpenAI", "countDeepSeek", "countLocal", "countGateways"):
+            self.assertIn(f'id="{cnt_id}"', html)
 
-        # Verify separate Auth filters
-        self.assertIn('data-filter="oauth"', html)
-        self.assertIn('data-filter="web"', html)
-        self.assertIn('data-filter="apikey"', html)
-        self.assertIn('data-filter="exhausted"', html)
-        self.assertIn('id="countOAuth"', html)
-        self.assertIn('id="countWeb"', html)
-        self.assertIn('id="countApiKey"', html)
-        self.assertIn('id="countExhausted"', html)
+        # Verify dynamic Level 2 connection-mode & company-grouped rendering functions
+        for fn in (
+            "classifyProviderCompany",
+            "classifyProviderMethod",
+            "renderMethodFilterPills",
+            "setCompanyFilter",
+            "setMethodFilter",
+            "renderUnifiedGoogleSection",
+            "renderProviderEcosystemSection",
+            "renderProviderTableRow",
+            "renderSingleProviderCard",
+            "renderFailoverBannerHtml",
+        ):
+            self.assertIn(fn, html)
 
-        # Verify rendering functions
-        self.assertIn("renderProviderEcosystemSection", html)
-        self.assertIn("renderSingleProviderCard", html)
-        self.assertIn("renderFailoverBannerHtml", html)
+        # Verify Unified Model Catalog & Quick Model Picker modal
+        self.assertIn('id="modelCompanyFilterTrack"', html)
+        self.assertIn('id="modelPickerModal"', html)
+        self.assertIn('id="activeModelBadgeBtn"', html)
+        self.assertIn("buildUnifiedModelCatalogEntries", html)
+        self.assertIn("selectPlaygroundModel", html)
 
 
 if __name__ == "__main__":

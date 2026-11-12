@@ -323,12 +323,12 @@
     <!-- Multi-Account Pool Section -->
     <div class="space-y-4">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div class="flex items-center space-x-2.5">
-          <div class="w-7 h-7 rounded-lg bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400 text-xs">
+        <div class="flex items-center space-x-2.5 shrink-0">
+          <div class="w-7 h-7 rounded-lg bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400 text-xs shrink-0">
             <i class="fa-solid fa-users"></i>
           </div>
-          <h2 class="text-base font-bold text-white tracking-tight">Active Account Pool</h2>
-          <span class="text-xs px-2.5 py-0.5 rounded-full glass-pill text-slate-300 font-mono" id="accountPoolCount">0 accounts</span>
+          <h2 class="text-base font-bold text-white tracking-tight whitespace-nowrap">Active Account Pool</h2>
+          <span class="text-xs px-2.5 py-0.5 rounded-full glass-pill text-slate-300 font-mono whitespace-nowrap shrink-0" id="accountPoolCount">0 accounts</span>
         </div>
 
         <!-- Mobile Controls (sm:hidden) -->
@@ -394,7 +394,7 @@
         </div>
 
         <!-- Desktop Controls (hidden sm:flex) -->
-        <div class="hidden sm:flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 max-w-full">
+        <div class="hidden sm:flex items-center flex-wrap justify-end gap-1.5 max-w-full">
           <!-- View Switcher (Grid vs Table) -->
           <div class="flex items-center glass-well rounded-xl p-0.5 text-xs shrink-0">
             <button id="viewBtnGrid" onclick="setAccountView('grid')" class="px-2.5 py-1 rounded-lg font-semibold text-white bg-indigo-600 shadow transition flex items-center space-x-1" title="Grid Card View">
@@ -508,85 +508,56 @@
           </div>
         </div>
 
-        <!-- Filter Pill Tracks (Single Unified Liquid Glass Navigation) -->
-        <div class="pt-2 border-t border-white/[0.06]">
-          <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth py-0.5 px-0.5" id="accountsFilterTrack">
-            <!-- Core Auth Filters (User-preferred Layout) -->
-            <button onclick="setAccountFilter('all')" data-filter="all" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium bg-indigo-600/30 text-indigo-200 border border-indigo-500/50 shadow-[0_0_12px_rgba(99,102,241,0.25)] transition-all flex items-center gap-1.5 shrink-0 active:scale-95">
+        <!-- Filter Pill Tracks (2-Level Company-First Liquid Glass Navigation) -->
+        <div class="pt-2.5 border-t border-white/[0.06] space-y-2">
+          <!-- Level 1: Company / Ecosystem Filter (Default: All) -->
+          <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth py-0.5 px-0.5" id="companyFilterTrack">
+            <span class="text-[10px] font-mono uppercase tracking-wider text-slate-500 mr-1 shrink-0 hidden sm:inline">Company</span>
+            <button onclick="setCompanyFilter('all')" data-company="all" class="company-filter-btn px-3 py-1.5 rounded-full text-xs font-medium bg-indigo-600/30 text-indigo-200 border border-indigo-500/50 shadow-[0_0_12px_rgba(99,102,241,0.25)] transition-all flex items-center gap-1.5 shrink-0 active:scale-95">
+              <i class="fa-solid fa-layer-group text-[10px]"></i>
               <span>All</span>
               <span class="px-1.5 py-0.2 bg-white/20 rounded-full text-[10px] font-mono text-white font-bold" id="countAll">0</span>
             </button>
 
-            <button onclick="setAccountFilter('oauth')" data-filter="oauth" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-indigo-300 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="Google OAuth 2.0 Accounts">
-              <i class="fa-solid fa-shield-halved text-indigo-400 text-[10px]"></i>
-              <span>OAuth</span>
-              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countOAuth">0</span>
-            </button>
-
-            <button onclick="setAccountFilter('web')" data-filter="web" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-teal-300 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="Web Browser Sessions (Gemini Web & DeepSeek Web)">
-              <i class="fa-solid fa-globe text-teal-400 text-[10px]"></i>
-              <span>Web</span>
-              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countWeb">0</span>
-            </button>
-
-            <button onclick="setAccountFilter('apikey')" data-filter="apikey" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-amber-300 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="API Keys (Google AI Studio, DeepSeek, Anthropic, OpenAI)">
-              <i class="fa-solid fa-key text-amber-400 text-[10px]"></i>
-              <span>API Keys</span>
-              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countApiKey">0</span>
-            </button>
-
-            <button onclick="setAccountFilter('external')" data-filter="external" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-purple-300 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="All External AI Providers (DeepSeek, Anthropic, OpenAI, Local AI, Gateways)">
-              <i class="fa-solid fa-microchip text-purple-400 text-[10px]"></i>
-              <span>External AI</span>
-              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countExternal">0</span>
-            </button>
-
-            <button onclick="setAccountFilter('exhausted')" data-filter="exhausted" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-rose-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="0% Quota Remaining">
-              <i class="fa-solid fa-battery-empty text-rose-400 text-[10px]"></i>
-              <span>0% Quota</span>
-              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countExhausted">0</span>
-            </button>
-
-            <!-- Subtle Section Divider -->
-            <div class="h-4 w-[1px] bg-white/10 mx-1 shrink-0"></div>
-
-            <!-- Provider Ecosystems Quick Chips -->
-            <button onclick="setAccountFilter('google')" data-filter="google" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-blue-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="Google Accounts (OAuth, Gemini Web, AI Studio)">
+            <button onclick="setCompanyFilter('google')" data-company="google" class="company-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-blue-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="Google (OAuth, Gemini Web, AI Studio API)">
               <i class="fa-brands fa-google text-blue-400 text-[10px]"></i>
               <span>Google</span>
               <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countGoogle">0</span>
             </button>
 
-            <button onclick="setAccountFilter('deepseek')" data-filter="deepseek" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-cyan-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="DeepSeek (Web Free & Direct API)">
-              <i class="fa-solid fa-atom text-cyan-400 text-[10px]"></i>
-              <span>DeepSeek</span>
-              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countDeepSeek">0</span>
-            </button>
-
-            <button onclick="setAccountFilter('anthropic')" data-filter="anthropic" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-amber-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="Anthropic Claude Direct AI">
-              <i class="fa-solid fa-cube text-amber-400 text-[10px]"></i>
-              <span>Anthropic</span>
-              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countAnthropic">0</span>
-            </button>
-
-            <button onclick="setAccountFilter('openai')" data-filter="openai" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-emerald-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="OpenAI Direct AI (GPT-4o, o1, o3-mini)">
+            <button onclick="setCompanyFilter('openai')" data-company="openai" class="company-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-emerald-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="OpenAI & ChatGPT (Web Sessions & API Keys)">
               <i class="fa-solid fa-brain text-emerald-400 text-[10px]"></i>
               <span>OpenAI</span>
               <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countOpenAI">0</span>
             </button>
 
-            <button onclick="setAccountFilter('local')" data-filter="local" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-emerald-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="Local AI (Ollama & Offline LLMs)">
-              <i class="fa-solid fa-server text-emerald-400 text-[10px]"></i>
+            <button onclick="setCompanyFilter('anthropic')" data-company="anthropic" class="company-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-amber-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="Anthropic Claude (API Keys & Web)">
+              <i class="fa-solid fa-cube text-amber-400 text-[10px]"></i>
+              <span>Anthropic</span>
+              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countAnthropic">0</span>
+            </button>
+
+            <button onclick="setCompanyFilter('deepseek')" data-company="deepseek" class="company-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-cyan-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="DeepSeek (Web Free & Direct API Keys)">
+              <i class="fa-solid fa-atom text-cyan-400 text-[10px]"></i>
+              <span>DeepSeek</span>
+              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countDeepSeek">0</span>
+            </button>
+
+            <button onclick="setCompanyFilter('local')" data-company="local" class="company-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-teal-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="Local AI (Ollama & Offline LLMs)">
+              <i class="fa-solid fa-server text-teal-400 text-[10px]"></i>
               <span>Local AI</span>
               <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countLocal">0</span>
             </button>
 
-            <button onclick="setAccountFilter('gateways')" data-filter="gateways" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-purple-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="Cloud Gateways (OpenRouter, Groq, NVIDIA NIM)">
+            <button onclick="setCompanyFilter('gateways')" data-company="gateways" class="company-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-purple-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="Cloud Gateways (OpenRouter, Groq, NVIDIA NIM)">
               <i class="fa-solid fa-cloud-bolt text-purple-400 text-[10px]"></i>
               <span>Gateways</span>
               <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countGateways">0</span>
             </button>
           </div>
+
+          <!-- Level 2: Dynamic Available Connection Methods inside Selected Company (Default: All) -->
+          <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth py-0.5 px-0.5 border-t border-white/[0.04] pt-2" id="methodFilterTrack"></div>
           <div id="accountTypeFilters" class="hidden"></div>
         </div>
       </div>
@@ -769,7 +740,13 @@
             </div>
 
             <div>
-              <label class="block text-xs font-medium text-slate-400 mb-1">Target Model</label>
+              <div class="flex items-center justify-between mb-1">
+                <label class="block text-xs font-medium text-slate-400">Target Model</label>
+                <button type="button" onclick="openModelPickerModal()" class="text-[10px] px-2 py-0.5 rounded-lg glass-pill text-indigo-300 hover:text-white flex items-center gap-1 transition" title="Open company-grouped searchable model picker">
+                  <i class="fa-solid fa-layer-group text-[9px]"></i>
+                  <span>Browse Models</span>
+                </button>
+              </div>
               <select id="modelSelect" class="w-full bg-slate-900/60 backdrop-blur-md border border-white/[0.08] focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 rounded-xl px-3 py-2 text-xs text-white focus:outline-none transition font-mono">
                 <option value="gemini-4-carbon">gemini-4-carbon (Flagship · 1M Context)</option>
                 <option value="gemini-4-argon">gemini-4-argon (Flagship Thinking)</option>
@@ -836,11 +813,14 @@
             <input
               type="text"
               id="modelSearchInput"
-              placeholder="Search exact models (e.g. 3.8-flash, sonnet-4-6, opus)..."
+              placeholder="Search models (e.g. gpt-4o, claude, deepseek, flash)..."
               class="w-full bg-slate-900/60 backdrop-blur-md border border-white/[0.08] focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-400 focus:outline-none transition font-mono"
               oninput="filterModelCatalog()"
             >
           </div>
+
+          <!-- Company Filter Pills for Model Catalog -->
+          <div class="flex flex-wrap items-center gap-1 py-0.5" id="modelCompanyFilterTrack"></div>
 
           <div class="space-y-2.5 max-h-[380px] overflow-y-auto pr-1 custom-scrollbar flex-1" id="modelList">
             <div class="text-center py-8 text-slate-400 text-xs">Loading model catalog...</div>
@@ -858,7 +838,10 @@
           <div class="flex items-center space-x-2 min-w-0">
             <i class="fa-solid fa-comments text-indigo-400 shrink-0"></i>
             <span class="font-bold text-xs sm:text-sm text-white shrink-0">Live Playground</span>
-            <span class="text-[10px] sm:text-xs font-mono text-indigo-300 bg-indigo-500/15 px-2 py-0.5 rounded-full border border-indigo-500/30 truncate cursor-pointer hover:bg-indigo-500/25 transition" id="activeModelBadge" onclick="setPlaygroundMobileView('settings')" title="Click to view/change model">gemini-3.8-flash-high</span>
+            <button type="button" class="text-[10px] sm:text-xs font-mono text-indigo-300 bg-indigo-500/15 px-2.5 py-0.5 rounded-full border border-indigo-500/30 truncate cursor-pointer hover:bg-indigo-500/25 transition inline-flex items-center gap-1.5" id="activeModelBadgeBtn" onclick="openModelPickerModal()" title="Click to browse & switch model by company">
+              <span id="activeModelBadge">gemini-3.8-flash-high</span>
+              <i class="fa-solid fa-chevron-down text-[9px] opacity-75"></i>
+            </button>
             <span class="text-[10px] sm:text-xs font-mono text-emerald-300 bg-emerald-500/15 px-2 py-0.5 rounded-full border border-emerald-500/30 truncate" id="activeAccountBadge">Route: Auto Pool</span>
           </div>
           <div class="flex items-center space-x-2 shrink-0">
@@ -906,6 +889,40 @@
     </div> <!-- End #playground Grid -->
 
   </div> <!-- End #tabContent-playground -->
+
+  <!-- Quick Model Picker Modal (Company-Grouped Searchable Selector) -->
+  <div id="modelPickerModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-3 sm:p-6" onclick="if(event.target===this) closeModelPickerModal()">
+    <div class="w-full max-w-3xl max-h-[85vh] rounded-3xl glass-panel border border-white/[0.12] shadow-2xl flex flex-col overflow-hidden bg-[#0a0f1a]/95">
+      <div class="p-4 sm:p-5 border-b border-white/[0.08] flex items-center justify-between gap-3">
+        <div class="flex items-center space-x-2.5 min-w-0">
+          <div class="w-9 h-9 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0">
+            <i class="fa-solid fa-layer-group text-sm"></i>
+          </div>
+          <div class="min-w-0">
+            <h3 class="text-sm sm:text-base font-bold text-white truncate">Select Model by Company</h3>
+            <p class="text-[11px] text-slate-400 truncate">Browse active models across Google, OpenAI, Claude, DeepSeek, Local & Gateways</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeModelPickerModal()" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/[0.06] transition">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+      <div class="p-4 border-b border-white/[0.06] space-y-2.5 bg-white/[0.015]">
+        <div class="relative">
+          <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-2.5 text-xs text-slate-400"></i>
+          <input
+            type="text"
+            id="modelPickerSearchInput"
+            placeholder="Filter by model name, ID, or provider (e.g. gpt-4o, opus, deepseek, flash)..."
+            class="w-full bg-black/40 border border-white/[0.1] focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-400 focus:outline-none font-mono"
+            oninput="renderModelPickerModalList()"
+          >
+        </div>
+        <div class="flex flex-wrap items-center gap-1.5" id="modelPickerCompanyTrack"></div>
+      </div>
+      <div class="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar" id="modelPickerList"></div>
+    </div>
+  </div>
 
   <!-- TAB 4: CLIENT INTEGRATIONS -->
   <div id="tabContent-integrations" class="hidden space-y-6">
@@ -2377,13 +2394,36 @@ ightarrow$ v1.0.3</p>
     let rawProvidersData = [];
     let rawRoutingSettings = { enable_external_failover: false, fallback_model: null };
     let currentAccountView = 'grid';
-    let currentAccountFilter = 'all';
-    let collapsedSections = new Set(); // tracks which section addTypes are collapsed
+    let currentCompanyFilter = 'all';
+    let currentMethodFilter = 'all';
+    let currentAccountFilter = 'all'; // kept in sync for backwards compatibility
+    let currentModelCompanyFilter = 'all';
+    let currentModelPickerCompany = 'all';
+    let collapsedSections = new Set(); // tracks which company section IDs are collapsed
     let cliActiveAccountId = null;           // account_id currently active in AGY CLI
     let standaloneActiveAccountId = null;    // account_id currently active in AGY Hub (Standalone)
     let ideActiveAccountId = null;           // account_id currently active in AGY IDE
     let cliActiveInfo = { cli: null, ide: null, standalone: null };
     let targetActivateAccountId = null;
+
+    function classifyProviderCompany(p) {
+      const id = (p?.id || '').toLowerCase();
+      const ptype = (p?.provider_type || '').toLowerCase();
+      if (id.includes('anthropic') || ptype.includes('anthropic') || id.includes('claude-web') || ptype.includes('claude_web')) return 'anthropic';
+      if ((id.includes('openai') && !id.includes('openrouter')) || id.includes('chatgpt') || ptype.includes('chatgpt_web')) return 'openai';
+      if (id.includes('deepseek') || ptype.includes('deepseek')) return 'deepseek';
+      if (id.includes('ollama') || id.includes('lmstudio') || id.includes('local') || ptype === 'ollama') return 'local';
+      return 'gateways';
+    }
+
+    function classifyProviderMethod(p) {
+      const id = (p?.id || '').toLowerCase();
+      const ptype = (p?.provider_type || '').toLowerCase();
+      if (ptype.includes('web') || id.includes('deepseek-web') || id.includes('chatgpt-web') || id.includes('claude-web')) return 'web';
+      const company = classifyProviderCompany(p);
+      if (company === 'local') return 'local';
+      return 'apikey';
+    }
 
     function setAccountView(mode) {
       currentAccountView = mode;
@@ -2416,42 +2456,146 @@ ightarrow$ v1.0.3</p>
       renderAccounts();
     }
 
-    function setAccountFilter(filter) {
-      currentAccountFilter = filter;
-      document.querySelectorAll('.acc-filter-btn').forEach(btn => {
-        const isMatch = btn.dataset.filter === filter;
+    function updateCompanyPillStyles() {
+      const activeStyles = {
+        all: 'bg-indigo-600/30 text-indigo-200 border-indigo-500/50 shadow-[0_0_12px_rgba(99,102,241,0.25)]',
+        google: 'bg-blue-600/30 text-blue-200 border-blue-500/50 shadow-[0_0_12px_rgba(59,130,246,0.3)]',
+        openai: 'bg-emerald-600/30 text-emerald-200 border-emerald-500/50 shadow-[0_0_12px_rgba(16,185,129,0.3)]',
+        anthropic: 'bg-amber-600/30 text-amber-200 border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.3)]',
+        deepseek: 'bg-cyan-600/30 text-cyan-200 border-cyan-500/50 shadow-[0_0_12px_rgba(6,182,212,0.3)]',
+        local: 'bg-teal-600/30 text-teal-200 border-teal-500/50 shadow-[0_0_12px_rgba(20,184,166,0.3)]',
+        gateways: 'bg-purple-600/30 text-purple-200 border-purple-500/50 shadow-[0_0_12px_rgba(168,85,247,0.3)]',
+      };
+      const hoverStyles = {
+        all: 'hover:text-white',
+        google: 'hover:text-blue-400',
+        openai: 'hover:text-emerald-400',
+        anthropic: 'hover:text-amber-400',
+        deepseek: 'hover:text-cyan-400',
+        local: 'hover:text-teal-400',
+        gateways: 'hover:text-purple-400',
+      };
+      document.querySelectorAll('.company-filter-btn').forEach(btn => {
+        const comp = btn.dataset.company || 'all';
         const countBadge = btn.querySelector('span:last-child');
-        if (isMatch) {
-          let activeClass = 'bg-indigo-600/30 text-indigo-200 border-indigo-500/50 shadow-[0_0_12px_rgba(99,102,241,0.25)]';
-          if (filter === 'google') activeClass = 'bg-blue-600/30 text-blue-200 border-blue-500/50 shadow-[0_0_12px_rgba(59,130,246,0.3)]';
-          else if (filter === 'anthropic') activeClass = 'bg-amber-600/30 text-amber-200 border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.3)]';
-          else if (filter === 'openai') activeClass = 'bg-emerald-600/30 text-emerald-200 border-emerald-500/50 shadow-[0_0_12px_rgba(16,185,129,0.3)]';
-          else if (filter === 'deepseek') activeClass = 'bg-cyan-600/30 text-cyan-200 border-cyan-500/50 shadow-[0_0_12px_rgba(6,182,212,0.3)]';
-          else if (filter === 'local') activeClass = 'bg-teal-600/30 text-teal-200 border-teal-500/50 shadow-[0_0_12px_rgba(20,184,166,0.3)]';
-          else if (filter === 'gateways' || filter === 'external') activeClass = 'bg-purple-600/30 text-purple-200 border-purple-500/50 shadow-[0_0_12px_rgba(168,85,247,0.3)]';
-          else if (filter === 'oauth') activeClass = 'bg-indigo-600/30 text-indigo-200 border-indigo-500/50 shadow-[0_0_12px_rgba(99,102,241,0.25)]';
-          else if (filter === 'web') activeClass = 'bg-teal-600/30 text-teal-200 border-teal-500/50 shadow-[0_0_12px_rgba(20,184,166,0.3)]';
-          else if (filter === 'apikey') activeClass = 'bg-amber-600/30 text-amber-200 border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.3)]';
-          else if (filter === 'exhausted') activeClass = 'bg-rose-600/30 text-rose-200 border-rose-500/50 shadow-[0_0_12px_rgba(244,63,94,0.3)]';
-          btn.className = `acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium ${activeClass} border transition-all flex items-center gap-1.5 shrink-0 active:scale-95`;
+        if (comp === currentCompanyFilter) {
+          btn.className = `company-filter-btn px-3 py-1.5 rounded-full text-xs font-medium ${activeStyles[comp] || activeStyles.all} border transition-all flex items-center gap-1.5 shrink-0 active:scale-95`;
           if (countBadge) countBadge.className = 'px-1.5 py-0.2 bg-white/20 rounded-full text-[10px] font-mono text-white font-bold';
         } else {
-          let hoverClass = 'hover:text-white';
-          if (btn.dataset.filter === 'google') hoverClass = 'hover:text-blue-400';
-          else if (btn.dataset.filter === 'deepseek') hoverClass = 'hover:text-cyan-400';
-          else if (btn.dataset.filter === 'anthropic') hoverClass = 'hover:text-amber-400';
-          else if (btn.dataset.filter === 'openai') hoverClass = 'hover:text-emerald-400';
-          else if (btn.dataset.filter === 'local') hoverClass = 'hover:text-teal-400';
-          else if (btn.dataset.filter === 'gateways' || btn.dataset.filter === 'external') hoverClass = 'hover:text-purple-400';
-          else if (btn.dataset.filter === 'oauth') hoverClass = 'hover:text-indigo-300';
-          else if (btn.dataset.filter === 'web') hoverClass = 'hover:text-teal-300';
-          else if (btn.dataset.filter === 'apikey') hoverClass = 'hover:text-amber-300';
-          else if (btn.dataset.filter === 'exhausted') hoverClass = 'hover:text-rose-400';
-          btn.className = `acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] ${hoverClass} hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95`;
+          btn.className = `company-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] ${hoverStyles[comp] || 'hover:text-white'} hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95`;
           if (countBadge) countBadge.className = 'px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold';
         }
       });
+    }
+
+    function renderMethodFilterPills(stats = null) {
+      const track = document.getElementById('methodFilterTrack');
+      if (!track) return;
+
+      // Compute counts inside currentCompanyFilter from raw data when stats not supplied
+      let counts = stats;
+      if (!counts) {
+        counts = { all: 0, oauth: 0, web: 0, apikey: 0, local: 0, exhausted: 0 };
+        if (currentCompanyFilter === 'all' || currentCompanyFilter === 'google') {
+          (rawAccountsData || []).forEach(acc => {
+            counts.all++;
+            if (acc.auth_method === 'gemini_web') counts.web++;
+            else if (acc.auth_method === 'api_key') counts.apikey++;
+            else {
+              counts.oauth++;
+              const q = acc.quota_details || {};
+              const gQ = q.gemini || { percent: 100, fraction: 1.0 };
+              const cQ = q['3p'] || q.claude || { percent: 100, fraction: 1.0 };
+              const gPct = Math.round(gQ.percent ?? (gQ.fraction * 100));
+              const cPct = Math.round(cQ.percent ?? (cQ.fraction * 100));
+              if (gPct <= 0 && cPct <= 0) counts.exhausted++;
+            }
+          });
+        }
+        (rawProvidersData || []).forEach(p => {
+          const comp = classifyProviderCompany(p);
+          if (currentCompanyFilter !== 'all' && comp !== currentCompanyFilter) return;
+          const m = classifyProviderMethod(p);
+          counts.all++;
+          if (m === 'web') counts.web++;
+          else if (m === 'local') counts.local++;
+          else counts.apikey++;
+        });
+      }
+
+      // Dynamic connection modes available for each company
+      const modesByCompany = {
+        all: ['all', 'oauth', 'web', 'apikey', 'local'],
+        google: ['all', 'oauth', 'web', 'apikey'],
+        openai: ['all', 'web', 'apikey'],
+        anthropic: counts.web > 0 ? ['all', 'web', 'apikey'] : ['all', 'apikey'],
+        deepseek: ['all', 'web', 'apikey'],
+        local: ['all', 'local'],
+        gateways: ['all', 'apikey'],
+      };
+
+      const allowed = [...(modesByCompany[currentCompanyFilter] || ['all'])];
+      if ((currentCompanyFilter === 'all' || currentCompanyFilter === 'google') && counts.exhausted > 0) {
+        allowed.push('exhausted');
+      }
+      if (!allowed.includes(currentMethodFilter)) {
+        currentMethodFilter = 'all';
+      }
+
+      const modeMeta = {
+        all: { label: 'All', icon: 'fa-solid fa-border-all text-slate-300', active: 'bg-white/15 text-white border-white/30', hover: 'hover:text-white' },
+        oauth: { label: 'OAuth', icon: 'fa-solid fa-shield-halved text-indigo-400', active: 'bg-indigo-600/30 text-indigo-200 border-indigo-500/50', hover: 'hover:text-indigo-300' },
+        web: { label: 'Web', icon: 'fa-solid fa-globe text-teal-400', active: 'bg-teal-600/30 text-teal-200 border-teal-500/50', hover: 'hover:text-teal-300' },
+        apikey: { label: 'API Keys', icon: 'fa-solid fa-key text-amber-400', active: 'bg-amber-600/30 text-amber-200 border-amber-500/50', hover: 'hover:text-amber-300' },
+        local: { label: 'Local Server', icon: 'fa-solid fa-server text-emerald-400', active: 'bg-emerald-600/30 text-emerald-200 border-emerald-500/50', hover: 'hover:text-emerald-300' },
+        exhausted: { label: '0% Quota', icon: 'fa-solid fa-battery-empty text-rose-400', active: 'bg-rose-600/30 text-rose-200 border-rose-500/50', hover: 'hover:text-rose-300' },
+      };
+
+      let html = '<span class="text-[10px] font-mono uppercase tracking-wider text-slate-500 mr-1 shrink-0 hidden sm:inline">Available</span>';
+      allowed.forEach(m => {
+        const meta = modeMeta[m];
+        const isActive = currentMethodFilter === m;
+        const cnt = counts[m] || 0;
+        const cls = isActive
+          ? `px-2.5 py-1 rounded-full text-[11px] font-semibold ${meta.active} border transition-all flex items-center gap-1.5 shrink-0 active:scale-95`
+          : `px-2.5 py-1 rounded-full text-[11px] font-medium text-slate-400 bg-white/[0.025] border border-white/[0.05] ${meta.hover} hover:bg-white/[0.06] transition-all flex items-center gap-1.5 shrink-0 active:scale-95`;
+        const badgeCls = isActive
+          ? 'px-1.5 py-0.2 bg-white/20 rounded-full text-[10px] font-mono text-white font-bold'
+          : 'px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold';
+        html += `<button type="button" onclick="setMethodFilter('${m}')" data-method="${m}" class="${cls}">
+          <i class="${meta.icon} text-[9px]"></i>
+          <span>${meta.label}</span>
+          <span class="${badgeCls}">${cnt}</span>
+        </button>`;
+      });
+      track.innerHTML = html;
+    }
+
+    function setCompanyFilter(company) {
+      currentCompanyFilter = company || 'all';
+      currentMethodFilter = 'all'; // Always default to All inside company as requested
+      currentAccountFilter = currentCompanyFilter;
+      updateCompanyPillStyles();
       renderAccounts();
+    }
+
+    function setMethodFilter(method) {
+      currentMethodFilter = method || 'all';
+      currentAccountFilter = currentMethodFilter === 'all' ? currentCompanyFilter : currentMethodFilter;
+      renderAccounts();
+    }
+
+    function setAccountFilter(filter) {
+      const companies = ['google', 'openai', 'anthropic', 'deepseek', 'local', 'gateways'];
+      if (filter === 'all') {
+        setCompanyFilter('all');
+      } else if (companies.includes(filter)) {
+        setCompanyFilter(filter);
+      } else if (filter === 'external') {
+        setCompanyFilter('gateways');
+      } else {
+        setMethodFilter(filter);
+      }
     }
 
     function getAccountInitials(acc) {
@@ -3167,7 +3311,9 @@ ightarrow$ v1.0.3</p>
     }
 
     document.getElementById('modelSelect').addEventListener('change', (e) => {
-      document.getElementById('activeModelBadge').innerText = e.target.value;
+      const badge = document.getElementById('activeModelBadge');
+      if (badge) badge.innerText = e.target.value;
+      renderModelCatalog(document.getElementById('modelSearchInput')?.value || '');
     });
 
     let currentRoutingStrategy = 'primary';
@@ -3246,6 +3392,7 @@ ightarrow$ v1.0.3</p>
         }
         renderAccounts();
         populatePlaygroundAccounts();
+        renderModelCatalog(document.getElementById('modelSearchInput')?.value || '');
         if (currentActiveTab === 'analytics') {
           renderAnalytics();
         }
@@ -3634,7 +3781,9 @@ ightarrow$ v1.0.3</p>
       const searchQ = (document.getElementById('accountSearchInput')?.value || '').toLowerCase().trim();
       const sortMode = document.getElementById('accountSortSelect')?.value || 'default';
 
-      // Calculate counts for filters & KPI stats
+      updateCompanyPillStyles();
+
+      // Calculate KPI stats & global per-company totals (unaffected by active filters)
       let totalAll = rawAccountsData.length;
       let totalOAuth = 0;
       let totalApiKey = 0;
@@ -3657,11 +3806,9 @@ ightarrow$ v1.0.3</p>
         const geminiPct = Math.round(geminiQ.percent ?? (geminiQ.fraction * 100));
         const claudePct = Math.round(claudeQ.percent ?? (claudeQ.fraction * 100));
 
-        if (isWeb) {
-          totalWeb++;
-        } else if (isApiKey) {
-          totalApiKey++;
-        } else {
+        if (isWeb) totalWeb++;
+        else if (isApiKey) totalApiKey++;
+        else {
           totalOAuth++;
           if (isEnabled) {
             sumGeminiPct += geminiPct;
@@ -3691,89 +3838,56 @@ ightarrow$ v1.0.3</p>
         kpiClaudePool.className = `text-base sm:text-xl font-bold font-mono mt-0.5 truncate ${avgClaudeQuota > 50 ? 'text-emerald-400' : (avgClaudeQuota > 20 ? 'text-amber-400' : 'text-red-400')}`;
       }
 
-      // Split external providers into categories
-      const anthropicProviders = rawProvidersData.filter(p => {
-        const id = (p.id || '').toLowerCase();
-        const ptype = (p.provider_type || '').toLowerCase();
-        return id.includes('anthropic') || ptype.includes('anthropic');
-      });
-      const openaiProviders = rawProvidersData.filter(p => {
-        const id = (p.id || '').toLowerCase();
-        return (id.includes('openai') || id.includes('chatgpt')) && !id.includes('openrouter');
-      });
-      const deepseekProviders = rawProvidersData.filter(p => (p.id || '').toLowerCase().includes('deepseek'));
-      const localProviders = rawProvidersData.filter(p => {
-        const id = (p.id || '').toLowerCase();
-        return id.includes('ollama') || id.includes('lmstudio') || id.includes('local');
-      });
-      const gatewayProviders = rawProvidersData.filter(p => {
-        const id = (p.id || '').toLowerCase();
-        const ptype = (p.provider_type || '').toLowerCase();
-        return !id.includes('anthropic') && !ptype.includes('anthropic') &&
-               !(id.includes('openai') && !id.includes('openrouter')) &&
-               !id.includes('chatgpt') &&
-               !id.includes('deepseek') && !id.includes('ollama') && !id.includes('lmstudio') && !id.includes('local');
-      });
-
-      const filterProvList = (list) => {
-        if (!searchQ) return list;
-        return list.filter(p => {
-          const pName = (p.name || '').toLowerCase();
-          const pId = (p.id || '').toLowerCase();
-          const pUrl = (p.base_url || '').toLowerCase();
-          const pModels = (p.models || []).map(m => (m.name || m.id || '').toLowerCase()).join(' ');
-          return pName.includes(searchQ) || pId.includes(searchQ) || pUrl.includes(searchQ) || pModels.includes(searchQ);
-        });
+      // Partition external providers by company
+      const extByCompany = {
+        openai: [],
+        anthropic: [],
+        deepseek: [],
+        local: [],
+        gateways: [],
       };
+      (rawProvidersData || []).forEach(p => {
+        const comp = classifyProviderCompany(p);
+        if (extByCompany[comp]) extByCompany[comp].push(p);
+      });
 
-      const matchedAnthropic = filterProvList(anthropicProviders);
-      const matchedOpenAI = filterProvList(openaiProviders);
-      const matchedDeepseek = filterProvList(deepseekProviders);
-      const matchedLocal = filterProvList(localProviders);
-      const matchedGateways = filterProvList(gatewayProviders);
-
-      const webProviders = rawProvidersData.filter(p => (p.id || '').toLowerCase().includes('web') || (p.provider_type || '').toLowerCase().includes('web'));
-      const directDeepseek = deepseekProviders.filter(p => !(p.id || '').toLowerCase().includes('web'));
-
-      let totalExternal = rawProvidersData.length;
-      let totalGoogle = totalAll;
-      let totalWebSessions = totalWeb + webProviders.length;
-      let countApiKeysAll = totalApiKey + directDeepseek.length + anthropicProviders.length + openaiProviders.length;
-
+      const totalExternal = rawProvidersData.length;
       if (document.getElementById('countAll')) document.getElementById('countAll').innerText = totalAll + totalExternal;
       if (document.getElementById('navActivePoolCounter')) document.getElementById('navActivePoolCounter').innerText = totalAll;
-      if (document.getElementById('countGoogle')) document.getElementById('countGoogle').innerText = totalGoogle;
-      if (document.getElementById('countAnthropic')) document.getElementById('countAnthropic').innerText = anthropicProviders.length;
-      if (document.getElementById('countOpenAI')) document.getElementById('countOpenAI').innerText = openaiProviders.length;
-      if (document.getElementById('countDeepSeek')) document.getElementById('countDeepSeek').innerText = deepseekProviders.length;
-      if (document.getElementById('countLocal')) document.getElementById('countLocal').innerText = localProviders.length;
-      if (document.getElementById('countGateways')) document.getElementById('countGateways').innerText = gatewayProviders.length;
-      if (document.getElementById('countOAuth')) document.getElementById('countOAuth').innerText = totalOAuth;
-      if (document.getElementById('countApiKey')) document.getElementById('countApiKey').innerText = countApiKeysAll;
-      if (document.getElementById('countWeb')) document.getElementById('countWeb').innerText = totalWebSessions;
-      if (document.getElementById('countExternal')) document.getElementById('countExternal').innerText = totalExternal;
-      if (document.getElementById('countExhausted')) document.getElementById('countExhausted').innerText = totalExhausted;
+      if (document.getElementById('countGoogle')) document.getElementById('countGoogle').innerText = totalAll;
+      if (document.getElementById('countOpenAI')) document.getElementById('countOpenAI').innerText = extByCompany.openai.length;
+      if (document.getElementById('countAnthropic')) document.getElementById('countAnthropic').innerText = extByCompany.anthropic.length;
+      if (document.getElementById('countDeepSeek')) document.getElementById('countDeepSeek').innerText = extByCompany.deepseek.length;
+      if (document.getElementById('countLocal')) document.getElementById('countLocal').innerText = extByCompany.local.length;
+      if (document.getElementById('countGateways')) document.getElementById('countGateways').innerText = extByCompany.gateways.length;
 
       document.getElementById('accountPoolCount').innerText = `${totalAll + totalExternal} source${(totalAll + totalExternal) === 1 ? '' : 's'}`;
 
-      // Filter Google accounts
-      let filtered = rawAccountsData.filter(acc => {
+      // Render dynamic Level-2 method filter pills based on selected company
+      renderMethodFilterPills();
+
+      // Always sync Playground account dropdown
+      populatePlaygroundAccounts();
+
+      // Filter Google accounts by currentMethodFilter & searchQ
+      const filteredGoogle = rawAccountsData.filter(acc => {
+        if (currentCompanyFilter !== 'all' && currentCompanyFilter !== 'google') return false;
         const isApiKey = acc.auth_method === 'api_key';
         const isWeb = acc.auth_method === 'gemini_web';
-        if (currentAccountFilter === 'oauth' && (isApiKey || isWeb)) return false;
-        if (currentAccountFilter === 'apikey' && !isApiKey) return false;
-        if (currentAccountFilter === 'web' && !isWeb) return false;
+        if (currentMethodFilter === 'oauth' && (isApiKey || isWeb)) return false;
+        if (currentMethodFilter === 'apikey' && !isApiKey) return false;
+        if (currentMethodFilter === 'web' && !isWeb) return false;
+        if (currentMethodFilter === 'local') return false;
 
-        const qDetails = acc.quota_details || {};
-        const geminiQ = qDetails.gemini || { percent: 100, fraction: 1.0 };
-        const claudeQ = qDetails['3p'] || qDetails.claude || { percent: 100, fraction: 1.0 };
-        const argonQ = qDetails.argon || null;
-        const geminiPct = Math.round(geminiQ.percent ?? (geminiQ.fraction * 100));
-        const claudePct = Math.round(claudeQ.percent ?? (claudeQ.fraction * 100));
-        const argonPct = (argonQ && argonQ.has_dedicated_bucket) ? Math.round(argonQ.percent ?? (argonQ.fraction * 100)) : 0;
-
-        if (currentAccountFilter === 'exhausted') {
+        if (currentMethodFilter === 'exhausted') {
           if (isApiKey || isWeb) return false;
+          const qDetails = acc.quota_details || {};
+          const geminiQ = qDetails.gemini || { percent: 100, fraction: 1.0 };
+          const claudeQ = qDetails['3p'] || qDetails.claude || { percent: 100, fraction: 1.0 };
+          const argonQ = qDetails.argon || null;
+          const geminiPct = Math.round(geminiQ.percent ?? (geminiQ.fraction * 100));
+          const claudePct = Math.round(claudeQ.percent ?? (claudeQ.fraction * 100));
+          const argonPct = (argonQ && argonQ.has_dedicated_bucket) ? Math.round(argonQ.percent ?? (argonQ.fraction * 100)) : 0;
           if (geminiPct > 0 || claudePct > 0 || argonPct > 0) return false;
         }
 
@@ -3781,15 +3895,16 @@ ightarrow$ v1.0.3</p>
           const name = (acc.name || '').toLowerCase();
           const email = (acc.email || '').toLowerCase();
           const proj = (acc.project_id || '').toLowerCase();
-          if (!name.includes(searchQ) && !email.includes(searchQ) && !proj.includes(searchQ)) {
+          const authStr = isWeb ? 'web' : (isApiKey ? 'api key' : 'oauth');
+          if (!name.includes(searchQ) && !email.includes(searchQ) && !proj.includes(searchQ) && !authStr.includes(searchQ)) {
             return false;
           }
         }
         return true;
       });
 
-      // Sort
-      filtered.sort((a, b) => {
+      // Sort Google accounts cleanly
+      filteredGoogle.sort((a, b) => {
         if (sortMode === 'quota-desc' || sortMode === 'quota-asc') {
           const getAvgQuota = (acc) => {
             if (acc.auth_method === 'api_key' || acc.auth_method === 'gemini_web') return 100;
@@ -3800,497 +3915,186 @@ ightarrow$ v1.0.3</p>
             const gWk = gQ['weekly'] != null ? Math.round(gQ['weekly'].percent ?? (gQ['weekly'].fraction * 100)) : (gQ.percent ?? 100);
             const c5h = cQ['5h'] != null ? Math.round(cQ['5h'].percent ?? (cQ['5h'].fraction * 100)) : (cQ.percent ?? 100);
             const cWk = cQ['weekly'] != null ? Math.round(cQ['weekly'].percent ?? (cQ['weekly'].fraction * 100)) : (cQ.percent ?? 100);
-            const g = Math.min(g5h, gWk);
-            const c = Math.min(c5h, cWk);
-            return (g + c) / 2;
+            return (Math.min(g5h, gWk) + Math.min(c5h, cWk)) / 2;
           };
           const diff = getAvgQuota(b) - getAvgQuota(a);
           return sortMode === 'quota-desc' ? diff : -diff;
         }
-        if (sortMode === 'reqs-desc') {
-          return (b.total_requests || 0) - (a.total_requests || 0);
-        }
-        if (sortMode === 'name-asc') {
-          return (a.name || a.email || '').localeCompare(b.name || b.email || '');
-        }
-        // Default: Primary first, then original order
+        if (sortMode === 'reqs-desc') return (b.total_requests || 0) - (a.total_requests || 0);
+        if (sortMode === 'name-asc') return (a.name || a.email || '').localeCompare(b.name || b.email || '');
+
         if (a.is_primary && !b.is_primary) return -1;
         if (!a.is_primary && b.is_primary) return 1;
-        return 0;
+        const rankAuth = (x) => (x.auth_method === 'gemini_web' ? 1 : (x.auth_method === 'api_key' ? 2 : 0));
+        return rankAuth(a) - rankAuth(b);
       });
 
-      // Always sync Playground account dropdown
-      populatePlaygroundAccounts();
+      const filterAndSortProviders = (list) => {
+        const out = list.filter(p => {
+          const m = classifyProviderMethod(p);
+          if (currentMethodFilter === 'oauth' || currentMethodFilter === 'exhausted') return false;
+          if (currentMethodFilter === 'web' && m !== 'web') return false;
+          if (currentMethodFilter === 'apikey' && m !== 'apikey') return false;
+          if (currentMethodFilter === 'local' && m !== 'local') return false;
+          if (searchQ) {
+            const pName = (p.name || '').toLowerCase();
+            const pId = (p.id || '').toLowerCase();
+            const pUrl = (p.base_url || '').toLowerCase();
+            const pModels = (p.models || []).map(md => (md.name || md.id || '').toLowerCase()).join(' ');
+            if (!pName.includes(searchQ) && !pId.includes(searchQ) && !pUrl.includes(searchQ) && !pModels.includes(searchQ)) {
+              return false;
+            }
+          }
+          return true;
+        });
+        out.sort((a, b) => {
+          if (sortMode === 'name-asc') return (a.name || a.id || '').localeCompare(b.name || b.id || '');
+          const aEn = a.enabled !== false ? 0 : 1;
+          const bEn = b.enabled !== false ? 0 : 1;
+          if (aEn !== bEn) return aEn - bEn;
+          const aWeb = classifyProviderMethod(a) === 'web' ? 0 : 1;
+          const bWeb = classifyProviderMethod(b) === 'web' ? 0 : 1;
+          if (aWeb !== bWeb) return aWeb - bWeb;
+          return (a.name || a.id || '').localeCompare(b.name || b.id || '');
+        });
+        return out;
+      };
 
-      // Group accounts by category
-      const oauthAccounts = filtered.filter(a => a.auth_method === 'consumer' || (!a.auth_method && !a.api_key));
-      const webAccounts = filtered.filter(a => a.auth_method === 'gemini_web');
-      const apiKeyAccounts = filtered.filter(a => a.auth_method === 'api_key');
+      const matchedOpenAI = (currentCompanyFilter === 'all' || currentCompanyFilter === 'openai') ? filterAndSortProviders(extByCompany.openai) : [];
+      const matchedAnthropic = (currentCompanyFilter === 'all' || currentCompanyFilter === 'anthropic') ? filterAndSortProviders(extByCompany.anthropic) : [];
+      const matchedDeepSeek = (currentCompanyFilter === 'all' || currentCompanyFilter === 'deepseek') ? filterAndSortProviders(extByCompany.deepseek) : [];
+      const matchedLocal = (currentCompanyFilter === 'all' || currentCompanyFilter === 'local') ? filterAndSortProviders(extByCompany.local) : [];
+      const matchedGateways = (currentCompanyFilter === 'all' || currentCompanyFilter === 'gateways') ? filterAndSortProviders(extByCompany.gateways) : [];
 
-      if (currentAccountFilter === 'anthropic') {
-        container.innerHTML = renderProviderEcosystemSection({
+      if (totalAll === 0 && totalExternal === 0) {
+        container.innerHTML = '<div class="p-8 rounded-2xl glass-card text-center text-slate-400 text-sm">No accounts or external providers found. Click "Add Account" to connect one.</div>';
+        return;
+      }
+
+      const sectionsHtml = [];
+      const isGrid = currentAccountView === 'grid';
+      const isSpecificCompany = currentCompanyFilter !== 'all';
+
+      // 1. Google (Unified: OAuth + Gemini Web + AI Studio Key)
+      if ((currentCompanyFilter === 'all' || currentCompanyFilter === 'google') &&
+          (filteredGoogle.length > 0 || (isSpecificCompany && currentMethodFilter === 'all') || (!searchQ && currentMethodFilter === 'all' && totalAll > 0) || (isSpecificCompany && filteredGoogle.length === 0))) {
+        sectionsHtml.push(renderUnifiedGoogleSection(filteredGoogle, isGrid));
+      }
+
+      // 2. OpenAI (Unified: ChatGPT Web + OpenAI Direct API)
+      if ((currentCompanyFilter === 'all' || currentCompanyFilter === 'openai') &&
+          (matchedOpenAI.length > 0 || isSpecificCompany)) {
+        sectionsHtml.push(renderProviderEcosystemSection({
+          sectionId: 'openai',
+          title: 'OpenAI & ChatGPT',
+          icon: 'fa-solid fa-brain',
+          iconColor: { bg: 'bg-emerald-500/15', border: 'border-emerald-500/30', text: 'text-emerald-400', pillBg: 'bg-emerald-500/20', pillText: 'text-emerald-300', pillBorder: 'border-emerald-500/30', addBtnBg: 'bg-emerald-600 hover:bg-emerald-500' },
+          count: matchedOpenAI.length,
+          desc: 'ChatGPT Web Sessions (Zero-Auth / Sentinel PoW) & OpenAI Direct API Keys',
+          addTab: 'openai',
+          providers: matchedOpenAI,
+          showFailoverBanner: false,
+          isGrid
+        }));
+      }
+
+      // 3. Anthropic (Claude API & Web)
+      if ((currentCompanyFilter === 'all' || currentCompanyFilter === 'anthropic') &&
+          (matchedAnthropic.length > 0 || isSpecificCompany)) {
+        sectionsHtml.push(renderProviderEcosystemSection({
           sectionId: 'anthropic',
-          title: 'Anthropic Claude Direct AI',
+          title: 'Anthropic Claude',
           icon: 'fa-solid fa-cube',
           iconColor: { bg: 'bg-amber-500/15', border: 'border-amber-500/30', text: 'text-amber-400', pillBg: 'bg-amber-500/20', pillText: 'text-amber-300', pillBorder: 'border-amber-500/30', addBtnBg: 'bg-amber-600 hover:bg-amber-500' },
           count: matchedAnthropic.length,
-          desc: 'Direct Anthropic Messages API connection (Claude 3.7 Sonnet, Claude 3.5 Haiku, Opus)',
+          desc: 'Direct Anthropic Messages API (Claude 3.7 Sonnet, 3.5 Haiku, Opus) & Web Sessions',
           addTab: 'anthropic',
           providers: matchedAnthropic,
-          showFailoverBanner: false
-        });
-        return;
+          showFailoverBanner: false,
+          isGrid
+        }));
       }
 
-      if (currentAccountFilter === 'openai') {
-        let oaiHtml = '<div class="space-y-6">';
-        const matchedCgptWeb = filterProvList(webProviders.filter(p => (p.id || '').toLowerCase().includes('chatgpt')));
-        const matchedOaiDirect = filterProvList(openaiProviders.filter(p => !(p.id || '').toLowerCase().includes('chatgpt') && (p.provider_type || '').toLowerCase() !== 'chatgpt_web'));
-        if (matchedCgptWeb.length > 0) {
-          oaiHtml += renderProviderEcosystemSection({
-            sectionId: 'chatgpt-web',
-            title: 'ChatGPT Web Sessions (Free with Sentinel PoW)',
-            icon: 'fa-solid fa-globe',
-            iconColor: { bg: 'bg-emerald-500/15', border: 'border-emerald-500/30', text: 'text-emerald-400', pillBg: 'bg-emerald-500/20', pillText: 'text-emerald-300', pillBorder: 'border-emerald-500/30', addBtnBg: 'bg-emerald-600 hover:bg-emerald-500' },
-            count: matchedCgptWeb.length,
-            desc: 'chatgpt.com web sessions with automated Sentinel SHA3-512 Proof-of-Work challenge solver',
-            addTab: 'openai',
-            providers: matchedCgptWeb,
-            showFailoverBanner: false
-          });
-        }
-        oaiHtml += renderProviderEcosystemSection({
-          sectionId: 'openai',
-          title: 'OpenAI Direct AI (API Key)',
-          icon: 'fa-solid fa-brain',
-          iconColor: { bg: 'bg-emerald-500/15', border: 'border-emerald-500/30', text: 'text-emerald-400', pillBg: 'bg-emerald-500/20', pillText: 'text-emerald-300', pillBorder: 'border-emerald-500/30', addBtnBg: 'bg-emerald-600 hover:bg-emerald-500' },
-          count: matchedOaiDirect.length,
-          desc: 'Direct OpenAI REST connection (GPT-4o, o1, o3-mini, GPT-4.5)',
-          addTab: 'openai',
-          providers: matchedOaiDirect,
-          showFailoverBanner: false
-        });
-        oaiHtml += '</div>';
-        container.innerHTML = oaiHtml;
-        return;
+      // 4. DeepSeek (Unified: DeepSeek Web + Direct API)
+      if ((currentCompanyFilter === 'all' || currentCompanyFilter === 'deepseek') &&
+          (matchedDeepSeek.length > 0 || isSpecificCompany)) {
+        sectionsHtml.push(renderProviderEcosystemSection({
+          sectionId: 'deepseek',
+          title: 'DeepSeek AI',
+          icon: 'fa-solid fa-atom',
+          iconColor: { bg: 'bg-cyan-500/15', border: 'border-cyan-500/30', text: 'text-cyan-400', pillBg: 'bg-cyan-500/20', pillText: 'text-cyan-300', pillBorder: 'border-cyan-500/30', addBtnBg: 'bg-cyan-600 hover:bg-cyan-500' },
+          count: matchedDeepSeek.length,
+          desc: 'DeepSeek Web Sessions (Free WASM PoW) & Direct API Keys (V3 / R1)',
+          addTab: 'deepseek',
+          providers: matchedDeepSeek,
+          showFailoverBanner: false,
+          isGrid
+        }));
       }
 
-      if (currentAccountFilter === 'deepseek') {
-        let dsHtml = '<div class="space-y-6">';
-        const matchedDsWeb = filterProvList(webProviders.filter(p => (p.id || '').includes('deepseek')));
-        const matchedDsDirect = filterProvList(directDeepseek);
-        if (matchedDsWeb.length > 0) {
-          dsHtml += renderProviderEcosystemSection({
-            sectionId: 'deepseek-web',
-            title: 'DeepSeek Web Sessions (Free with PoW)',
-            icon: 'fa-solid fa-globe',
-            iconColor: { bg: 'bg-teal-500/15', border: 'border-teal-500/30', text: 'text-teal-400', pillBg: 'bg-teal-500/20', pillText: 'text-teal-300', pillBorder: 'border-teal-500/30', addBtnBg: 'bg-teal-600 hover:bg-teal-500' },
-            count: matchedDsWeb.length,
-            desc: 'chat.deepseek.com web sessions with automated Proof-of-Work WASM challenge solver',
-            addTab: 'deepseek',
-            providers: matchedDsWeb,
-            showFailoverBanner: false
-          });
-        }
-        if (matchedDsDirect.length > 0) {
-          dsHtml += renderProviderEcosystemSection({
-            sectionId: 'deepseek-direct',
-            title: 'DeepSeek Direct AI (API Key)',
-            icon: 'fa-solid fa-atom',
-            iconColor: { bg: 'bg-cyan-500/15', border: 'border-cyan-500/30', text: 'text-cyan-400', pillBg: 'bg-cyan-500/20', pillText: 'text-cyan-300', pillBorder: 'border-cyan-500/30', addBtnBg: 'bg-cyan-600 hover:bg-cyan-500' },
-            count: matchedDsDirect.length,
-            desc: 'Direct OpenAI-compatible API connection (deepseek-chat, deepseek-reasoner R1)',
-            addTab: 'deepseek',
-            providers: matchedDsDirect,
-            showFailoverBanner: false
-          });
-        }
-        dsHtml += '</div>';
-        container.innerHTML = dsHtml;
-        return;
-      }
-
-      if (currentAccountFilter === 'web') {
-        let webHtml = '<div class="space-y-6">';
-        if (webAccounts.length > 0) {
-          webHtml += renderSection(
-            'Google Gemini Web Sessions',
-            'fa-solid fa-globe',
-            { bg: 'bg-teal-500/15', border: 'border-teal-500/30', text: 'text-teal-400', pillBg: 'bg-teal-500/20', pillText: 'text-teal-300', pillBorder: 'border-teal-500/30' },
-            webAccounts.length,
-            'Browser sessions from gemini.google.com via cookies or CDP',
-            'web',
-            webAccounts,
-            currentAccountView === 'grid'
-          );
-        }
-
-        const matchedDsWeb = filterProvList(webProviders.filter(p => (p.id || '').toLowerCase().includes('deepseek')));
-        if (matchedDsWeb.length > 0) {
-          webHtml += renderProviderEcosystemSection({
-            sectionId: 'deepseek-web',
-            title: 'DeepSeek Web Sessions (Free with PoW)',
-            icon: 'fa-solid fa-atom',
-            iconColor: { bg: 'bg-cyan-500/15', border: 'border-cyan-500/30', text: 'text-cyan-400', pillBg: 'bg-cyan-500/20', pillText: 'text-cyan-300', pillBorder: 'border-cyan-500/30', addBtnBg: 'bg-cyan-600 hover:bg-cyan-500' },
-            count: matchedDsWeb.length,
-            desc: 'chat.deepseek.com sessions with automatic Proof-of-Work challenge solver',
-            addTab: 'deepseek',
-            providers: matchedDsWeb,
-            showFailoverBanner: false
-          });
-        }
-
-        const matchedCgptWeb = filterProvList(webProviders.filter(p => (p.id || '').toLowerCase().includes('chatgpt')));
-        if (matchedCgptWeb.length > 0) {
-          webHtml += renderProviderEcosystemSection({
-            sectionId: 'chatgpt-web',
-            title: 'ChatGPT Web Sessions (Free with Sentinel PoW)',
-            icon: 'fa-solid fa-globe',
-            iconColor: { bg: 'bg-emerald-500/15', border: 'border-emerald-500/30', text: 'text-emerald-400', pillBg: 'bg-emerald-500/20', pillText: 'text-emerald-300', pillBorder: 'border-emerald-500/30', addBtnBg: 'bg-emerald-600 hover:bg-emerald-500' },
-            count: matchedCgptWeb.length,
-            desc: 'chatgpt.com web sessions with automated Sentinel SHA3-512 Proof-of-Work solver',
-            addTab: 'openai',
-            providers: matchedCgptWeb,
-            showFailoverBanner: false
-          });
-        }
-
-        webHtml += '</div>';
-        container.innerHTML = webHtml;
-        return;
-      }
-
-      if (currentAccountFilter === 'local') {
-        container.innerHTML = renderProviderEcosystemSection({
+      // 5. Local AI (Ollama, LM Studio)
+      if ((currentCompanyFilter === 'all' || currentCompanyFilter === 'local') &&
+          (matchedLocal.length > 0 || isSpecificCompany)) {
+        sectionsHtml.push(renderProviderEcosystemSection({
           sectionId: 'local',
-          title: 'Local AI Models (Ollama & Offline LLMs)',
+          title: 'Local AI Servers',
           icon: 'fa-solid fa-server',
-          iconColor: { bg: 'bg-emerald-500/15', border: 'border-emerald-500/30', text: 'text-emerald-400', pillBg: 'bg-emerald-500/20', pillText: 'text-emerald-300', pillBorder: 'border-emerald-500/30', addBtnBg: 'bg-emerald-600 hover:bg-emerald-500' },
+          iconColor: { bg: 'bg-teal-500/15', border: 'border-teal-500/30', text: 'text-teal-400', pillBg: 'bg-teal-500/20', pillText: 'text-teal-300', pillBorder: 'border-teal-500/30', addBtnBg: 'bg-teal-600 hover:bg-teal-500' },
           count: matchedLocal.length,
-          desc: 'Local offline models on localhost:11434 — zero latency, unlimited tokens, private',
+          desc: 'Local offline LLMs (Ollama on localhost:11434, LM Studio) — zero latency & private',
           addTab: 'ollama',
           providers: matchedLocal,
-          showFailoverBanner: false
-        });
-        return;
+          showFailoverBanner: false,
+          isGrid
+        }));
       }
 
-      if (currentAccountFilter === 'gateways') {
-        container.innerHTML = renderProviderEcosystemSection({
+      // 6. Cloud Gateways & Auto-Failover
+      if ((currentCompanyFilter === 'all' || currentCompanyFilter === 'gateways') &&
+          (matchedGateways.length > 0 || isSpecificCompany)) {
+        sectionsHtml.push(renderProviderEcosystemSection({
           sectionId: 'gateways',
-          title: 'Cloud Gateways & Fallback Hubs (OpenRouter, Groq, NVIDIA NIM)',
-          icon: 'fa-solid fa-bolt',
+          title: 'Cloud Gateways & Failover Hubs',
+          icon: 'fa-solid fa-cloud-bolt',
           iconColor: { bg: 'bg-purple-500/15', border: 'border-purple-500/30', text: 'text-purple-400', pillBg: 'bg-purple-500/20', pillText: 'text-purple-300', pillBorder: 'border-purple-500/30', addBtnBg: 'bg-purple-600 hover:bg-purple-500' },
           count: matchedGateways.length,
-          desc: 'Multi-model cloud aggregators with 429 auto-failover to external providers',
+          desc: 'OpenRouter, Groq, NVIDIA NIM & 429 automatic failover hubs',
           addTab: 'external',
           providers: matchedGateways,
-          showFailoverBanner: true
-        });
+          showFailoverBanner: true,
+          isGrid
+        }));
+      }
+
+      if (sectionsHtml.length === 0) {
+        container.innerHTML = `
+          <div class="p-8 rounded-2xl glass-card text-center space-y-2.5 text-slate-400 text-xs sm:text-sm">
+            <i class="fa-solid fa-filter-circle-xmark text-2xl text-slate-500 block"></i>
+            <p>No providers match the active filter${searchQ ? ` "<span class="text-white font-semibold">${searchQ}</span>"` : ''}.</p>
+            <button type="button" onclick="setCompanyFilter('all'); clearAccountSearch();" class="px-3 py-1.5 rounded-xl glass-pill text-indigo-300 hover:text-white text-xs font-semibold transition">
+              Reset Filters
+            </button>
+          </div>
+        `;
         return;
       }
 
-      if (currentAccountFilter === 'external') {
-        container.innerHTML = renderExternalProvidersSection(currentAccountView === 'grid');
-        return;
-      }
-
-      if (totalAll === 0 && totalExternal === 0) {
-        container.innerHTML = '<div class="p-8 rounded-2xl bg-dark-card border border-dark-border text-center text-slate-500 text-sm">No accounts or external providers found. Click "Add Account" to connect one.</div>';
-        return;
-      }
-
-      if (currentAccountFilter === 'all') {
-        let fullHtml = '<div class="space-y-8">';
-        // Section 1: Google Antigravity OAuth
-        if (oauthAccounts.length > 0 || !searchQ) {
-          fullHtml += renderSection(
-            'Google Antigravity Accounts (OAuth)',
-            'fa-solid fa-shield-halved',
-            { bg: 'bg-indigo-500/15', border: 'border-indigo-500/30', text: 'text-indigo-400', pillBg: 'bg-indigo-500/20', pillText: 'text-indigo-300', pillBorder: 'border-indigo-500/30' },
-            oauthAccounts.length,
-            'Full integration with Claude Sonnet/Opus & Gemini quota rotation',
-            'oauth',
-            oauthAccounts,
-            currentAccountView === 'grid'
-          );
-        }
-
-        // Section 2: Gemini Web Browser Sessions
-        if (webAccounts.length > 0 || !searchQ) {
-          fullHtml += renderSection(
-            'Gemini Web Browser Sessions',
-            'fa-solid fa-globe',
-            { bg: 'bg-teal-500/15', border: 'border-teal-500/30', text: 'text-teal-400', pillBg: 'bg-teal-500/20', pillText: 'text-teal-300', pillBorder: 'border-teal-500/30' },
-            webAccounts.length,
-            'Browser sessions from gemini.google.com (supports multiple accounts)',
-            'web',
-            webAccounts,
-            currentAccountView === 'grid'
-          );
-        }
-
-        // Section 3: Google AI Studio Keys
-        if (apiKeyAccounts.length > 0 || !searchQ) {
-          fullHtml += renderSection(
-            'Google AI Studio API Keys',
-            'fa-solid fa-key',
-            { bg: 'bg-amber-500/15', border: 'border-amber-500/30', text: 'text-amber-400', pillBg: 'bg-amber-500/20', pillText: 'text-amber-300', pillBorder: 'border-amber-500/30' },
-            apiKeyAccounts.length,
-            'Pay-as-you-go & free tier developer API keys via GenerativeLanguage REST',
-            'apikey',
-            apiKeyAccounts,
-            currentAccountView === 'grid'
-          );
-        }
-
-        // Section 4: DeepSeek Web Sessions (if any)
-        const matchedDsWeb = filterProvList(webProviders.filter(p => (p.id || '').includes('deepseek')));
-        if (matchedDsWeb.length > 0 || (!searchQ && webProviders.some(p => (p.id || '').includes('deepseek')))) {
-          fullHtml += renderProviderEcosystemSection({
-            sectionId: 'deepseek-web',
-            title: 'DeepSeek Web Sessions (Free with PoW)',
-            icon: 'fa-solid fa-globe',
-            iconColor: { bg: 'bg-teal-500/15', border: 'border-teal-500/30', text: 'text-teal-400', pillBg: 'bg-teal-500/20', pillText: 'text-teal-300', pillBorder: 'border-teal-500/30', addBtnBg: 'bg-teal-600 hover:bg-teal-500' },
-            count: matchedDsWeb.length,
-            desc: 'chat.deepseek.com web sessions with automated Proof-of-Work WASM challenge solver',
-            addTab: 'deepseek',
-            providers: matchedDsWeb,
-            showFailoverBanner: false
-          });
-        }
-
-        // Section 4b: ChatGPT Web Sessions (if any)
-        const matchedCgptWeb = filterProvList(webProviders.filter(p => (p.id || '').includes('chatgpt')));
-        if (matchedCgptWeb.length > 0 || (!searchQ && webProviders.some(p => (p.id || '').includes('chatgpt')))) {
-          fullHtml += renderProviderEcosystemSection({
-            sectionId: 'chatgpt-web',
-            title: 'ChatGPT Web Sessions (Free with Sentinel PoW)',
-            icon: 'fa-solid fa-globe',
-            iconColor: { bg: 'bg-emerald-500/15', border: 'border-emerald-500/30', text: 'text-emerald-400', pillBg: 'bg-emerald-500/20', pillText: 'text-emerald-300', pillBorder: 'border-emerald-500/30', addBtnBg: 'bg-emerald-600 hover:bg-emerald-500' },
-            count: matchedCgptWeb.length,
-            desc: 'chatgpt.com web sessions with automated Sentinel SHA3-512 Proof-of-Work solver',
-            addTab: 'openai',
-            providers: matchedCgptWeb,
-            showFailoverBanner: false
-          });
-        }
-
-        // Section 5: DeepSeek Direct API
-        const matchedDsDirect = filterProvList(directDeepseek);
-        if (matchedDsDirect.length > 0 || (!searchQ && directDeepseek.length > 0)) {
-          fullHtml += renderProviderEcosystemSection({
-            sectionId: 'deepseek-direct',
-            title: 'DeepSeek Direct AI (API Key)',
-            icon: 'fa-solid fa-atom',
-            iconColor: { bg: 'bg-cyan-500/15', border: 'border-cyan-500/30', text: 'text-cyan-400', pillBg: 'bg-cyan-500/20', pillText: 'text-cyan-300', pillBorder: 'border-cyan-500/30', addBtnBg: 'bg-cyan-600 hover:bg-cyan-500' },
-            count: matchedDsDirect.length,
-            desc: 'Direct OpenAI-compatible API connection (deepseek-chat, deepseek-reasoner R1)',
-            addTab: 'deepseek',
-            providers: matchedDsDirect,
-            showFailoverBanner: false
-          });
-        }
-
-        // Section 6: Anthropic Claude Direct AI
-        if (matchedAnthropic.length > 0 || (!searchQ && anthropicProviders.length > 0)) {
-          fullHtml += renderProviderEcosystemSection({
-            sectionId: 'anthropic',
-            title: 'Anthropic Claude Direct AI',
-            icon: 'fa-solid fa-cube',
-            iconColor: { bg: 'bg-amber-500/15', border: 'border-amber-500/30', text: 'text-amber-400', pillBg: 'bg-amber-500/20', pillText: 'text-amber-300', pillBorder: 'border-amber-500/30', addBtnBg: 'bg-amber-600 hover:bg-amber-500' },
-            count: matchedAnthropic.length,
-            desc: 'Direct Anthropic Messages API connection (Claude 3.7 Sonnet, Claude 3.5 Haiku, Opus)',
-            addTab: 'anthropic',
-            providers: matchedAnthropic,
-            showFailoverBanner: false
-          });
-        }
-
-        // Section 7: OpenAI Direct AI
-        if (matchedOpenAI.length > 0 || (!searchQ && openaiProviders.length > 0)) {
-          fullHtml += renderProviderEcosystemSection({
-            sectionId: 'openai',
-            title: 'OpenAI Direct AI',
-            icon: 'fa-solid fa-brain',
-            iconColor: { bg: 'bg-emerald-500/15', border: 'border-emerald-500/30', text: 'text-emerald-400', pillBg: 'bg-emerald-500/20', pillText: 'text-emerald-300', pillBorder: 'border-emerald-500/30', addBtnBg: 'bg-emerald-600 hover:bg-emerald-500' },
-            count: matchedOpenAI.length,
-            desc: 'Direct OpenAI REST connection (GPT-4o, o1, o3-mini, GPT-4.5)',
-            addTab: 'openai',
-            providers: matchedOpenAI,
-            showFailoverBanner: false
-          });
-        }
-
-        // Section 8: Local AI Models (Ollama)
-        if (matchedLocal.length > 0 || (!searchQ && localProviders.length > 0)) {
-          fullHtml += renderProviderEcosystemSection({
-            sectionId: 'local',
-            title: 'Local AI Models (Ollama & Offline LLMs)',
-            icon: 'fa-solid fa-server',
-            iconColor: { bg: 'bg-emerald-500/15', border: 'border-emerald-500/30', text: 'text-emerald-400', pillBg: 'bg-emerald-500/20', pillText: 'text-emerald-300', pillBorder: 'border-emerald-500/30', addBtnBg: 'bg-emerald-600 hover:bg-emerald-500' },
-            count: matchedLocal.length,
-            desc: 'Local offline models on localhost:11434 — zero latency, unlimited tokens, private',
-            addTab: 'ollama',
-            providers: matchedLocal,
-            showFailoverBanner: false
-          });
-        }
-
-        // Section 9: Cloud Gateways (OpenRouter, Groq, NVIDIA NIM)
-        if (matchedGateways.length > 0 || (!searchQ && gatewayProviders.length > 0)) {
-          fullHtml += renderProviderEcosystemSection({
-            sectionId: 'gateways',
-            title: 'Cloud Gateways & Fallback Hubs (OpenRouter, Groq, NVIDIA NIM)',
-            icon: 'fa-solid fa-bolt',
-            iconColor: { bg: 'bg-purple-500/15', border: 'border-purple-500/30', text: 'text-purple-400', pillBg: 'bg-purple-500/20', pillText: 'text-purple-300', pillBorder: 'border-purple-500/30', addBtnBg: 'bg-purple-600 hover:bg-purple-500' },
-            count: matchedGateways.length,
-            desc: 'Multi-model cloud aggregators with 429 auto-failover to external providers',
-            addTab: 'external',
-            providers: matchedGateways,
-            showFailoverBanner: true
-          });
-        }
-
-        fullHtml += '</div>';
-        container.innerHTML = fullHtml;
-      } else if (currentAccountFilter === 'google') {
-        let fullHtml = '<div class="space-y-8">';
-        fullHtml += renderSection(
-          'Google Antigravity Accounts (OAuth)',
-          'fa-solid fa-shield-halved',
-          { bg: 'bg-indigo-500/15', border: 'border-indigo-500/30', text: 'text-indigo-400', pillBg: 'bg-indigo-500/20', pillText: 'text-indigo-300', pillBorder: 'border-indigo-500/30' },
-          oauthAccounts.length,
-          'Full integration with Claude Sonnet/Opus & Gemini quota rotation',
-          'oauth',
-          oauthAccounts,
-          currentAccountView === 'grid'
-        );
-        fullHtml += renderSection(
-          'Gemini Web Browser Sessions',
-          'fa-solid fa-globe',
-          { bg: 'bg-teal-500/15', border: 'border-teal-500/30', text: 'text-teal-400', pillBg: 'bg-teal-500/20', pillText: 'text-teal-300', pillBorder: 'border-teal-500/30' },
-          webAccounts.length,
-          'Browser sessions from gemini.google.com (supports multiple accounts)',
-          'web',
-          webAccounts,
-          currentAccountView === 'grid'
-        );
-        fullHtml += renderSection(
-          'Google AI Studio API Keys',
-          'fa-solid fa-key',
-          { bg: 'bg-amber-500/15', border: 'border-amber-500/30', text: 'text-amber-400', pillBg: 'bg-amber-500/20', pillText: 'text-amber-300', pillBorder: 'border-amber-500/30' },
-          apiKeyAccounts.length,
-          'Pay-as-you-go & free tier developer API keys via GenerativeLanguage REST',
-          'apikey',
-          apiKeyAccounts,
-          currentAccountView === 'grid'
-        );
-        fullHtml += '</div>';
-        container.innerHTML = fullHtml;
-      } else if (currentAccountFilter === 'apikey') {
-        let fullHtml = '<div class="space-y-8">';
-        if (apiKeyAccounts.length > 0) {
-          fullHtml += renderSection(
-            'Google AI Studio API Keys',
-            'fa-solid fa-key',
-            { bg: 'bg-amber-500/15', border: 'border-amber-500/30', text: 'text-amber-400', pillBg: 'bg-amber-500/20', pillText: 'text-amber-300', pillBorder: 'border-amber-500/30' },
-            apiKeyAccounts.length,
-            'Pay-as-you-go & free tier developer API keys via GenerativeLanguage REST',
-            'apikey',
-            apiKeyAccounts,
-            currentAccountView === 'grid'
-          );
-        }
-        const matchedDsDirect = filterProvList(directDeepseek);
-        if (matchedDsDirect.length > 0) {
-          fullHtml += renderProviderEcosystemSection({
-            sectionId: 'deepseek-api',
-            title: 'DeepSeek Direct API Keys',
-            icon: 'fa-solid fa-atom',
-            iconColor: { bg: 'bg-cyan-500/15', border: 'border-cyan-500/30', text: 'text-cyan-400', pillBg: 'bg-cyan-500/20', pillText: 'text-cyan-300', pillBorder: 'border-cyan-500/30', addBtnBg: 'bg-cyan-600 hover:bg-cyan-500' },
-            count: matchedDsDirect.length,
-            desc: 'Direct OpenAI-compatible API connection via DeepSeek API Key',
-            addTab: 'deepseek',
-            providers: matchedDsDirect,
-            showFailoverBanner: false
-          });
-        }
-        if (matchedAnthropic.length > 0) {
-          fullHtml += renderProviderEcosystemSection({
-            sectionId: 'anthropic',
-            title: 'Anthropic Claude Direct AI Keys',
-            icon: 'fa-solid fa-cube',
-            iconColor: { bg: 'bg-amber-500/15', border: 'border-amber-500/30', text: 'text-amber-400', pillBg: 'bg-amber-500/20', pillText: 'text-amber-300', pillBorder: 'border-amber-500/30', addBtnBg: 'bg-amber-600 hover:bg-amber-500' },
-            count: matchedAnthropic.length,
-            desc: 'Direct Anthropic Messages API connection via Anthropic API Key',
-            addTab: 'anthropic',
-            providers: matchedAnthropic,
-            showFailoverBanner: false
-          });
-        }
-        if (matchedOpenAI.length > 0) {
-          fullHtml += renderProviderEcosystemSection({
-            sectionId: 'openai',
-            title: 'OpenAI Direct AI Keys',
-            icon: 'fa-solid fa-brain',
-            iconColor: { bg: 'bg-emerald-500/15', border: 'border-emerald-500/30', text: 'text-emerald-400', pillBg: 'bg-emerald-500/20', pillText: 'text-emerald-300', pillBorder: 'border-emerald-500/30', addBtnBg: 'bg-emerald-600 hover:bg-emerald-500' },
-            count: matchedOpenAI.length,
-            desc: 'Direct OpenAI REST connection via OpenAI API Key',
-            addTab: 'openai',
-            providers: matchedOpenAI,
-            showFailoverBanner: false
-          });
-        }
-        fullHtml += '</div>';
-        container.innerHTML = fullHtml;
-      } else {
-        // Filtered view (oauth, exhausted)
-        let title = 'Accounts';
-        let icon = 'fa-solid fa-users';
-        let iconColor = { bg: 'bg-indigo-500/15', border: 'border-indigo-500/30', text: 'text-indigo-400', pillBg: 'bg-indigo-500/20', pillText: 'text-indigo-300', pillBorder: 'border-indigo-500/30' };
-        let addType = 'oauth';
-        let desc = '';
-
-        if (currentAccountFilter === 'oauth') {
-          title = 'Google Antigravity Accounts (OAuth)';
-          icon = 'fa-solid fa-shield-halved';
-          desc = 'Full integration with Claude Sonnet/Opus & Gemini quota rotation';
-          addType = 'oauth';
-        } else if (currentAccountFilter === 'exhausted') {
-          title = 'Exhausted Quota Accounts (0%)';
-          icon = 'fa-solid fa-battery-empty';
-          iconColor = { bg: 'bg-red-500/15', border: 'border-red-500/30', text: 'text-red-400', pillBg: 'bg-red-500/20', pillText: 'text-red-300', pillBorder: 'border-red-500/30' };
-          desc = 'Accounts currently at 0% quota awaiting reset timer';
-          addType = 'oauth';
-        }
-
-        container.innerHTML = renderSection(
-          title,
-          icon,
-          iconColor,
-          filtered.length,
-          desc,
-          addType,
-          filtered,
-          currentAccountView === 'grid'
-        );
-      }
+      container.innerHTML = `<div class="space-y-8">${sectionsHtml.join('')}</div>`;
     }
 
     // Section collapse/expand
-    function toggleSection(addType, event) {
+    function toggleSection(sectionKey, event) {
       if (event && event.target && event.target.closest('[onclick]') && event.target.closest('[onclick]') !== event.currentTarget) return;
-      if (collapsedSections.has(addType)) {
-        collapsedSections.delete(addType);
+      if (collapsedSections.has(sectionKey)) {
+        collapsedSections.delete(sectionKey);
       } else {
-        collapsedSections.add(addType);
+        collapsedSections.add(sectionKey);
       }
       renderAccounts();
     }
 
     function collapseAllSections() {
-      ['oauth', 'web', 'apikey', 'deepseek', 'local', 'gateways', 'external'].forEach(t => collapsedSections.add(t));
+      ['google', 'openai', 'anthropic', 'deepseek', 'local', 'gateways'].forEach(t => collapsedSections.add(t));
       renderAccounts();
     }
 
@@ -4299,40 +4103,174 @@ ightarrow$ v1.0.3</p>
       renderAccounts();
     }
 
-    async function toggleSectionAccounts(addType, enable) {
-      if (addType === 'external' || addType === 'deepseek' || addType === 'local' || addType === 'gateways') {
-        return toggleProviderGroup(addType, enable);
+    async function toggleSectionAccounts(sectionKey, enable) {
+      if (['openai', 'anthropic', 'deepseek', 'local', 'gateways', 'external'].includes(sectionKey)) {
+        return toggleProviderGroup(sectionKey, enable);
       }
-      const typeMap = { oauth: 'consumer', web: 'gemini_web', apikey: 'api_key' };
-      const authMethod = typeMap[addType];
-      const targets = rawAccountsData.filter(a => {
-        if (addType === 'oauth') return a.auth_method === 'consumer' || (!a.auth_method && !a.api_key);
-        return a.auth_method === authMethod;
-      });
+      let targets = rawAccountsData;
+      if (sectionKey === 'oauth') {
+        targets = rawAccountsData.filter(a => a.auth_method === 'consumer' || (!a.auth_method && !a.api_key));
+      } else if (sectionKey === 'web') {
+        targets = rawAccountsData.filter(a => a.auth_method === 'gemini_web');
+      } else if (sectionKey === 'apikey') {
+        targets = rawAccountsData.filter(a => a.auth_method === 'api_key');
+      } else if (sectionKey === 'google') {
+        if (currentMethodFilter === 'oauth') targets = rawAccountsData.filter(a => a.auth_method === 'consumer' || (!a.auth_method && !a.api_key));
+        else if (currentMethodFilter === 'web') targets = rawAccountsData.filter(a => a.auth_method === 'gemini_web');
+        else if (currentMethodFilter === 'apikey') targets = rawAccountsData.filter(a => a.auth_method === 'api_key');
+        else targets = rawAccountsData;
+      }
       if (targets.length === 0) return;
       const action = enable ? 'enable' : 'disable';
-      showToast(`${enable ? 'Enabling' : 'Disabling'} all ${addType} accounts...`, 'info');
+      showToast(`${enable ? 'Enabling' : 'Disabling'} ${targets.length} Google account(s)...`, 'info');
       try {
-        const resp = await fetch(`/api/accounts/section/${encodeURIComponent(addType)}/toggle`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ enabled: enable, auth_method: authMethod })
-        });
-        if (!resp.ok) {
-          await Promise.all(targets.map(acc =>
-            fetch(`/api/accounts/${encodeURIComponent(acc.account_id)}/toggle`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ enabled: enable })
-            })
-          ));
-        }
-        showToast(`All ${addType} accounts ${action}d!`, 'success');
+        await Promise.all(targets.map(acc =>
+          fetch(`/api/accounts/${encodeURIComponent(acc.account_id)}/toggle`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled: enable })
+          })
+        ));
+        showToast(`Google accounts ${action}d!`, 'success');
         await loadAccounts();
         await loadModels();
       } catch (err) {
         showToast(`Error: ${err.message}`, 'error');
       }
+    }
+
+    function renderUnifiedGoogleSection(items, isGrid) {
+      const sectionKey = 'google';
+      const isCollapsed = collapsedSections.has(sectionKey);
+      const addTargetTab = currentMethodFilter === 'web' ? 'web' : (currentMethodFilter === 'apikey' ? 'apikey' : 'oauth');
+      const addBtnLabel = currentMethodFilter === 'web' ? 'Add Web Session' : (currentMethodFilter === 'apikey' ? 'Add API Key' : 'Add Google');
+
+      const oauthCnt = items.filter(a => a.auth_method !== 'gemini_web' && a.auth_method !== 'api_key').length;
+      const webCnt = items.filter(a => a.auth_method === 'gemini_web').length;
+      const keyCnt = items.filter(a => a.auth_method === 'api_key').length;
+      const enabledCount = items.filter(a => a.enabled !== false).length;
+      const disabledCount = items.length - enabledCount;
+
+      const breakdownParts = [];
+      if (oauthCnt > 0) breakdownParts.push(`${oauthCnt} OAuth`);
+      if (webCnt > 0) breakdownParts.push(`${webCnt} Web`);
+      if (keyCnt > 0) breakdownParts.push(`${keyCnt} Key${keyCnt === 1 ? '' : 's'}`);
+      const breakdownBadge = breakdownParts.length > 0
+        ? `<span class="text-[10px] text-slate-400 font-mono hidden sm:inline">${breakdownParts.join(' · ')}</span>`
+        : '';
+      const summaryBadge = `<span class="text-[10px] text-slate-400 font-mono">${enabledCount} enabled${disabledCount > 0 ? `, ${disabledCount} paused` : ''}</span>`;
+
+      let agyActivePills = '';
+      const cliAcc = items.find(a => a.account_id === cliActiveAccountId);
+      const ideAcc = items.find(a => a.account_id === ((typeof ideActiveAccountId !== 'undefined') ? ideActiveAccountId : window.ideActiveAccountId));
+      const hubAcc = items.find(a => a.account_id === standaloneActiveAccountId);
+      const accountTargets = new Map();
+      if (cliAcc) {
+        if (!accountTargets.has(cliAcc.account_id)) accountTargets.set(cliAcc.account_id, { acc: cliAcc, targets: [] });
+        accountTargets.get(cliAcc.account_id).targets.push('CLI');
+      }
+      if (hubAcc) {
+        if (!accountTargets.has(hubAcc.account_id)) accountTargets.set(hubAcc.account_id, { acc: hubAcc, targets: [] });
+        accountTargets.get(hubAcc.account_id).targets.push('Hub');
+      }
+      if (ideAcc) {
+        if (!accountTargets.has(ideAcc.account_id)) accountTargets.set(ideAcc.account_id, { acc: ideAcc, targets: [] });
+        accountTargets.get(ideAcc.account_id).targets.push('IDE');
+      }
+      accountTargets.forEach(({ acc, targets }) => {
+        const isCli = targets.includes('CLI');
+        const isHub = targets.includes('Hub');
+        const pillColor = isCli
+          ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+          : (isHub ? 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30' : 'bg-purple-500/15 text-purple-400 border-purple-500/30');
+        const dotColor = isCli ? 'bg-emerald-400' : (isHub ? 'bg-cyan-400' : 'bg-purple-400');
+        const label = targets.join('+');
+        agyActivePills += `<span class="text-[10px] font-mono px-2 py-0.5 rounded-full ${pillColor} border flex items-center space-x-1 shrink-0" title="Active session in ${targets.join(', ')}"><span class="w-1.5 h-1.5 rounded-full ${dotColor} animate-pulse"></span><span>${label}: <b class="text-white">${acc.name || acc.email}</b></span></span>`;
+      });
+
+      let html = `
+        <div class="space-y-0 pt-1" id="acc-section-google">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-white/[0.08] cursor-pointer group" onclick="toggleSection('google', event)">
+            <div class="flex items-center space-x-2.5 min-w-0 flex-1">
+              <div class="w-9 h-9 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-400 text-sm shrink-0 shadow-sm">
+                <i class="fa-brands fa-google"></i>
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center space-x-2 flex-wrap gap-y-1">
+                  <h3 class="text-sm sm:text-base font-bold text-white tracking-tight truncate">Google</h3>
+                  <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 font-bold shrink-0">${items.length}</span>
+                  ${breakdownBadge}
+                  ${agyActivePills}
+                  ${isCollapsed ? summaryBadge : ''}
+                </div>
+                <p class="text-[11px] text-slate-400 mt-0.5 truncate">Antigravity OAuth 2.0 (Claude & Gemini), Gemini Web Sessions & AI Studio API Keys</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0" onclick="event.stopPropagation()">
+              <button onclick="toggleSectionAccounts('google', true)" class="text-[10px] px-2.5 py-1 rounded-xl glass-pill hover:bg-emerald-500/20 hover:text-emerald-300 text-slate-300 font-medium transition flex items-center space-x-1" title="Enable all visible Google accounts">
+                <i class="fa-solid fa-play text-emerald-400 text-[9px]"></i>
+                <span>Enable</span>
+              </button>
+              <button onclick="toggleSectionAccounts('google', false)" class="text-[10px] px-2.5 py-1 rounded-xl glass-pill hover:bg-amber-500/20 hover:text-amber-300 text-slate-300 font-medium transition flex items-center space-x-1" title="Disable all visible Google accounts">
+                <i class="fa-solid fa-pause text-amber-400 text-[9px]"></i>
+                <span>Disable</span>
+              </button>
+              <button onclick="openAddAccountModal('${addTargetTab}')" class="text-xs px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold transition flex items-center space-x-1.5 shadow-md active:scale-95">
+                <i class="fa-solid fa-plus text-[10px]"></i>
+                <span>${addBtnLabel}</span>
+              </button>
+              <button class="text-slate-500 hover:text-white p-1 transition group-hover:text-slate-300" title="${isCollapsed ? 'Expand' : 'Collapse'}">
+                <i class="fa-solid ${isCollapsed ? 'fa-chevron-down' : 'fa-chevron-up'} text-[11px]"></i>
+              </button>
+            </div>
+          </div>
+      `;
+
+      if (isCollapsed) {
+        html += '</div>';
+        return html;
+      }
+
+      html += '<div class="space-y-3.5 pt-3.5">';
+      if (items.length === 0) {
+        html += `
+          <div class="p-6 rounded-2xl glass-card text-center space-y-2 text-xs text-slate-400 border-dashed border-white/[0.1]">
+            <p>No Google accounts match the selected filter.</p>
+            <button onclick="openAddAccountModal('${addTargetTab}')" class="text-xs px-3 py-1.5 rounded-xl glass-pill hover:bg-white/[0.08] text-slate-200 border border-white/[0.1] font-medium inline-flex items-center space-x-1.5 transition">
+              <i class="fa-solid fa-plus text-[10px]"></i>
+              <span>${addBtnLabel}</span>
+            </button>
+          </div>
+        </div></div>`;
+        return html;
+      }
+
+      if (isGrid) {
+        html += '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">';
+        items.forEach(acc => { html += renderAccountCard(acc); });
+        html += '</div></div></div>';
+      } else {
+        html += `
+          <div class="overflow-x-auto rounded-2xl border border-dark-border bg-dark-card shadow-sm custom-scrollbar">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-900/80 text-slate-400 border-b border-dark-border uppercase font-mono text-[10px]">
+                <tr>
+                  <th class="w-8 px-3 py-3 text-center"><input type="checkbox" onchange="toggleSelectAllBatch(this)" class="w-3.5 h-3.5 rounded bg-slate-900 border-slate-700 text-indigo-600 focus:ring-0 cursor-pointer" title="Select All"></th>
+                  <th class="px-4 py-3">Account / Identity</th>
+                  <th class="px-3 py-3">Auth / Tier</th>
+                  <th class="px-3 py-3">Last Active Model</th>
+                  <th class="px-4 py-3">Status / Quota</th>
+                  <th class="px-4 py-3">Claude & 3P Quota</th>
+                  <th class="px-3 py-3 text-center">Reqs</th>
+                  <th class="px-4 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-800/80 text-slate-300 font-sans">
+        `;
+        items.forEach(acc => { html += renderAccountTableRow(acc); });
+        html += '</tbody></table></div></div></div>';
+      }
+      return html;
     }
 
     function renderSection(title, icon, iconColor, count, desc, addType, items, isGrid) {
@@ -4905,11 +4843,63 @@ ightarrow$ v1.0.3</p>
       `;
     }
 
-    function renderProviderEcosystemSection({ sectionId, title, icon, iconColor, count, desc, addTab, providers, showFailoverBanner = false }) {
+    function renderProviderTableRow(p) {
+      const isEnabled = p.enabled !== false;
+      const comp = classifyProviderCompany(p);
+      const method = classifyProviderMethod(p);
+      const modelsCount = (p.models || []).length;
+      const modelPreview = (p.models || []).slice(0, 3).map(m => m.id).join(', ') + (modelsCount > 3 ? ` +${modelsCount - 3}` : '');
+      const methodBadge = method === 'web'
+        ? '<span class="inline-flex items-center text-[10px] px-2 py-0.5 rounded-full bg-teal-500/15 text-teal-300 border border-teal-500/30"><i class="fa-solid fa-globe mr-1 text-[9px]"></i>Web Session</span>'
+        : (method === 'local'
+          ? '<span class="inline-flex items-center text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"><i class="fa-solid fa-server mr-1 text-[9px]"></i>Local Server</span>'
+          : '<span class="inline-flex items-center text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30"><i class="fa-solid fa-key mr-1 text-[9px]"></i>API Key</span>');
+
+      return `
+        <tr class="hover:bg-white/[0.03] transition border-b border-white/[0.05] ${!isEnabled ? 'opacity-55' : ''}">
+          <td class="px-4 py-3.5">
+            <div class="font-bold text-white flex items-center gap-2">
+              <span class="truncate max-w-[180px]">${p.name || p.id}</span>
+              <span class="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-white/[0.05] text-slate-300 border border-white/[0.08]">${p.id}</span>
+            </div>
+            <div class="text-[10px] text-slate-400 font-mono truncate max-w-[260px] mt-0.5">${p.base_url}</div>
+          </td>
+          <td class="px-3 py-3.5">
+            <div class="flex items-center flex-wrap gap-1">${methodBadge}</div>
+          </td>
+          <td class="px-3 py-3.5">
+            <span class="text-[11px] font-mono text-slate-300">${modelsCount} model${modelsCount === 1 ? '' : 's'}</span>
+            <div class="text-[10px] font-mono text-slate-500 truncate max-w-[220px]">${modelPreview || '—'}</div>
+          </td>
+          <td class="px-3 py-3.5">
+            <span id="prov-ping-${p.id}" class="text-[10px] font-mono text-slate-300 glass-pill px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5">
+              <span class="w-1.5 h-1.5 rounded-full ${isEnabled ? 'bg-emerald-400' : 'bg-slate-500'}"></span>${isEnabled ? 'Ready' : 'Paused'}
+            </span>
+          </td>
+          <td class="px-4 py-3.5 text-right">
+            <div class="flex items-center justify-end space-x-1.5">
+              <button onclick="openPlaygroundForProvider('${p.id}')" class="text-slate-400 hover:text-indigo-400 p-1 transition" title="Test in Live Playground"><i class="fa-solid fa-terminal text-xs"></i></button>
+              <button onclick="testProvider('${p.id}')" class="text-slate-400 hover:text-amber-400 p-1 transition" title="Ping / Test Connection"><i class="fa-solid fa-bolt text-xs"></i></button>
+              <button onclick="discoverProvider('${p.id}')" class="text-slate-400 hover:text-purple-400 p-1 transition" title="Discover Models"><i class="fa-solid fa-arrows-rotate text-xs"></i></button>
+              <button onclick="toggleProvider('${p.id}', ${!isEnabled})" class="relative inline-flex h-4 w-7 flex-shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isEnabled ? 'bg-purple-600' : 'bg-slate-700'}" title="${isEnabled ? 'Disable' : 'Enable'}">
+                <span class="pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${isEnabled ? 'translate-x-3' : 'translate-x-0'}"></span>
+              </button>
+              <button onclick="deleteProvider('${p.id}')" class="text-slate-500 hover:text-rose-400 p-1 transition" title="Delete Provider"><i class="fa-solid fa-trash-can text-xs"></i></button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }
+
+    function renderProviderEcosystemSection({ sectionId, title, icon, iconColor, count, desc, addTab, providers, showFailoverBanner = false, isGrid = true }) {
       const isCollapsed = collapsedSections.has(sectionId);
       let totalActiveModels = 0;
       let enabledCount = 0;
+      let webCnt = 0;
+      let apiCnt = 0;
       providers.forEach(p => {
+        if (classifyProviderMethod(p) === 'web') webCnt++;
+        else apiCnt++;
         if (p.enabled !== false) {
           enabledCount++;
           totalActiveModels += (p.models ? p.models.length : 0);
@@ -4917,6 +4907,14 @@ ightarrow$ v1.0.3</p>
       });
       const disabledCount = count - enabledCount;
       const summaryBadge = `<span class="text-[10px] text-slate-400 font-mono">${enabledCount} active (${totalActiveModels} models)${disabledCount > 0 ? `, ${disabledCount} paused` : ''}</span>`;
+      const modeParts = [];
+      if (webCnt > 0 && apiCnt > 0) {
+        modeParts.push(`${webCnt} Web`);
+        modeParts.push(`${apiCnt} API`);
+      }
+      const modeBreakdown = modeParts.length > 0
+        ? `<span class="text-[10px] text-slate-400 font-mono hidden sm:inline">${modeParts.join(' · ')}</span>`
+        : '';
 
       let html = `
         <div class="space-y-0 pt-1" id="acc-section-${sectionId}">
@@ -4929,6 +4927,7 @@ ightarrow$ v1.0.3</p>
                 <div class="flex items-center space-x-2 flex-wrap gap-y-1">
                   <h3 class="text-sm sm:text-base font-bold text-white tracking-tight truncate">${title}</h3>
                   <span class="text-[10px] font-mono px-2 py-0.5 rounded-full ${iconColor.pillBg} ${iconColor.pillText} border ${iconColor.pillBorder} font-bold shrink-0">${count}</span>
+                  ${modeBreakdown}
                   ${isCollapsed ? summaryBadge : ''}
                 </div>
                 ${desc ? `<p class="text-[11px] text-slate-400 mt-0.5 truncate">${desc}</p>` : ''}
@@ -4945,7 +4944,7 @@ ightarrow$ v1.0.3</p>
               </button>
               <button onclick="openAddAccountModal('${addTab || 'external'}')" class="text-xs px-3 py-1.5 rounded-xl ${iconColor.addBtnBg || 'bg-indigo-600 hover:bg-indigo-500'} text-white font-semibold transition flex items-center space-x-1.5 shadow-md active:scale-95">
                 <i class="fa-solid fa-plus text-[10px]"></i>
-                <span>+ Add ${title.split(' ')[0]}</span>
+                <span>Add ${title.split(' ')[0]}</span>
               </button>
               <button class="text-slate-500 hover:text-white p-1 transition group-hover:text-slate-300" title="${isCollapsed ? 'Expand' : 'Collapse'}">
                 <i class="fa-solid ${isCollapsed ? 'fa-chevron-down' : 'fa-chevron-up'} text-[11px]"></i>
@@ -4967,39 +4966,50 @@ ightarrow$ v1.0.3</p>
       if (providers.length === 0) {
         html += `
           <div class="p-6 rounded-2xl glass-card text-center space-y-2 text-xs text-slate-400 border-dashed border-white/[0.1]">
-            <p>No ${title} configured yet.</p>
+            <p>No ${title} providers match the selected filter.</p>
             <button onclick="openAddAccountModal('${addTab || 'external'}')" class="text-xs px-3 py-1.5 rounded-xl glass-pill hover:bg-white/[0.08] text-slate-200 border border-white/[0.1] font-medium inline-flex items-center space-x-1.5 transition">
               <i class="fa-solid fa-plus text-[10px]"></i>
-              <span>+ Add ${title.split(' ')[0]}</span>
+              <span>Add ${title.split(' ')[0]}</span>
             </button>
           </div>
         </div></div>`;
         return html;
       }
 
-      html += '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">';
-      html += providers.map(p => renderSingleProviderCard(p)).join('');
-      html += '</div></div></div>';
+      if (isGrid) {
+        html += '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">';
+        html += providers.map(p => renderSingleProviderCard(p)).join('');
+        html += '</div></div></div>';
+      } else {
+        html += `
+          <div class="overflow-x-auto rounded-2xl border border-dark-border bg-dark-card shadow-sm custom-scrollbar">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-900/80 text-slate-400 border-b border-dark-border uppercase font-mono text-[10px]">
+                <tr>
+                  <th class="px-4 py-3">Provider / Endpoint</th>
+                  <th class="px-3 py-3">Connection Mode</th>
+                  <th class="px-3 py-3">Models</th>
+                  <th class="px-3 py-3">Status</th>
+                  <th class="px-4 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-800/80 text-slate-300 font-sans">
+                ${providers.map(p => renderProviderTableRow(p)).join('')}
+              </tbody>
+            </table>
+          </div></div></div>
+        `;
+      }
       return html;
     }
 
     async function toggleProviderGroup(groupName, enable) {
       let targets = [];
-      if (groupName === 'anthropic') targets = rawProvidersData.filter(p => (p.id || '').toLowerCase().includes('anthropic'));
-      else if (groupName === 'openai') targets = rawProvidersData.filter(p => (p.id || '').toLowerCase().includes('openai') && !p.id.toLowerCase().includes('openrouter'));
-      else if (groupName === 'deepseek') targets = rawProvidersData.filter(p => (p.id || '').toLowerCase().includes('deepseek'));
-      else if (groupName === 'local') targets = rawProvidersData.filter(p => {
-        const id = (p.id || '').toLowerCase();
-        return id.includes('ollama') || id.includes('lmstudio') || id.includes('local');
-      });
-      else if (groupName === 'gateways') targets = rawProvidersData.filter(p => {
-        const id = (p.id || '').toLowerCase();
-        const ptype = (p.provider_type || '').toLowerCase();
-        return !id.includes('anthropic') && !ptype.includes('anthropic') &&
-               !(id.includes('openai') && !id.includes('openrouter')) &&
-               !id.includes('deepseek') && !id.includes('ollama') && !id.includes('lmstudio') && !id.includes('local');
-      });
-      else targets = rawProvidersData;
+      if (['openai', 'anthropic', 'deepseek', 'local', 'gateways'].includes(groupName)) {
+        targets = (rawProvidersData || []).filter(p => classifyProviderCompany(p) === groupName);
+      } else {
+        targets = rawProvidersData || [];
+      }
 
       if (targets.length === 0) return;
       const action = enable ? 'enable' : 'disable';
@@ -5376,7 +5386,7 @@ ightarrow$ v1.0.3</p>
       } else if (isWeb) {
         tierBadgeHtml = '<span class="text-[9px] sm:text-[10px] px-2 py-0.5 rounded-full bg-teal-500/15 text-teal-300 font-semibold border border-teal-500/30 flex items-center gap-1 shrink-0 shadow-sm" title="Gemini Web Advanced Browser Session"><i class="fa-solid fa-globe text-teal-400 text-[9px]"></i><span>Web Pro</span></span>';
       } else {
-        tierBadgeHtml = '';
+        tierBadgeHtml = '<span class="text-[9px] sm:text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 font-semibold border border-indigo-500/30 flex items-center gap-1 shrink-0 shadow-sm" title="Google OAuth 2.0 Account"><i class="fa-solid fa-shield-halved text-indigo-400 text-[9px]"></i><span>OAuth</span></span>';
       }
 
       const gcpTosBadgeHtml = (Boolean(acc.is_gcp_tos) && !isApiKey && !isWeb)
@@ -5736,104 +5746,378 @@ ightarrow$ v1.0.3</p>
 
     let allModelsData = {};
 
+    const MODEL_COMPANY_META = {
+      all: { label: 'All', icon: 'fa-solid fa-layer-group text-slate-300', badge: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30', activePill: 'bg-indigo-600/30 text-indigo-200 border-indigo-500/50' },
+      google: { label: 'Google', icon: 'fa-brands fa-google text-blue-400', badge: 'bg-blue-500/15 text-blue-300 border-blue-500/30', activePill: 'bg-blue-600/30 text-blue-200 border-blue-500/50' },
+      openai: { label: 'OpenAI', icon: 'fa-solid fa-brain text-emerald-400', badge: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30', activePill: 'bg-emerald-600/30 text-emerald-200 border-emerald-500/50' },
+      anthropic: { label: 'Claude', icon: 'fa-solid fa-cube text-amber-400', badge: 'bg-amber-500/15 text-amber-300 border-amber-500/30', activePill: 'bg-amber-600/30 text-amber-200 border-amber-500/50' },
+      deepseek: { label: 'DeepSeek', icon: 'fa-solid fa-atom text-cyan-400', badge: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30', activePill: 'bg-cyan-600/30 text-cyan-200 border-cyan-500/50' },
+      local: { label: 'Local', icon: 'fa-solid fa-server text-teal-400', badge: 'bg-teal-500/15 text-teal-300 border-teal-500/30', activePill: 'bg-teal-600/30 text-teal-200 border-teal-500/50' },
+      gateways: { label: 'Gateways', icon: 'fa-solid fa-cloud-bolt text-purple-400', badge: 'bg-purple-500/15 text-purple-300 border-purple-500/30', activePill: 'bg-purple-600/30 text-purple-200 border-purple-500/50' },
+    };
+
+    function buildUnifiedModelCatalogEntries() {
+      const entries = [];
+      const extProviderIds = new Set((rawProvidersData || []).map(p => p.id));
+      const activeExtProviders = (rawProvidersData || []).filter(p => p.enabled !== false);
+      const hasWebAccs = (rawAccountsData || []).some(a => a.auth_method === 'gemini_web' && a.enabled !== false);
+
+      // 1. Google / Antigravity Pool models from /api/models (skip external-only entries since we add them cleanly below)
+      const seenPoolKeys = new Set();
+      Object.entries(allModelsData || {}).forEach(([key, info]) => {
+        if (key.startsWith('tab_') || key.startsWith('chat_')) return;
+        const accKeys = info?.accounts ? Object.keys(info.accounts) : [];
+        const isOnlyExtFromServer = accKeys.length > 0 && accKeys.every(k => extProviderIds.has(k));
+        if (isOnlyExtFromServer) return;
+
+        seenPoolKeys.add(key);
+        const keyLower = key.toLowerCase();
+        let company = 'google';
+        let sourceLabel = (info.displayName && info.displayName.includes('(Web')) ? 'Gemini Web' : 'Google Pool';
+        if (keyLower.startsWith('claude-')) {
+          company = 'anthropic';
+          sourceLabel = 'Claude via Google Pool';
+        } else if (keyLower.startsWith('gpt-')) {
+          company = 'openai';
+          sourceLabel = 'GPT via Google Pool';
+        }
+
+        const poolQuota = info.pool_remaining_fraction !== undefined
+          ? Math.round(info.pool_remaining_fraction * 100)
+          : (info.quotaInfo && info.quotaInfo.remainingFraction !== undefined ? Math.round(info.quotaInfo.remainingFraction * 100) : 100);
+
+        entries.push({
+          uid: `pool|${key}`,
+          id: key,
+          displayName: info.displayName || key,
+          company,
+          sourceLabel,
+          targetValue: '',
+          isExternal: false,
+          isWeb: Boolean(info.displayName && info.displayName.includes('(Web')),
+          poolQuota,
+          readyAccs: info.available_accounts !== undefined ? info.available_accounts : 0,
+          totalAccs: info.total_accounts || 1,
+          resetStr: formatResetTime(info.quotaInfo?.resetTime),
+          maxTokens: info.maxTokens || 0,
+          accounts: info.accounts || null,
+          supportsThinking: keyLower.includes('thinking') || keyLower.includes('argon') || keyLower.includes('high') || keyLower.includes('sonnet-4-6'),
+        });
+      });
+
+      // Fallback/extra Gemini Web models when a Gemini Web session is active
+      if (hasWebAccs) {
+        GEMINI_WEB_MODELS.forEach(m => {
+          if (seenPoolKeys.has(m.id)) return;
+          seenPoolKeys.add(m.id);
+          entries.push({
+            uid: `gweb|${m.id}`,
+            id: m.id,
+            displayName: m.name,
+            company: 'google',
+            sourceLabel: 'Gemini Web',
+            targetValue: '',
+            isExternal: false,
+            isWeb: true,
+            poolQuota: 100,
+            readyAccs: 1,
+            totalAccs: 1,
+            resetStr: '',
+            maxTokens: 1048576,
+            accounts: null,
+            supportsThinking: m.id.includes('high') || m.id.includes('argon') || m.id.includes('pro'),
+          });
+        });
+      }
+
+      // 2. Enabled External Providers (ChatGPT Web, OpenAI, Anthropic, DeepSeek Web/API, Ollama, Gateways)
+      activeExtProviders.forEach(p => {
+        const comp = classifyProviderCompany(p);
+        const isWeb = classifyProviderMethod(p) === 'web';
+        const pModels = (p.models || []).filter(m => m.enabled !== false);
+        pModels.forEach(m => {
+          entries.push({
+            uid: `provider:${p.id}|${m.id}`,
+            id: m.id,
+            displayName: m.name || m.display_name || m.id,
+            company: comp,
+            sourceLabel: p.name || p.id,
+            targetValue: `provider:${p.id}`,
+            isExternal: true,
+            isWeb,
+            poolQuota: 100,
+            readyAccs: 1,
+            totalAccs: 1,
+            resetStr: '',
+            maxTokens: m.context_window || m.max_output_tokens || 131072,
+            accounts: null,
+            supportsThinking: Boolean(m.supports_thinking),
+          });
+        });
+      });
+
+      return entries;
+    }
+
+    function selectPlaygroundModel(modelId, preferredTarget = '') {
+      const accSel = document.getElementById('playgroundAccountSelect');
+      const select = document.getElementById('modelSelect');
+
+      if (accSel) {
+        if (preferredTarget && preferredTarget.startsWith('provider:')) {
+          if (accSel.value !== preferredTarget && Array.from(accSel.options).some(o => o.value === preferredTarget)) {
+            accSel.value = preferredTarget;
+            onPlaygroundAccountChange();
+          }
+        } else if (accSel.value && accSel.value.startsWith('provider:')) {
+          // Switching back from external provider lock to pool/google model
+          accSel.value = '';
+          onPlaygroundAccountChange();
+        }
+      }
+
+      if (select) {
+        if (!Array.from(select.options).some(o => o.value === modelId) && accSel && accSel.value) {
+          accSel.value = '';
+          onPlaygroundAccountChange();
+        }
+        if (Array.from(select.options).some(o => o.value === modelId)) {
+          select.value = modelId;
+        } else {
+          const opt = document.createElement('option');
+          opt.value = modelId;
+          opt.innerText = modelId;
+          select.appendChild(opt);
+          select.value = modelId;
+        }
+      }
+
+      const badge = document.getElementById('activeModelBadge');
+      if (badge) badge.innerText = modelId;
+      renderModelCatalog(document.getElementById('modelSearchInput')?.value || '');
+    }
+
+    function setModelCompanyFilter(comp) {
+      currentModelCompanyFilter = comp || 'all';
+      renderModelCatalog(document.getElementById('modelSearchInput')?.value || '');
+    }
+
+    function renderModelCompanyPills(containerId, activeComp, entries, onClickFnName) {
+      const track = document.getElementById(containerId);
+      if (!track) return;
+      const order = ['all', 'google', 'openai', 'anthropic', 'deepseek', 'local', 'gateways'];
+      const counts = { all: entries.length };
+      entries.forEach(e => { counts[e.company] = (counts[e.company] || 0) + 1; });
+
+      let html = '';
+      order.forEach(comp => {
+        const cnt = counts[comp] || 0;
+        if (comp !== 'all' && cnt === 0) return;
+        const meta = MODEL_COMPANY_META[comp];
+        const isActive = activeComp === comp;
+        const cls = isActive
+          ? `px-2.5 py-1 rounded-full text-[11px] font-semibold ${meta.activePill} border transition flex items-center gap-1 shrink-0`
+          : 'px-2.5 py-1 rounded-full text-[11px] font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-white hover:bg-white/[0.06] transition flex items-center gap-1 shrink-0';
+        html += `<button type="button" onclick="${onClickFnName}('${comp}')" class="${cls}">
+          <i class="${meta.icon} text-[9px]"></i>
+          <span>${meta.label}</span>
+          <span class="text-[9px] font-mono opacity-80">${cnt}</span>
+        </button>`;
+      });
+      track.innerHTML = html;
+    }
+
     function renderModelCatalog(filterQuery = '') {
       const container = document.getElementById('modelList');
+      if (!container) return;
       const q = filterQuery.trim().toLowerCase();
+      const allEntries = buildUnifiedModelCatalogEntries();
 
-      const totalCount = Object.keys(allModelsData).length;
+      renderModelCompanyPills('modelCompanyFilterTrack', currentModelCompanyFilter, allEntries, 'setModelCompanyFilter');
 
-      if (totalCount === 0) {
+      if (allEntries.length === 0) {
         document.getElementById('modelCount').innerText = '0 active models';
         container.innerHTML = `<div class="text-center py-8 text-slate-500 text-xs leading-relaxed">
           <i class="fa-solid fa-circle-pause text-amber-400/80 text-xl mb-2 block"></i>
-          All accounts in the pool are paused.<br>
-          <span class="text-slate-400">Enable at least one account to activate models.</span>
+          All accounts and external providers are paused.<br>
+          <span class="text-slate-400">Enable at least one account or provider to activate models.</span>
         </div>`;
         return;
       }
 
-      const cleanEntries = Object.entries(allModelsData).filter(([key]) => !key.startsWith('tab_') && !key.startsWith('chat_'));
-      const activeTotalCount = cleanEntries.length;
-
-      const filteredEntries = cleanEntries.filter(([key, info]) => {
+      const filteredEntries = allEntries.filter(e => {
+        if (currentModelCompanyFilter !== 'all' && e.company !== currentModelCompanyFilter) return false;
         if (!q) return true;
-        const name = (info.displayName || '').toLowerCase();
-        return key.toLowerCase().includes(q) || name.includes(q);
+        return e.id.toLowerCase().includes(q) || e.displayName.toLowerCase().includes(q) || e.sourceLabel.toLowerCase().includes(q);
       });
 
-      document.getElementById('modelCount').innerText = q
-        ? `${filteredEntries.length} / ${activeTotalCount} active`
-        : `${activeTotalCount} active model${activeTotalCount === 1 ? '' : 's'}`;
+      document.getElementById('modelCount').innerText = (q || currentModelCompanyFilter !== 'all')
+        ? `${filteredEntries.length} / ${allEntries.length} active`
+        : `${allEntries.length} active model${allEntries.length === 1 ? '' : 's'}`;
 
       if (filteredEntries.length === 0) {
-        container.innerHTML = `<div class="text-center py-8 text-slate-500 text-xs">No active models found matching "<span class="text-slate-300 font-semibold">${filterQuery}</span>"</div>`;
+        container.innerHTML = `<div class="text-center py-8 text-slate-500 text-xs">No active models match your filter.</div>`;
         return;
       }
 
       container.innerHTML = '';
-      const select = document.getElementById('modelSelect');
+      const activeModelId = document.getElementById('modelSelect')?.value || '';
+      const companyOrder = ['google', 'openai', 'anthropic', 'deepseek', 'local', 'gateways'];
+      const grouped = new Map();
+      companyOrder.forEach(c => grouped.set(c, []));
+      filteredEntries.forEach(e => {
+        if (!grouped.has(e.company)) grouped.set(e.company, []);
+        grouped.get(e.company).push(e);
+      });
 
-      for (const [key, info] of filteredEntries) {
-        const poolQuota = info.pool_remaining_fraction !== undefined 
-          ? Math.round(info.pool_remaining_fraction * 100) 
-          : (info.quotaInfo && info.quotaInfo.remainingFraction !== undefined ? Math.round(info.quotaInfo.remainingFraction * 100) : 100);
-        
-        const quotaColor = poolQuota > 50 ? 'bg-emerald-500' : (poolQuota > 10 ? 'bg-amber-500' : 'bg-red-500');
-        const readyAccs = info.available_accounts !== undefined ? info.available_accounts : 0;
-        const totalAccs = info.total_accounts || 1;
-        const resetStr = formatResetTime(info.quotaInfo?.resetTime);
-
-        const item = document.createElement('div');
-        item.className = 'p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition cursor-pointer text-xs space-y-1.5';
-        item.onclick = () => {
-          const accSel = document.getElementById('playgroundAccountSelect');
-          if (select) {
-            let optExists = Array.from(select.options).some(o => o.value === key);
-            if (!optExists && accSel && accSel.value) {
-              accSel.value = '';
-              onPlaygroundAccountChange();
-            }
-            select.value = key;
-          }
-          const badge = document.getElementById('activeModelBadge');
-          if (badge) badge.innerText = key;
-        };
-
-        // Build per-account mini badges with individual quotas and reset timers
-        let accountBreakdownHtml = '';
-        if (info.accounts && Object.keys(info.accounts).length > 0) {
-          const badges = Object.entries(info.accounts).map(([email, accData]) => {
-            const accPct = Math.round(accData.remainingFraction * 100);
-            const accReset = formatResetTime(accData.resetTime);
-            const dotColor = accPct > 50 ? 'bg-emerald-400' : (accPct > 0 ? 'bg-amber-400' : 'bg-red-500');
-            const shortEmail = email.split('@')[0];
-            const tooltip = `${email}: ${accPct}%${accReset ? ' (Resets in ' + accReset + ')' : ''}`;
-            return `<span class="inline-flex items-center text-[10px] text-slate-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800" title="${tooltip}">
-              <span class="w-1.5 h-1.5 rounded-full ${dotColor} mr-1"></span>${shortEmail}: ${accPct}%
-            </span>`;
-          }).join(' ');
-          accountBreakdownHtml = `<div class="flex flex-wrap gap-1 pt-1 border-t border-slate-800/60">${badges}</div>`;
+      for (const [comp, list] of grouped.entries()) {
+        if (list.length === 0) continue;
+        const meta = MODEL_COMPANY_META[comp] || MODEL_COMPANY_META.gateways;
+        if (currentModelCompanyFilter === 'all') {
+          const hdr = document.createElement('div');
+          hdr.className = 'flex items-center justify-between pt-2 pb-1 px-1 sticky top-0 bg-[#0b101d]/95 backdrop-blur-sm z-10 border-b border-white/[0.06]';
+          hdr.innerHTML = `<span class="text-[10px] font-mono uppercase tracking-wider font-bold text-slate-300 flex items-center gap-1.5"><i class="${meta.icon} text-[10px]"></i><span>${meta.label}</span></span><span class="text-[10px] font-mono text-slate-500">${list.length}</span>`;
+          container.appendChild(hdr);
         }
 
-        item.innerHTML = `
-          <div class="flex items-center justify-between font-semibold text-slate-200">
-            <span>${info.displayName || key}</span>
-            <span class="font-mono text-[10px] text-slate-400">${key}</span>
-          </div>
-          <div class="flex items-center justify-between text-[11px] text-slate-400">
-            <span class="flex items-center space-x-1.5">
-              <span class="font-bold ${poolQuota > 0 ? 'text-indigo-300' : 'text-red-400'}">Pool: ${poolQuota}%</span>
-              <span class="text-[10px] ${readyAccs > 0 ? 'text-slate-500' : 'text-red-400 font-medium'}">(${readyAccs}/${totalAccs} ready)</span>
-            </span>
-            <span>${resetStr ? `<span class="text-amber-400/90 text-[10px] font-mono mr-2"><i class="fa-regular fa-clock mr-0.5"></i>in ${resetStr}</span>` : ''}Max: ${(info.maxTokens || 0).toLocaleString()} tok</span>
-          </div>
-          <div class="w-full h-2 bg-slate-950/90 rounded-full overflow-hidden mt-1 border border-slate-800/80 shadow-inner">
-            <div class="h-full ${quotaColor}" style="width: ${poolQuota}%"></div>
-          </div>
-          ${accountBreakdownHtml}
-        `;
-        container.appendChild(item);
+        for (const e of list) {
+          const isSelected = activeModelId === e.id;
+          const quotaColor = e.poolQuota > 50 ? 'bg-emerald-500' : (e.poolQuota > 10 ? 'bg-amber-500' : 'bg-red-500');
+          const item = document.createElement('div');
+          item.className = `p-3 rounded-xl border transition cursor-pointer text-xs space-y-1.5 ${isSelected ? 'bg-indigo-600/15 border-indigo-500/60 shadow-[0_0_12px_rgba(99,102,241,0.18)]' : 'bg-slate-900/90 border-slate-800 hover:border-slate-600'}`;
+          item.onclick = () => selectPlaygroundModel(e.id, e.targetValue);
+
+          let accountBreakdownHtml = '';
+          if (e.accounts && Object.keys(e.accounts).length > 0) {
+            const badges = Object.entries(e.accounts).map(([email, accData]) => {
+              const accPct = Math.round(accData.remainingFraction * 100);
+              const accReset = formatResetTime(accData.resetTime);
+              const dotColor = accPct > 50 ? 'bg-emerald-400' : (accPct > 0 ? 'bg-amber-400' : 'bg-red-500');
+              const shortEmail = email.split('@')[0];
+              const tooltip = `${email}: ${accPct}%${accReset ? ' (Resets in ' + accReset + ')' : ''}`;
+              return `<span class="inline-flex items-center text-[10px] text-slate-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800" title="${tooltip}">
+                <span class="w-1.5 h-1.5 rounded-full ${dotColor} mr-1"></span>${shortEmail}: ${accPct}%
+              </span>`;
+            }).join(' ');
+            accountBreakdownHtml = `<div class="flex flex-wrap gap-1 pt-1 border-t border-slate-800/60">${badges}</div>`;
+          }
+
+          item.innerHTML = `
+            <div class="flex items-center justify-between gap-2 font-semibold text-slate-200">
+              <span class="truncate flex items-center gap-1.5">
+                ${e.supportsThinking ? '<i class="fa-solid fa-brain text-purple-400 text-[10px]" title="Reasoning / CoT"></i>' : ''}
+                <span class="truncate">${e.displayName}</span>
+              </span>
+              <span class="text-[9px] font-mono px-1.5 py-0.5 rounded-full border shrink-0 ${meta.badge}">${e.sourceLabel}</span>
+            </div>
+            <div class="flex items-center justify-between text-[11px] text-slate-400">
+              <span class="font-mono text-[10px] text-slate-400 truncate">${e.id}</span>
+              ${e.isExternal ? `
+                <span class="text-[10px] text-emerald-400 font-mono shrink-0">${Math.round((e.maxTokens || 131072) / 1024)}k ctx</span>
+              ` : `
+                <span class="flex items-center space-x-1.5 shrink-0">
+                  <span class="font-bold ${e.poolQuota > 0 ? 'text-indigo-300' : 'text-red-400'}">Pool: ${e.poolQuota}%</span>
+                  <span class="text-[10px] ${e.readyAccs > 0 ? 'text-slate-500' : 'text-red-400 font-medium'}">(${e.readyAccs}/${e.totalAccs})</span>
+                  ${e.resetStr ? `<span class="text-amber-400/90 text-[10px] font-mono"><i class="fa-regular fa-clock mr-0.5"></i>${e.resetStr}</span>` : ''}
+                </span>
+              `}
+            </div>
+            ${!e.isExternal ? `
+              <div class="w-full h-1.5 bg-slate-950/90 rounded-full overflow-hidden mt-1 border border-slate-800/80 shadow-inner">
+                <div class="h-full ${quotaColor}" style="width: ${e.poolQuota}%"></div>
+              </div>
+              ${accountBreakdownHtml}
+            ` : ''}
+          `;
+          container.appendChild(item);
+        }
       }
+    }
+
+    function openModelPickerModal() {
+      const modal = document.getElementById('modelPickerModal');
+      if (!modal) return;
+      modal.classList.remove('hidden');
+      const inp = document.getElementById('modelPickerSearchInput');
+      if (inp) {
+        inp.value = '';
+        setTimeout(() => inp.focus(), 40);
+      }
+      renderModelPickerModalList();
+    }
+
+    function closeModelPickerModal() {
+      document.getElementById('modelPickerModal')?.classList.add('hidden');
+    }
+
+    function setModelPickerCompany(comp) {
+      currentModelPickerCompany = comp || 'all';
+      renderModelPickerModalList();
+    }
+
+    function renderModelPickerModalList() {
+      const listEl = document.getElementById('modelPickerList');
+      if (!listEl) return;
+      const q = (document.getElementById('modelPickerSearchInput')?.value || '').trim().toLowerCase();
+      const allEntries = buildUnifiedModelCatalogEntries();
+
+      renderModelCompanyPills('modelPickerCompanyTrack', currentModelPickerCompany, allEntries, 'setModelPickerCompany');
+
+      const filtered = allEntries.filter(e => {
+        if (currentModelPickerCompany !== 'all' && e.company !== currentModelPickerCompany) return false;
+        if (!q) return true;
+        return e.id.toLowerCase().includes(q) || e.displayName.toLowerCase().includes(q) || e.sourceLabel.toLowerCase().includes(q);
+      });
+
+      if (filtered.length === 0) {
+        listEl.innerHTML = `<div class="text-center py-10 text-slate-400 text-xs">No active models found matching "${q || currentModelPickerCompany}".</div>`;
+        return;
+      }
+
+      const activeModelId = document.getElementById('modelSelect')?.value || '';
+      const companyOrder = ['google', 'openai', 'anthropic', 'deepseek', 'local', 'gateways'];
+      const grouped = new Map();
+      companyOrder.forEach(c => grouped.set(c, []));
+      filtered.forEach(e => {
+        if (!grouped.has(e.company)) grouped.set(e.company, []);
+        grouped.get(e.company).push(e);
+      });
+
+      let html = '';
+      for (const [comp, items] of grouped.entries()) {
+        if (items.length === 0) continue;
+        const meta = MODEL_COMPANY_META[comp] || MODEL_COMPANY_META.gateways;
+        html += `
+          <div class="space-y-2">
+            <div class="flex items-center justify-between pb-1 border-b border-white/[0.06]">
+              <span class="text-xs font-bold text-white flex items-center gap-2"><i class="${meta.icon}"></i><span>${meta.label}</span></span>
+              <span class="text-[10px] font-mono text-slate-400">${items.length} model${items.length === 1 ? '' : 's'}</span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        `;
+        items.forEach(e => {
+          const isActive = activeModelId === e.id;
+          const safeId = e.id.replace(/'/g, "\\'");
+          const safeTarget = (e.targetValue || '').replace(/'/g, "\\'");
+          html += `
+            <button type="button" onclick="selectPlaygroundModel('${safeId}', '${safeTarget}'); closeModelPickerModal();" class="text-left p-3 rounded-xl border transition flex flex-col justify-between gap-1.5 ${isActive ? 'bg-indigo-600/20 border-indigo-500/60 ring-1 ring-indigo-500/30' : 'bg-white/[0.025] border-white/[0.07] hover:bg-white/[0.06] hover:border-white/[0.18]'}">
+              <div class="flex items-center justify-between gap-2 w-full">
+                <span class="text-xs font-bold text-white truncate flex items-center gap-1.5">
+                  ${e.supportsThinking ? '<i class="fa-solid fa-brain text-purple-400 text-[10px]"></i>' : ''}
+                  <span class="truncate">${e.displayName}</span>
+                </span>
+                ${isActive ? '<span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-indigo-500/30 text-indigo-200 border border-indigo-400/40 shrink-0">ACTIVE</span>' : `<span class="text-[9px] font-mono px-1.5 py-0.5 rounded-full border shrink-0 ${meta.badge}">${e.sourceLabel}</span>`}
+              </div>
+              <div class="flex items-center justify-between text-[10px] font-mono text-slate-400 w-full">
+                <span class="truncate">${e.id}</span>
+                <span class="shrink-0 ml-2">${e.isExternal ? `${Math.round((e.maxTokens || 131072) / 1024)}k` : `${e.poolQuota}% quota`}</span>
+              </div>
+            </button>
+          `;
+        });
+        html += '</div></div>';
+      }
+      listEl.innerHTML = html;
     }
 
     function filterModelCatalog() {
@@ -5935,8 +6219,8 @@ ightarrow$ v1.0.3</p>
           activeModels.forEach(m => {
             const opt = document.createElement('option');
             opt.value = m.id;
-            const thinkBadge = m.supports_thinking ? ' 🧠 [Reasoning]' : '';
-            opt.innerText = `${m.name || m.id}${thinkBadge}`;
+            const thinkBadge = m.supports_thinking ? ' 🧠' : '';
+            opt.innerText = `${m.name || m.id} (${m.id})${thinkBadge}`;
             select.appendChild(opt);
           });
         }
@@ -5951,27 +6235,18 @@ ightarrow$ v1.0.3</p>
       }
 
       if (acc && acc.auth_method === 'gemini_web') {
-        // STRICT: Gemini Web accounts ONLY show reverse-engineered browser models.
-        // Default flagship model is gemini-4-argon
         GEMINI_WEB_MODELS.forEach(m => {
           const opt = document.createElement('option');
           opt.value = m.id;
           opt.innerText = `${m.id} — ${m.name}`;
           select.appendChild(opt);
         });
-        if (GEMINI_WEB_MODELS.some(m => m.id === prevVal)) {
-          select.value = prevVal;
-        } else {
-          select.value = 'gemini-4-argon-web-high';
-        }
+        select.value = GEMINI_WEB_MODELS.some(m => m.id === prevVal) ? prevVal : 'gemini-4-argon-web-high';
       } else if (acc && acc.auth_method === 'api_key') {
-        // STRICT: Google AI Studio API Keys ONLY support Gemini API models (no Claude, no web-only)
         let list = API_KEY_MODELS;
         if (acc.available_models && Array.isArray(acc.available_models) && acc.available_models.length > 0) {
           const gOnly = acc.available_models.filter(m => !m.toLowerCase().includes('claude') && !m.toLowerCase().includes('gpt'));
-          if (gOnly.length > 0) {
-            list = gOnly.map(m => ({ id: m, name: m }));
-          }
+          if (gOnly.length > 0) list = gOnly.map(m => ({ id: m, name: m }));
         }
         list.forEach(m => {
           const opt = document.createElement('option');
@@ -5979,22 +6254,14 @@ ightarrow$ v1.0.3</p>
           opt.innerText = m.name && m.name !== m.id ? `${m.id} — ${m.name}` : m.id;
           select.appendChild(opt);
         });
-        if (list.some(m => m.id === prevVal)) {
-          select.value = prevVal;
-        } else {
-          select.value = list[0]?.id || 'gemini-2.5-pro';
-        }
+        select.value = list.some(m => m.id === prevVal) ? prevVal : (list[0]?.id || 'gemini-2.5-pro');
       } else if (acc && (acc.auth_method === 'consumer' || acc.auth_method === 'oauth')) {
-        // Antigravity accounts (Gemini & Claude)
         let list = ANTIGRAVITY_MODELS;
         if (acc.available_models) {
           const rawList = Array.isArray(acc.available_models) ? acc.available_models : Object.keys(acc.available_models);
           const valid = rawList.filter(m => !m.startsWith('tab_') && !m.startsWith('chat_'));
           if (valid.length > 0) {
-            list = valid.map(m => {
-              const def = ANTIGRAVITY_MODELS.find(d => d.id === m);
-              return def || { id: m, name: m };
-            });
+            list = valid.map(m => ANTIGRAVITY_MODELS.find(d => d.id === m) || { id: m, name: m });
           }
         }
         list.forEach(m => {
@@ -6003,86 +6270,41 @@ ightarrow$ v1.0.3</p>
           opt.innerText = m.name && m.name !== m.id ? `${m.id} — ${m.name}` : m.id;
           select.appendChild(opt);
         });
-        if (list.some(m => m.id === prevVal)) {
-          select.value = prevVal;
-        } else {
-          select.value = 'gemini-3.8-flash-high';
-        }
+        select.value = list.some(m => m.id === prevVal) ? prevVal : 'gemini-3.8-flash-high';
       } else {
-        // Auto Pool mode: all available models grouped
-        const poolCount = Object.keys(allModelsData || {}).length;
-        if (poolCount > 0) {
-          const gCloud = document.createElement('optgroup');
-          gCloud.label = 'Google Antigravity Accounts';
-          const gWeb = document.createElement('optgroup');
-          gWeb.label = 'Gemini Web Browser Sessions';
-          const gApi = document.createElement('optgroup');
-          gApi.label = 'Google AI Studio (API Keys)';
-
-          const hasCloudAccs = (rawAccountsData || []).some(a => (a.auth_method === 'consumer' || a.auth_method === 'oauth') && a.enabled !== false);
-          const hasWebAccs = (rawAccountsData || []).some(a => a.auth_method === 'gemini_web' && a.enabled !== false);
-          const hasApiAccs = (rawAccountsData || []).some(a => a.auth_method === 'api_key' && a.enabled !== false);
-
-          for (const [key, info] of Object.entries(allModelsData)) {
-            if (key.startsWith('tab_') || key.startsWith('chat_')) continue;
-            const opt = document.createElement('option');
-            opt.value = key;
-            opt.innerText = `${info.displayName || key} (${key})`;
-            if (info.displayName && info.displayName.includes('(Web')) {
-              gWeb.appendChild(opt);
-            } else if (!hasCloudAccs && hasApiAccs) {
-              gApi.appendChild(opt);
-            } else {
-              gCloud.appendChild(opt);
-            }
-          }
-
-          if (gCloud.children.length > 0) select.appendChild(gCloud);
-          if (hasWebAccs || gWeb.children.length > 0) {
-            if (gWeb.children.length === 0) {
-              GEMINI_WEB_MODELS.forEach(m => {
-                const opt = document.createElement('option');
-                opt.value = m.id;
-                opt.innerText = `${m.id} — ${m.name}`;
-                gWeb.appendChild(opt);
-              });
-            }
-            select.appendChild(gWeb);
-          }
-          if (hasApiAccs || gApi.children.length > 0) {
-            if (gApi.children.length === 0) {
-              API_KEY_MODELS.forEach(m => {
-                const opt = document.createElement('option');
-                opt.value = m.id;
-                opt.innerText = `${m.id} — ${m.name}`;
-                gApi.appendChild(opt);
-              });
-            }
-            select.appendChild(gApi);
-          }
-
-          // Dynamic External Providers (ONLY enabled ones!)
-          const activeExtProviders = (rawProvidersData || []).filter(p => p.enabled !== false);
-          activeExtProviders.forEach(p => {
-            const pModels = (p.models || []).filter(m => m.enabled !== false);
-            if (pModels.length > 0) {
-              const extGrp = document.createElement('optgroup');
-              extGrp.label = `${p.name || p.id} (External)`;
-              pModels.forEach(m => {
-                const opt = document.createElement('option');
-                opt.value = m.id;
-                const thinkBadge = m.supports_thinking ? ' 🧠 [Reasoning]' : '';
-                opt.innerText = `${m.name || m.id}${thinkBadge}`;
-                extGrp.appendChild(opt);
-              });
-              select.appendChild(extGrp);
-            }
+        // Auto Pool mode: clean company-grouped options (no duplicates or misclassifications)
+        const allEntries = buildUnifiedModelCatalogEntries();
+        if (allEntries.length > 0) {
+          const groupMeta = [
+            { key: 'google', label: 'Google (Gemini — Pool / Web / AI Studio)' },
+            { key: 'openai', label: 'OpenAI & ChatGPT (Web Free & Direct API)' },
+            { key: 'anthropic', label: 'Anthropic Claude (Pool & Direct API)' },
+            { key: 'deepseek', label: 'DeepSeek (Web Free & Direct API)' },
+            { key: 'local', label: 'Local AI (Ollama / Offline)' },
+            { key: 'gateways', label: 'Cloud Gateways (OpenRouter / Groq / NVIDIA)' },
+          ];
+          groupMeta.forEach(({ key, label }) => {
+            const list = allEntries.filter(e => e.company === key);
+            if (list.length === 0) return;
+            const grp = document.createElement('optgroup');
+            grp.label = label;
+            const seenInGroup = new Set();
+            list.forEach(e => {
+              if (seenInGroup.has(e.id)) return;
+              seenInGroup.add(e.id);
+              const opt = document.createElement('option');
+              opt.value = e.id;
+              const thinkBadge = e.supportsThinking ? ' 🧠' : '';
+              opt.innerText = `${e.displayName} (${e.id})${thinkBadge}`;
+              grp.appendChild(opt);
+            });
+            select.appendChild(grp);
           });
 
           const allKeys = Array.from(select.options).map(o => o.value);
           if (allKeys.includes(prevVal)) {
             select.value = prevVal;
-          } else if (allModelsData['gemini-3.8-flash-high']) {
+          } else if (allKeys.includes('gemini-3.8-flash-high')) {
             select.value = 'gemini-3.8-flash-high';
           } else {
             select.value = allKeys[0] || 'gemini-3.8-flash-high';
@@ -6174,21 +6396,21 @@ ightarrow$ v1.0.3</p>
         html += `</optgroup>`;
       }
 
-      // Enabled external providers ONLY (dynamic filtering as requested)
+      // Enabled external providers ONLY (cleanly grouped once per company)
       const activeProviders = (rawProvidersData || []).filter(p => p.enabled !== false);
       if (activeProviders.length > 0) {
-        const dsProv = activeProviders.filter(p => (p.id || '').toLowerCase().includes('deepseek'));
-        const antProv = activeProviders.filter(p => (p.id || '').toLowerCase().includes('anthropic'));
-        const oaiProv = activeProviders.filter(p => ((p.id || '').toLowerCase().includes('openai') || (p.id || '').toLowerCase().includes('chatgpt')) && !(p.id || '').toLowerCase().includes('openrouter'));
-        const locProv = activeProviders.filter(p => (p.id || '').toLowerCase().includes('ollama') || (p.id || '').toLowerCase().includes('local'));
-        const gwProv = activeProviders.filter(p => !dsProv.includes(p) && !antProv.includes(p) && !oaiProv.includes(p) && !locProv.includes(p));
+        const dsProv = activeProviders.filter(p => classifyProviderCompany(p) === 'deepseek');
+        const antProv = activeProviders.filter(p => classifyProviderCompany(p) === 'anthropic');
+        const oaiProv = activeProviders.filter(p => classifyProviderCompany(p) === 'openai');
+        const locProv = activeProviders.filter(p => classifyProviderCompany(p) === 'local');
+        const gwProv = activeProviders.filter(p => classifyProviderCompany(p) === 'gateways');
 
         const renderProvGroup = (label, list) => {
           if (!list || list.length === 0) return '';
           let grpHtml = `<optgroup label="${label}">`;
           list.forEach(p => {
             const mCount = (p.models || []).length;
-            const isWeb = p.provider_type === 'deepseek_web' || p.id === 'deepseek-web' || p.provider_type === 'chatgpt_web' || p.id === 'chatgpt-web';
+            const isWeb = classifyProviderMethod(p) === 'web';
             const badge = isWeb ? '⚡' : (p.api_key ? '🔑' : '💻');
             grpHtml += `<option value="provider:${p.id}">${badge} ${p.name || p.id} (${mCount} models)</option>`;
           });
@@ -6196,17 +6418,15 @@ ightarrow$ v1.0.3</p>
           return grpHtml;
         };
 
+        html += renderProvGroup('OpenAI & ChatGPT (Web Free & Direct API)', oaiProv);
+        html += renderProvGroup('Anthropic Claude (Direct API)', antProv);
         html += renderProvGroup('DeepSeek AI (Web Free PoW & Direct API)', dsProv);
-        html += renderProvGroup('Anthropic Claude Direct AI', antProv);
-        html += renderProvGroup('OpenAI & ChatGPT Web (Free Sentinel PoW & API)', oaiProv);
-        html += renderProvGroup('OpenAI Direct AI', oaiProv);
         html += renderProvGroup('Local AI (Ollama Localhost)', locProv);
         html += renderProvGroup('Cloud Gateways (OpenRouter, Groq, NVIDIA NIM)', gwProv);
       }
 
       sel.innerHTML = html;
 
-      // Restore previous selection if valid
       if (currentVal && Array.from(sel.options).some(o => o.value === currentVal)) {
         sel.value = currentVal;
       }
@@ -6227,7 +6447,7 @@ ightarrow$ v1.0.3</p>
           typeBadge.className = 'text-[10px] text-indigo-400 font-mono';
         }
         if (hintBox) hintBox.classList.add('hidden');
-        if (chatAccountBadge) chatAccountBadge.innerText = 'Auto (Pool)';
+        if (chatAccountBadge) chatAccountBadge.innerText = 'Route: Auto Pool';
         updatePlaygroundModelsForAccount(null);
         return;
       }
@@ -6239,10 +6459,11 @@ ightarrow$ v1.0.3</p>
 
         updatePlaygroundModelsForAccount(null, p);
 
-        const isWeb = p.provider_type === 'deepseek_web' || p.id === 'deepseek-web';
-        const isAnthropic = (p.id || '').toLowerCase().includes('anthropic');
-        const isOpenAI = (p.id || '').toLowerCase().includes('openai');
-        const isLocal = (p.id || '').toLowerCase().includes('ollama') || (p.id || '').toLowerCase().includes('local');
+        const isWeb = classifyProviderMethod(p) === 'web';
+        const comp = classifyProviderCompany(p);
+        const isAnthropic = comp === 'anthropic';
+        const isOpenAI = comp === 'openai';
+        const isLocal = comp === 'local';
 
         if (typeBadge) {
           typeBadge.innerText = p.name || p.id;
