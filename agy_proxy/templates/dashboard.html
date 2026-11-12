@@ -508,20 +508,49 @@
           </div>
         </div>
 
-        <!-- Filter Pill Tracks (Dual-Tier Fluid Navigation) -->
-        <div class="space-y-2 pt-2 border-t border-white/[0.06]">
-          <!-- Tier 1: Ecosystems & Labs -->
-          <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth py-0.5 px-0.5" id="tierEcosystemPills" title="Filter by Ecosystem / Provider">
-            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 shrink-0 mr-1 flex items-center gap-1">
-              <i class="fa-solid fa-layer-group text-[9px]"></i>
-              <span class="hidden sm:inline">Provider:</span>
-            </span>
-
+        <!-- Filter Pill Tracks (Single Unified Liquid Glass Navigation) -->
+        <div class="pt-2 border-t border-white/[0.06]">
+          <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth py-0.5 px-0.5" id="accountsFilterTrack">
+            <!-- Core Auth Filters (User-preferred Layout) -->
             <button onclick="setAccountFilter('all')" data-filter="all" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium bg-indigo-600/30 text-indigo-200 border border-indigo-500/50 shadow-[0_0_12px_rgba(99,102,241,0.25)] transition-all flex items-center gap-1.5 shrink-0 active:scale-95">
               <span>All</span>
               <span class="px-1.5 py-0.2 bg-white/20 rounded-full text-[10px] font-mono text-white font-bold" id="countAll">0</span>
             </button>
 
+            <button onclick="setAccountFilter('oauth')" data-filter="oauth" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-indigo-300 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="Google OAuth 2.0 Accounts">
+              <i class="fa-solid fa-shield-halved text-indigo-400 text-[10px]"></i>
+              <span>OAuth</span>
+              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countOAuth">0</span>
+            </button>
+
+            <button onclick="setAccountFilter('web')" data-filter="web" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-teal-300 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="Web Browser Sessions (Gemini Web & DeepSeek Web)">
+              <i class="fa-solid fa-globe text-teal-400 text-[10px]"></i>
+              <span>Web</span>
+              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countWeb">0</span>
+            </button>
+
+            <button onclick="setAccountFilter('apikey')" data-filter="apikey" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-amber-300 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="API Keys (Google AI Studio, DeepSeek, Anthropic, OpenAI)">
+              <i class="fa-solid fa-key text-amber-400 text-[10px]"></i>
+              <span>API Keys</span>
+              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countApiKey">0</span>
+            </button>
+
+            <button onclick="setAccountFilter('external')" data-filter="external" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-purple-300 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="All External AI Providers (DeepSeek, Anthropic, OpenAI, Local AI, Gateways)">
+              <i class="fa-solid fa-microchip text-purple-400 text-[10px]"></i>
+              <span>External AI</span>
+              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countExternal">0</span>
+            </button>
+
+            <button onclick="setAccountFilter('exhausted')" data-filter="exhausted" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-rose-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="0% Quota Remaining">
+              <i class="fa-solid fa-battery-empty text-rose-400 text-[10px]"></i>
+              <span>0% Quota</span>
+              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countExhausted">0</span>
+            </button>
+
+            <!-- Subtle Section Divider -->
+            <div class="h-4 w-[1px] bg-white/10 mx-1 shrink-0"></div>
+
+            <!-- Provider Ecosystems Quick Chips -->
             <button onclick="setAccountFilter('google')" data-filter="google" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-blue-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="Google Accounts (OAuth, Gemini Web, AI Studio)">
               <i class="fa-brands fa-google text-blue-400 text-[10px]"></i>
               <span>Google</span>
@@ -558,41 +587,6 @@
               <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countGateways">0</span>
             </button>
           </div>
-
-          <!-- Tier 2: Auth Methods & Health Status -->
-          <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth py-0.5 px-0.5" id="tierAuthPills" title="Filter by Authentication Type & Status">
-            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 shrink-0 mr-1 flex items-center gap-1">
-              <i class="fa-solid fa-key text-[9px]"></i>
-              <span class="hidden sm:inline">Auth:</span>
-            </span>
-
-            <button onclick="setAccountFilter('oauth')" data-filter="oauth" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-indigo-300 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="Google OAuth 2.0 Accounts">
-              <i class="fa-solid fa-shield-halved text-indigo-400 text-[10px]"></i>
-              <span>OAuth</span>
-              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countOAuth">0</span>
-            </button>
-
-            <button onclick="setAccountFilter('web')" data-filter="web" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-teal-300 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="Web Browser Sessions (Gemini Web & DeepSeek Web)">
-              <i class="fa-solid fa-globe text-teal-400 text-[10px]"></i>
-              <span>Web Sessions</span>
-              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countWeb">0</span>
-            </button>
-
-            <button onclick="setAccountFilter('apikey')" data-filter="apikey" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-amber-300 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="API Keys (Google AI Studio, DeepSeek, Anthropic, OpenAI)">
-              <i class="fa-solid fa-key text-amber-400 text-[10px]"></i>
-              <span>API Keys</span>
-              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countApiKey">0</span>
-            </button>
-
-            <button onclick="setAccountFilter('exhausted')" data-filter="exhausted" class="acc-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-rose-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="0% Quota Remaining">
-              <i class="fa-solid fa-battery-empty text-rose-400 text-[10px]"></i>
-              <span>0% Quota</span>
-              <span class="px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold" id="countExhausted">0</span>
-            </button>
-          </div>
-
-          <!-- Hidden compatibility elements -->
-          <span id="countExternal" class="hidden">0</span>
           <div id="accountTypeFilters" class="hidden"></div>
         </div>
       </div>
@@ -4809,7 +4803,11 @@ ightarrow$ v1.0.3</p>
 
           <!-- Card Actions -->
           <div class="flex items-center justify-between pt-2.5 border-t border-white/[0.07]">
-            <div class="flex items-center gap-1.5">
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <button onclick="openPlaygroundForProvider('${p.id}')" class="px-2.5 py-1 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 hover:text-white border border-indigo-500/30 font-medium text-[11px] flex items-center gap-1 transition shadow-sm" title="Test in Live Playground">
+                <i class="fa-solid fa-terminal text-indigo-400 text-[10px]"></i>
+                <span>Playground</span>
+              </button>
               <button onclick="testProvider('${p.id}')" class="px-2.5 py-1 rounded-xl glass-pill hover:bg-amber-500/15 hover:text-amber-300 hover:border-amber-500/30 text-slate-300 font-medium text-[11px] flex items-center gap-1 transition shadow-sm" title="Test Connection & Latency">
                 <i class="fa-solid fa-bolt text-amber-400 text-[10px]"></i>
                 <span>Ping</span>
@@ -5839,11 +5837,38 @@ ightarrow$ v1.0.3</p>
       { id: 'gpt-oss-120b-medium', name: 'gpt-oss-120b-medium' },
     ];
 
-    function updatePlaygroundModelsForAccount(acc) {
+    function updatePlaygroundModelsForAccount(acc, extProvider = null) {
       const select = document.getElementById('modelSelect');
       if (!select) return;
       const prevVal = select.value;
       select.innerHTML = '';
+
+      if (extProvider) {
+        // STRICT: Dedicated external provider models
+        const activeModels = (extProvider.models || []).filter(m => m.enabled !== false);
+        if (activeModels.length === 0) {
+          const opt = document.createElement('option');
+          opt.value = extProvider.id;
+          opt.innerText = `${extProvider.name || extProvider.id} (Default)`;
+          select.appendChild(opt);
+        } else {
+          activeModels.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.id;
+            const thinkBadge = m.supports_thinking ? ' 🧠 [Reasoning]' : '';
+            opt.innerText = `${m.name || m.id}${thinkBadge}`;
+            select.appendChild(opt);
+          });
+        }
+        if (activeModels.some(m => m.id === prevVal)) {
+          select.value = prevVal;
+        } else {
+          select.value = activeModels[0]?.id || '';
+        }
+        const activeBadge = document.getElementById('activeModelBadge');
+        if (activeBadge) activeBadge.innerText = select.value || 'None';
+        return;
+      }
 
       if (acc && acc.auth_method === 'gemini_web') {
         // STRICT: Gemini Web accounts ONLY show reverse-engineered browser models.
@@ -5956,6 +5981,24 @@ ightarrow$ v1.0.3</p>
             select.appendChild(gApi);
           }
 
+          // Dynamic External Providers (ONLY enabled ones!)
+          const activeExtProviders = (rawProvidersData || []).filter(p => p.enabled !== false);
+          activeExtProviders.forEach(p => {
+            const pModels = (p.models || []).filter(m => m.enabled !== false);
+            if (pModels.length > 0) {
+              const extGrp = document.createElement('optgroup');
+              extGrp.label = `${p.name || p.id} (External)`;
+              pModels.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m.id;
+                const thinkBadge = m.supports_thinking ? ' 🧠 [Reasoning]' : '';
+                opt.innerText = `${m.name || m.id}${thinkBadge}`;
+                extGrp.appendChild(opt);
+              });
+              select.appendChild(extGrp);
+            }
+          });
+
           const allKeys = Array.from(select.options).map(o => o.value);
           if (allKeys.includes(prevVal)) {
             select.value = prevVal;
@@ -5987,8 +6030,15 @@ ightarrow$ v1.0.3</p>
 
         const sel = document.getElementById('playgroundAccountSelect');
         const currentAccId = sel?.value;
-        const currentAcc = currentAccId ? (rawAccountsData || []).find(a => a.account_id === currentAccId) : null;
-        updatePlaygroundModelsForAccount(currentAcc);
+        let currentAcc = null;
+        let currentExtProv = null;
+        if (currentAccId && currentAccId.startsWith('provider:')) {
+          const pId = currentAccId.replace('provider:', '');
+          currentExtProv = (rawProvidersData || []).find(p => p.id === pId);
+        } else if (currentAccId) {
+          currentAcc = (rawAccountsData || []).find(a => a.account_id === currentAccId);
+        }
+        updatePlaygroundModelsForAccount(currentAcc, currentExtProv);
 
         const currentFilter = document.getElementById('modelSearchInput')?.value || '';
         renderModelCatalog(currentFilter);
@@ -6044,6 +6094,35 @@ ightarrow$ v1.0.3</p>
         html += `</optgroup>`;
       }
 
+      // Enabled external providers ONLY (dynamic filtering as requested)
+      const activeProviders = (rawProvidersData || []).filter(p => p.enabled !== false);
+      if (activeProviders.length > 0) {
+        const dsProv = activeProviders.filter(p => (p.id || '').toLowerCase().includes('deepseek'));
+        const antProv = activeProviders.filter(p => (p.id || '').toLowerCase().includes('anthropic'));
+        const oaiProv = activeProviders.filter(p => (p.id || '').toLowerCase().includes('openai') && !(p.id || '').toLowerCase().includes('openrouter'));
+        const locProv = activeProviders.filter(p => (p.id || '').toLowerCase().includes('ollama') || (p.id || '').toLowerCase().includes('local'));
+        const gwProv = activeProviders.filter(p => !dsProv.includes(p) && !antProv.includes(p) && !oaiProv.includes(p) && !locProv.includes(p));
+
+        const renderProvGroup = (label, list) => {
+          if (!list || list.length === 0) return '';
+          let grpHtml = `<optgroup label="${label}">`;
+          list.forEach(p => {
+            const mCount = (p.models || []).length;
+            const isWeb = p.provider_type === 'deepseek_web' || p.id === 'deepseek-web';
+            const badge = isWeb ? '⚡' : (p.api_key ? '🔑' : '💻');
+            grpHtml += `<option value="provider:${p.id}">${badge} ${p.name || p.id} (${mCount} models)</option>`;
+          });
+          grpHtml += `</optgroup>`;
+          return grpHtml;
+        };
+
+        html += renderProvGroup('DeepSeek AI (Web Free PoW & Direct API)', dsProv);
+        html += renderProvGroup('Anthropic Claude Direct AI', antProv);
+        html += renderProvGroup('OpenAI Direct AI', oaiProv);
+        html += renderProvGroup('Local AI (Ollama Localhost)', locProv);
+        html += renderProvGroup('Cloud Gateways (OpenRouter, Groq, NVIDIA NIM)', gwProv);
+      }
+
       sel.innerHTML = html;
 
       // Restore previous selection if valid
@@ -6069,6 +6148,44 @@ ightarrow$ v1.0.3</p>
         if (hintBox) hintBox.classList.add('hidden');
         if (chatAccountBadge) chatAccountBadge.innerText = 'Auto (Pool)';
         updatePlaygroundModelsForAccount(null);
+        return;
+      }
+
+      if (accId.startsWith('provider:')) {
+        const pId = accId.replace('provider:', '');
+        const p = (rawProvidersData || []).find(x => x.id === pId);
+        if (!p) return;
+
+        updatePlaygroundModelsForAccount(null, p);
+
+        const isWeb = p.provider_type === 'deepseek_web' || p.id === 'deepseek-web';
+        const isAnthropic = (p.id || '').toLowerCase().includes('anthropic');
+        const isOpenAI = (p.id || '').toLowerCase().includes('openai');
+        const isLocal = (p.id || '').toLowerCase().includes('ollama') || (p.id || '').toLowerCase().includes('local');
+
+        if (typeBadge) {
+          typeBadge.innerText = p.name || p.id;
+          typeBadge.className = isWeb ? 'text-[10px] text-teal-400 font-mono font-bold' :
+                                (isAnthropic ? 'text-[10px] text-amber-400 font-mono font-bold' :
+                                (isOpenAI ? 'text-[10px] text-emerald-400 font-mono font-bold' : 'text-[10px] text-purple-400 font-mono font-bold'));
+        }
+        if (chatAccountBadge) {
+          chatAccountBadge.innerText = `${p.name || p.id} (External)`;
+        }
+        if (hintBox) {
+          const authTypeLabel = isWeb ? 'Web Session (Free with PoW Challenge Solver)' : (p.api_key ? 'Direct API Key Configured' : 'Local Host / Free');
+          hintBox.innerHTML = `
+            <div class="flex items-center space-x-1.5 ${isWeb ? 'text-teal-400' : (isAnthropic ? 'text-amber-400' : (isOpenAI ? 'text-emerald-400' : 'text-purple-400'))} font-semibold mb-1">
+              <i class="fa-solid ${isWeb ? 'fa-globe' : (isLocal ? 'fa-server' : 'fa-network-wired')}"></i>
+              <span>${p.name || p.id} — ${authTypeLabel}</span>
+            </div>
+            <div class="text-[10px] text-slate-400 leading-relaxed font-mono flex items-center justify-between flex-wrap gap-1">
+              <span>Endpoint: <code class="text-slate-200">${p.base_url}</code></span>
+              <span class="text-emerald-400">● Active (${(p.models || []).length} models)</span>
+            </div>
+          `;
+          hintBox.classList.remove('hidden');
+        }
         return;
       }
 
@@ -6162,6 +6279,18 @@ ightarrow$ v1.0.3</p>
           const activeM = document.getElementById('activeModelBadge');
           if (activeM) activeM.innerText = 'gemini-4-argon-web-high';
         }
+      }
+      setTimeout(() => {
+        document.getElementById('userInput')?.focus();
+      }, 50);
+    }
+
+    function openPlaygroundForProvider(providerId) {
+      switchTab('playground');
+      const sel = document.getElementById('playgroundAccountSelect');
+      if (sel) {
+        sel.value = 'provider:' + providerId;
+        onPlaygroundAccountChange();
       }
       setTimeout(() => {
         document.getElementById('userInput')?.focus();

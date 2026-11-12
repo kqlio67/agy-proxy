@@ -2820,83 +2820,100 @@ def create_app(
         # Check if requested model targets an external provider (OpenRouter, Ollama, DeepSeek, Groq, NVIDIA NIM)
         from agy_proxy.providers import external_provider_manager
         raw_req_model = req.model or DEFAULT_MODEL
-        if external_provider_manager.is_external_model(raw_req_model):
+
+        target_prov_id = None
+        if target_account_id:
+            if target_account_id.startswith("provider:"):
+                target_prov_id = target_account_id[9:]
+            elif target_account_id in external_provider_manager.providers:
+                target_prov_id = target_account_id
+
+        ext_target = None
+        if target_prov_id:
+            prov = external_provider_manager.get_provider_instance(target_prov_id)
+            if prov and prov.enabled:
+                m_id = raw_req_model
+                if "/" in m_id and m_id.startswith(target_prov_id + "/"):
+                    m_id = m_id[len(target_prov_id) + 1:]
+                ext_target = (prov, m_id, target_prov_id)
+        elif external_provider_manager.is_external_model(raw_req_model):
             ext_target = external_provider_manager.resolve_model(raw_req_model)
-            if ext_target:
-                provider, upstream_model_id, _ = ext_target
-                logger.info("[%s] Routing OpenAI chat completion -> %s (External %s)", raw_req_model, upstream_model_id, provider.name)
-                ext_payload = req.model_dump(exclude_none=True)
-                ext_payload["model"] = upstream_model_id
-                t0_ext = time.time()
 
-                if req.stream:
-                    async def ext_openai_stream():
-                        p_toks = 0
-                        c_toks = 0
-                        t_toks = 0
-                        try:
-                            async for chunk in provider.stream_chat(ext_payload):
-                                yield f"data: {json.dumps(chunk)}\n\n"
-                                usage = chunk.get("usage")
-                                if isinstance(usage, dict):
-                                    p_toks = usage.get("prompt_tokens", p_toks)
-                                    c_toks = usage.get("completion_tokens", c_toks)
-                                    t_toks = usage.get("total_tokens", t_toks)
-                            yield "data: [DONE]\n\n"
+        if ext_target:
+            provider, upstream_model_id, _ = ext_target
+            logger.info("[%s] Routing OpenAI chat completion -> %s (External %s)", raw_req_model, upstream_model_id, provider.name)
+            ext_payload = req.model_dump(exclude_none=True)
+            ext_payload["model"] = upstream_model_id
+            t0_ext = time.time()
 
-                            from agy_proxy.traffic import traffic_inspector
-                            traffic_inspector.record(
-                                method="POST",
-                                path="/v1/chat/completions",
-                                client_model=raw_req_model,
-                                backend_model=f"{provider.name}: {upstream_model_id}",
-                                account_id=provider.id,
-                                account_email=provider.name,
-                                status_code=200,
-                                duration_ms=(time.time() - t0_ext) * 1000,
-                                stream=True,
-                                prompt_tokens=p_toks,
-                                completion_tokens=c_toks,
-                                total_tokens=t_toks or (p_toks + c_toks),
-                            )
-                        except Exception as err:
-                            logger.error("[%s] External stream error: %s", provider.name, err)
-                            err_chunk = {"error": {"message": str(err), "type": "upstream_error"}}
-                            yield f"data: {json.dumps(err_chunk)}\n\n"
-                            yield "data: [DONE]\n\n"
+            if req.stream:
+                async def ext_openai_stream():
+                    p_toks = 0
+                    c_toks = 0
+                    t_toks = 0
+                    try:
+                        async for chunk in provider.stream_chat(ext_payload):
+                            yield f"data: {json.dumps(chunk)}\n\n"
+                            usage = chunk.get("usage")
+                            if isinstance(usage, dict):
+                                p_toks = usage.get("prompt_tokens", p_toks)
+                                c_toks = usage.get("completion_tokens", c_toks)
+                                t_toks = usage.get("total_tokens", t_toks)
+                        yield "data: [DONE]\n\n"
 
-                    return StreamingResponse(
-                        ext_openai_stream(),
-                        media_type="text/event-stream",
-                        headers={
-                            "Cache-Control": "no-cache",
-                            "Connection": "keep-alive",
-                            "X-Accel-Buffering": "no",
-                            "openai-model": upstream_model_id,
-                            "x-request-id": f"resp_{uuid.uuid4().hex[:16]}",
-                        },
-                    )
-                else:
-                    ext_resp = await provider.chat_completion(ext_payload)
-                    from agy_proxy.traffic import traffic_inspector
-                    usage = ext_resp.get("usage", {})
-                    p_toks = usage.get("prompt_tokens", 0)
-                    c_toks = usage.get("completion_tokens", 0)
-                    traffic_inspector.record(
-                        method="POST",
-                        path="/v1/chat/completions",
-                        client_model=raw_req_model,
-                        backend_model=f"{provider.name}: {upstream_model_id}",
-                        account_id=provider.id,
-                        account_email=provider.name,
-                        status_code=200,
-                        duration_ms=(time.time() - t0_ext) * 1000,
-                        stream=False,
-                        prompt_tokens=p_toks,
-                        completion_tokens=c_toks,
-                        total_tokens=p_toks + c_toks,
-                    )
-                    return JSONResponse(content=ext_resp)
+                        from agy_proxy.traffic import traffic_inspector
+                        traffic_inspector.record(
+                            method="POST",
+                            path="/v1/chat/completions",
+                            client_model=raw_req_model,
+                            backend_model=f"{provider.name}: {upstream_model_id}",
+                            account_id=provider.id,
+                            account_email=provider.name,
+                            status_code=200,
+                            duration_ms=(time.time() - t0_ext) * 1000,
+                            stream=True,
+                            prompt_tokens=p_toks,
+                            completion_tokens=c_toks,
+                            total_tokens=t_toks or (p_toks + c_toks),
+                        )
+                    except Exception as err:
+                        logger.error("[%s] External stream error: %s", provider.name, err)
+                        err_chunk = {"error": {"message": str(err), "type": "upstream_error"}}
+                        yield f"data: {json.dumps(err_chunk)}\n\n"
+                        yield "data: [DONE]\n\n"
+
+                return StreamingResponse(
+                    ext_openai_stream(),
+                    media_type="text/event-stream",
+                    headers={
+                        "Cache-Control": "no-cache",
+                        "Connection": "keep-alive",
+                        "X-Accel-Buffering": "no",
+                        "openai-model": upstream_model_id,
+                        "x-request-id": f"resp_{uuid.uuid4().hex[:16]}",
+                    },
+                )
+            else:
+                ext_resp = await provider.chat_completion(ext_payload)
+                from agy_proxy.traffic import traffic_inspector
+                usage = ext_resp.get("usage", {})
+                p_toks = usage.get("prompt_tokens", 0)
+                c_toks = usage.get("completion_tokens", 0)
+                traffic_inspector.record(
+                    method="POST",
+                    path="/v1/chat/completions",
+                    client_model=raw_req_model,
+                    backend_model=f"{provider.name}: {upstream_model_id}",
+                    account_id=provider.id,
+                    account_email=provider.name,
+                    status_code=200,
+                    duration_ms=(time.time() - t0_ext) * 1000,
+                    stream=False,
+                    prompt_tokens=p_toks,
+                    completion_tokens=c_toks,
+                    total_tokens=p_toks + c_toks,
+                )
+                return JSONResponse(content=ext_resp)
 
         try:
             if req.stream:
@@ -3601,86 +3618,103 @@ def create_app(
         # Check if requested model targets an external provider (OpenRouter, Ollama, DeepSeek, Groq, NVIDIA NIM)
         from agy_proxy.providers import external_provider_manager
         raw_req_model = req.model or DEFAULT_MODEL
-        if external_provider_manager.is_external_model(raw_req_model):
+
+        target_prov_id = None
+        if target_account_id:
+            if target_account_id.startswith("provider:"):
+                target_prov_id = target_account_id[9:]
+            elif target_account_id in external_provider_manager.providers:
+                target_prov_id = target_account_id
+
+        ext_target = None
+        if target_prov_id:
+            prov = external_provider_manager.get_provider_instance(target_prov_id)
+            if prov and prov.enabled:
+                m_id = raw_req_model
+                if "/" in m_id and m_id.startswith(target_prov_id + "/"):
+                    m_id = m_id[len(target_prov_id) + 1:]
+                ext_target = (prov, m_id, target_prov_id)
+        elif external_provider_manager.is_external_model(raw_req_model):
             ext_target = external_provider_manager.resolve_model(raw_req_model)
-            if ext_target:
-                provider, upstream_model_id, _ = ext_target
-                logger.info("[%s] Routing Anthropic Messages -> %s (External %s)", raw_req_model, upstream_model_id, provider.name)
-                from agy_proxy.converters.anthropic import anthropic_to_cloudcode_payload
-                from agy_proxy.converters.cloudcode_to_openai import (
-                    cloudcode_to_openai_chat,
-                    OpenAIToAnthropicSSETranslator,
-                    openai_response_to_anthropic,
+
+        if ext_target:
+            provider, upstream_model_id, _ = ext_target
+            logger.info("[%s] Routing Anthropic Messages -> %s (External %s)", raw_req_model, upstream_model_id, provider.name)
+            from agy_proxy.converters.anthropic import anthropic_to_cloudcode_payload
+            from agy_proxy.converters.cloudcode_to_openai import (
+                cloudcode_to_openai_chat,
+                OpenAIToAnthropicSSETranslator,
+                openai_response_to_anthropic,
+            )
+            cc_payload = anthropic_to_cloudcode_payload(req, project_id="external")
+            ext_payload = cloudcode_to_openai_chat(cc_payload, upstream_model_id)
+            t0_ext = time.time()
+
+            if req.stream:
+                async def ext_anthropic_stream():
+                    translator = OpenAIToAnthropicSSETranslator(model_name=raw_req_model)
+                    try:
+                        async for chunk in provider.stream_chat(ext_payload):
+                            lines = translator.process_chunk(chunk)
+                            for l in lines:
+                                yield l
+
+                        from agy_proxy.traffic import traffic_inspector
+                        traffic_inspector.record(
+                            method="POST",
+                            path="/v1/messages",
+                            client_model=raw_req_model,
+                            backend_model=f"{provider.name}: {upstream_model_id}",
+                            account_id=provider.id,
+                            account_email=provider.name,
+                            status_code=200,
+                            duration_ms=(time.time() - t0_ext) * 1000,
+                            stream=True,
+                            prompt_tokens=translator.prompt_tokens,
+                            completion_tokens=translator.completion_tokens,
+                            total_tokens=translator.prompt_tokens + translator.completion_tokens,
+                        )
+                    except Exception as err:
+                        logger.error("[%s] External stream error for Anthropic client: %s", provider.name, err)
+                        err_event = {
+                            "type": "error",
+                            "error": {"type": "api_error", "message": str(err)},
+                        }
+                        yield f"event: error\ndata: {json.dumps(err_event)}\n\n"
+
+                return StreamingResponse(
+                    ext_anthropic_stream(),
+                    media_type="text/event-stream",
+                    headers={
+                        "Cache-Control": "no-cache",
+                        "Connection": "keep-alive",
+                        "Content-Type": "text/event-stream; charset=utf-8",
+                        "X-Accel-Buffering": "no",
+                        "anthropic-version": "2023-06-01",
+                    },
                 )
-                cc_payload = anthropic_to_cloudcode_payload(req, project_id="external")
-                ext_payload = cloudcode_to_openai_chat(cc_payload, upstream_model_id)
-                t0_ext = time.time()
-
-                if req.stream:
-                    async def ext_anthropic_stream():
-                        translator = OpenAIToAnthropicSSETranslator(model_name=raw_req_model)
-                        try:
-                            async for chunk in provider.stream_chat(ext_payload):
-                                lines = translator.process_chunk(chunk)
-                                for l in lines:
-                                    yield l
-
-                            from agy_proxy.traffic import traffic_inspector
-                            traffic_inspector.record(
-                                method="POST",
-                                path="/v1/messages",
-                                client_model=raw_req_model,
-                                backend_model=f"{provider.name}: {upstream_model_id}",
-                                account_id=provider.id,
-                                account_email=provider.name,
-                                status_code=200,
-                                duration_ms=(time.time() - t0_ext) * 1000,
-                                stream=True,
-                                prompt_tokens=translator.prompt_tokens,
-                                completion_tokens=translator.completion_tokens,
-                                total_tokens=translator.prompt_tokens + translator.completion_tokens,
-                            )
-                        except Exception as err:
-                            logger.error("[%s] External stream error for Anthropic client: %s", provider.name, err)
-                            err_event = {
-                                "type": "error",
-                                "error": {"type": "api_error", "message": str(err)},
-                            }
-                            yield f"event: error\ndata: {json.dumps(err_event)}\n\n"
-
-                    return StreamingResponse(
-                        ext_anthropic_stream(),
-                        media_type="text/event-stream",
-                        headers={
-                            "Cache-Control": "no-cache",
-                            "Connection": "keep-alive",
-                            "Content-Type": "text/event-stream; charset=utf-8",
-                            "X-Accel-Buffering": "no",
-                            "anthropic-version": "2023-06-01",
-                        },
-                    )
-                else:
-                    ext_resp = await provider.chat_completion(ext_payload)
-                    anth_resp = openai_response_to_anthropic(ext_resp, model_name=raw_req_model)
-                    from agy_proxy.traffic import traffic_inspector
-                    usage = ext_resp.get("usage", {})
-                    p_toks = usage.get("prompt_tokens", 0)
-                    c_toks = usage.get("completion_tokens", 0)
-                    traffic_inspector.record(
-                        method="POST",
-                        path="/v1/messages",
-                        client_model=raw_req_model,
-                        backend_model=f"{provider.name}: {upstream_model_id}",
-                        account_id=provider.id,
-                        account_email=provider.name,
-                        status_code=200,
-                        duration_ms=(time.time() - t0_ext) * 1000,
-                        stream=False,
-                        prompt_tokens=p_toks,
-                        completion_tokens=c_toks,
-                        total_tokens=p_toks + c_toks,
-                    )
-                    return JSONResponse(content=anth_resp)
+            else:
+                ext_resp = await provider.chat_completion(ext_payload)
+                anth_resp = openai_response_to_anthropic(ext_resp, model_name=raw_req_model)
+                from agy_proxy.traffic import traffic_inspector
+                usage = ext_resp.get("usage", {})
+                p_toks = usage.get("prompt_tokens", 0)
+                c_toks = usage.get("completion_tokens", 0)
+                traffic_inspector.record(
+                    method="POST",
+                    path="/v1/messages",
+                    client_model=raw_req_model,
+                    backend_model=f"{provider.name}: {upstream_model_id}",
+                    account_id=provider.id,
+                    account_email=provider.name,
+                    status_code=200,
+                    duration_ms=(time.time() - t0_ext) * 1000,
+                    stream=False,
+                    prompt_tokens=p_toks,
+                    completion_tokens=c_toks,
+                    total_tokens=p_toks + c_toks,
+                )
+                return JSONResponse(content=anth_resp)
 
         try:
             if req.stream:
