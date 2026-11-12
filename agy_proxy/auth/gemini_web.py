@@ -643,9 +643,11 @@ class GeminiWebSession(AccountSession):
                                 self._botguard_tokens[f"web-{clean_k}"] = v
             except Exception as e:
                 logger.debug("Failed loading %s: %s", cfg_tokens_path, e)
-        # 3. From traffic directories if available (fallback only — does not overwrite JSON config)
+        # 3. From ~/.config/agy-proxy/har or traffic directories if available (fallback only)
+        from agy_proxy.config import get_config_dir, get_har_dir
         search_dirs = [
-            Path("~/.config/agy-proxy/traffic"),
+            get_har_dir(),
+            get_config_dir() / "traffic",
         ]
         for traffic_dir in search_dirs:
             if traffic_dir.is_dir():

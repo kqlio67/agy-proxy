@@ -1743,13 +1743,15 @@ def create_app(
                 user_id = uid
 
         if not token:
-            default_har = Path("~/.config/agy-proxy/har/chat.deepseek.com.har")
-            if default_har.is_file():
-                t, em, uid = extract_deepseek_token_from_har(str(default_har))
-                if t:
-                    token = t
-                    email = em
-                    user_id = uid
+            from agy_proxy.config import get_har_search_paths
+            for candidate_har in get_har_search_paths(["chat.deepseek.com.har"], ["*deepseek*.har"]):
+                if candidate_har.is_file():
+                    t, em, uid = extract_deepseek_token_from_har(str(candidate_har))
+                    if t:
+                        token = t
+                        email = em
+                        user_id = uid
+                        break
 
         if not token:
             raise HTTPException(status_code=400, detail="No DeepSeek userToken found in input or HAR data.")
@@ -1779,13 +1781,10 @@ def create_app(
 
     @app.get("/api/accounts/deepseek-web/detect-har")
     async def detect_local_deepseek_har():
-        """Detects and previews local chat.deepseek.com.har file if present on host."""
+        """Detects and previews local chat.deepseek.com.har file if present in ~/.config/agy-proxy/har, ~/Downloads, ~, or cwd."""
+        from agy_proxy.config import get_har_search_paths
         from agy_proxy.providers.deepseek_web import extract_deepseek_token_from_har
-        candidate_paths = [
-            Path("~/.config/agy-proxy/har/chat.deepseek.com.har"),
-            Path.home() / "chat.deepseek.com.har",
-            Path.cwd() / "chat.deepseek.com.har",
-        ]
+        candidate_paths = get_har_search_paths(["chat.deepseek.com.har"], ["*deepseek*.har"])
         for p in candidate_paths:
             if p.is_file():
                 tok, email, uid = extract_deepseek_token_from_har(str(p))
@@ -1810,6 +1809,7 @@ def create_app(
     @app.post("/api/accounts/chatgpt-web")
     async def add_account_chatgpt_web(req: AddChatGPTWebRequest):
         """Adds or updates a ChatGPT Web session from access token, JWT, HAR export, or Zero-Auth Guest mode."""
+        from agy_proxy.config import get_har_search_paths
         from agy_proxy.providers import external_provider_manager, ExternalProviderConfig, ExternalModelConfig
         from agy_proxy.providers.chatgpt_web import extract_chatgpt_token_from_har
 
@@ -1825,12 +1825,7 @@ def create_app(
                 user_id = uid
 
         if not token and not req.is_guest:
-            candidate_paths = [
-                Path("~/.config/agy-proxy/har/chatgpt.com(авторизації).har"),
-                Path("~/.config/agy-proxy/har/chatgpt.com.har"),
-                Path.home() / "chatgpt.com.har",
-                Path.cwd() / "chatgpt.com.har",
-            ]
+            candidate_paths = get_har_search_paths(["chatgpt.com.har"], ["*chatgpt*.har"])
             for p in candidate_paths:
                 if p.is_file():
                     t, em, uid = extract_chatgpt_token_from_har(str(p))
@@ -1880,14 +1875,10 @@ def create_app(
 
     @app.get("/api/accounts/chatgpt-web/detect-har")
     async def detect_local_chatgpt_har():
-        """Detects and previews local chatgpt.com.har file if present on host."""
+        """Detects and previews local chatgpt.com.har file if present in ~/.config/agy-proxy/har, ~/Downloads, ~, or cwd."""
+        from agy_proxy.config import get_har_search_paths
         from agy_proxy.providers.chatgpt_web import extract_chatgpt_token_from_har
-        candidate_paths = [
-            Path("~/.config/agy-proxy/har/chatgpt.com(авторизації).har"),
-            Path("~/.config/agy-proxy/har/chatgpt.com.har"),
-            Path.home() / "chatgpt.com.har",
-            Path.cwd() / "chatgpt.com.har",
-        ]
+        candidate_paths = get_har_search_paths(["chatgpt.com.har"], ["*chatgpt*.har"])
         for p in candidate_paths:
             if p.is_file():
                 tok, email, uid = extract_chatgpt_token_from_har(str(p))

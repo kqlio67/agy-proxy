@@ -8,6 +8,8 @@ from agy_proxy.config import (
     set_configured_ls_path,
     get_configured_editor_path,
     set_configured_editor_path,
+    get_har_dir,
+    get_har_search_paths,
 )
 
 
@@ -58,3 +60,25 @@ def test_configured_paths(tmp_path, monkeypatch):
     # Non-existent file returns None
     assert set_config_value("language_server_path", "/path/does/not/exist") is True
     assert get_configured_ls_path() is None
+
+
+def test_har_search_paths(tmp_path, monkeypatch):
+    fake_home = tmp_path / "home"
+    fake_cfg = fake_home / ".config" / "agy-proxy"
+    fake_har = fake_cfg / "har"
+    fake_dl = fake_home / "Downloads"
+    fake_har.mkdir(parents=True)
+    fake_dl.mkdir(parents=True)
+
+    monkeypatch.setattr("agy_proxy.config.CONFIG_DIR", fake_cfg)
+    monkeypatch.setattr("agy_proxy.config.HAR_DIR", fake_har)
+    monkeypatch.setattr("pathlib.Path.home", lambda: fake_home)
+
+    custom_har = fake_har / "chatgpt.com(2).har"
+    custom_har.write_text("{}")
+
+    assert get_har_dir() == fake_har
+    paths = get_har_search_paths(["chatgpt.com.har"], ["*chatgpt*.har"])
+    assert paths[0] == fake_har / "chatgpt.com.har"
+    assert fake_dl / "chatgpt.com.har" in paths
+    assert custom_har in paths

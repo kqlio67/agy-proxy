@@ -119,17 +119,19 @@ class DeepSeekWebProvider(BaseExternalProvider):
         """Returns the active userToken."""
         t = (self.config.api_key or "").strip()
         if not t:
-            # Check if default HAR file exists on disk
-            default_har = Path("~/.config/agy-proxy/har/chat.deepseek.com.har")
-            if default_har.is_file():
-                tok, email, uid = extract_deepseek_token_from_har(str(default_har))
-                if tok:
-                    t = tok
-                    self.config.api_key = t
-                    if email:
-                        self.cached_user_email = email
-                    if uid:
-                        self.cached_user_id = uid
+            # Check standard portable HAR search paths (~/.config/agy-proxy/har, ~/Downloads, ~, cwd)
+            from agy_proxy.config import get_har_search_paths
+            for candidate_har in get_har_search_paths(["chat.deepseek.com.har"], ["*deepseek*.har"]):
+                if candidate_har.is_file():
+                    tok, email, uid = extract_deepseek_token_from_har(str(candidate_har))
+                    if tok:
+                        t = tok
+                        self.config.api_key = t
+                        if email:
+                            self.cached_user_email = email
+                        if uid:
+                            self.cached_user_id = uid
+                        break
         return t
 
     def get_auth_headers(self) -> dict[str, str]:

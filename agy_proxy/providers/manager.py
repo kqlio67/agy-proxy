@@ -81,18 +81,20 @@ class ExternalProviderManager:
                     self.providers[pid] = ExternalProviderConfig(**preset_copy)
                     modified = True
 
-            # If deepseek-web has no token, auto-detect from local chat.deepseek.com.har if available
+            # If deepseek-web has no token, auto-detect from portable HAR paths if available
             if "deepseek-web" in self.providers and not self.providers["deepseek-web"].api_key:
+                from agy_proxy.config import get_har_search_paths
                 from agy_proxy.providers.deepseek_web import extract_deepseek_token_from_har
-                har_path = Path("~/.config/agy-proxy/har/chat.deepseek.com.har")
-                if har_path.is_file():
-                    tok, em, uid = extract_deepseek_token_from_har(str(har_path))
-                    if tok:
-                        self.providers["deepseek-web"].api_key = tok
-                        self.providers["deepseek-web"].enabled = True
-                        if em:
-                            self.providers["deepseek-web"].name = f"DeepSeek Web ({em})"
-                        modified = True
+                for har_path in get_har_search_paths(["chat.deepseek.com.har"], ["*deepseek*.har"]):
+                    if har_path.is_file():
+                        tok, em, uid = extract_deepseek_token_from_har(str(har_path))
+                        if tok:
+                            self.providers["deepseek-web"].api_key = tok
+                            self.providers["deepseek-web"].enabled = True
+                            if em:
+                                self.providers["deepseek-web"].name = f"DeepSeek Web ({em})"
+                            modified = True
+                            break
 
             if modified:
                 self.save()

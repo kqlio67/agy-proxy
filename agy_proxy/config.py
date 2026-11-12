@@ -14,12 +14,62 @@ logger = logging.getLogger("agy_proxy.config")
 
 CONFIG_DIR = Path.home() / ".config" / "agy-proxy"
 CONFIG_FILE = CONFIG_DIR / "config.json"
+HAR_DIR = CONFIG_DIR / "har"
 
 
 def get_config_dir() -> Path:
     """Returns the agy-proxy configuration directory, ensuring it exists."""
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     return CONFIG_DIR
+
+
+def get_har_dir(create: bool = False) -> Path:
+    """Returns the agy-proxy HAR storage directory (~/.config/agy-proxy/har)."""
+    if create:
+        HAR_DIR.mkdir(parents=True, exist_ok=True)
+    return HAR_DIR
+
+
+def get_har_search_paths(filenames: list[str], glob_patterns: list[str] | None = None) -> list[Path]:
+    """
+    Returns portable, cross-user candidate paths for HAR captures:
+    1. ~/.config/agy-proxy/har/
+    2. ~/.config/agy-proxy/
+    3. ~/Downloads/
+    4. ~/
+    5. Current working directory
+    """
+    home_dir = Path.home()
+    bases = [
+        HAR_DIR,
+        CONFIG_DIR,
+        home_dir / "Downloads",
+        home_dir,
+        Path.cwd(),
+    ]
+    seen: set[Path] = set()
+    results: list[Path] = []
+
+    for base in bases:
+        for fn in filenames:
+            candidate = base / fn
+            if candidate not in seen:
+                seen.add(candidate)
+                results.append(candidate)
+
+    if glob_patterns:
+        for base in bases:
+            if base.is_dir():
+                for pattern in glob_patterns:
+                    try:
+                        for match in sorted(base.glob(pattern), key=lambda p: p.stat().st_mtime, reverse=True):
+                            if match.is_file() and match not in seen:
+                                seen.add(match)
+                                results.append(match)
+                    except OSError:
+                        pass
+
+    return results
 
 
 def get_config_file() -> Path:

@@ -1901,7 +1901,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
                   <span>⚡ Local HAR Detected</span>
                   <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-cyan-500/30 text-cyan-200">PoW Ready</span>
                 </div>
-                <div class="text-[11px] text-cyan-300 font-mono truncate" id="localHarPathPreview">~/.config/agy-proxy/har/chat.deepseek.com.har</div>
+                <div class="text-[11px] text-cyan-300 font-mono truncate" id="localHarPathPreview">~/.config/agy-proxy/har/</div>
               </div>
             </div>
             <button type="button" onclick="applyDetectedLocalHar()" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white font-bold text-xs transition shrink-0 flex items-center space-x-1.5 shadow active:scale-95">
@@ -1935,7 +1935,14 @@ https://your-tunnel.trycloudflare.com/v1</pre>
             <div>
               <div class="flex items-center justify-between mb-1">
                 <label class="text-[11px] text-slate-400 font-medium" id="webCookiesLabel">HAR Export / Raw Cookies / cURL</label>
-                <span class="text-[10px] text-slate-500 font-mono" id="webCookiesHint">paste HAR JSON or Cookie: header</span>
+                <div class="flex items-center gap-2">
+                  <span class="text-[10px] text-slate-500 font-mono" id="webCookiesHint">paste HAR JSON or Cookie: header</span>
+                  <label class="cursor-pointer px-2 py-0.5 rounded-md bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.1] text-[10px] text-slate-300 transition flex items-center gap-1">
+                    <i class="fa-solid fa-folder-open text-[9px] text-cyan-400"></i>
+                    <span>Upload .har</span>
+                    <input type="file" accept=".har,.json" class="hidden" onchange="handleHarFileUpload(this)">
+                  </label>
+                </div>
               </div>
               <textarea id="webCookiesInput" rows="3" oninput="autoDetectAuthUser(this.value)" placeholder="Paste .har export JSON, or Cookie header (__Secure-1PSID=...; __Secure-1PSIDTS=...), or curl command here..." class="w-full bg-slate-900/60 backdrop-blur-md border border-white/[0.08] rounded-xl px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-teal-400 custom-scrollbar"></textarea>
             </div>
@@ -6727,6 +6734,25 @@ ightarrow$ v1.0.3</p>
       if (cookiesInput) cookiesInput.value = 'zero-auth';
       if (nameInput) nameInput.value = 'ChatGPT Web (Zero-Auth Guest)';
       showToast('Обрано безкоштовний режим Zero-Auth Guest! Натисніть "Add to Pool" для збереження.', 'info');
+    }
+
+    function handleHarFileUpload(input) {
+      const file = input?.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const content = e.target?.result;
+        if (typeof content === 'string') {
+          const cookiesInput = document.getElementById('webCookiesInput');
+          if (cookiesInput) {
+            cookiesInput.value = content;
+            if (typeof autoDetectAuthUser === 'function') autoDetectAuthUser(content);
+          }
+          showToast(`Завантажено файл ${file.name}. Натисніть Add to Pool для збереження сесії в ~/.config/agy-proxy.`, 'success');
+        }
+      };
+      reader.readAsText(file);
+      input.value = '';
     }
 
     async function openAddAccountModal(initialTab = 'oauth') {
