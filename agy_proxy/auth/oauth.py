@@ -389,15 +389,18 @@ class AntigravityOAuthSession(AccountSession):
         return self.available_models
 
     def _has_argon_quota_group(self) -> bool:
-        """Checks whether quota_summary contains an active dedicated Gemini 4 Argon bucket."""
+        """Checks whether quota_summary contains an active dedicated Gemini 4 Argon or Hydrogen bucket."""
         qs = getattr(self, "quota_summary", None)
         if not qs or not isinstance(qs, dict):
             return False
         for group in qs.get("groups", []):
             g_name = str(group.get("displayName") or "").lower()
             buckets = group.get("buckets", []) or []
-            has_argon = "argon" in g_name or any("argon" in str(b.get("bucketId", "")).lower() for b in buckets)
-            if has_argon:
+            has_match = (
+                any(kw in g_name for kw in ("argon", "carbon", "hydrogen"))
+                or any(any(kw in str(b.get("bucketId", "")).lower() for kw in ("argon", "carbon", "hydrogen")) for b in buckets)
+            )
+            if has_match:
                 if buckets and all(bool(b.get("disabled", False)) for b in buckets):
                     continue
                 return True
@@ -416,6 +419,7 @@ class AntigravityOAuthSession(AccountSession):
             is_claude_5_5_model,
             is_claude_4_6_model,
             is_argon_model,
+            is_hydrogen_model,
             is_deepagent_model,
             is_gemini_web_model,
         )
@@ -457,13 +461,24 @@ class AntigravityOAuthSession(AccountSession):
                 return False
             return True
 
-        # 5. Gemini 4 Argon models: supported if explicitly available & enabled in CloudCode, or has dedicated Argon quota bucket
+        # 5. Gemini 4 Argon & Hydrogen models: supported if explicitly available & enabled in CloudCode, or has dedicated quota bucket
         if is_argon_model(norm):
-            if str(model_name).strip().lower() == "gemini-4-argon-disabled":
+            if str(model_name).strip().lower() in ("gemini-4-argon-disabled", "gemini-4-hydrogen-disabled"):
                 return False
             if avail:
                 if norm in avail:
                     return not bool(avail[norm].get("disabled", False))
+                if is_hydrogen_model(norm):
+                    return any(
+                        m in avail and not bool(avail[m].get("disabled", False))
+                        for m in (
+                            "gemini-4-hydrogen-high",
+                            "gemini-4-hydrogen-medium",
+                            "gemini-4-hydrogen-low",
+                            "gemini-4-hydrogen-xhigh",
+                            "gemini-4-hydrogen",
+                        )
+                    )
                 return any(
                     m in avail and not bool(avail[m].get("disabled", False))
                     for m in ("gemini-4-argon-high", "gemini-4-argon-medium", "gemini-4-argon-low", "gemini-4-argon")
@@ -540,7 +555,10 @@ class AntigravityOAuthSession(AccountSession):
             for group in qs.get("groups", []):
                 g_name = (group.get("displayName") or "").lower()
                 buckets = group.get("buckets", [])
-                is_argon_grp = "argon" in g_name or any("argon" in str(b.get("bucketId", "")).lower() for b in buckets)
+                is_argon_grp = (
+                    any(kw in g_name for kw in ("argon", "carbon", "hydrogen"))
+                    or any(any(kw in str(b.get("bucketId", "")).lower() for kw in ("argon", "carbon", "hydrogen")) for b in buckets)
+                )
                 if is_argon_grp:
                     key = "argon"
                     res["argon"]["has_dedicated_bucket"] = True

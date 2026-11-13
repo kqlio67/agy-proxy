@@ -1265,11 +1265,15 @@ def patch_web_bundle(bundle_dir: Path) -> bool:
                 break
 
     # 1.8 Inject Model Enum Map, __enhanceUserStatus and state provider (dynamic structural matching + static fallback)
-    if "_sep_ordered_v17" not in js or "agy.selectedModelLabel" not in js:
+    if "_sep_ordered_v19" not in js or "agy.selectedModelLabel" not in js:
         enhancer_common = '''var MODEL_ENUM_MAP={
 "gemini-4-carbon":1670,"gemini-4-carbon-disabled":1670,"Gemini 4 Carbon":1670,
 "gemini-4-argon":1417,"gemini-4-argon-high":1417,"gemini-4-argon-medium":1418,"gemini-4-argon-low":1419,"gemini-4-argon-disabled":1417,
 "Gemini 4 Argon":1417,"Gemini 4 Argon (High)":1417,"Gemini 4 Argon (Medium)":1418,"Gemini 4 Argon (Low)":1419,
+"gemini-4-hydrogen":1680,"gemini-4-hydrogen-high":1680,"gemini-4-hydrogen-medium":1681,"gemini-4-hydrogen-low":1682,"gemini-4-hydrogen-xhigh":1683,"gemini-4-hydrogen-disabled":1680,
+"Gemini 4 Hydrogen":1680,"Gemini 4 Hydrogen (High)":1680,"Gemini 4 Hydrogen (Medium)":1681,"Gemini 4 Hydrogen (Low)":1682,"Gemini 4 Hydrogen (Extra-High)":1683,
+"gemini-4-hydrogen-web-high":1530,"gemini-4-hydrogen-web-medium":1531,"gemini-4-hydrogen-web-low":1532,"gemini-4-hydrogen-web-spark":1533,"gemini-4-hydrogen-web-task":1533,
+"Gemini 4 Hydrogen (Web) (High)":1530,"Gemini 4 Hydrogen (Web) (Medium)":1531,"Gemini 4 Hydrogen (Web) (Low)":1532,"Gemini 4 Hydrogen (Web) (Spark Agent)":1533,
 "gemini-3.8-flash-high":1318,"gemini-3.8-flash-medium":1319,"gemini-3.8-flash-low":1320,"gemini-3.8-flash-tiered":1322,"gemini-3.8-flash-deepagent":1522,
 "Gemini 3.8 Flash (High)":1318,"Gemini 3.8 Flash (Medium)":1319,"Gemini 3.8 Flash (Low)":1320,"Gemini 3.8 Flash (Tiered)":1322,"Gemini 3.8 Flash (DeepAgent)":1522,
 "gemini-3.7-flash":1315,"gemini-3.7-flash-high":1315,"gemini-3.7-flash-medium":1316,"gemini-3.7-flash-low":1317,"gemini-3.7-flash-tiered":1523,
@@ -1312,15 +1316,25 @@ def patch_web_bundle(bundle_dir: Path) -> bool:
 "tab_flash_lite_preview":1019,"tab_jump_flash_lite_preview":1028,
 "Tab Flash Lite Preview [Unlimited]":1019,"Tab Jump Prediction [Unlimited]":1028
 };
-var __enhanceUserStatus=function(b){if(!b||!b.cascadeModelConfigData)return b;try{var isProxyActive=false;try{if(typeof window!=="undefined"&&window.__AGY_PROXY_ACTIVE__!==undefined){isProxyActive=Boolean(window.__AGY_PROXY_ACTIVE__)}else if(typeof localStorage!=="undefined"&&localStorage.getItem("agy.proxyActive")!==null){isProxyActive=localStorage.getItem("agy.proxyActive")==="true"}}catch(e){}var d=b.cascadeModelConfigData,origConfigs=d.clientModelConfigs||[],origSorts=d.clientModelSorts||[],newConfigs=origConfigs.map(m=>{var c=Object.assign({},m);if(c.tagTitle==="Notice"||c.tagTitle==="Unavailable"||(c.tagDescription&&(c.tagDescription.includes("no longer")||c.tagDescription.includes("removed")||c.tagDescription.includes("retired")))){delete c.tagTitle;delete c.tagDescription};if(c.modelId==="gemini-4-argon-disabled"||c.label==="Gemini 4 Argon"||c.label==="gemini-4-argon"){c.label="Gemini 4 Argon (High)";c.modelId="gemini-4-argon-high";c.value=1417};c.disabled=!1;if(!c.quotaInfo||c.quotaInfo.remainingFraction<=0||c.quotaInfo.resetTime){c.quotaInfo={remainingFraction:1}};delete c.betaWarningMessage;return c}),existingLabels=new Set(newConfigs.map(m=>m.label)),template=newConfigs.find(m=>!m.disabled)||newConfigs[0]||{},cleanTemplate=Object.assign({},template);delete cleanTemplate.quotaInfo;delete cleanTemplate.tagTitle;delete cleanTemplate.tagDescription;delete cleanTemplate.modelAlias;delete cleanTemplate.betaWarningMessage;var newSorts=JSON.parse(JSON.stringify(origSorts)),recGroup=newSorts.find(s=>s.name&&s.name.toLowerCase()==="recommended")?.groups?.[0];!recGroup&&newSorts.length>0&&newSorts[0].groups&&(recGroup=newSorts[0].groups[0]);var defaultModels=[{label:"Gemini 3.8 Flash (High)",alias:"gemini-3.8-flash-high"},{label:"Gemini 3.8 Flash (Medium)",alias:"gemini-3.8-flash-medium"},{label:"Gemini 3.8 Flash (Low)",alias:"gemini-3.8-flash-low"},{label:"Claude Sonnet 4.6 (Thinking)",alias:"claude-sonnet-4-6"},{label:"Claude Opus 4.6 (Thinking)",alias:"claude-opus-4-6-thinking"},{label:"Claude 4.5 Haiku",alias:"claude-haiku-4-5"},{label:"GPT-OSS 120B (Medium)",alias:"gpt-oss-120b-medium"},{label:"Gemini 4 Argon (High)",alias:"gemini-4-argon-high"},{label:"Gemini 4 Argon (Medium)",alias:"gemini-4-argon-medium"},{label:"Gemini 4 Argon (Low)",alias:"gemini-4-argon-low"},{label:"Gemini 4 Carbon",alias:"gemini-4-carbon"}],agyModels=[{label:"Claude Sonnet 5.5 (High)",alias:"claude-sonnet-5-5-high"},{label:"Claude Sonnet 5.5 (Medium)",alias:"claude-sonnet-5-5-medium"},{label:"Claude Sonnet 5.5 (Low)",alias:"claude-sonnet-5-5-low"},{label:"Claude Opus 5.5 (High)",alias:"claude-opus-5-5-high"},{label:"Claude Opus 5.5 (Medium)",alias:"claude-opus-5-5-medium"},{label:"Claude Opus 5.5 (Low)",alias:"claude-opus-5-5-low"},{label:"Claude 4.5 Haiku (Thinking)",alias:"claude-haiku-4-5-thinking"},{label:"Gemini 3.8 Flash (Tiered)",alias:"gemini-3.8-flash-tiered"},{label:"Gemini 3.5 Flash Lite",alias:"gemini-3.5-flash-lite"},{label:"Gemini 3.5 Flash-Lite (High)",alias:"gemini-3.5-flash-lite-high"},{label:"Gemini 3.5 Flash-Lite (Medium)",alias:"gemini-3.5-flash-lite-medium"},{label:"Gemini 3.5 Flash-Lite (Low)",alias:"gemini-3.5-flash-lite-low"},{label:"Gemini 3.1 Flash Lite",alias:"gemini-3.1-flash-lite"},{label:"Gemini 3 Flash",alias:"gemini-3-flash"},{label:"Gemini 2.5 Pro",alias:"gemini-2.5-pro"},{label:"Gemini 2.5 Flash",alias:"gemini-2.5-flash"},{label:"Gemini 2.5 Flash Lite",alias:"gemini-2.5-flash-lite"},{label:"Gemini 2.5 Flash (Thinking)",alias:"gemini-2.5-flash-thinking"}],baseWebModels=[{label:"Gemini 4 Argon (Web) (High)",alias:"gemini-4-argon-web-high"},{label:"Gemini 4 Argon (Web) (Medium)",alias:"gemini-4-argon-web-medium"},{label:"Gemini 4 Argon (Web) (Low)",alias:"gemini-4-argon-web-low"},{label:"Gemini 4 Argon (Web) (Agent)",alias:"gemini-4-argon-web-task"},{label:"Gemini 4 Argon (Web) (Spark Agent)",alias:"gemini-4-argon-web-spark"},{label:"Gemini 3.8 Flash (Web) (High)",alias:"gemini-3.8-flash-web-high"},{label:"Gemini 3.8 Flash (Web) (Medium)",alias:"gemini-3.8-flash-web-medium"},{label:"Gemini 3.8 Flash (Web) (Low)",alias:"gemini-3.8-flash-web-low"},{label:"Gemini 3.8 Flash (Web) (Agent)",alias:"gemini-3.8-flash-web-task"},{label:"Gemini 3.8 Flash (Web) (Spark Agent)",alias:"gemini-3.8-flash-web-spark"},{label:"Gemini 3.1 Pro (Web) (High)",alias:"gemini-3.1-pro-web-high"},{label:"Gemini 3.1 Pro (Web) (Medium)",alias:"gemini-3.1-pro-web-medium"},{label:"Gemini 3.1 Pro (Web) (Low)",alias:"gemini-3.1-pro-web-low"},{label:"Gemini 3.5 Flash-Lite (Web) (High)",alias:"gemini-3.5-flash-lite-web-high"},{label:"Gemini 3.5 Flash-Lite (Web) (Medium)",alias:"gemini-3.5-flash-lite-web-medium"},{label:"Gemini 3.5 Flash-Lite (Web) (Low)",alias:"gemini-3.5-flash-lite-web-low"}],dynWeb=(typeof window!=="undefined"&&Array.isArray(window.__AGY_WEB_MODELS__))?window.__AGY_WEB_MODELS__:[],webModels=[...baseWebModels],existingWebAliases=new Set(webModels.map(m=>m.alias));dynWeb.forEach(wm=>{if(wm&&wm.alias&&!existingWebAliases.has(wm.alias)){webModels.push(wm);existingWebAliases.add(wm.alias)}});var extModels=(typeof window!=="undefined"&&Array.isArray(window.__AGY_EXTERNAL_MODELS__))?window.__AGY_EXTERNAL_MODELS__:[],tabModels=[{label:"Tab Flash Lite Preview [Unlimited]",alias:"tab_flash_lite_preview"},{label:"Tab Jump Prediction [Unlimited]",alias:"tab_jump_flash_lite_preview"}],imageModels=[{label:"Gemini 3.1 Flash (Image)",alias:"gemini-3.1-flash-image"}];if(b._agyEnhanced){var curConfigs=b.cascadeModelConfigData?.clientModelConfigs||[],curIds=new Set(curConfigs.map(m=>m.modelId)),hasNewExt=extModels.some(m=>!curIds.has(m.alias)),hasNewWeb=dynWeb.some(m=>!curIds.has(m.alias));if(!hasNewExt&&!hasNewWeb)return b};var addSep=function(secLabel,secId){if(!existingLabels.has(secLabel)){var sepEntry=Object.assign({},cleanTemplate,{label:secLabel,disabled:!0,isRecommended:!1,modelId:secId,modelOrAlias:{"$typeName":"exa.codeium_common_pb.ModelOrAlias",choice:{case:"alias",value:secId}},supportedMimeTypes:{}});delete sepEntry.tagTitle;delete sepEntry.tagDescription;delete sepEntry.quotaInfo;delete sepEntry.betaWarningMessage;newConfigs.push(sepEntry);existingLabels.add(secLabel)}};var addModels=function(items){for(var item of items){if(!existingLabels.has(item.label)){var enumVal=MODEL_ENUM_MAP[item.alias]||MODEL_ENUM_MAP[item.label]||1500;var isImg=item.alias.includes("image")||item.alias.includes("claude")||item.alias.includes("gemini")||item.alias.includes("gpt");var mimes=isImg?Object.assign({},(cleanTemplate.supportedMimeTypes||{}),{"image/jpeg":!0,"image/png":!0,"image/webp":!0,"image/heic":!0,"image/heif":!0,"image/gif":!0}):{};var entry=Object.assign({},cleanTemplate,{label:item.label,disabled:!1,isRecommended:!0,modelId:item.alias,value:enumVal,modelOrAlias:{"$typeName":"exa.codeium_common_pb.ModelOrAlias",choice:{case:"model",value:enumVal}},supportedMimeTypes:mimes,quotaInfo:{remainingFraction:1}});delete entry.modelAlias;delete entry.tagTitle;delete entry.tagDescription;delete entry.betaWarningMessage;newConfigs.push(entry);existingLabels.add(item.label)}}};addSep("── Default ──────────────────","sep_default");addModels(defaultModels);addSep("── Antigravity ───────────","sep_agy");addModels(agyModels);if(isProxyActive){addSep("── Web ──────────────────","sep_web");addModels(webModels)};if(extModels.length>0){addSep("── External AI ──────────────","sep_ext");addModels(extModels)};addSep("── Fast Completion (Unlimited) ───","sep_tab");addModels(tabModels);addSep("── Image Generation ─────────","sep_img");addModels(imageModels);if(recGroup){var ordered=[];ordered.push("── Default ──────────────────");var defaultBaseLabels=["Gemini 3.8 Flash (High)","Claude Sonnet 4.6 (Thinking)","Claude Opus 4.6 (Thinking)","Claude 4.5 Haiku",existingLabels.has("GPT-OSS 120B (Medium)")?"GPT-OSS 120B (Medium)":"GPT-OSS 120B","Gemini 4 Argon (High)","Gemini 4 Carbon"];defaultBaseLabels.forEach(lbl=>{if(existingLabels.has(lbl)&&!ordered.includes(lbl)){ordered.push(lbl)}});ordered.push("── Antigravity ───────────");agyModels.forEach(m=>{!ordered.includes(m.label)&&ordered.push(m.label)});if(isProxyActive){ordered.push("── Web ──────────────────");webModels.forEach(m=>{!ordered.includes(m.label)&&ordered.push(m.label)})};if(extModels.length>0){ordered.push("── External AI ──────────────");extModels.forEach(m=>{!ordered.includes(m.label)&&ordered.push(m.label)})};ordered.push("── Fast Completion (Unlimited) ───");tabModels.forEach(m=>{!ordered.includes(m.label)&&ordered.push(m.label)});ordered.push("── Image Generation ─────────");imageModels.forEach(m=>{!ordered.includes(m.label)&&ordered.push(m.label)});recGroup.modelLabels=ordered}return Object.assign({},b,{_agyEnhanced:!0,_sep_ordered_v16:!0,_sep_ordered_v17:!0,_proxyActive:isProxyActive,cascadeModelConfigData:Object.assign({},d,{clientModelConfigs:newConfigs,clientModelSorts:newSorts})})}catch(err){console.error("[AGY-Proxy] enhanceUserStatus failed:",err);return b}};
+var _dynEnumCounter=2000;
+var _dynEnumMap={};
+var _getDynEnum=function(alias,label){
+  if(alias&&MODEL_ENUM_MAP[alias])return MODEL_ENUM_MAP[alias];
+  if(label&&MODEL_ENUM_MAP[label])return MODEL_ENUM_MAP[label];
+  var key=alias||label;
+  if(!_dynEnumMap[key]){_dynEnumMap[key]=_dynEnumCounter++}
+  var val=_dynEnumMap[key];
+  if(alias)MODEL_ENUM_MAP[alias]=val;
+  if(label)MODEL_ENUM_MAP[label]=val;
+  return val;
+};
+var __enhanceUserStatus=function(b){if(!b||!b.cascadeModelConfigData)return b;try{var isProxyActive=false;try{if(typeof window!=="undefined"&&window.__AGY_PROXY_ACTIVE__!==undefined){isProxyActive=Boolean(window.__AGY_PROXY_ACTIVE__)}else if(typeof localStorage!=="undefined"&&localStorage.getItem("agy.proxyActive")!==null){isProxyActive=localStorage.getItem("agy.proxyActive")==="true"}}catch(e){}var d=b.cascadeModelConfigData,origConfigs=d.clientModelConfigs||[],origSorts=d.clientModelSorts||[],newConfigs=origConfigs.map(m=>{var c=Object.assign({},m);if(c.tagTitle==="Notice"||c.tagTitle==="Unavailable"||(c.tagDescription&&(c.tagDescription.includes("no longer")||c.tagDescription.includes("removed")||c.tagDescription.includes("retired")))){delete c.tagTitle;delete c.tagDescription};if(c.modelId==="gemini-4-argon-disabled"||c.label==="Gemini 4 Argon"||c.label==="gemini-4-argon"){c.label="Gemini 4 Argon (High)";c.modelId="gemini-4-argon-high";c.value=1417};c.disabled=!1;if(!c.quotaInfo||c.quotaInfo.remainingFraction<=0||c.quotaInfo.resetTime){c.quotaInfo={remainingFraction:1}};delete c.betaWarningMessage;if(c.modelId&&c.modelId.includes("/")){var dynEnum=_getDynEnum(c.modelId,c.label);c.value=dynEnum;c.modelOrAlias={"$typeName":"exa.codeium_common_pb.ModelOrAlias",choice:{case:"model",value:dynEnum}}}return c}),existingLabels=new Set(newConfigs.map(m=>m.label)),template=newConfigs.find(m=>!m.disabled)||newConfigs[0]||{},cleanTemplate=Object.assign({},template);delete cleanTemplate.quotaInfo;delete cleanTemplate.tagTitle;delete cleanTemplate.tagDescription;delete cleanTemplate.modelAlias;delete cleanTemplate.betaWarningMessage;var newSorts=JSON.parse(JSON.stringify(origSorts)),recGroup=newSorts.find(s=>s.name&&s.name.toLowerCase()==="recommended")?.groups?.[0];!recGroup&&newSorts.length>0&&newSorts[0].groups&&(recGroup=newSorts[0].groups[0]);var defaultModels=[{label:"Gemini 3.8 Flash (High)",alias:"gemini-3.8-flash-high"},{label:"Gemini 3.8 Flash (Medium)",alias:"gemini-3.8-flash-medium"},{label:"Gemini 3.8 Flash (Low)",alias:"gemini-3.8-flash-low"},{label:"Claude Sonnet 4.6 (Thinking)",alias:"claude-sonnet-4-6"},{label:"Claude Opus 4.6 (Thinking)",alias:"claude-opus-4-6-thinking"},{label:"Claude 4.5 Haiku",alias:"claude-haiku-4-5"},{label:"GPT-OSS 120B (Medium)",alias:"gpt-oss-120b-medium"},{label:"Gemini 4 Argon (High)",alias:"gemini-4-argon-high"},{label:"Gemini 4 Argon (Medium)",alias:"gemini-4-argon-medium"},{label:"Gemini 4 Argon (Low)",alias:"gemini-4-argon-low"},{label:"Gemini 4 Carbon",alias:"gemini-4-carbon"},{label:"Gemini 4 Hydrogen (High)",alias:"gemini-4-hydrogen-high"}],agyModels=[{label:"Claude Sonnet 5.5 (High)",alias:"claude-sonnet-5-5-high"},{label:"Claude Sonnet 5.5 (Medium)",alias:"claude-sonnet-5-5-medium"},{label:"Claude Sonnet 5.5 (Low)",alias:"claude-sonnet-5-5-low"},{label:"Claude Opus 5.5 (High)",alias:"claude-opus-5-5-high"},{label:"Claude Opus 5.5 (Medium)",alias:"claude-opus-5-5-medium"},{label:"Claude Opus 5.5 (Low)",alias:"claude-opus-5-5-low"},{label:"Claude 4.5 Haiku (Thinking)",alias:"claude-haiku-4-5-thinking"},{label:"Gemini 3.8 Flash (Tiered)",alias:"gemini-3.8-flash-tiered"},{label:"Gemini 3.5 Flash Lite",alias:"gemini-3.5-flash-lite"},{label:"Gemini 3.5 Flash-Lite (High)",alias:"gemini-3.5-flash-lite-high"},{label:"Gemini 3.5 Flash-Lite (Medium)",alias:"gemini-3.5-flash-lite-medium"},{label:"Gemini 3.5 Flash-Lite (Low)",alias:"gemini-3.5-flash-lite-low"},{label:"Gemini 3.1 Flash Lite",alias:"gemini-3.1-flash-lite"},{label:"Gemini 3 Flash",alias:"gemini-3-flash"},{label:"Gemini 2.5 Pro",alias:"gemini-2.5-pro"},{label:"Gemini 2.5 Flash",alias:"gemini-2.5-flash"},{label:"Gemini 2.5 Flash Lite",alias:"gemini-2.5-flash-lite"},{label:"Gemini 2.5 Flash (Thinking)",alias:"gemini-2.5-flash-thinking"}],baseWebModels=[{label:"Gemini 4 Hydrogen (Web) (High)",alias:"gemini-4-hydrogen-web-high"},{label:"Gemini 4 Hydrogen (Web) (Spark Agent)",alias:"gemini-4-hydrogen-web-spark"},{label:"Gemini 4 Argon (Web) (High)",alias:"gemini-4-argon-web-high"},{label:"Gemini 4 Argon (Web) (Medium)",alias:"gemini-4-argon-web-medium"},{label:"Gemini 4 Argon (Web) (Low)",alias:"gemini-4-argon-web-low"},{label:"Gemini 4 Argon (Web) (Agent)",alias:"gemini-4-argon-web-task"},{label:"Gemini 4 Argon (Web) (Spark Agent)",alias:"gemini-4-argon-web-spark"},{label:"Gemini 3.8 Flash (Web) (High)",alias:"gemini-3.8-flash-web-high"},{label:"Gemini 3.8 Flash (Web) (Medium)",alias:"gemini-3.8-flash-web-medium"},{label:"Gemini 3.8 Flash (Web) (Low)",alias:"gemini-3.8-flash-web-low"},{label:"Gemini 3.8 Flash (Web) (Agent)",alias:"gemini-3.8-flash-web-task"},{label:"Gemini 3.8 Flash (Web) (Spark Agent)",alias:"gemini-3.8-flash-web-spark"},{label:"Gemini 3.1 Pro (Web) (High)",alias:"gemini-3.1-pro-web-high"},{label:"Gemini 3.1 Pro (Web) (Medium)",alias:"gemini-3.1-pro-web-medium"},{label:"Gemini 3.1 Pro (Web) (Low)",alias:"gemini-3.1-pro-web-low"},{label:"Gemini 3.5 Flash-Lite (Web) (High)",alias:"gemini-3.5-flash-lite-web-high"},{label:"Gemini 3.5 Flash-Lite (Web) (Medium)",alias:"gemini-3.5-flash-lite-web-medium"},{label:"Gemini 3.5 Flash-Lite (Web) (Low)",alias:"gemini-3.5-flash-lite-web-low"}],dynWeb=((typeof window!=="undefined"&&Array.isArray(window.__AGY_WEB_MODELS__))?window.__AGY_WEB_MODELS__:[]).filter(wm=>wm&&wm.alias&&wm.alias.startsWith("gemini-")&&!wm.alias.includes("/")),webModels=[...baseWebModels],existingWebAliases=new Set(webModels.map(m=>m.alias));dynWeb.forEach(wm=>{if(wm&&wm.alias&&!existingWebAliases.has(wm.alias)){webModels.push(wm);existingWebAliases.add(wm.alias)}});var extModels=(typeof window!=="undefined"&&Array.isArray(window.__AGY_EXTERNAL_MODELS__))?window.__AGY_EXTERNAL_MODELS__:[],tabModels=[{label:"Tab Flash Lite Preview [Unlimited]",alias:"tab_flash_lite_preview"},{label:"Tab Jump Prediction [Unlimited]",alias:"tab_jump_flash_lite_preview"}],imageModels=[{label:"Gemini 3.1 Flash (Image)",alias:"gemini-3.1-flash-image"}];if(b._agyEnhanced){var curConfigs=b.cascadeModelConfigData?.clientModelConfigs||[],curIds=new Set(curConfigs.map(m=>m.modelId)),hasNewExt=extModels.some(m=>!curIds.has(m.alias)),hasNewWeb=dynWeb.some(m=>!curIds.has(m.alias));if(!hasNewExt&&!hasNewWeb)return b};var addSep=function(secLabel,secId){if(!existingLabels.has(secLabel)){var sepEntry=Object.assign({},cleanTemplate,{label:secLabel,disabled:!0,isRecommended:!1,modelId:secId,modelOrAlias:{"$typeName":"exa.codeium_common_pb.ModelOrAlias",choice:{case:"alias",value:secId}},supportedMimeTypes:{}});delete sepEntry.tagTitle;delete sepEntry.tagDescription;delete sepEntry.quotaInfo;delete sepEntry.betaWarningMessage;newConfigs.push(sepEntry);existingLabels.add(secLabel)}};var addModels=function(items){for(var item of items){var enumVal=_getDynEnum(item.alias,item.label);var existing=newConfigs.find(m=>m.modelId===item.alias);if(existing){existing.label=item.label;existing.value=enumVal;existing.modelOrAlias={"$typeName":"exa.codeium_common_pb.ModelOrAlias",choice:{case:"model",value:enumVal}};existingLabels.add(item.label)}else if(!existingLabels.has(item.label)){var isImg=item.alias.includes("image")||item.alias.includes("claude")||item.alias.includes("gemini")||item.alias.includes("gpt");var mimes=isImg?Object.assign({},(cleanTemplate.supportedMimeTypes||{}),{"image/jpeg":!0,"image/png":!0,"image/webp":!0,"image/heic":!0,"image/heif":!0,"image/gif":!0}):{};var entry=Object.assign({},cleanTemplate,{label:item.label,disabled:!1,isRecommended:!0,modelId:item.alias,value:enumVal,modelOrAlias:{"$typeName":"exa.codeium_common_pb.ModelOrAlias",choice:{case:"model",value:enumVal}},supportedMimeTypes:mimes,quotaInfo:{remainingFraction:1}});delete entry.modelAlias;delete entry.tagTitle;delete entry.tagDescription;delete entry.betaWarningMessage;newConfigs.push(entry);existingLabels.add(item.label)}}};addSep("── Default ──────────────────","sep_default");addModels(defaultModels);addSep("── Antigravity ───────────","sep_agy");addModels(agyModels);if(isProxyActive){addSep("── Web ──────────────────","sep_web");addModels(webModels)};if(extModels.length>0){addSep("── External AI ──────────────","sep_ext");addModels(extModels)};addSep("── Fast Completion (Unlimited) ───","sep_tab");addModels(tabModels);addSep("── Image Generation ─────────","sep_img");addModels(imageModels);if(recGroup){var ordered=[];ordered.push("── Default ──────────────────");var defaultBaseLabels=["Gemini 3.8 Flash (High)","Claude Sonnet 4.6 (Thinking)","Claude Opus 4.6 (Thinking)","Claude 4.5 Haiku",existingLabels.has("GPT-OSS 120B (Medium)")?"GPT-OSS 120B (Medium)":"GPT-OSS 120B","Gemini 4 Argon (High)","Gemini 4 Carbon","Gemini 4 Hydrogen (High)"];defaultBaseLabels.forEach(lbl=>{if(existingLabels.has(lbl)&&!ordered.includes(lbl)){ordered.push(lbl)}});ordered.push("── Antigravity ───────────");agyModels.forEach(m=>{!ordered.includes(m.label)&&ordered.push(m.label)});if(isProxyActive){ordered.push("── Web ──────────────────");webModels.forEach(m=>{!ordered.includes(m.label)&&ordered.push(m.label)})};if(extModels.length>0){ordered.push("── External AI ──────────────");extModels.forEach(m=>{!ordered.includes(m.label)&&ordered.push(m.label)})};ordered.push("── Fast Completion (Unlimited) ───");tabModels.forEach(m=>{!ordered.includes(m.label)&&ordered.push(m.label)});ordered.push("── Image Generation ─────────");imageModels.forEach(m=>{!ordered.includes(m.label)&&ordered.push(m.label)});recGroup.modelLabels=ordered}return Object.assign({},b,{_agyEnhanced:!0,_sep_ordered_v16:!0,_sep_ordered_v17:!0,_sep_ordered_v18:!0,_sep_ordered_v19:!0,_proxyActive:isProxyActive,cascadeModelConfigData:Object.assign({},d,{clientModelConfigs:newConfigs,clientModelSorts:newSorts})})}catch(err){console.error("[AGY-Proxy] enhanceUserStatus failed:",err);return b}};
 '''
         # If an earlier version of __enhanceUserStatus is present in js, replace it cleanly in place
         m_old = re.search(r"var MODEL_ENUM_MAP=\{.*?console\.error\(\"\[AGY-Proxy\] enhanceUserStatus failed:\",\s*err\);return b\}\};", js, re.DOTALL)
         if m_old:
             js = js[:m_old.start()] + enhancer_common + js[m_old.end():]
-            applied_provider_patch = True
-        else:
-            applied_provider_patch = False
+        applied_provider_patch = False
         # Dynamic structural matching for React State Provider
         prov_re = re.compile(
             r"function\s+([A-Za-z0-9_$]+)\(\{\s*"
@@ -1391,9 +1405,9 @@ var __enhanceUserStatus=function(b){if(!b||!b.cascadeModelConfigData)return b;tr
                     f'w=(0,{react_var}.useMemo)(()=>b?.cascadeModelConfigData?.defaultOverrideModelConfig,[b?.cascadeModelConfigData]);'
                     f'{override_fn}(v,w,g,h,e);'
                     f'var x=(0,{react_var}.useMemo)(()=>{{var J=b?.cascadeModelConfigData,L=J?.clientModelConfigs||[],N=J?.clientModelSorts||[];J=L.map({converter_fn}).filter(O=>O!==null).filter(O=>!O.disabled);L={sort1_fn}(L,N);return L.length>0?L:{sort2_fn}(J)}},[b?.cascadeModelConfigData]),'
-                    f'y=(0,{react_var}.useCallback)((J,L)=>{{if(v.length!==0||u.length!==0){{if(L){{let N=v.find(O=>O.label===L||O.modelAlias===L)||u.find(O=>O.label===L);if(N)return N}}if(J===I.Model.GOOGLE_GEMINI_INTERNAL_BYOM&&u.length>0)return u[0];if(J!==void 0&&J!==I.Model.GOOGLE_GEMINI_INTERNAL_BYOM&&(J={find_model_fn}(J,v)))return J;if(_selLabel){{let N=v.find(O=>O.label===_selLabel||O.modelAlias===_selLabel)||u.find(O=>O.label===_selLabel);if(N)return N}}return v[0]??u.at(0)}}}},[v,u,_selLabel]),'
-                    f'B=(0,{react_var}.useMemo)(()=>{{if(v.length!==0||u.length!==0){{if(_selLabel){{let N=v.find(O=>O.label===_selLabel||O.modelAlias===_selLabel)||u.find(O=>O.label===_selLabel);if(N)return N}}return y(c,l)}}}},[y,c,v,u,l,_selLabel]),'
-                    f'C=(0,{react_var}.useCallback)(J=>{{if(J!==void 0&&(J=n[J],J!==void 0)){{if(J.customLabel){{let N=v.find(O=>O.label===J.customLabel||O.modelAlias===J.customLabel)||u.find(O=>O.label===J.customLabel);if(N)return N}}return y(J.model,J.customLabel)}}return B}},[n,y,B,v,u]),'
+                    f'y=(0,{react_var}.useCallback)((J,L)=>{{if(v.length!==0||u.length!==0){{if(L){{let N=v.find(O=>O.label===L||O.modelAlias===L||O.modelId===L)||u.find(O=>O.label===L);if(N)return N}}if(J===I.Model.GOOGLE_GEMINI_INTERNAL_BYOM&&u.length>0)return u[0];if(J!==void 0&&J!==I.Model.GOOGLE_GEMINI_INTERNAL_BYOM){{let dynMatch=v.find(O=>O.value===J);if(dynMatch)return dynMatch;let normMatch={find_model_fn}(J,v);if(normMatch)return normMatch}}if(_selLabel){{let N=v.find(O=>(O.label===_selLabel||O.modelAlias===_selLabel||O.modelId===_selLabel)&&!O.disabled)||u.find(O=>O.label===_selLabel);if(N)return N}}return v[0]??u.at(0)}}}},[v,u,_selLabel]),'
+                    f'B=(0,{react_var}.useMemo)(()=>{{if(v.length!==0||u.length!==0){{if(_selLabel){{let N=v.find(O=>(O.label===_selLabel||O.modelAlias===_selLabel||O.modelId===_selLabel)&&!O.disabled)||u.find(O=>O.label===_selLabel);if(N)return N}}return y(c,l)}}}},[y,c,v,u,l,_selLabel]),'
+                    f'C=(0,{react_var}.useCallback)(J=>{{if(J!==void 0&&(J=n[J],J!==void 0)){{if(J.customLabel){{let N=v.find(O=>O.label===J.customLabel||O.modelAlias===J.customLabel||O.modelId===J.customLabel)||u.find(O=>O.label===J.customLabel);if(N)return N}}return y(J.model,J.customLabel)}}return B}},[n,y,B,v,u]),'
                     f'D=(0,{react_var}.useCallback)((J,L,N,O,M)=>{{J!==void 0&&q(Q=>{{var P=Q[J],R={{model:L,customLabel:O,contextWindow:{ctx_w_fn}(P??r,L,M)}};return P?.model===L&&P?.customLabel===O&&P?.contextWindow===R.contextWindow?Q:{{...Q,[J]:R}}}});if(N||J===void 0)e(L),t(Q=>{{var P={ctx_w_fn}(Q,L,M);return Q?.model===L&&Q?.contextWindow===P?Q:{{model:L,contextWindow:P}}}}),m(O??null)}},[e,r]),'
                     f'E=(0,{react_var}.useCallback)((J,L,N,O)=>{{var M={label_resolve_fn}(v,u,J);if(M){{_setSelLabel(J);try{{localStorage.setItem("agy.selectedModelLabel",J)}}catch(err){{}}var Q=u.some(P=>P.label===J);D(L,M.value,N,Q?J:O,O)}}else console.error(`[Model Select] Invalid model label: ${{J}}`)}},[v,u,D]),'
                     f'G=(0,{react_var}.useCallback)(J=>(J=J===void 0?void 0:n[J])?J.contextWindow:{ctx_w_fn}(r,B?.value),[n,r,B]),'
@@ -1465,32 +1479,90 @@ var __enhanceUserStatus=function(b){if(!b||!b.cascadeModelConfigData)return b;tr
                 if m_ica:
                     js = ica_pat.sub(r"\g<1>__enhanceUserStatus(\g<2>.userStatus)?.cascadeModelConfigData;", js)
 
-                # 4. Patch Ls model resolver to support saved selection and skip separators
-                ls_pat = re.compile(
+                # 4. Patch Uq / Ls model resolver to support exact label matching, unique enums, and saved selection
+                uq_modern_pat = re.compile(
                     r"function\s+([A-Za-z0-9_$]+)\(\{visibleModelConfigs:\s*([A-Za-z0-9_$]+),\s*customModels:\s*([A-Za-z0-9_$]+),\s*modelSorts:\s*([A-Za-z0-9_$]+)\},\s*([A-Za-z0-9_$]+)\)\{"
                     r"if\(\2\.length!==0\|\|\3\.length!==0\)\{"
                     r"var\s+([A-Za-z0-9_$]+)=\5\?\.model;"
-                    r"if\(\6===([A-Za-z0-9_$]+)\.Model\.GOOGLE_GEMINI_INTERNAL_BYOM\)\{"
-                    r"if\(\2=\(\5\?\.customLabel\?\3\.find\([A-Za-z0-9_$]+=>[A-Za-z0-9_$]+\.label===\5\.customLabel\):void 0\)\?\?\3\.at\(0\)\)return \2"
-                    r"\}else if\(\6!==void 0&&\(\2=([A-Za-z0-9_$]+)\(\6,\2\)\)\)return \2;"
+                    r"if\(\6!==void 0&&\6!==([A-Za-z0-9_$]+)\.Model\.UNSPECIFIED\)\{"
+                    r"let\s+[A-Za-z0-9_$]+=\5\?\.customLabel\?\3\.find\([A-Za-z0-9_$]+=>[A-Za-z0-9_$]+\.value===\6&&[A-Za-z0-9_$]+\.label===\5\.customLabel\):void 0;"
+                    r"if\([A-Za-z0-9_$]+\)return [A-Za-z0-9_$]+;"
+                    r"if\(\(\2=([A-Za-z0-9_$]+)\(\6,\2\)\)\|\|\(\2=\3\.find\([A-Za-z0-9_$]+=>[A-Za-z0-9_$]+\.value===\6\)\)\)return \2"
+                    r"\}"
                     r"return\s+\4\.at\(0\)\?\.groups\.at\(0\)\?\.options\.at\(0\)\?\?\3\.at\(0\)\}\}"
                 )
-                ls_repl = (
+                uq_modern_repl = (
                     r"function \g<1>({visibleModelConfigs:\g<2>,customModels:\g<3>,modelSorts:\g<4>},\g<5>){"
                     r"if(\g<2>.length!==0||\g<3>.length!==0){"
                     r"var \g<6>=\g<5>?.model;"
-                    r"if(\g<6>===\g<7>.Model.GOOGLE_GEMINI_INTERNAL_BYOM){if(\g<2>=(\g<5>?.customLabel?\g<3>.find(g=>g.label===\g<5>.customLabel):void 0)??\g<3>.at(0))return \g<2>}"
-                    r"else if(\g<6>!==void 0&&\g<6>!==\g<7>.Model.UNSPECIFIED&&(\g<2>=\g<8>(\g<6>,\g<2>)))return \g<2>;"
-                    r'try{var _selL=localStorage.getItem("agy.selectedModelLabel");if(_selL){var _fnd=\g<2>.find(o=>(o.label===_selL||o.modelAlias===_selL)&&!o.disabled)||\g<3>.find(o=>o.label===_selL);if(_fnd)return _fnd}}catch(err){}'
+                    r"if(\g<5>?.customLabel){"
+                    r"let _mCust=\g<2>.find(h=>h.label===\g<5>.customLabel||h.modelAlias===\g<5>.customLabel||h.modelId===\g<5>.customLabel)||\g<3>.find(h=>h.label===\g<5>.customLabel);"
+                    r"if(_mCust)return _mCust;"
+                    r"}"
+                    r"if(\g<6>!==void 0&&\g<6>!==\g<7>.Model.UNSPECIFIED){"
+                    r"let g=\g<5>?.customLabel?(\g<2>.find(h=>(h.label===\g<5>.customLabel||h.modelAlias===\g<5>.customLabel||h.modelId===\g<5>.customLabel)&&(!\g<6>||h.value===\g<6>))||\g<3>.find(h=>h.label===\g<5>.customLabel&&(!\g<6>||h.value===\g<6>))):void 0;"
+                    r"if(g)return g;"
+                    r"let _dynM=\g<2>.find(h=>h.value===\g<6>);"
+                    r"if(_dynM)return _dynM;"
+                    r"if((\g<2>=\g<8>(\g<6>,\g<2>))||(\g<2>=\g<3>.find(h=>h.value===\g<6>)))return \g<2>;"
+                    r"}"
+                    r'try{var _selL=localStorage.getItem("agy.selectedModelLabel");if(_selL){var _fnd=\g<2>.find(o=>(o.label===_selL||o.modelAlias===_selL||o.modelId===_selL)&&!o.disabled)||\g<3>.find(o=>o.label===_selL);if(_fnd)return _fnd}}catch(err){}'
                     r"return \g<4>.at(0)?.groups.at(0)?.options.find(o=>!o.disabled)??\g<4>.at(0)?.groups.at(0)?.options.at(0)??\g<3>.at(0)}}"
                 )
-                js = ls_pat.sub(ls_repl, js)
+                if uq_modern_pat.search(js):
+                    js = uq_modern_pat.sub(uq_modern_repl, js)
+                else:
+                    ls_pat = re.compile(
+                        r"function\s+([A-Za-z0-9_$]+)\(\{visibleModelConfigs:\s*([A-Za-z0-9_$]+),\s*customModels:\s*([A-Za-z0-9_$]+),\s*modelSorts:\s*([A-Za-z0-9_$]+)\},\s*([A-Za-z0-9_$]+)\)\{"
+                        r"if\(\2\.length!==0\|\|\3\.length!==0\)\{"
+                        r"var\s+([A-Za-z0-9_$]+)=\5\?\.model;"
+                        r"if\(\6===([A-Za-z0-9_$]+)\.Model\.GOOGLE_GEMINI_INTERNAL_BYOM\)\{"
+                        r"if\(\2=\(\5\?\.customLabel\?\3\.find\([A-Za-z0-9_$]+=>[A-Za-z0-9_$]+\.label===\5\.customLabel\):void 0\)\?\?\3\.at\(0\)\)return \2"
+                        r"\}else if\(\6!==void 0&&\(\2=([A-Za-z0-9_$]+)\(\6,\2\)\)\)return \2;"
+                        r"return\s+\4\.at\(0\)\?\.groups\.at\(0\)\?\.options\.at\(0\)\?\?\3\.at\(0\)\}\}"
+                    )
+                    ls_repl = (
+                        r"function \g<1>({visibleModelConfigs:\g<2>,customModels:\g<3>,modelSorts:\g<4>},\g<5>){"
+                        r"if(\g<2>.length!==0||\g<3>.length!==0){"
+                        r"var \g<6>=\g<5>?.model;"
+                        r"if(\g<6>===\g<7>.Model.GOOGLE_GEMINI_INTERNAL_BYOM){if(\g<2>=(\g<5>?.customLabel?\g<3>.find(g=>g.label===\g<5>.customLabel):void 0)??\g<3>.at(0))return \g<2>}"
+                        r"else if(\g<6>!==void 0&&\g<6>!==\g<7>.Model.UNSPECIFIED&&(\g<2>=\g<8>(\g<6>,\g<2>)))return \g<2>;"
+                        r'try{var _selL=localStorage.getItem("agy.selectedModelLabel");if(_selL){var _fnd=\g<2>.find(o=>(o.label===_selL||o.modelAlias===_selL)&&!o.disabled)||\g<3>.find(o=>o.label===_selL);if(_fnd)return _fnd}}catch(err){}'
+                        r"return \g<4>.at(0)?.groups.at(0)?.options.find(o=>!o.disabled)??\g<4>.at(0)?.groups.at(0)?.options.at(0)??\g<3>.at(0)}}"
+                    )
+                    js = ls_pat.sub(ls_repl, js)
 
                 # 5. Patch yac model selection to persist selectedModelLabel in localStorage
                 yac_pat = re.compile(
                     r"(var\s+([A-Za-z0-9_$]+)\s*=\s*([A-Za-z0-9_$]+)\.isCustom\s*\?\s*\3\s*:\s*[A-Za-z0-9_$]+\([A-Za-z0-9_$]+,\s*[A-Za-z0-9_$]+,\s*\3\.label\);\s*if\s*\(\2\)\s*\{)"
                 )
-                js = yac_pat.sub(r'\g<1>try{localStorage.setItem("agy.selectedModelLabel",\g<3>.label)}catch(err){}', js)
+                if 'localStorage.setItem("agy.selectedModelLabel"' not in js:
+                    js = yac_pat.sub(r'\g<1>try{localStorage.setItem("agy.selectedModelLabel",\g<3>.label)}catch(err){}', js)
+
+                # 6. Patch model selection dispatch to preserve exact customLabel across all models
+                dispatch_lbl_pat = re.compile(
+                    r'(customLabel:\s*([A-Za-z0-9_$]+)\.isCustom\s*\?\s*\2\.label\s*:\s*void 0)'
+                )
+                js = dispatch_lbl_pat.sub(r'customLabel:\g<2>.label', js)
+
+                # 7. Preserve customLabel in trajectoryModelObserved sync
+                traj_pat = re.compile(
+                    r"l\s*&&\s*([A-Za-z0-9_$]+)\(([A-Za-z0-9_$]+),\s*\{\s*conversationId:\s*([A-Za-z0-9_$]+),\s*model:\s*([A-Za-z0-9_$]+),\s*contextWindow:\s*([A-Za-z0-9_$]+)\s*\},\s*!1\)"
+                )
+                js = traj_pat.sub(r"l&&\g<1>(\g<2>,{conversationId:\g<3>,model:\g<4>,customLabel:c.label,contextWindow:\g<5>},!1)", js)
+
+                # 8. Patch kMc model label resolution to match flexibly across labels, modelIds, and provider tags
+                kmc_pat = re.compile(
+                    r"var\s+([A-Za-z0-9_$]+)\s*=\s*\(([A-Za-z0-9_$]+),\s*([A-Za-z0-9_$]+),\s*([A-Za-z0-9_$]+)\)\s*=>\s*\{\s*"
+                    r"if\s*\(\2\s*=\s*\2\.find\(([A-Za-z0-9_$]+)\s*=>\s*\5\.label\s*===\s*\4\)\)\s*return\s+\2;\s*"
+                    r"if\s*\(\3\s*=\s*\3\.find\(([A-Za-z0-9_$]+)\s*=>\s*\6\.label\s*===\s*\4\)\)\s*return\s+\3\s*\};"
+                )
+                kmc_repl = (
+                    r"var \g<1>=(\g<2>,\g<3>,\g<4>)=>{"
+                    r"if(\g<2>=\g<2>.find(\g<5>=>\g<5>.label===\g<4>||\g<5>.modelId===\g<4>||(\g<4>&&\g<5>.modelId&&\g<4>.includes(\g<5>.modelId))||(\g<4>&&\g<5>.label&&(\g<4>.startsWith(\g<5>.label)||\g<5>.label.startsWith(\g<4>)))))return \g<2>;"
+                    r"if(\g<3>=\g<3>.find(\g<6>=>\g<6>.label===\g<4>||\g<6>.modelId===\g<4>))return \g<3>};"
+                )
+                js = kmc_pat.sub(kmc_repl, js)
 
                 applied_provider_patch = True
                 logger.info("Applied dynamic Redux Toolkit state slice and selector patches (userStatus, cascadeModelConfigData, modelSelection)")
@@ -1727,7 +1799,7 @@ def is_bundle_patched(bundle_dir: Path) -> bool:
         return (
             "restrictToCorpDomain:!1" in content
             and "MODEL_ENUM_MAP" in content
-            and "_sep_ordered_v17" in content
+            and "_sep_ordered_v19" in content
             and "tab_flash_lite_preview" in content
             and "gemini-3.1-flash-image" in content
             and "agy.selectedModelLabel" in content
@@ -1773,7 +1845,7 @@ def sync_bundle_proxy_mode(
             import json
             web_models_list = []
             for m_id, meta in EXACT_MODEL_METADATA.items():
-                if "-web" in m_id or "web-" in m_id:
+                if m_id.startswith("gemini-") and ("-web" in m_id or "web-" in m_id) and "/" not in m_id:
                     disp = meta.get("displayName") or m_id
                     web_models_list.append({"label": disp, "alias": m_id})
             web_json = json.dumps(web_models_list)
@@ -1788,7 +1860,14 @@ def sync_bundle_proxy_mode(
             f'var _cExt = localStorage.getItem("agy.externalModels"); '
             f'if (_cExt) {{ var _pe = JSON.parse(_cExt); if (Array.isArray(_pe) && _pe.length > 0) window.__AGY_EXTERNAL_MODELS__ = _pe; }} '
             f'var _cWeb = localStorage.getItem("agy.webModels"); '
-            f'if (_cWeb) {{ var _pw = JSON.parse(_cWeb); if (Array.isArray(_pw) && _pw.length > 0) window.__AGY_WEB_MODELS__ = _pw; }} '
+            f'if (_cWeb) {{ '
+            f'  var _pw = JSON.parse(_cWeb); '
+            f'  if (Array.isArray(_pw)) {{ '
+            f'    _pw = _pw.filter(function(m) {{ return m && m.alias && m.alias.startsWith("gemini-") && !m.alias.includes("/"); }}); '
+            f'    window.__AGY_WEB_MODELS__ = _pw.length > 0 ? _pw : window.__AGY_WEB_MODELS__; '
+            f'    localStorage.setItem("agy.webModels", JSON.stringify(_pw)); '
+            f'  }} '
+            f'}} '
             f'}} catch (e) {{}}'
         )
 
@@ -1808,7 +1887,7 @@ def sync_bundle_proxy_mode(
             f'        if (d && d.models) {{\n'
             f'          var wm = [];\n'
             f'          for (var id in d.models) {{\n'
-            f'            if (id.includes("-web") || id.includes("web-")) {{\n'
+            f'            if (id.startsWith("gemini-") && (id.includes("-web") || id.includes("web-")) && !id.includes("/")) {{\n'
             f'              var mi = d.models[id];\n'
             f'              wm.push({{ label: (mi && mi.displayName) || id, alias: id }});\n'
             f'            }}\n'

@@ -474,6 +474,22 @@ class ChatGPTWebProvider(BaseExternalProvider):
     async def stream_chat(self, payload: dict[str, Any]) -> AsyncGenerator[dict[str, Any], None]:
         """Dispatches to authenticated 2-phase pipeline or Zero-Auth guest pipeline."""
         if self.is_anonymous:
+            # Attempt seamless auto-upgrade if Chrome CDP has an active logged-in ChatGPT session
+            try:
+                from agy_proxy.providers.cdp_sync import extract_chatgpt_via_cdp
+                cdp_res = await extract_chatgpt_via_cdp(9222)
+                if cdp_res and cdp_res.get("ok") and cdp_res.get("token"):
+                    self.config.api_key = cdp_res["token"]
+                    if cdp_res.get("name"):
+                        self.config.name = cdp_res["name"]
+                    from agy_proxy.providers import external_provider_manager
+                    external_provider_manager.add_or_update_provider(self.config)
+                    async for chunk in self._stream_authenticated_chat(payload):
+                        yield chunk
+                    return
+            except Exception:
+                pass
+
             async for chunk in self._stream_anonymous_chat(payload):
                 yield chunk
         else:
@@ -944,6 +960,17 @@ class ChatGPTWebProvider(BaseExternalProvider):
                 )
 
                 if r_conv.status_code != 200:
+                    err_text = r_conv.text[:300]
+                    if r_conv.status_code == 403 and "affinity" in err_text.lower():
+                        err_content = (
+                            "ChatGPT Zero-Auth Guest mode is currently restricted by OpenAI upstream "
+                            "(403: Invalid conversation document affinity). OpenAI now enforces session authentication. "
+                            "Please sync your session from Chrome using the '🔌 CDP' button on the ChatGPT card "
+                            "or add your session token in Accounts."
+                        )
+                    else:
+                        err_content = f"ChatGPT Guest Mode Error ({r_conv.status_code}): {err_text}"
+
                     yield {
                         "id": resp_id,
                         "object": "chat.completion.chunk",
@@ -953,7 +980,7 @@ class ChatGPTWebProvider(BaseExternalProvider):
                             {
                                 "index": 0,
                                 "delta": {
-                                    "content": f"ChatGPT Guest Mode Error ({r_conv.status_code}): {r_conv.text[:200]}"
+                                    "content": err_content
                                 },
                                 "finish_reason": "error",
                             }

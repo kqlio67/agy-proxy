@@ -51,11 +51,16 @@ const DEFAULT_SAFETY_SETTINGS = [
 // -----------------------------------------------------------------------------
 
 const VALID_CLOUDCODE_MODELS = new Set([
-  // Gemini 4 Argon & Carbon
+  // Gemini 4 Argon, Hydrogen & Carbon
   "gemini-4-argon",
   "gemini-4-argon-high",
   "gemini-4-argon-medium",
   "gemini-4-argon-low",
+  "gemini-4-hydrogen",
+  "gemini-4-hydrogen-high",
+  "gemini-4-hydrogen-medium",
+  "gemini-4-hydrogen-low",
+  "gemini-4-hydrogen-xhigh",
   "gemini-4-carbon",
   "gemini-4-carbon-disabled",
   // Gemini 3.8
@@ -82,6 +87,11 @@ const VALID_CLOUDCODE_MODELS = new Set([
   "gemini-4-argon-web-medium",
   "gemini-4-argon-web-low",
   "gemini-4-argon-web-spark",
+  "gemini-4-hydrogen-web-high",
+  "gemini-4-hydrogen-web-medium",
+  "gemini-4-hydrogen-web-low",
+  "gemini-4-hydrogen-web-xhigh",
+  "gemini-4-hydrogen-web-spark",
   "gemini-3.8-flash-web-high",
   "gemini-3.8-flash-web-medium",
   "gemini-3.8-flash-web-low",
@@ -110,6 +120,16 @@ const MODEL_ALIASES = {
   "gemini-4-argon-medium": "gemini-4-argon-medium",
   "gemini-4-argon-low": "gemini-4-argon-low",
   "gemini-4-argon-disabled": "gemini-4-argon",
+  "gemini-4-hydrogen": "gemini-4-hydrogen",
+  "gemini-4-hydrogen-high": "gemini-4-hydrogen-high",
+  "gemini-4-hydrogen-medium": "gemini-4-hydrogen-medium",
+  "gemini-4-hydrogen-low": "gemini-4-hydrogen-low",
+  "gemini-4-hydrogen-xhigh": "gemini-4-hydrogen-xhigh",
+  "gemini-4-hydrogen-disabled": "gemini-4-hydrogen",
+  "hydrogen": "gemini-4-hydrogen",
+  "gemini-4-hydrogen-spark": "gemini-4-hydrogen-web-spark",
+  "gemini-4-hydrogen-task": "gemini-4-hydrogen-web-spark",
+  "spark-hydrogen": "gemini-4-hydrogen-web-spark",
   "gemini-4-carbon": "gemini-4-carbon",
   "gemini-4-carbon-disabled": "gemini-4-carbon-disabled",
   "carbon": "gemini-4-carbon",
@@ -204,6 +224,13 @@ const MODEL_ALIASES = {
   "gemini-4-argon-web-medium": "gemini-4-argon-web-medium",
   "gemini-4-argon-web-low": "gemini-4-argon-web-low",
   "gemini-4-argon-web-spark": "gemini-4-argon-web-spark",
+  "gemini-4-hydrogen-web": "gemini-4-hydrogen-web-medium",
+  "gemini-4-hydrogen-web-high": "gemini-4-hydrogen-web-high",
+  "gemini-4-hydrogen-web-medium": "gemini-4-hydrogen-web-medium",
+  "gemini-4-hydrogen-web-low": "gemini-4-hydrogen-web-low",
+  "gemini-4-hydrogen-web-xhigh": "gemini-4-hydrogen-web-xhigh",
+  "gemini-4-hydrogen-web-spark": "gemini-4-hydrogen-web-spark",
+  "gemini-4-hydrogen-web-task": "gemini-4-hydrogen-web-spark",
   "gemini-3.8-flash-web": "gemini-3.8-flash-web-high",
   "gemini-3.8-flash-web-high": "gemini-3.8-flash-web-high",
   "gemini-3.8-flash-web-medium": "gemini-3.8-flash-web-medium",
@@ -322,7 +349,13 @@ const MODEL_ALIASES = {
 };
 
 const PROXY_MODELS_LIST = [
-  // Flagship Gemini 4 Carbon & Argon
+  // Flagship Gemini 4 Hydrogen, Carbon & Argon
+  { id: "gemini-4-hydrogen", object: "model", owned_by: "google", description: "Google Gemini 4 Hydrogen (Flagship 256k output)" },
+  { id: "gemini-4-hydrogen-high", object: "model", owned_by: "google", description: "Gemini 4 Hydrogen High (Deep Reasoning 256k output)" },
+  { id: "gemini-4-hydrogen-medium", object: "model", owned_by: "google", description: "Gemini 4 Hydrogen Medium (Balanced Reasoning 256k output)" },
+  { id: "gemini-4-hydrogen-low", object: "model", owned_by: "google", description: "Gemini 4 Hydrogen Low (Fast Reasoning 256k output)" },
+  { id: "gemini-4-hydrogen-xhigh", object: "model", owned_by: "google", description: "Gemini 4 Hydrogen XHigh (Extra-High Reasoning 256k output)" },
+  { id: "gemini-4-hydrogen-web-spark", object: "model", owned_by: "google", description: "Gemini 4 Hydrogen (Web) (Autonomous Spark Agent)" },
   { id: "gemini-4-carbon", object: "model", owned_by: "google", description: "Google Next-Gen Gemini 4 Carbon CloudCode model" },
   { id: "gemini-4-carbon-disabled", object: "model", owned_by: "google", description: "Google Next-Gen Gemini 4 Carbon CloudCode model" },
   { id: "gemini-4-argon", object: "model", owned_by: "google", description: "Google Gemini 4 Argon (Web Flagship)" },
@@ -406,6 +439,17 @@ function normalizeModelName(rawModel) {
   }
 
   // Version-specific keyword matches
+  if (cleaned.includes("hydrogen")) {
+    if (cleaned.includes("spark") || cleaned.includes("task") || cleaned.includes("agent")) {
+      return "gemini-4-hydrogen-web-spark";
+    }
+    if (cleaned.includes("xhigh") || cleaned.includes("extra")) return "gemini-4-hydrogen-xhigh";
+    if (cleaned.includes("high")) return "gemini-4-hydrogen-high";
+    if (cleaned.includes("low")) return "gemini-4-hydrogen-low";
+    if (cleaned.includes("med")) return "gemini-4-hydrogen-medium";
+    return "gemini-4-hydrogen";
+  }
+
   if (cleaned.includes("task") || cleaned.includes("spark")) {
     if (cleaned.includes("3.8") || (cleaned.includes("flash") && !cleaned.includes("lite"))) {
       return "gemini-3.8-flash-web-spark";
@@ -513,12 +557,25 @@ function isModelSupported(acc, model) {
     }
     return true;
   }
-  const isArgon = norm.includes("argon") || norm.includes("carbon");
+  const isArgon = norm.includes("argon") || norm.includes("carbon") || norm.includes("hydrogen");
   if (isArgon) {
     if (acc.auth_method === "api_key" || acc.api_key) return false;
     if (acc.auth_method === "gemini_web") return true;
     if (availList.length > 0) {
-      const argonKeys = [norm, "gemini-4-carbon", "gemini-4-carbon-disabled", "gemini-4-argon-high", "gemini-4-argon-medium", "gemini-4-argon-low", "gemini-4-argon"];
+      const argonKeys = [
+        norm,
+        "gemini-4-hydrogen",
+        "gemini-4-hydrogen-high",
+        "gemini-4-hydrogen-medium",
+        "gemini-4-hydrogen-low",
+        "gemini-4-hydrogen-xhigh",
+        "gemini-4-carbon",
+        "gemini-4-carbon-disabled",
+        "gemini-4-argon-high",
+        "gemini-4-argon-medium",
+        "gemini-4-argon-low",
+        "gemini-4-argon",
+      ];
       for (const k of argonKeys) {
         if (availList.includes(k)) {
           if (!Array.isArray(avail) && typeof avail === "object" && avail[k] && avail[k].disabled) {
@@ -1022,6 +1079,8 @@ function buildCloudCodePayload(reqJson, backendModel, auth) {
   let targetBackendModel = backendModel;
   if (backendModel === "gemini-4-argon" || backendModel === "gemini-4-argon-disabled") {
     targetBackendModel = "gemini-4-argon-high";
+  } else if (backendModel === "gemini-4-hydrogen" || backendModel === "gemini-4-hydrogen-disabled") {
+    targetBackendModel = "gemini-4-hydrogen-medium";
   } else if (backendModel === "gemini-4-carbon" || backendModel === "gemini-4-carbon-disabled") {
     targetBackendModel = "gemini-4-carbon-disabled";
   } else if (backendModel === "gemini-3.8-flash-deepagent" || backendModel === "gemini-deepagent") {

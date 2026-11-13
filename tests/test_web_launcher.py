@@ -382,6 +382,36 @@ def test_patch_web_bundle_redux_toolkit(tmp_path):
     assert is_bundle_patched(bundle_dir) is True
 
 
+def test_patch_web_bundle_modern_uq_and_custom_label(tmp_path):
+    from agy_proxy.web_launcher import patch_web_bundle, is_bundle_patched
+
+    bundle_dir = tmp_path / "modern_redux_bundle"
+    bundle_dir.mkdir()
+
+    dummy_js = (
+        "'use strict'; "
+        "restrictToCorpDomain:!0; "
+        'var myConv=p=>p.modelOrAlias?{label:p.label,value:p.modelOrAlias.choice.case==="model"?p.modelOrAlias.choice.value:EnumNs.Model.UNSPECIFIED,modelAlias:p.modelOrAlias.choice.case==="alias"?p.modelOrAlias.choice.value:void 0; '
+        'return ReactLib.createElement(ArbitraryItemComp,{"data-testid":"model-selector-item",value:123}); '
+        'const SCa=vk({name:"userStatus",initialState:()=>q(I.UserStatusSchema),reducers:{setUserStatus:(a,b)=>b.payload}}); '
+        'const ICa=a=>a.userStatus?.cascadeModelConfigData; '
+        'function Uq({visibleModelConfigs:a,customModels:b,modelSorts:c},d){if(a.length!==0||b.length!==0){var f=d?.model;if(f!==void 0&&f!==E.Model.UNSPECIFIED){let g=d?.customLabel?b.find(h=>h.value===f&&h.label===d.customLabel):void 0;if(g)return g;if((a=Npa(f,a))||(a=b.find(h=>h.value===f)))return a}return c.at(0)?.groups.at(0)?.options.at(0)??b.at(0)}} '
+        'var W=U.isCustom?U:kMc(t,m,U.label);if(W){l(vGa({conversationId:b,model:W.value,customLabel:W.isCustom?W.label:void 0,contextWindow:Y}))} '
+    )
+    (bundle_dir / "main.js").write_text(dummy_js, encoding="utf-8")
+    (bundle_dir / "index.html").write_text("<html><head></head><body></body></html>", encoding="utf-8")
+
+    assert patch_web_bundle(bundle_dir) is True
+
+    patched_js = (bundle_dir / "main.js").read_text(encoding="utf-8")
+    assert "MODEL_ENUM_MAP" in patched_js
+    assert "_getDynEnum" in patched_js
+    assert "_sep_ordered_v18" in patched_js
+    assert "customLabel:W.label" in patched_js
+    assert 'localStorage.getItem("agy.selectedModelLabel")' in patched_js
+    assert is_bundle_patched(bundle_dir) is True
+
+
 def test_patch_web_bundle_graceful_degradation(tmp_path):
     from agy_proxy.web_launcher import patch_web_bundle
 

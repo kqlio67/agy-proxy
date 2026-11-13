@@ -2135,8 +2135,8 @@ def enhance_available_models(data: dict[str, Any]) -> dict[str, Any]:
                     if isinstance(exp_val, dict) and "boolValue" in exp_val:
                         exp_val["boolValue"] = True
 
-    # Unlock Gemini 4 Argon if returned as disabled for consumer tier
-    # Strategy: use only gemini-4-argon key (remove gemini-4-argon-disabled to prevent duplicate)
+    # Unlock Gemini 4 Argon & Hydrogen if returned as disabled for consumer tier
+    # Strategy: use only gemini-4-argon / gemini-4-hydrogen keys (remove -disabled to prevent duplicates)
     if "gemini-4-argon-disabled" in models:
         # Promote gemini-4-argon-disabled → gemini-4-argon (single clean entry, no duplicate)
         argon_entry = models.pop("gemini-4-argon-disabled")
@@ -2160,6 +2160,27 @@ def enhance_available_models(data: dict[str, Any]) -> dict[str, Any]:
         models["gemini-4-argon"].pop("tagTitle", None)
         models["gemini-4-argon"].pop("tagDescription", None)
 
+    if "gemini-4-hydrogen-disabled" in models:
+        hydrogen_entry = models.pop("gemini-4-hydrogen-disabled")
+        hydrogen_entry["disabled"] = False
+        hydrogen_entry["recommended"] = True
+        hydrogen_entry.pop("tagTitle", None)
+        hydrogen_entry.pop("tagDescription", None)
+        hydrogen_entry.pop("betaWarningMessage", None)
+        if "gemini-4-hydrogen" not in models:
+            models["gemini-4-hydrogen"] = hydrogen_entry
+        else:
+            models["gemini-4-hydrogen"]["disabled"] = False
+            models["gemini-4-hydrogen"]["recommended"] = True
+            models["gemini-4-hydrogen"].pop("tagTitle", None)
+            models["gemini-4-hydrogen"].pop("tagDescription", None)
+
+    if "gemini-4-hydrogen" in models:
+        models["gemini-4-hydrogen"]["disabled"] = False
+        models["gemini-4-hydrogen"]["recommended"] = True
+        models["gemini-4-hydrogen"].pop("tagTitle", None)
+        models["gemini-4-hydrogen"].pop("tagDescription", None)
+
     for _argon_k, _argon_ph, _argon_lvl in (
         ("gemini-4-argon-high", "MODEL_PLACEHOLDER_M417", 3),
         ("gemini-4-argon-medium", "MODEL_PLACEHOLDER_M418", 2),
@@ -2176,6 +2197,23 @@ def enhance_available_models(data: dict[str, Any]) -> dict[str, Any]:
             models[_argon_k].setdefault("supportsThinking", True)
             models[_argon_k].pop("betaWarningMessage", None)
 
+    for _h_k, _h_ph, _h_lvl in (
+        ("gemini-4-hydrogen-high", "MODEL_PLACEHOLDER_M525", 3),
+        ("gemini-4-hydrogen-medium", "MODEL_PLACEHOLDER_M526", 2),
+        ("gemini-4-hydrogen-low", "MODEL_PLACEHOLDER_M527", 1),
+        ("gemini-4-hydrogen-xhigh", "MODEL_PLACEHOLDER_M528", 4),
+    ):
+        if _h_k in models and isinstance(models[_h_k], dict):
+            models[_h_k]["disabled"] = False
+            models[_h_k]["recommended"] = True
+            models[_h_k].setdefault("model", _h_ph)
+            models[_h_k].setdefault("thinkingLevel", _h_lvl)
+            models[_h_k].setdefault("maxOutputTokens", 262144)
+            models[_h_k].setdefault("supportsImages", True)
+            models[_h_k].setdefault("supportsVideo", True)
+            models[_h_k].setdefault("supportsThinking", True)
+            models[_h_k].pop("betaWarningMessage", None)
+
     # Strip Notice / Unavailable / deprecation warning badges from all models for clean desktop UI
     for m_info in models.values():
         if isinstance(m_info, dict):
@@ -2186,7 +2224,7 @@ def enhance_available_models(data: dict[str, Any]) -> dict[str, Any]:
                 m_info.pop("tagDescription", None)
             m_info.pop("betaWarningMessage", None)
 
-    # Fix agentModelSorts: replace gemini-4-argon-disabled with gemini-4-argon (dedup, single entry)
+    # Fix agentModelSorts: replace gemini-4-argon-disabled / gemini-4-hydrogen-disabled with canonical names (dedup, single entry)
     sorts = data.get("agentModelSorts")
     if isinstance(sorts, list):
         for s in sorts:
@@ -2195,11 +2233,13 @@ def enhance_available_models(data: dict[str, Any]) -> dict[str, Any]:
                     if isinstance(grp, dict):
                         mids = grp.get("modelIds")
                         if isinstance(mids, list):
-                            # Replace all gemini-4-argon-disabled → gemini-4-argon
+                            # Replace all gemini-4-*-disabled → gemini-4-*
                             for i, mid in enumerate(mids):
                                 if mid == "gemini-4-argon-disabled":
                                     mids[i] = "gemini-4-argon"
-                            # Deduplicate: keep only first occurrence of gemini-4-argon
+                                elif mid == "gemini-4-hydrogen-disabled":
+                                    mids[i] = "gemini-4-hydrogen"
+                            # Deduplicate
                             seen = set()
                             deduped = []
                             for mid in mids:
@@ -2250,12 +2290,19 @@ def enhance_available_models(data: dict[str, Any]) -> dict[str, Any]:
                 supports_thinking = (
                     any(k in m for k in ("high", "medium", "low", "thinking", "tiered", "deepagent"))
                     or "argon" in m
+                    or "hydrogen" in m
                 )
                 thinking_budget = -1
                 thinking_level = 3 if ("high" in m or m == "gemini-4-argon") else 2
-                if "deepagent" in m:
+                if "xhigh" in m:
+                    thinking_budget = -1
+                    thinking_level = 4
+                elif "deepagent" in m:
                     thinking_budget = 64000
                     thinking_level = 3
+                elif "hydrogen" in m:
+                    thinking_budget = -1
+                    thinking_level = 4 if "xhigh" in m else (1 if "low" in m else (2 if ("medium" in m or "med" in m or m == "gemini-4-hydrogen") else 3))
                 elif "argon" in m:
                     thinking_budget = -1
                     thinking_level = 1 if "low" in m else (2 if ("medium" in m or "med" in m) else 3)
@@ -2282,7 +2329,13 @@ def enhance_available_models(data: dict[str, Any]) -> dict[str, Any]:
                         }
                     },
                 }
-                if "argon" in m:
+                if "hydrogen" in m:
+                    m_entry["maxOutputTokens"] = 262144
+                    m_entry["supportsImages"] = True
+                    m_entry["supportsVideo"] = True
+                    m_entry["recommended"] = True
+                    m_entry["disabled"] = False
+                elif "argon" in m:
                     m_entry["maxOutputTokens"] = 65536
                     m_entry["supportsImages"] = True
                     m_entry["supportsVideo"] = True
@@ -2669,6 +2722,12 @@ def enhance_fetch_config(
         ("gemini-4-argon-medium", "Gemini 4 Argon (Medium)", "MEDIUM", "MODEL_PLACEHOLDER_M418"),
         ("gemini-4-argon-low", "Gemini 4 Argon (Low)", "LOW", "MODEL_PLACEHOLDER_M419"),
     ]
+    hydrogen_specs = [
+        ("gemini-4-hydrogen-high", "Gemini 4 Hydrogen (High)", "HIGH", "MODEL_PLACEHOLDER_M525"),
+        ("gemini-4-hydrogen-medium", "Gemini 4 Hydrogen (Medium)", "MEDIUM", "MODEL_PLACEHOLDER_M526"),
+        ("gemini-4-hydrogen-low", "Gemini 4 Hydrogen (Low)", "LOW", "MODEL_PLACEHOLDER_M527"),
+        ("gemini-4-hydrogen-xhigh", "Gemini 4 Hydrogen (XHigh)", "XHIGH", "MODEL_PLACEHOLDER_M528"),
+    ]
     tab_specs = [
         (
             "tab_flash_lite_preview",
@@ -2736,6 +2795,51 @@ def enhance_fetch_config(
                     }
                 )
 
+        for exp_name, disp_name, think_lvl, enum_name in hydrogen_specs:
+            if exp_name not in existing_names:
+                experiences.append(
+                    {
+                        "name": exp_name,
+                        "model": {
+                            "modelId": "gemini-4-hydrogen",
+                            "name": "models/gemini-4-hydrogen",
+                            "displayName": disp_name,
+                            "baseModelId": "gemini-4-hydrogen",
+                            "version": "4.0-hydrogen-11-2026",
+                            "description": "Gemini 4 Hydrogen",
+                            "inputTokenLimit": 1048576,
+                            "outputTokenLimit": 262144,
+                            "supportedThinkingLevels": ["LOW", "MEDIUM", "HIGH", "XHIGH"],
+                            "supportedFeatures": [
+                                "AUDIO_INPUT",
+                                "BROWSE_AS_A_TOOL",
+                                "CODE_EXECUTION",
+                                "DOCUMENT_INPUT",
+                                "FUNCTION_CALLING",
+                                "IMAGE_INPUT",
+                                "JSON_SCHEMA_OUTPUT",
+                                "SEARCH_AS_A_TOOL",
+                                "THINKING",
+                                "THINKING_LEVEL",
+                                "TOP_P",
+                                "VIDEO_INPUT",
+                            ],
+                            "generationConfig": {
+                                "thinkingConfig": {
+                                    "includeThoughts": True,
+                                    "thinkingLevel": think_lvl,
+                                },
+                                "maxOutputTokens": 262144,
+                            },
+                            "modelProvider": "GOOGLE",
+                        },
+                        "surfaceConfig": {
+                            "clientModelEnumName": enum_name,
+                            "tags": [{"title": "New"}],
+                        },
+                    }
+                )
+
         for exp_name, disp_name, enum_name, in_lim, out_lim in tab_specs:
             if exp_name not in existing_names:
                 experiences.append(
@@ -2773,8 +2877,12 @@ def enhance_fetch_config(
         agent_exp = surface_cfg.get("agentExperiences")
         if isinstance(agent_exp, dict) and isinstance(agent_exp.get("experienceNames"), list):
             exp_names_list = agent_exp["experienceNames"]
+            for exp_name, _, _, _ in reversed(hydrogen_specs):
+                if exp_name not in exp_names_list:
+                    exp_names_list.insert(0, exp_name)
             for exp_name, _, _, _ in reversed(argon_specs):
                 if exp_name not in exp_names_list:
+                    exp_names_list.insert(0, exp_name)
                     exp_names_list.insert(0, exp_name)
             for exp_name, _, _, _, _ in tab_specs:
                 if exp_name not in exp_names_list:

@@ -209,8 +209,8 @@ def openai_to_cloudcode_payload(
     if req.top_p is not None:
         generation_config["topP"] = req.top_p
 
-    from agy_proxy.models import is_argon_model, resolve_cloudcode_argon_model
-    default_max_tokens = 65536 if is_argon_model(backend_model) else 8192
+    from agy_proxy.models import is_argon_model, is_hydrogen_model, resolve_cloudcode_argon_model
+    default_max_tokens = 262144 if is_hydrogen_model(backend_model) else (65536 if is_argon_model(backend_model) else 8192)
     max_tokens = req.max_tokens or req.max_completion_tokens or default_max_tokens
 
     # Configure thinking for models that support it (default -1 for dynamic unconstrained budget)

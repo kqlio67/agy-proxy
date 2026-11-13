@@ -812,7 +812,9 @@ def _apply_thinking_config(
             if thinking_config.get("thinkingBudget") == -1:
                 thinking_config.pop("thinkingBudget", None)
             if "thinkingLevel" not in thinking_config:
-                if backend_model.endswith("-low") or "-low" in backend_model:
+                if backend_model.endswith("-xhigh") or "-xhigh" in backend_model or "extra" in backend_model:
+                    thinking_config["thinkingLevel"] = "XHIGH"
+                elif backend_model.endswith("-low") or "-low" in backend_model:
                     thinking_config["thinkingLevel"] = "LOW"
                 elif backend_model.endswith("-medium") or "-medium" in backend_model or "-med" in backend_model:
                     thinking_config["thinkingLevel"] = "MEDIUM"

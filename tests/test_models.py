@@ -464,6 +464,60 @@ class TestSchemas(unittest.TestCase):
         self.assertEqual(resolve_cloudcode_argon_model("gemini-4-carbon-disabled"), "gemini-4-carbon-disabled")
         self.assertEqual(resolve_cloudcode_argon_model("gemini-4-argon"), "gemini-4-argon-high")
 
+    def test_gemini_4_hydrogen_models(self):
+        from agy_proxy.models import (
+            is_hydrogen_model,
+            is_argon_model,
+            resolve_cloudcode_argon_model,
+            CLOUDCODE_PLACEHOLDER_MAP,
+            EXACT_MODEL_METADATA,
+        )
+        from agy_proxy.converters.openai import openai_to_cloudcode_payload
+
+        # Placeholders
+        self.assertEqual(CLOUDCODE_PLACEHOLDER_MAP["gemini-4-hydrogen-high"], "MODEL_PLACEHOLDER_M525")
+        self.assertEqual(CLOUDCODE_PLACEHOLDER_MAP["gemini-4-hydrogen-medium"], "MODEL_PLACEHOLDER_M526")
+        self.assertEqual(CLOUDCODE_PLACEHOLDER_MAP["gemini-4-hydrogen-low"], "MODEL_PLACEHOLDER_M527")
+        self.assertEqual(CLOUDCODE_PLACEHOLDER_MAP["gemini-4-hydrogen-xhigh"], "MODEL_PLACEHOLDER_M528")
+
+        # Normalization
+        self.assertEqual(normalize_model_name("MODEL_PLACEHOLDER_M525"), "gemini-4-hydrogen-high")
+        self.assertEqual(normalize_model_name("MODEL_PLACEHOLDER_M526"), "gemini-4-hydrogen-medium")
+        self.assertEqual(normalize_model_name("MODEL_PLACEHOLDER_M527"), "gemini-4-hydrogen-low")
+        self.assertEqual(normalize_model_name("MODEL_PLACEHOLDER_M528"), "gemini-4-hydrogen-xhigh")
+        self.assertEqual(normalize_model_name(1525), "gemini-4-hydrogen-high")
+        self.assertEqual(normalize_model_name(1526), "gemini-4-hydrogen-medium")
+        self.assertEqual(normalize_model_name(1527), "gemini-4-hydrogen-low")
+        self.assertEqual(normalize_model_name(1528), "gemini-4-hydrogen-xhigh")
+
+        # Family check
+        self.assertTrue(is_hydrogen_model("gemini-4-hydrogen"))
+        self.assertTrue(is_hydrogen_model("gemini-4-hydrogen-xhigh"))
+        self.assertTrue(is_argon_model("gemini-4-hydrogen"))
+        self.assertEqual(resolve_cloudcode_argon_model("gemini-4-hydrogen"), "gemini-4-hydrogen-medium")
+
+        # 256K max output tokens
+        self.assertEqual(EXACT_MODEL_METADATA["gemini-4-hydrogen-medium"]["maxOutputTokens"], 262144)
+        self.assertEqual(EXACT_MODEL_METADATA["gemini-4-hydrogen-xhigh"]["maxOutputTokens"], 262144)
+
+        # Web normalizations
+        self.assertEqual(normalize_model_name("gemini-4-hydrogen-web"), "gemini-4-hydrogen-web-medium")
+        self.assertEqual(normalize_model_name("gemini-4-hydrogen-web-spark"), "gemini-4-hydrogen-web-spark")
+        self.assertEqual(normalize_model_name("gemini-4-hydrogen-web-xhigh"), "gemini-4-hydrogen-web-xhigh")
+
+        # OpenAI payload with 256K limit and XHIGH thinking level
+        oai_req = OpenAIChatRequest(
+            model="gemini-4-hydrogen-xhigh",
+            messages=[{"role": "user", "content": "Hello Hydrogen"}],
+        )
+        oai_payload = openai_to_cloudcode_payload(oai_req, project_id="test-proj")
+        self.assertEqual(oai_payload["model"], "gemini-4-hydrogen-xhigh")
+        self.assertEqual(oai_payload["request"]["generationConfig"]["maxOutputTokens"], 262144)
+        oai_tc = oai_payload["request"]["generationConfig"]["thinkingConfig"]
+        self.assertEqual(oai_tc["thinkingLevel"], "XHIGH")
+        self.assertTrue(oai_tc["includeThoughts"])
+        self.assertNotIn("thinkingBudget", oai_tc)
+
 
 if __name__ == "__main__":
     unittest.main()

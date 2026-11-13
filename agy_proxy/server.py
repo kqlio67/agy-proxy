@@ -2311,6 +2311,22 @@ def create_app(
             "models": [m.model_dump() for m in cfg.models],
         }
 
+    @app.post("/api/providers/{provider_id}/refresh-cdp")
+    async def refresh_external_provider_cdp(provider_id: str, cdp_port: int = 9222):
+        from agy_proxy.providers import external_provider_manager
+        from agy_proxy.providers.cdp_sync import sync_provider_via_cdp
+        try:
+            res = await sync_provider_via_cdp(provider_id, cdp_port=cdp_port, provider_manager=external_provider_manager)
+            try:
+                from agy_proxy.web_launcher import sync_bundle_proxy_mode
+                sync_bundle_proxy_mode()
+            except Exception:
+                pass
+            return res
+        except Exception as e:
+            logger.error("CDP sync error for provider %s: %s", provider_id, e)
+            raise HTTPException(status_code=400, detail=str(e))
+
     @app.get("/api/providers/routing")
     async def get_providers_routing():
         from agy_proxy.providers import external_provider_manager

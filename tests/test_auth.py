@@ -1132,11 +1132,15 @@ class TestGeminiWebSession(unittest.TestCase):
             account_id="gw_test",
             cookies={"__Secure-1PSID": "test_psid"},
         )
-        # Verify all reverse-engineered models are present including Gemini 4 Argon
+        # Verify all reverse-engineered models are present including Gemini 4 Argon & Hydrogen
         self.assertIn("gemini-4-argon", gw.available_models)
         self.assertIn("gemini-4-argon-high", gw.available_models)
         self.assertIn("gemini-4-argon-medium", gw.available_models)
         self.assertIn("gemini-4-argon-low", gw.available_models)
+        self.assertIn("gemini-4-hydrogen", gw.available_models)
+        self.assertIn("gemini-4-hydrogen-web-high", gw.available_models)
+        self.assertIn("gemini-4-hydrogen-web-medium", gw.available_models)
+        self.assertIn("gemini-4-hydrogen-web-spark", gw.available_models)
         self.assertIn("gemini-3.5-flash-lite", gw.available_models)
         self.assertIn("gemini-3.5-flash-lite-high", gw.available_models)
         self.assertIn("gemini-3.8-flash", gw.available_models)
@@ -1149,6 +1153,22 @@ class TestGeminiWebSession(unittest.TestCase):
         self.assertNotIn("gemini-3.5-flash-lite-extended", gw.available_models)
         self.assertNotIn("gemini-3.8-flash-extended", gw.available_models)
         self.assertNotIn("gemini-3.1-pro-extended", gw.available_models)
+
+        # Verify Gemini 4 Hydrogen model config resolution & hash
+        cfg_hydrogen = gw.get_model_config("gemini-4-hydrogen")
+        self.assertEqual(cfg_hydrogen["model_id"], 8)
+        self.assertEqual(cfg_hydrogen["mode"], 4)
+        self.assertEqual(cfg_hydrogen["budget"], 1)
+        self.assertEqual(cfg_hydrogen["hash"], "56fdd199312815e2")
+
+        cfg_hydrogen_spark = gw.get_model_config("gemini-4-hydrogen-web-spark")
+        self.assertEqual(cfg_hydrogen_spark["model_id"], 8)
+        self.assertEqual(cfg_hydrogen_spark["feature_mode"], 40)
+        self.assertEqual(cfg_hydrogen_spark["hash"], "56fdd199312815e2")
+
+        # Botguard tokens for Hydrogen
+        self.assertTrue(gw.get_botguard_token("gemini-4-hydrogen").startswith("!paalpsL"))
+        self.assertTrue(gw.get_botguard_token("gemini-4-hydrogen-web-spark").startswith("!BAelB2"))
 
         # Verify Gemini 4 Argon model config resolution
         cfg_argon = gw.get_model_config("gemini-4-argon")
@@ -2374,9 +2394,9 @@ class TestGeminiWebSession(unittest.TestCase):
     def test_gemini_web_default_bl(self):
         """Verify the updated default build label."""
         from agy_proxy.auth.gemini_web import GeminiWebSession
-        self.assertEqual(GeminiWebSession._DEFAULT_BL, "boq_gemini-web-uiserver_20261110.19_p0")
+        self.assertEqual(GeminiWebSession._DEFAULT_BL, "boq_gemini-web-uiserver_20261111.13_p0")
         session = GeminiWebSession(account_id="test_bl", cookies={"__Secure-1PSID": "mock_psid"})
-        self.assertEqual(session._bl_token, "boq_gemini-web-uiserver_20261110.19_p0")
+        self.assertEqual(session._bl_token, "boq_gemini-web-uiserver_20261111.13_p0")
 
     def test_gemini_web_make_sapisidhash_and_get_hash(self):
         """Verify SAPISIDHASH creation and session integration."""
