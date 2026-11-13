@@ -225,3 +225,91 @@ async def test_chatgpt_web_anonymous_stream_parsing():
         assert chunks[-1]["choices"][0]["finish_reason"] == "stop"
 
     await prov.close()
+
+
+@pytest.mark.anyio
+async def test_fetch_guest_affinity_and_worker():
+    cfg = ExternalProviderConfig(
+        id="chatgpt-web-anon",
+        name="ChatGPT Web Guest",
+        provider_type="chatgpt_web",
+        api_key="anonymous",
+        base_url="https://chatgpt.com/backend-api",
+    )
+    prov = ChatGPTWebProvider(cfg)
+
+    import httpx
+    import base64
+    import json
+    from unittest.mock import patch, AsyncMock, MagicMock
+
+    aff_payload = base64.b64encode(json.dumps({
+        "d": "ac27bebc-bfdb-4487-afb2-300f6b600f85",
+        "s": "mock-session-uuid",
+    }).encode()).decode()
+    mock_html = (
+        f'<html data-conversation-document-affinity="{aff_payload}.mock_sig" '
+        'data-conversation-retry-owner="{&quot;mode&quot;:&quot;anonymous&quot;,&quot;sessionEpoch&quot;:null}">'
+    )
+
+    mock_resp = MagicMock(status_code=200, text=mock_html)
+    with patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock) as mock_get:
+        mock_get.return_value = mock_resp
+        async with httpx.AsyncClient() as client:
+            res = await prov._fetch_guest_affinity(client)
+            assert res["aff_token"].startswith(aff_payload)
+            assert res["doc_worker"] == "ac27bebc-bfdb-4487-afb2-300f6b600f85"
+            assert res["oai_session_id"] == "mock-session-uuid"
+
+            # Check that navigation headers were sent
+            headers_sent = mock_get.call_args[1].get("headers", {})
+            assert headers_sent.get("Sec-Fetch-Dest") == "document"
+            assert headers_sent.get("Sec-Fetch-Mode") == "navigate"
+
+    await prov.close()
+
+
+@pytest.mark.anyio
+async def test_upload_anonymous_image():
+    cfg = ExternalProviderConfig(
+        id="chatgpt-web-anon",
+        name="ChatGPT Web Guest",
+        provider_type="chatgpt_web",
+        api_key="anonymous",
+        base_url="https://chatgpt.com/backend-api",
+    )
+    prov = ChatGPTWebProvider(cfg)
+
+    import httpx
+    from unittest.mock import patch, AsyncMock, MagicMock
+
+    init_resp = MagicMock(status_code=200, json=lambda: {
+        "status": "success",
+        "upload_url": "https://files.oaiusercontent.com/file-mock123?sig=abc",
+        "file_id": "file-mock123",
+    })
+    put_resp = MagicMock(status_code=201)
+    proc_resp = MagicMock(status_code=200, text='{"status": "complete"}')
+
+    with patch.object(httpx.AsyncClient, "post", new_callable=AsyncMock) as mock_post:
+        with patch.object(httpx.AsyncClient, "put", new_callable=AsyncMock) as mock_put:
+            def post_side_effect(url, **kwargs):
+                if "backend-anon/files/process_upload_stream" in url:
+                    return proc_resp
+                return init_resp
+
+            mock_post.side_effect = post_side_effect
+            mock_put.return_value = put_resp
+
+            async with httpx.AsyncClient() as client:
+                fid = await prov._upload_anonymous_image(
+                    client,
+                    oai_session_id="sess-xyz",
+                    image_bytes=b"fake-jpeg-data",
+                    mime_type="image/jpeg",
+                )
+                assert fid == "file-mock123"
+                assert mock_put.called
+                assert mock_put.call_args[1]["content"] == b"fake-jpeg-data"
+
+    await prov.close()

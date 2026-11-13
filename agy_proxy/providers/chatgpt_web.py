@@ -358,8 +358,18 @@ class ChatGPTWebProvider(BaseExternalProvider):
 
         headers = {
             "User-Agent": self.user_agent,
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
             "Accept-Language": "en-US,en;q=0.9",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache",
+            "Sec-CH-UA": '"Not-A.Brand";v="99", "Google Chrome";v="133", "Chromium";v="133"',
+            "Sec-CH-UA-Mobile": "?0",
+            "Sec-CH-UA-Platform": '"Linux"',
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
+            "Upgrade-Insecure-Requests": "1",
         }
         resp = await client.get("https://chatgpt.com/", headers=headers, timeout=15.0)
         html_text = resp.text
@@ -376,19 +386,23 @@ class ChatGPTWebProvider(BaseExternalProvider):
         else:
             retry_owner = {"mode": "anonymous", "sessionEpoch": None}
 
-        m_work = re.search(r'cloudflare-workers-version-overrides="([^"]+)"', html_text)
-        worker_ver = unquote(m_work.group(1)) if m_work else 'web-mobile-prod="d5dbdf88-412b-43ab-a6a5-baa74f31e72c"'
-        raw_worker = re.search(r"([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})", worker_ver)
-        doc_worker = raw_worker.group(1) if raw_worker else "d5dbdf88-412b-43ab-a6a5-baa74f31e72c"
-
+        doc_worker = "ac27bebc-bfdb-4487-afb2-300f6b600f85"
         oai_session_id = str(uuid.uuid4())
         if aff_token:
             try:
                 aff_part = aff_token.split(".")[0] + "=="
                 aff_data = json.loads(base64.b64decode(aff_part).decode("utf-8"))
                 oai_session_id = aff_data.get("s") or oai_session_id
+                if aff_data.get("d"):
+                    doc_worker = aff_data["d"]
             except Exception:
                 pass
+        else:
+            m_work = re.search(r'cloudflare-workers-version-overrides="([^"]+)"', html_text)
+            worker_ver = unquote(m_work.group(1)) if m_work else 'web-mobile-prod="ac27bebc-bfdb-4487-afb2-300f6b600f85"'
+            raw_worker = re.search(r"([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})", worker_ver)
+            if raw_worker:
+                doc_worker = raw_worker.group(1)
 
         cached = {
             "aff_token": aff_token,
@@ -474,22 +488,6 @@ class ChatGPTWebProvider(BaseExternalProvider):
     async def stream_chat(self, payload: dict[str, Any]) -> AsyncGenerator[dict[str, Any], None]:
         """Dispatches to authenticated 2-phase pipeline or Zero-Auth guest pipeline."""
         if self.is_anonymous:
-            # Attempt seamless auto-upgrade if Chrome CDP has an active logged-in ChatGPT session
-            try:
-                from agy_proxy.providers.cdp_sync import extract_chatgpt_via_cdp
-                cdp_res = await extract_chatgpt_via_cdp(9222)
-                if cdp_res and cdp_res.get("ok") and cdp_res.get("token"):
-                    self.config.api_key = cdp_res["token"]
-                    if cdp_res.get("name"):
-                        self.config.name = cdp_res["name"]
-                    from agy_proxy.providers import external_provider_manager
-                    external_provider_manager.add_or_update_provider(self.config)
-                    async for chunk in self._stream_authenticated_chat(payload):
-                        yield chunk
-                    return
-            except Exception:
-                pass
-
             async for chunk in self._stream_anonymous_chat(payload):
                 yield chunk
         else:
@@ -787,44 +785,133 @@ class ChatGPTWebProvider(BaseExternalProvider):
                     ],
                 }
 
+    async def _upload_anonymous_image(
+        self, client: httpx.AsyncClient, oai_session_id: str, image_bytes: bytes, mime_type: str = "image/jpeg"
+    ) -> str | None:
+        """Uploads an image anonymously to chatgpt.com backend-anon/files and processes upload stream."""
+        try:
+            file_name = f"image_{uuid.uuid4().hex[:8]}.jpg"
+            file_size = len(image_bytes)
+            headers = {
+                "User-Agent": self.user_agent,
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "OAI-Language": "en-US",
+                "OAI-Device-Id": self.device_id,
+                "OAI-Session-Id": oai_session_id,
+                "Origin": "https://chatgpt.com",
+                "Referer": "https://chatgpt.com/",
+            }
+            init_body = {
+                "client_resolved_mime_type": mime_type,
+                "entry_surface": "chat_composer",
+                "file_name": file_name,
+                "file_size": file_size,
+                "mime_resolution_source": "declared_mime",
+                "mime_type": mime_type,
+                "reset_rate_limits": False,
+                "selection_method": "file_picker",
+                "timezone_offset_min": -120,
+            }
+            r_init = await client.post("https://chatgpt.com/backend-anon/files", json=init_body, headers=headers, timeout=15.0)
+            if r_init.status_code != 200:
+                logger.warning("[ChatGPT Web] Anon image upload init failed: %s", r_init.status_code)
+                return None
+            init_data = r_init.json()
+            upload_url = init_data.get("upload_url")
+            file_id = init_data.get("file_id") or (upload_url.split("?")[0].split("/")[-1] if upload_url else None)
+            if not upload_url or not file_id:
+                return None
+
+            r_put = await client.put(
+                upload_url,
+                content=image_bytes,
+                headers={"x-ms-blob-type": "BlockBlob", "content-type": mime_type, "x-ms-version": "2020-04-08"},
+                timeout=30.0,
+            )
+            if r_put.status_code not in (200, 201):
+                logger.warning("[ChatGPT Web] Anon image blob upload failed: %s", r_put.status_code)
+                return None
+
+            proc_body = {
+                "entry_surface": "chat_composer",
+                "file_id": file_id,
+                "file_name": file_name,
+                "index_for_retrieval": False,
+                "use_case": "multimodal",
+            }
+            await client.post("https://chatgpt.com/backend-anon/files/process_upload_stream", json=proc_body, headers=headers, timeout=15.0)
+            return file_id
+        except Exception as e:
+            logger.warning("[ChatGPT Web] Anon image upload failed: %s", e)
+            return None
+
     async def _stream_anonymous_chat(
         self, payload: dict[str, Any]
     ) -> AsyncGenerator[dict[str, Any], None]:
         """
         Executes a 100% Free Zero-Auth Guest chat completion via /unauth-mweb/ pipeline.
-        No user accounts, cookies, or API keys required.
+        No user accounts, cookies, or API keys required. Supports Web Search and Image Uploads.
         """
         model_name = payload.get("model", "gpt-4o")
         resp_id = f"chatcmpl_{uuid.uuid4().hex[:12]}"
         created_ts = int(time.time())
 
-        # Extract prompt text
+        # Extract prompt text and image data if provided
         input_messages = payload.get("messages", [])
         prompt_parts: list[str] = []
+        raw_images_to_upload: list[tuple[bytes, str]] = []
+
         for m in input_messages:
             role = m.get("role", "user")
             content = m.get("content", "")
             if isinstance(content, list):
-                content_str = " ".join(item.get("text", "") for item in content if isinstance(item, dict))
+                for item in content:
+                    if isinstance(item, dict):
+                        if item.get("type") == "text":
+                            prompt_parts.append(item.get("text", ""))
+                        elif item.get("type") == "image_url":
+                            img_url = item.get("image_url", {}).get("url", "")
+                            if img_url.startswith("data:"):
+                                try:
+                                    header, b64_data = img_url.split(",", 1)
+                                    mime = header.split(";")[0].replace("data:", "") or "image/jpeg"
+                                    raw_images_to_upload.append((base64.b64decode(b64_data), mime))
+                                except Exception:
+                                    pass
             else:
                 content_str = str(content)
-            if role == "system":
-                prompt_parts.append(f"[System Instruction]: {content_str}")
-            elif role == "user":
-                prompt_parts.append(content_str)
-            elif role == "assistant":
-                prompt_parts.append(f"[Assistant Previous Reply]: {content_str}")
+                if role == "system":
+                    prompt_parts.append(f"[System Instruction]: {content_str}")
+                elif role == "user":
+                    prompt_parts.append(content_str)
+                elif role == "assistant":
+                    prompt_parts.append(f"[Assistant Previous Reply]: {content_str}")
 
         full_prompt = "\n\n".join(prompt_parts) if prompt_parts else "Hello"
+        hints = "search" if (payload.get("web_search") or payload.get("search") or "search" in str(model_name).lower()) else None
+        url_suffix = f"?hints={hints}&lightweight_authenticated=0" if hints else "?lightweight_authenticated=0"
 
         async with httpx.AsyncClient(follow_redirects=True, timeout=60.0) as client:
             try:
                 # Step 1: Document affinity & session
                 affinity = await self._fetch_guest_affinity(client)
                 aff_token = affinity.get("aff_token", "")
-                doc_worker = affinity.get("doc_worker", "d5dbdf88-412b-43ab-a6a5-baa74f31e72c")
+                doc_worker = affinity.get("doc_worker", "ac27bebc-bfdb-4487-afb2-300f6b600f85")
                 oai_session_id = affinity.get("oai_session_id", str(uuid.uuid4()))
                 retry_owner = affinity.get("retry_owner", {"mode": "anonymous", "sessionEpoch": None})
+
+                # Upload any attached images anonymously
+                image_attachments: list[dict[str, Any]] = []
+                for img_bytes, mime in raw_images_to_upload:
+                    fid = await self._upload_anonymous_image(client, oai_session_id, img_bytes, mime)
+                    if fid:
+                        image_attachments.append({
+                            "fileId": fid,
+                            "height": 1024,
+                            "width": 1024,
+                            "mimeType": mime,
+                        })
 
                 # Step 2: Sentinel prepare token
                 loop = asyncio.get_running_loop()
@@ -884,7 +971,7 @@ class ChatGPTWebProvider(BaseExternalProvider):
                     "cloudflare-workers-version-overrides": f'web-mobile-prod="{doc_worker}"',
                 }
                 r_prep = await client.post(
-                    "https://chatgpt.com/unauth-mweb/conversation/prepare?lightweight_authenticated=0",
+                    f"https://chatgpt.com/unauth-mweb/conversation/prepare{url_suffix}",
                     data=prep_data,
                     headers=prep_headers,
                     timeout=15.0,
@@ -916,7 +1003,7 @@ class ChatGPTWebProvider(BaseExternalProvider):
                     ),
                     "messageMetadata": "",
                     "oai-session-id": oai_session_id,
-                    "imageAttachments": "[]",
+                    "imageAttachments": json.dumps(image_attachments),
                     "pendingImageUploads": "[]",
                     "prompt": full_prompt,
                     "clientContextualInfo": json.dumps(
@@ -953,7 +1040,7 @@ class ChatGPTWebProvider(BaseExternalProvider):
                 }
 
                 r_conv = await client.post(
-                    f"https://chatgpt.com/unauth-mweb/conversation/updates?lightweight_authenticated=0&operationId={op_id}",
+                    f"https://chatgpt.com/unauth-mweb/conversation/updates{url_suffix}&operationId={op_id}",
                     data=post_form,
                     headers=conv_headers,
                     timeout=45.0,
