@@ -1665,6 +1665,7 @@ def create_app(
         proxy_url: str | None = None
         auth_user: int | None = 0
         force_new: bool | None = False
+        is_guest: bool | None = False
 
     @app.post("/api/accounts/gemini-web")
     async def add_account_gemini_web(req: AddGeminiWebRequest):
@@ -1678,9 +1679,12 @@ def create_app(
                 proxy_url=req.proxy_url,
                 auth_user=req.auth_user or 0,
                 force_new=bool(req.force_new),
+                is_guest=bool(req.is_guest),
             )
             d = acc.to_dict()
-            if d.get("has_cookies"):
+            if d.get("is_guest"):
+                d["message"] = "Gemini Web Zero-Auth Guest session added to pool!"
+            elif d.get("has_cookies"):
                 d["message"] = f"Gemini Web account added with {d.get('cookies_count', 0)} cookies."
             else:
                 d["message"] = (
@@ -1694,6 +1698,21 @@ def create_app(
             return d
         except Exception as e:
             logger.error("Error adding Gemini Web account: %s", e)
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/accounts/gemini-web/add-guest")
+    async def add_gemini_web_guest():
+        """Adds or restores the Zero-Auth Guest session for Gemini Web."""
+        try:
+            acc = await pool.add_gemini_web_account(
+                name="Gemini Web (Zero-Auth Guest)",
+                is_guest=True,
+            )
+            d = acc.to_dict()
+            d["message"] = "Gemini Web Zero-Auth Guest session added to pool!"
+            return d
+        except Exception as e:
+            logger.error("Error adding Gemini Web guest session: %s", e)
             raise HTTPException(status_code=400, detail=str(e))
 
     @app.post("/api/accounts/{account_id}/gemini-web/refresh-cookies")

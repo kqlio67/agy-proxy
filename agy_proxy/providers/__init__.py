@@ -18,6 +18,7 @@ from agy_proxy.providers.manager import (
 from agy_proxy.providers.anthropic import AnthropicProvider
 from agy_proxy.providers.chatgpt_web import ChatGPTWebProvider
 from agy_proxy.providers.deepseek_web import DeepSeekWebProvider
+from agy_proxy.providers.gemini_guest import GeminiGuestProvider
 from agy_proxy.providers.ollama import OllamaProvider
 from agy_proxy.providers.openai_compat import OpenAICompatProvider
 
@@ -30,6 +31,7 @@ __all__ = [
     "ExternalModelConfig",
     "ExternalProviderConfig",
     "ExternalProviderManager",
+    "GeminiGuestProvider",
     "OllamaProvider",
     "OpenAICompatProvider",
     "RoutingSettings",

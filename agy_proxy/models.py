@@ -171,6 +171,9 @@ MODEL_ALIASES: dict[str, str] = {
     "gemini-2.5-pro": "gemini-2.5-pro",
     "gemini-2.5-flash": "gemini-2.5-flash",
     "gemini-2.5-flash-lite": "gemini-2.5-flash-lite",
+    "gemini-2.0-flash-lite": "gemini-2.0-flash-lite",
+    "gemini-flash-lite": "gemini-2.0-flash-lite",
+    "flash-lite": "gemini-2.0-flash-lite",
     "gemini-2.5-flash-thinking": "gemini-3.8-flash-high",
 
     # --------------------------------------------------------------------------

@@ -616,12 +616,17 @@ class GeminiWebSession(AccountSession):
         proxy_url: str | None = None,
         auth_user: int = 0,
         temporary_chats: bool = True,
+        is_guest: bool = False,
         **kwargs,
     ):
+        self.is_guest: bool = bool(is_guest or kwargs.get("is_guest", False) or account_id.startswith("gw_guest"))
+        default_name = "Gemini Web (Zero-Auth Guest)" if self.is_guest else "Gemini Web"
+        default_email = "guest.flashlite@gemini.web" if self.is_guest else "gemini-web@browser.local"
+
         super().__init__(
             account_id=account_id,
-            name=name or "Gemini Web",
-            email=email or "gemini-web@browser.local",
+            name=name or default_name,
+            email=email or default_email,
             picture=picture or "https://www.gstatic.com/lamda/images/gemini_favicon_f069958c85030456e93de685481c559f160ea06.svg",
             auth_method="gemini_web",
             is_primary=is_primary,
@@ -705,8 +710,13 @@ class GeminiWebSession(AccountSession):
             "gemini-2.5-pro": {"displayName": "Gemini 2.5 Pro (Web)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
             "gemini-2.5-flash": {"displayName": "Gemini 2.5 Flash (Web)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
         }
+        if self.is_guest:
+            self.available_models = {
+                "gemini-2.0-flash-lite": {"displayName": "Gemini 2.0 Flash-Lite (Zero-Auth Guest)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
+                "gemini-flash-lite": {"displayName": "Gemini Flash-Lite (Web Free)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
+            }
         self.quota_summary: dict[str, Any] = {}
-        self.tier_info: dict[str, Any] = {"name": "Gemini Web (Browser)"}
+        self.tier_info: dict[str, Any] = {"name": "Gemini Web (Zero-Auth Guest)" if self.is_guest else "Gemini Web (Browser)"}
         self._botguard_tokens: dict[str, str] = {}
         self._load_botguard_tokens()
 
@@ -1113,6 +1123,8 @@ class GeminiWebSession(AccountSession):
         retrieves all decrypted google.com cookies.
         Returns True if at least one auth cookie was extracted.
         """
+        if self.is_guest:
+            return False
         if not self.enabled and not force:
             logger.debug("[GeminiWeb] Skipping CDP cookie refresh for disabled session %s", self.account_id)
             return False
@@ -1457,6 +1469,9 @@ class GeminiWebSession(AccountSession):
         """
         if not model_name:
             return False
+        if self.is_guest:
+            m = model_name.lower().strip()
+            return "flash-lite" in m or m in ("gemini-2.0-flash-lite", "gemini-flash-lite", "flash-lite")
         from agy_proxy.models import is_3p_model, normalize_model_name, is_gemini_web_model
         if is_3p_model(model_name):
             return False
@@ -1648,6 +1663,38 @@ class GeminiWebSession(AccountSession):
         """
         if not self.enabled:
             yield {"type": "error", "message": "Gemini Web session is paused/disabled."}
+            return
+
+        if self.is_guest:
+            from agy_proxy.providers.gemini_guest import GeminiGuestProvider
+            from agy_proxy.providers.models import ExternalProviderConfig
+            provider = GeminiGuestProvider(ExternalProviderConfig(
+                id="gemini-web-guest",
+                name="Gemini Web (Zero-Auth Guest)",
+                provider_type="gemini_guest",
+                base_url="https://geminiweb-pa.clients6.google.com/v1",
+            ))
+            req = {
+                "model": model or "gemini-2.0-flash-lite",
+                "messages": [{"role": "user", "content": user_message}],
+                "stream": True,
+            }
+            try:
+                async for chunk in provider.chat_completion_stream(req):
+                    choices = chunk.get("choices") or []
+                    if choices:
+                        delta = choices[0].get("delta") or {}
+                        content = delta.get("content")
+                        if content:
+                            yield {"type": "text", "text": content}
+                yield {
+                    "type": "done",
+                    "conv_id": "guest_session",
+                    "resp_id": "guest_response",
+                    "model": model or "gemini-2.0-flash-lite",
+                }
+            except Exception as e:
+                yield {"type": "error", "message": f"Gemini Zero-Auth Guest error: {e}"}
             return
 
         # Retrieve or initialize conversation state for this session
@@ -2290,6 +2337,8 @@ class GeminiWebSession(AccountSession):
 
     async def validate_live(self) -> dict[str, Any]:
         """Validates by attempting to fetch the AT token from Gemini Web."""
+        if self.is_guest:
+            return {"token_ok": True, "error": "", "quota_summary": {}}
         result: dict[str, Any] = {"token_ok": None, "error": "", "quota_summary": {}}
         try:
             if not self._cookies.get("__Secure-1PSID") or (not self._at_token and self.cdp_port):
@@ -2309,6 +2358,43 @@ class GeminiWebSession(AccountSession):
 
     async def test_connection(self) -> dict[str, Any]:
         """Tests whether the session cookies and connection are active and valid."""
+        if self.is_guest:
+            try:
+                from agy_proxy.providers.gemini_guest import GeminiGuestProvider
+                from agy_proxy.providers.models import ExternalProviderConfig
+                provider = GeminiGuestProvider(ExternalProviderConfig(
+                    id="gemini-web-guest",
+                    name="Gemini Web (Zero-Auth Guest)",
+                    provider_type="gemini_guest",
+                    base_url="https://geminiweb-pa.clients6.google.com/v1",
+                ))
+                res = await provider.test_connection()
+                if res.get("ok"):
+                    return {
+                        "ok": True,
+                        "message": f"Gemini Web Zero-Auth Guest active! {res.get('message', '')}",
+                        "has_cookies": False,
+                        "cookies_count": 0,
+                        "has_at_token": True,
+                        "is_guest": True,
+                    }
+                return {
+                    "ok": False,
+                    "error": res.get("error") or res.get("message") or "Zero-Auth Guest handshake failed.",
+                    "has_cookies": False,
+                    "cookies_count": 0,
+                    "has_at_token": False,
+                    "is_guest": True,
+                }
+            except Exception as e:
+                return {
+                    "ok": False,
+                    "error": f"Zero-Auth Guest handshake failed: {e}",
+                    "has_cookies": False,
+                    "cookies_count": 0,
+                    "has_at_token": False,
+                    "is_guest": True,
+                }
         res = await self.validate_live()
         ok = bool(res.get("token_ok"))
         if ok:
@@ -2336,6 +2422,18 @@ class GeminiWebSession(AccountSession):
 
     def to_dict(self) -> dict[str, Any]:
         d = super().to_dict()
+        d["is_guest"] = self.is_guest
+        if self.is_guest:
+            d["has_cookies"] = False
+            d["cookies_count"] = 0
+            d["has_at_token"] = True
+            d["conv_id"] = "guest_session"
+            d["tier_name"] = "Gemini Web (Zero-Auth Guest)"
+            d["auth_method"] = "gemini_web"
+            d["cdp_port"] = getattr(self, "cdp_port", 9222)
+            d["auth_user"] = 0
+            d["temporary_chats"] = True
+            return d
         has_cookies = bool(self._cookies.get("__Secure-1PSID"))
         d["has_cookies"] = has_cookies
         d["cookies_count"] = len(self._cookies)
@@ -2359,6 +2457,7 @@ class GeminiWebSession(AccountSession):
             "cookies": self._cookies,
             "enabled": self.enabled,
             "is_primary": self.is_primary,
+            "is_guest": getattr(self, "is_guest", False),
             "total_requests": getattr(self, "total_requests", 0),
             "last_used_timestamp": getattr(self, "last_used_timestamp", 0.0),
             "last_used_model": getattr(self, "last_used_model", None),

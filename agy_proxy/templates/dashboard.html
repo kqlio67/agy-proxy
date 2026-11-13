@@ -1916,6 +1916,24 @@ https://your-tunnel.trycloudflare.com/v1</pre>
               <span>Auto-Fill</span>
             </button>
           </div>
+          <div id="geminiZeroAuthHelperContainer" class="hidden p-3.5 rounded-2xl bg-gradient-to-r from-blue-950/60 to-slate-900/60 border border-blue-500/40 flex items-center justify-between gap-3 text-xs shadow-md">
+            <div class="flex items-center space-x-2.5 min-w-0">
+              <div class="w-8 h-8 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
+                <i class="fa-solid fa-bolt text-sm"></i>
+              </div>
+              <div class="min-w-0">
+                <div class="text-white font-bold flex items-center gap-1.5">
+                  <span>⚡ Zero-Auth Guest Mode</span>
+                  <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-blue-500/30 text-blue-200 font-bold">Flash-Lite Free</span>
+                </div>
+                <div class="text-[11px] text-blue-300">Вхід та кукіси не потрібні. Прямий доступ до Gemini 2.0 Flash-Lite через WebChannel.</div>
+              </div>
+            </div>
+            <button type="button" onclick="enableGeminiZeroAuth()" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs transition shrink-0 flex items-center space-x-1.5 shadow active:scale-95">
+              <i class="fa-solid fa-sparkles text-[11px]"></i>
+              <span>Use Free Guest</span>
+            </button>
+          </div>
           <div id="chatgptZeroAuthHelperContainer" class="hidden p-3.5 rounded-2xl bg-gradient-to-r from-emerald-950/60 to-slate-900/60 border border-emerald-500/40 flex items-center justify-between gap-3 text-xs shadow-md">
             <div class="flex items-center space-x-2.5 min-w-0">
               <div class="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
@@ -2403,6 +2421,7 @@ ightarrow$ v1.0.3</p>
     function classifyProviderCompany(p) {
       const id = (p?.id || '').toLowerCase();
       const ptype = (p?.provider_type || '').toLowerCase();
+      if (id.includes('gemini') || ptype.includes('gemini')) return 'google';
       if (id.includes('anthropic') || ptype.includes('anthropic') || id.includes('claude-web') || ptype.includes('claude_web')) return 'anthropic';
       if ((id.includes('openai') && !id.includes('openrouter')) || id.includes('chatgpt') || ptype.includes('chatgpt_web')) return 'openai';
       if (id.includes('deepseek') || ptype.includes('deepseek')) return 'deepseek';
@@ -2413,7 +2432,7 @@ ightarrow$ v1.0.3</p>
     function classifyProviderMethod(p) {
       const id = (p?.id || '').toLowerCase();
       const ptype = (p?.provider_type || '').toLowerCase();
-      if (ptype.includes('web') || id.includes('deepseek-web') || id.includes('chatgpt-web') || id.includes('claude-web')) return 'web';
+      if (ptype.includes('web') || ptype.includes('guest') || id.includes('deepseek-web') || id.includes('chatgpt-web') || id.includes('gemini-web') || id.includes('claude-web')) return 'web';
       const company = classifyProviderCompany(p);
       if (company === 'local') return 'local';
       return 'apikey';
@@ -2739,6 +2758,14 @@ ightarrow$ v1.0.3</p>
 
     function renderAvatar(acc, sizeClass = 'w-8 h-8 sm:w-9 sm:h-9', textClass = 'text-xs') {
       if (acc.auth_method === 'gemini_web') {
+        const isGuest = acc.is_guest || (acc.account_id && acc.account_id.startsWith('gw_guest'));
+        if (isGuest) {
+          return `
+            <div class="${sizeClass} rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0 shadow-sm" title="Gemini Web (Zero-Auth Guest · Flash-Lite)">
+              <i class="fa-solid fa-bolt ${textClass}"></i>
+            </div>
+          `;
+        }
         return `
           <div class="${sizeClass} rounded-xl bg-teal-500/15 border border-teal-500/30 flex items-center justify-center text-teal-400 shrink-0 shadow-sm" title="Gemini Web (Browser Session)">
             <i class="fa-solid fa-globe ${textClass}"></i>
@@ -4400,7 +4427,7 @@ ightarrow$ v1.0.3</p>
           icon: 'fa-solid fa-globe',
           iconColor: 'bg-teal-500/15 border-teal-500/30 text-teal-400',
           badgeColor: 'bg-teal-500/20 text-teal-300 border-teal-500/30',
-          desc: 'Gemini Advanced & 2.5 Flash Web · Cookie Auth',
+          desc: 'Gemini Advanced Web · Cookie Auth',
           addTab: 'google_web',
           addLabel: 'Add Web Session',
           items: webItems,
@@ -4939,7 +4966,11 @@ ightarrow$ v1.0.3</p>
       let bgIcon = 'bg-purple-500/15 border-purple-500/30';
       let categoryBadge = '';
       const idLower = (p.id || '').toLowerCase();
-      if (idLower.includes('anthropic') || (p.provider_type || '').toLowerCase().includes('anthropic')) {
+      if (idLower.includes('gemini') || (p.provider_type || '').toLowerCase().includes('gemini_guest')) {
+        iconClass = 'fa-solid fa-sparkles text-blue-400';
+        bgIcon = 'bg-blue-500/15 border-blue-500/30';
+        categoryBadge = '<span class="text-[9px] font-mono px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/40"><i class="fa-solid fa-bolt text-[8px] mr-1"></i>Zero-Auth Guest</span>';
+      } else if (idLower.includes('anthropic') || (p.provider_type || '').toLowerCase().includes('anthropic')) {
         iconClass = 'fa-solid fa-cube text-amber-400';
         bgIcon = 'bg-amber-500/15 border-amber-500/30';
         categoryBadge = '<span class="text-[9px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20"><i class="fa-solid fa-cube text-[8px] mr-1"></i>Direct Anthropic</span>';
@@ -5023,8 +5054,8 @@ ightarrow$ v1.0.3</p>
             <!-- Auth & Latency Info -->
             <div class="flex items-center justify-between text-[11px] pt-2.5 text-slate-400">
               <span class="flex items-center gap-1 font-mono text-[10px]">
-                <i class="fa-solid ${(p.provider_type === 'deepseek_web' || p.id === 'deepseek-web') ? 'fa-shield-halved text-cyan-400' : ((p.provider_type === 'chatgpt_web' || p.id === 'chatgpt-web') ? ((!p.api_key || p.api_key === 'zero-auth' || p.api_key === 'guest') ? 'fa-bolt text-amber-400' : 'fa-shield-halved text-emerald-400') : (p.api_key ? 'fa-key text-slate-500' : 'fa-cube text-slate-500'))} text-[9px]"></i>
-                ${(p.provider_type === 'deepseek_web' || p.id === 'deepseek-web') ? 'Web Session (PoW Verified)' : ((p.provider_type === 'chatgpt_web' || p.id === 'chatgpt-web') ? ((!p.api_key || p.api_key === 'zero-auth' || p.api_key === 'guest') ? 'Zero-Auth Guest (No Login)' : 'Web Session (Sentinel PoW)') : (p.api_key ? 'API Key Set' : 'No Key (Local)'))}
+                <i class="fa-solid ${(p.provider_type === 'gemini_guest' || p.id === 'gemini-web-guest') ? 'fa-bolt text-blue-400' : ((p.provider_type === 'deepseek_web' || p.id === 'deepseek-web') ? 'fa-shield-halved text-cyan-400' : ((p.provider_type === 'chatgpt_web' || p.id === 'chatgpt-web') ? ((!p.api_key || p.api_key === 'zero-auth' || p.api_key === 'guest') ? 'fa-bolt text-amber-400' : 'fa-shield-halved text-emerald-400') : (p.api_key ? 'fa-key text-slate-500' : 'fa-cube text-slate-500')))} text-[9px]"></i>
+                ${(p.provider_type === 'gemini_guest' || p.id === 'gemini-web-guest') ? 'Zero-Auth Guest (Flash-Lite)' : ((p.provider_type === 'deepseek_web' || p.id === 'deepseek-web') ? 'Web Session (PoW Verified)' : ((p.provider_type === 'chatgpt_web' || p.id === 'chatgpt-web') ? ((!p.api_key || p.api_key === 'zero-auth' || p.api_key === 'guest') ? 'Zero-Auth Guest (No Login)' : 'Web Session (Sentinel PoW)') : (p.api_key ? 'API Key Set' : 'No Key (Local)')))}
               </span>
               <span id="prov-ping-${p.id}" class="text-[10px] font-mono text-slate-300 glass-pill px-2.5 py-0.5 rounded-full flex items-center gap-1.5">
                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>Ready
@@ -5533,41 +5564,75 @@ ightarrow$ v1.0.3</p>
 
       let quotaSectionHtml = '';
       if (isWeb) {
-        quotaSectionHtml = `
-          <div class="p-3 rounded-xl glass-well space-y-2 text-xs">
-            <div class="flex items-center justify-between">
-              <span class="text-slate-300 flex items-center font-medium">
-                <i class="fa-solid fa-globe text-teal-400 mr-2 text-xs"></i> Browser Session
-              </span>
-              ${!isEnabled
-                ? '<span class="px-2 py-0.5 rounded-full text-[10px] glass-pill text-slate-400 font-semibold font-mono">Paused</span>'
-                : (acc.has_cookies
-                  ? '<span class="px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/15 text-emerald-300 font-semibold border border-emerald-500/30 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>Ready (3.1 Pro)</span>'
-                  : '<span class="px-2 py-0.5 rounded-full text-[10px] bg-amber-500/15 text-amber-300 font-semibold border border-amber-500/30 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>No Cookies</span>')}
-            </div>
-            <div class="grid grid-cols-2 gap-2 text-[11px] pt-1">
-              <div class="p-2 rounded-lg bg-white/[0.02] border border-white/[0.05]">
-                <div class="text-[10px] text-slate-400">Cookies</div>
-                <div class="font-mono font-semibold text-slate-200 mt-0.5">${acc.cookies_count || 0} active</div>
+        const isGuest = acc.is_guest || (acc.account_id && acc.account_id.startsWith('gw_guest'));
+        if (isGuest) {
+          quotaSectionHtml = `
+            <div class="p-3 rounded-xl glass-well space-y-2 text-xs">
+              <div class="flex items-center justify-between">
+                <span class="text-slate-300 flex items-center font-medium">
+                  <i class="fa-solid fa-bolt text-blue-400 mr-2 text-xs"></i> Zero-Auth Guest Session
+                </span>
+                ${!isEnabled
+                  ? '<span class="px-2 py-0.5 rounded-full text-[10px] glass-pill text-slate-400 font-semibold font-mono">Paused</span>'
+                  : '<span class="px-2 py-0.5 rounded-full text-[10px] bg-blue-500/15 text-blue-300 font-semibold border border-blue-500/30 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>Ready (Flash-Lite)</span>'}
               </div>
-              <div class="p-2 rounded-lg bg-white/[0.02] border border-white/[0.05]">
-                <div class="text-[10px] text-slate-400">CSRF / AT Token</div>
-                <div class="font-mono font-semibold ${acc.has_at_token ? 'text-teal-300' : 'text-slate-400'} mt-0.5">${acc.has_at_token ? 'Verified' : 'Ready'}</div>
+              <div class="grid grid-cols-2 gap-2 text-[11px] pt-1">
+                <div class="p-2 rounded-lg bg-white/[0.02] border border-white/[0.05]">
+                  <div class="text-[10px] text-slate-400">Target Model</div>
+                  <div class="font-mono font-semibold text-blue-300 mt-0.5">Flash-Lite</div>
+                </div>
+                <div class="p-2 rounded-lg bg-white/[0.02] border border-white/[0.05]">
+                  <div class="text-[10px] text-slate-400">Authorization</div>
+                  <div class="font-mono font-semibold text-emerald-400 mt-0.5">Zero-Auth Free</div>
+                </div>
+              </div>
+              <div class="flex items-center gap-1.5 pt-1">
+                <button onclick="openPlaygroundForAccount('${acc.account_id}')" class="flex-1 py-1.5 px-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 hover:text-white text-[11px] font-medium border border-indigo-500/25 transition flex items-center justify-center gap-1 shadow-sm" title="Test in Live Playground">
+                  <i class="fa-solid fa-terminal text-[10px]"></i> Playground
+                </button>
+                <button onclick="testAccount('${acc.account_id}')" class="flex-1 py-1.5 px-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 hover:text-white text-[11px] font-medium border border-blue-500/25 transition flex items-center justify-center gap-1 shadow-sm" title="Test session connectivity">
+                  <i class="fa-solid fa-vial-circle-check text-[10px]"></i> Test
+                </button>
               </div>
             </div>
-            <div class="flex items-center gap-1.5 pt-1">
-              <button onclick="openPlaygroundForAccount('${acc.account_id}')" class="flex-1 py-1.5 px-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 hover:text-white text-[11px] font-medium border border-indigo-500/25 transition flex items-center justify-center gap-1 shadow-sm" title="Test in Live Playground">
-                <i class="fa-solid fa-terminal text-[10px]"></i> Playground
-              </button>
-              <button onclick="testAccount('${acc.account_id}')" class="flex-1 py-1.5 px-2 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 text-teal-300 hover:text-white text-[11px] font-medium border border-teal-500/25 transition flex items-center justify-center gap-1 shadow-sm" title="Test session connectivity">
-                <i class="fa-solid fa-vial-circle-check text-[10px]"></i> Test
-              </button>
-              <button onclick="refreshWebCookies('${acc.account_id}')" class="py-1.5 px-2.5 rounded-xl glass-pill text-slate-300 hover:text-white text-[11px] font-medium transition flex items-center justify-center gap-1 shadow-sm" title="Sync cookies from Chrome CDP port ${acc.cdp_port || 9222}">
-                <i class="fa-solid fa-rotate text-teal-400 text-[10px]"></i> CDP
-              </button>
+          `;
+        } else {
+          quotaSectionHtml = `
+            <div class="p-3 rounded-xl glass-well space-y-2 text-xs">
+              <div class="flex items-center justify-between">
+                <span class="text-slate-300 flex items-center font-medium">
+                  <i class="fa-solid fa-globe text-teal-400 mr-2 text-xs"></i> Browser Session
+                </span>
+                ${!isEnabled
+                  ? '<span class="px-2 py-0.5 rounded-full text-[10px] glass-pill text-slate-400 font-semibold font-mono">Paused</span>'
+                  : (acc.has_cookies
+                    ? '<span class="px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/15 text-emerald-300 font-semibold border border-emerald-500/30 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>Ready (3.1 Pro)</span>'
+                    : '<span class="px-2 py-0.5 rounded-full text-[10px] bg-amber-500/15 text-amber-300 font-semibold border border-amber-500/30 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>No Cookies</span>')}
+              </div>
+              <div class="grid grid-cols-2 gap-2 text-[11px] pt-1">
+                <div class="p-2 rounded-lg bg-white/[0.02] border border-white/[0.05]">
+                  <div class="text-[10px] text-slate-400">Cookies</div>
+                  <div class="font-mono font-semibold text-slate-200 mt-0.5">${acc.cookies_count || 0} active</div>
+                </div>
+                <div class="p-2 rounded-lg bg-white/[0.02] border border-white/[0.05]">
+                  <div class="text-[10px] text-slate-400">CSRF / AT Token</div>
+                  <div class="font-mono font-semibold ${acc.has_at_token ? 'text-teal-300' : 'text-slate-400'} mt-0.5">${acc.has_at_token ? 'Verified' : 'Ready'}</div>
+                </div>
+              </div>
+              <div class="flex items-center gap-1.5 pt-1">
+                <button onclick="openPlaygroundForAccount('${acc.account_id}')" class="flex-1 py-1.5 px-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 hover:text-white text-[11px] font-medium border border-indigo-500/25 transition flex items-center justify-center gap-1 shadow-sm" title="Test in Live Playground">
+                  <i class="fa-solid fa-terminal text-[10px]"></i> Playground
+                </button>
+                <button onclick="testAccount('${acc.account_id}')" class="flex-1 py-1.5 px-2 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 text-teal-300 hover:text-white text-[11px] font-medium border border-teal-500/25 transition flex items-center justify-center gap-1 shadow-sm" title="Test session connectivity">
+                  <i class="fa-solid fa-vial-circle-check text-[10px]"></i> Test
+                </button>
+                <button onclick="refreshWebCookies('${acc.account_id}')" class="py-1.5 px-2.5 rounded-xl glass-pill text-slate-300 hover:text-white text-[11px] font-medium transition flex items-center justify-center gap-1 shadow-sm" title="Sync cookies from Chrome CDP port ${acc.cdp_port || 9222}">
+                  <i class="fa-solid fa-rotate text-teal-400 text-[10px]"></i> CDP
+                </button>
+              </div>
             </div>
-          </div>
-        `;
+          `;
+        }
       } else if (isApiKey) {
         if (acc.error_message) {
           quotaSectionHtml = `
@@ -5759,7 +5824,11 @@ ightarrow$ v1.0.3</p>
       } else if (isApiKey) {
         tierBadgeHtml = '<span class="text-[9px] sm:text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 font-semibold border border-amber-500/30 flex items-center gap-1 shrink-0 shadow-sm" title="Google AI Studio PayG API Key"><i class="fa-solid fa-key text-amber-400 text-[9px]"></i><span>AI Studio</span></span>';
       } else if (isWeb) {
-        tierBadgeHtml = '<span class="text-[9px] sm:text-[10px] px-2 py-0.5 rounded-full bg-teal-500/15 text-teal-300 font-semibold border border-teal-500/30 flex items-center gap-1 shrink-0 shadow-sm" title="Gemini Web Advanced Browser Session"><i class="fa-solid fa-globe text-teal-400 text-[9px]"></i><span>Web Pro</span></span>';
+        if (acc.is_guest || (acc.account_id && acc.account_id.startsWith('gw_guest'))) {
+          tierBadgeHtml = '<span class="text-[9px] sm:text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-semibold border border-blue-500/30 flex items-center gap-1 shrink-0 shadow-sm" title="Gemini Web Zero-Auth Guest (Flash-Lite)"><i class="fa-solid fa-bolt text-blue-400 text-[9px]"></i><span>Zero-Auth</span></span>';
+        } else {
+          tierBadgeHtml = '<span class="text-[9px] sm:text-[10px] px-2 py-0.5 rounded-full bg-teal-500/15 text-teal-300 font-semibold border border-teal-500/30 flex items-center gap-1 shrink-0 shadow-sm" title="Gemini Web Advanced Browser Session"><i class="fa-solid fa-globe text-teal-400 text-[9px]"></i><span>Web Pro</span></span>';
+        }
       } else {
         tierBadgeHtml = '<span class="text-[9px] sm:text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 font-semibold border border-indigo-500/30 flex items-center gap-1 shrink-0 shadow-sm" title="Google OAuth 2.0 Account"><i class="fa-solid fa-shield-halved text-indigo-400 text-[9px]"></i><span>OAuth</span></span>';
       }
@@ -6620,13 +6689,28 @@ ightarrow$ v1.0.3</p>
       }
 
       if (acc && acc.auth_method === 'gemini_web') {
-        GEMINI_WEB_MODELS.forEach(m => {
-          const opt = document.createElement('option');
-          opt.value = m.id;
-          opt.innerText = `${m.id} — ${m.name}`;
-          select.appendChild(opt);
-        });
-        select.value = GEMINI_WEB_MODELS.some(m => m.id === prevVal) ? prevVal : 'gemini-4-argon-web-high';
+        const isGuest = acc.is_guest || (acc.account_id && acc.account_id.startsWith('gw_guest'));
+        if (isGuest) {
+          const guestModels = [
+            { id: 'gemini-2.0-flash-lite', name: 'Gemini 2.0 Flash-Lite (Zero-Auth Guest)' },
+            { id: 'gemini-flash-lite', name: 'Gemini Flash-Lite (Web Free)' },
+          ];
+          guestModels.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.id;
+            opt.innerText = `${m.id} — ${m.name}`;
+            select.appendChild(opt);
+          });
+          select.value = guestModels.some(m => m.id === prevVal) ? prevVal : 'gemini-2.0-flash-lite';
+        } else {
+          GEMINI_WEB_MODELS.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.id;
+            opt.innerText = `${m.id} — ${m.name}`;
+            select.appendChild(opt);
+          });
+          select.value = GEMINI_WEB_MODELS.some(m => m.id === prevVal) ? prevVal : 'gemini-4-argon-web-high';
+        }
       } else if (acc && acc.auth_method === 'api_key') {
         let list = API_KEY_MODELS;
         if (acc.available_models && Array.isArray(acc.available_models) && acc.available_models.length > 0) {
@@ -6762,11 +6846,13 @@ ightarrow$ v1.0.3</p>
       if (webAccs.length > 0) {
         html += `<optgroup label="Gemini Web Browser Sessions">`;
         webAccs.forEach(acc => {
-          const label = acc.name || 'Gemini Web';
+          const isGuest = acc.is_guest || (acc.account_id && acc.account_id.startsWith('gw_guest'));
+          const label = acc.name || (isGuest ? 'Gemini Web (Zero-Auth Guest)' : 'Gemini Web');
           const cdp = acc.cdp_port ? ` :${acc.cdp_port}` : '';
-          const cookies = acc.cookies_count ? ` (${acc.cookies_count} cks)` : '';
+          const cookies = isGuest ? ' [Flash-Lite Free]' : (acc.cookies_count ? ` (${acc.cookies_count} cks)` : '');
           const status = acc.enabled === false ? ' [PAUSED]' : '';
-          html += `<option value="${acc.account_id}">🌐 ${label}${cdp}${cookies}${status}</option>`;
+          const icon = isGuest ? '⚡' : '🌐';
+          html += `<option value="${acc.account_id}">${icon} ${label}${isGuest ? '' : cdp}${cookies}${status}</option>`;
         });
         html += `</optgroup>`;
       }
@@ -6883,25 +6969,49 @@ ightarrow$ v1.0.3</p>
       updatePlaygroundModelsForAccount(acc);
 
       if (acc.auth_method === 'gemini_web') {
-        if (typeBadge) {
-          typeBadge.innerText = 'Gemini Web';
-          typeBadge.className = 'text-[10px] text-teal-400 font-mono font-bold';
-        }
-        if (chatAccountBadge) {
-          chatAccountBadge.innerText = `${acc.name || 'Web Session'} (Web)`;
-        }
-        if (hintBox) {
-          hintBox.innerHTML = `
-            <div class="flex items-center space-x-1.5 text-teal-400 font-semibold mb-1">
-              <i class="fa-solid fa-globe"></i>
-              <span>Gemini Web Browser Session</span>
-            </div>
-            <div class="text-[10px] text-slate-400 leading-relaxed">
-              Direct reverse-engineered stream via <code class="text-teal-300 font-mono">StreamGenerate</code>.
-              Cookies: <span class="font-mono text-slate-200">${acc.cookies_count || 0}</span>, AT Token: <span class="font-mono text-slate-200">${acc.has_at_token ? 'Verified' : 'Ready'}</span>.
-            </div>
-          `;
-          hintBox.classList.remove('hidden');
+        const isGuest = acc.is_guest || (acc.account_id && acc.account_id.startsWith('gw_guest'));
+        if (isGuest) {
+          if (typeBadge) {
+            typeBadge.innerText = 'Zero-Auth Guest';
+            typeBadge.className = 'text-[10px] text-blue-400 font-mono font-bold';
+          }
+          if (chatAccountBadge) {
+            chatAccountBadge.innerText = `${acc.name || 'Gemini Web'} (Zero-Auth)`;
+          }
+          if (hintBox) {
+            hintBox.innerHTML = `
+              <div class="flex items-center space-x-1.5 text-blue-400 font-semibold mb-1">
+                <i class="fa-solid fa-bolt"></i>
+                <span>Gemini Web Zero-Auth Guest (Flash-Lite)</span>
+              </div>
+              <div class="text-[10px] text-slate-400 leading-relaxed">
+                Direct zero-auth access via <code class="text-blue-300 font-mono">WebChannel / processSession</code> envelope.
+                100% Free · No Google account, cookies, or API key required. Model: <b class="text-white">gemini-2.0-flash-lite</b>.
+              </div>
+            `;
+            hintBox.classList.remove('hidden');
+          }
+        } else {
+          if (typeBadge) {
+            typeBadge.innerText = 'Gemini Web';
+            typeBadge.className = 'text-[10px] text-teal-400 font-mono font-bold';
+          }
+          if (chatAccountBadge) {
+            chatAccountBadge.innerText = `${acc.name || 'Web Session'} (Web)`;
+          }
+          if (hintBox) {
+            hintBox.innerHTML = `
+              <div class="flex items-center space-x-1.5 text-teal-400 font-semibold mb-1">
+                <i class="fa-solid fa-globe"></i>
+                <span>Gemini Web Browser Session</span>
+              </div>
+              <div class="text-[10px] text-slate-400 leading-relaxed">
+                Direct reverse-engineered stream via <code class="text-teal-300 font-mono">StreamGenerate</code>.
+                Cookies: <span class="font-mono text-slate-200">${acc.cookies_count || 0}</span>, AT Token: <span class="font-mono text-slate-200">${acc.has_at_token ? 'Verified' : 'Ready'}</span>.
+              </div>
+            `;
+            hintBox.classList.remove('hidden');
+          }
         }
       } else if (acc.auth_method === 'api_key') {
         if (typeBadge) {
@@ -6960,11 +7070,13 @@ ightarrow$ v1.0.3</p>
       }
       const acc = (rawAccountsData || []).find(a => a.account_id === accountId);
       if (acc && acc.auth_method === 'gemini_web') {
+        const isGuest = acc.is_guest || (acc.account_id && acc.account_id.startsWith('gw_guest'));
         const modelSel = document.getElementById('modelSelect');
+        const targetM = isGuest ? 'gemini-2.0-flash-lite' : 'gemini-4-argon-web-high';
         if (modelSel) {
-          modelSel.value = 'gemini-4-argon-web-high';
+          modelSel.value = targetM;
           const activeM = document.getElementById('activeModelBadge');
-          if (activeM) activeM.innerText = 'gemini-4-argon-web-high';
+          if (activeM) activeM.innerText = targetM;
         }
       }
       setTimeout(() => {
@@ -7162,12 +7274,16 @@ ightarrow$ v1.0.3</p>
         if (methodId === 'google_web') {
           if (webTitle) webTitle.innerHTML = '<i class="fa-solid fa-globe mr-2 text-teal-400"></i> Gemini Web Session';
           if (webBadge) webBadge.innerText = 'Google Web';
-          if (webDesc) webDesc.innerHTML = 'Connect an active browser session from <a href="https://gemini.google.com" target="_blank" class="text-teal-400 underline">gemini.google.com</a>:';
+          if (webDesc) webDesc.innerHTML = 'Connect an active browser session from <a href="https://gemini.google.com" target="_blank" class="text-teal-400 underline">gemini.google.com</a>, or choose 100% Free <b>Zero-Auth Guest mode</b>:';
           if (webExtra) webExtra.classList.remove('hidden');
-          if (webName) webName.placeholder = 'e.g. Gemini Web Personal';
+          if (webName) webName.placeholder = 'e.g. Gemini Web Personal or Gemini Guest';
           if (webCookies) webCookies.placeholder = 'Paste .har export JSON, or Cookie header (__Secure-1PSID=...; __Secure-1PSIDTS=...), or curl command here...';
           if (webHint) webHint.innerText = 'paste HAR JSON or Cookie: header';
+          const geminiZeroAuth = document.getElementById('geminiZeroAuthHelperContainer');
+          if (geminiZeroAuth) geminiZeroAuth.classList.remove('hidden');
         } else if (methodId === 'anthropic_web') {
+          const geminiZeroAuth = document.getElementById('geminiZeroAuthHelperContainer');
+          if (geminiZeroAuth) geminiZeroAuth.classList.add('hidden');
           if (webTitle) webTitle.innerHTML = '<i class="fa-solid fa-cube mr-2 text-amber-400"></i> Claude.ai Web Session';
           if (webBadge) webBadge.innerText = 'Claude Web';
           if (webDesc) webDesc.innerHTML = 'Connect an active browser session from <a href="https://claude.ai" target="_blank" class="text-amber-400 underline">claude.ai</a>:';
@@ -7176,6 +7292,8 @@ ightarrow$ v1.0.3</p>
           if (webCookies) webCookies.placeholder = 'Paste sessionKey cookie (sk-ant-sid01-...) or cURL request copied from Claude Web developer tools...';
           if (webHint) webHint.innerText = 'paste sessionKey cookie or cURL';
         } else if (methodId === 'openai_web') {
+          const geminiZeroAuth = document.getElementById('geminiZeroAuthHelperContainer');
+          if (geminiZeroAuth) geminiZeroAuth.classList.add('hidden');
           if (webTitle) webTitle.innerHTML = '<i class="fa-solid fa-brain mr-2 text-emerald-400"></i> ChatGPT Web Session';
           if (webBadge) webBadge.innerText = 'ChatGPT Web';
           if (webDesc) webDesc.innerHTML = 'Connect an active browser session from <a href="https://chatgpt.com" target="_blank" class="text-emerald-400 underline">chatgpt.com</a>, or choose 100% Free <b>Zero-Auth Guest mode</b>:';
@@ -7187,6 +7305,8 @@ ightarrow$ v1.0.3</p>
           if (zeroAuthContainer) zeroAuthContainer.classList.remove('hidden');
           checkAndShowLocalHarOption('openai_web');
         } else if (methodId === 'deepseek_web') {
+          const geminiZeroAuth = document.getElementById('geminiZeroAuthHelperContainer');
+          if (geminiZeroAuth) geminiZeroAuth.classList.add('hidden');
           const zeroAuthContainer = document.getElementById('chatgptZeroAuthHelperContainer');
           if (zeroAuthContainer) zeroAuthContainer.classList.add('hidden');
           if (webTitle) webTitle.innerHTML = '<i class="fa-solid fa-atom mr-2 text-cyan-400"></i> DeepSeek Web Session';
@@ -7203,6 +7323,10 @@ ightarrow$ v1.0.3</p>
           if (harContainer) harContainer.classList.add('hidden');
           const zeroAuthContainer = document.getElementById('chatgptZeroAuthHelperContainer');
           if (zeroAuthContainer) zeroAuthContainer.classList.add('hidden');
+        }
+        if (methodId !== 'google_web') {
+          const geminiZeroAuth = document.getElementById('geminiZeroAuthHelperContainer');
+          if (geminiZeroAuth) geminiZeroAuth.classList.add('hidden');
         }
       } else {
         // API / Local / Gateway provider
@@ -7337,6 +7461,33 @@ ightarrow$ v1.0.3</p>
             : `DeepSeek Web (${window._detectedLocalHar.email || 'HAR'})`;
         }
         showToast(`Auto-loaded ${isCgpt ? 'ChatGPT' : 'DeepSeek'} session from local HAR!`, 'success');
+      }
+    }
+
+    async function enableGeminiZeroAuth() {
+      const btn = document.getElementById('submitAuthBtn');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Connecting Guest...';
+      }
+      try {
+        const res = await fetch('/api/accounts/gemini-web/add-guest', { method: 'POST' });
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(errText);
+        }
+        const data = await res.json();
+        showToast(data.message || 'Gemini Web Zero-Auth Guest session added to pool!', 'success');
+        closeAddAccountModal();
+        await loadAccounts();
+        await loadModels();
+      } catch (err) {
+        showToast('Failed to add Gemini Web guest session: ' + err.message, 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fa-solid fa-globe"></i><span>Connect Session</span>';
+        }
       }
     }
 

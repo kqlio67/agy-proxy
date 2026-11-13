@@ -39,6 +39,9 @@ def _create_provider_instance(config: ExternalProviderConfig) -> BaseExternalPro
     if p_type == "chatgpt_web" or p_id == "chatgpt-web" or p_id == "chatgpt_web":
         from agy_proxy.providers.chatgpt_web import ChatGPTWebProvider
         return ChatGPTWebProvider(config)
+    if p_type in ("gemini_guest", "gemini_web_guest") or p_id in ("gemini-guest", "gemini-web-guest", "gemini_guest", "gemini_web_guest"):
+        from agy_proxy.providers.gemini_guest import GeminiGuestProvider
+        return GeminiGuestProvider(config)
     if p_type == "ollama" or p_id == "ollama":
         return OllamaProvider(config)
     return OpenAICompatProvider(config)
@@ -77,7 +80,10 @@ class ExternalProviderManager:
             for pid, preset in DEFAULT_PROVIDER_PRESETS.items():
                 if pid not in self.providers:
                     preset_copy = dict(preset)
-                    preset_copy["enabled"] = False
+                    if pid == "gemini-web-guest":
+                        preset_copy["enabled"] = True
+                    else:
+                        preset_copy["enabled"] = False
                     self.providers[pid] = ExternalProviderConfig(**preset_copy)
                     modified = True
 

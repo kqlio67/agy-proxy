@@ -669,6 +669,7 @@ class AccountPool:
                         proxy_url=proxy_val,
                         auth_user=int(item.get("auth_user", 0) or 0),
                         temporary_chats=bool(item.get("temporary_chats", True)),
+                        is_guest=bool(item.get("is_guest", False) or acc_id.startswith("gw_guest")),
                     )
                     _restore_stats(acc, item)
                     self.accounts[acc_id] = acc
@@ -922,6 +923,7 @@ class AccountPool:
                         "cdp_port": getattr(acc, "cdp_port", 9222),
                         "enabled": acc.enabled,
                         "is_primary": acc.is_primary,
+                        "is_guest": getattr(acc, "is_guest", False),
                         "total_requests": getattr(acc, "total_requests", 0),
                         "last_used_timestamp": getattr(acc, "last_used_timestamp", 0.0),
                         "last_used_model": getattr(acc, "last_used_model", None),
@@ -1876,11 +1878,34 @@ class AccountPool:
         auth_user: int = 0,
         force_new: bool = False,
         temporary_chats: bool = True,
+        is_guest: bool = False,
     ) -> "GeminiWebSession":
         """
         Adds a Gemini Web (gemini.google.com browser session) to the pool.
         Accepts raw cookies (HAR export, Cookie header, curl, or dict) or auto-fetches from Chrome via CDP.
         """
+        is_guest_mode = bool(is_guest or (raw_cookies and raw_cookies.strip().lower() in ("zero-auth", "guest")))
+        if is_guest_mode:
+            acc_id = "gw_guest_flash_lite"
+            display_name = name.strip() if (name and name.strip() and name.strip() != "Gemini Web") else "Gemini Web (Zero-Auth Guest)"
+            acc = GeminiWebSession(
+                account_id=acc_id,
+                name=display_name,
+                email="guest.flashlite@gemini.web",
+                is_primary=False,
+                on_token_refreshed=self.save_accounts,
+                cookies={},
+                cdp_port=cdp_port,
+                proxy_url=proxy_url,
+                auth_user=0,
+                temporary_chats=temporary_chats,
+                is_guest=True,
+            )
+            self.accounts[acc_id] = acc
+            self.save_accounts()
+            logger.info("Successfully added GeminiWeb Zero-Auth Guest session %s", acc_id)
+            return acc
+
         acc_id = f"gw_{os.urandom(4).hex()}"
         display_name = name.strip() if (name and name.strip()) else "Gemini Web"
 
