@@ -77,6 +77,15 @@ MODEL_ALIASES: dict[str, str] = {
     "gemini-4-carbon-disabled": "gemini-4-carbon-disabled",
     "carbon": "gemini-4-carbon",
 
+    # Antigravity Orchestrator & Worker (v2.31.0 CloudCode models)
+    "gemini-pro-orchestrator-g1-pro": "gemini-pro-orchestrator-g1-pro",
+    "orchestrator": "gemini-pro-orchestrator-g1-pro",
+    "orchestrator-argon": "gemini-pro-orchestrator-g1-pro",
+    "gemini-orchestrator": "gemini-pro-orchestrator-g1-pro",
+    "gemini-flash-worker-agy": "gemini-flash-worker-agy",
+    "flash-worker": "gemini-flash-worker-agy",
+    "gemini-worker": "gemini-flash-worker-agy",
+
     # Gemini 3.8 Aliases (Latest default)
     "gemini-3.8-flash": "gemini-3.8-flash-high",
     "gemini-3.8-flash-high": "gemini-3.8-flash-high",
@@ -344,6 +353,9 @@ VALID_CLOUDCODE_MODELS = {
     "gemini-4-hydrogen-xhigh",
     "gemini-4-carbon",
     "gemini-4-carbon-disabled",
+    # Antigravity Orchestrator & Execution Worker (v2.31.0)
+    "gemini-pro-orchestrator-g1-pro",
+    "gemini-flash-worker-agy",
     # Gemini 3.8
     "gemini-3.8-flash-high",
     "gemini-3.8-flash-medium",
@@ -463,7 +475,10 @@ CLOUDCODE_PLACEHOLDER_MAP: dict[str, str] = {
     "gemini-4-hydrogen-medium": "MODEL_PLACEHOLDER_M526",
     "gemini-4-carbon": "MODEL_PLACEHOLDER_M670",
     "gemini-4-carbon-disabled": "MODEL_PLACEHOLDER_M670",
+    "gemini-pro-orchestrator-g1-pro": "MODEL_PLACEHOLDER_M668",
+    "gemini-flash-worker-agy": "MODEL_PLACEHOLDER_M669",
     "gpt-oss-120b-medium": "MODEL_PLACEHOLDER_M410",
+    "MODEL_OPENAI_GPT_OSS_120B_MEDIUM": "MODEL_OPENAI_GPT_OSS_120B_MEDIUM",
     # Official Authentic CloudCode Enums from Antigravity Hub v2.28.2 / cl=1009437749
     "claude-opus-5-5-low": "MODEL_PLACEHOLDER_M400",
     "claude-opus-5-5-medium": "MODEL_PLACEHOLDER_M401",
@@ -601,6 +616,10 @@ REVERSE_PLACEHOLDER_MAP.update({
     "model_placeholder_m421": "gemini-4-argon",
     "model_placeholder_m422": "gemini-4-argon-medium",
     "model_placeholder_m423": "gemini-4-argon-low",
+    "model_placeholder_m668": "gemini-pro-orchestrator-g1-pro",
+    "1668": "gemini-pro-orchestrator-g1-pro",
+    "model_placeholder_m669": "gemini-flash-worker-agy",
+    "1669": "gemini-flash-worker-agy",
     "model_placeholder_m670": "gemini-4-carbon",
     "1670": "gemini-4-carbon",
     # Legacy synthetic mappings for backward compatibility
@@ -707,6 +726,9 @@ EXACT_MODEL_METADATA: dict[str, dict[str, Any]] = {
     # Gemini 4 Carbon (Next-Gen v2.31.0 CloudCode model)
     "gemini-4-carbon": {"displayName": "Gemini 4 Carbon", "maxTokens": 1048576, "maxOutputTokens": 65536, "supportsImages": True, "supportsVideo": True, "supportsThinking": True, "thinkingBudget": -1, "thinkingLevel": 3},
     "gemini-4-carbon-disabled": {"displayName": "Gemini 4 Carbon", "maxTokens": 1048576, "maxOutputTokens": 65536, "supportsImages": True, "supportsVideo": True, "supportsThinking": True, "thinkingBudget": -1, "thinkingLevel": 3},
+    # Antigravity Orchestrator & Execution Worker (v2.31.0 Plan-and-Execute)
+    "gemini-pro-orchestrator-g1-pro": {"displayName": "Orchestrator (Argon)", "maxTokens": 1048576, "maxOutputTokens": 65536, "supportsImages": True, "supportsVideo": True, "supportsThinking": True, "thinkingBudget": -1, "thinkingLevel": 3},
+    "gemini-flash-worker-agy": {"displayName": "Gemini Flash (Execution Worker)", "maxTokens": 1048576, "maxOutputTokens": 262144, "supportsImages": True, "supportsVideo": True, "supportsThinking": True, "thinkingBudget": -1, "thinkingLevel": 100},
     # Gemini 3.8 Flagship
     "gemini-3.8-flash-high": {"displayName": "Gemini 3.8 Flash (High)", "maxTokens": 1048576},
     "gemini-3.8-flash-medium": {"displayName": "Gemini 3.8 Flash (Medium)", "maxTokens": 1048576},
@@ -907,6 +929,8 @@ PROXY_CATALOG_MODELS: dict[str, dict[str, Any]] = {
     "gemini-4-hydrogen-xhigh": {"displayName": "Gemini 4 Hydrogen (XHigh)", "maxTokens": 1048576, "maxOutputTokens": 262144, "description": "Gemini 4 Hydrogen extra-high reasoning with 256k generation tokens", "category": "Google Gemini"},
     "gemini-4-carbon": {"displayName": "Gemini 4 Carbon", "maxTokens": 1048576, "description": "Google Next-Gen Gemini 4 Carbon CloudCode model", "category": "Google Gemini"},
     "gemini-4-carbon-disabled": {"displayName": "Gemini 4 Carbon (Disabled)", "maxTokens": 1048576, "description": "Google Next-Gen Gemini 4 Carbon CloudCode model", "category": "Google Gemini"},
+    "gemini-pro-orchestrator-g1-pro": {"displayName": "Orchestrator (Argon)", "maxTokens": 1048576, "description": "Antigravity Plan-and-Execute Argon Orchestrator", "category": "Google Gemini"},
+    "gemini-flash-worker-agy": {"displayName": "Gemini Flash (Execution Worker)", "maxTokens": 1048576, "maxOutputTokens": 262144, "description": "Antigravity 256k Execution Worker", "category": "Google Gemini"},
     "gemini-4-argon": {"displayName": "Gemini 4 Argon", "maxTokens": 1048576, "description": "Google Next-Gen Gemini 4 Argon flagship CloudCode model (Argon-supported tier)", "category": "Google Gemini"},
     "gemini-4-argon-high": {"displayName": "Gemini 4 Argon (High)", "maxTokens": 1048576, "description": "Gemini 4 Argon with deep reasoning (Argon-supported tier)", "category": "Google Gemini"},
     "gemini-4-argon-medium": {"displayName": "Gemini 4 Argon (Medium)", "maxTokens": 1048576, "description": "Gemini 4 Argon with balanced reasoning (Argon-supported tier)", "category": "Google Gemini"},

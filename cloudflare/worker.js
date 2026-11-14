@@ -63,6 +63,9 @@ const VALID_CLOUDCODE_MODELS = new Set([
   "gemini-4-hydrogen-xhigh",
   "gemini-4-carbon",
   "gemini-4-carbon-disabled",
+  // Antigravity Orchestrator & Execution Worker (v2.31.0)
+  "gemini-pro-orchestrator-g1-pro",
+  "gemini-flash-worker-agy",
   // Gemini 3.8
   "gemini-3.8-flash-high",
   "gemini-3.8-flash-medium",
@@ -133,6 +136,15 @@ const MODEL_ALIASES = {
   "gemini-4-carbon": "gemini-4-carbon",
   "gemini-4-carbon-disabled": "gemini-4-carbon-disabled",
   "carbon": "gemini-4-carbon",
+
+  // Antigravity Orchestrator & Worker (v2.31.0 CloudCode models)
+  "gemini-pro-orchestrator-g1-pro": "gemini-pro-orchestrator-g1-pro",
+  "orchestrator": "gemini-pro-orchestrator-g1-pro",
+  "orchestrator-argon": "gemini-pro-orchestrator-g1-pro",
+  "gemini-orchestrator": "gemini-pro-orchestrator-g1-pro",
+  "gemini-flash-worker-agy": "gemini-flash-worker-agy",
+  "flash-worker": "gemini-flash-worker-agy",
+  "gemini-worker": "gemini-flash-worker-agy",
   "gemini-3.8-flash": "gemini-3.8-flash-high",
   "gemini-3.8-flash-high": "gemini-3.8-flash-high",
   "gemini-3.8-flash-medium": "gemini-3.8-flash-medium",
