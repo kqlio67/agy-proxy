@@ -735,6 +735,7 @@
                 </button>
               </div>
               <select id="modelSelect" class="w-full bg-slate-900/60 backdrop-blur-md border border-white/[0.08] focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 rounded-xl px-3 py-2 text-xs text-white focus:outline-none transition font-mono">
+                <option value="gemini-pro-orchestrator-g1-pro">gemini-pro-orchestrator-g1-pro (Orchestrator Argon)</option>
                 <option value="gemini-4-hydrogen">gemini-4-hydrogen (Flagship · 256k Output)</option>
                 <option value="gemini-4-hydrogen-high">gemini-4-hydrogen-high (Thinking High)</option>
                 <option value="gemini-4-hydrogen-xhigh">gemini-4-hydrogen-xhigh (Thinking XHigh)</option>
@@ -746,16 +747,12 @@
                 <option value="gemini-3.8-flash-low">gemini-3.8-flash-low</option>
                 <option value="gemini-3.8-flash-tiered">gemini-3.8-flash-tiered (1M Context)</option>
                 <option value="gemini-3.8-flash-deepagent">gemini-3.8-flash-deepagent (Deep Work)</option>
-                <option value="gemini-3.7-flash-high">gemini-3.7-flash-high (Thinking)</option>
-                <option value="gemini-3.1-pro">gemini-3.1-pro (Web Thinking)</option>
-                <option value="gemini-3-pro">gemini-3-pro (Web Deep Reasoning)</option>
                 <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite (Zero Thinking)</option>
                 <option value="claude-sonnet-4-6">claude-sonnet-4-6 (Thinking)</option>
                 <option value="claude-opus-4-6-thinking">claude-opus-4-6-thinking (Deep Reasoning)</option>
                 <option value="claude-sonnet-4-6-deepagent">claude-sonnet-4-6-deepagent (Deep Work)</option>
                 <option value="claude-sonnet-5-5-high">claude-sonnet-5-5-high</option>
                 <option value="claude-opus-5-5-high">claude-opus-5-5-high</option>
-                <option value="claude-haiku-4-5">claude-haiku-4-5</option>
                 <option value="gemini-2.5-pro">gemini-2.5-pro</option>
                 <option value="gpt-oss-120b-medium">gpt-oss-120b-medium</option>
               </select>
@@ -6209,7 +6206,13 @@ ightarrow$ v1.0.3</p>
       // 1. Google / Antigravity Pool models from /api/models (skip external-only entries since we add them cleanly below)
       const seenPoolKeys = new Set();
       Object.entries(allModelsData || {}).forEach(([key, info]) => {
-        if (key.startsWith('tab_') || key.startsWith('chat_')) return;
+        if (
+          key.startsWith('tab_') ||
+          key.startsWith('chat_') ||
+          key === 'gemini-flash-worker-agy' ||
+          key === 'claude-haiku-4-5' ||
+          key === 'claude-haiku-4-5-thinking'
+        ) return;
         const accKeys = info?.accounts ? Object.keys(info.accounts) : [];
         const isOnlyExtFromServer = accKeys.length > 0 && accKeys.every(k => extProviderIds.has(k));
         if (isOnlyExtFromServer) return;
@@ -6593,12 +6596,10 @@ ightarrow$ v1.0.3</p>
       { id: 'gemini-2.5-flash', name: 'gemini-2.5-flash (Fast · General)' },
       { id: 'gemini-3.1-flash-lite', name: 'gemini-3.1-flash-lite (Ultra Fast · Zero Thinking)' },
       { id: 'gemini-3.8-flash-high', name: 'gemini-3.8-flash-high (Thinking High)' },
-      { id: 'gemini-3.7-flash-high', name: 'gemini-3.7-flash-high (Thinking)' },
     ];
 
     const ANTIGRAVITY_MODELS = [
       { id: 'gemini-pro-orchestrator-g1-pro', name: 'gemini-pro-orchestrator-g1-pro (Orchestrator Argon)' },
-      { id: 'gemini-flash-worker-agy', name: 'gemini-flash-worker-agy (Execution Worker · 256k Output)' },
       { id: 'gemini-4-hydrogen', name: 'gemini-4-hydrogen (Flagship · 256k Output)' },
       { id: 'gemini-4-hydrogen-high', name: 'gemini-4-hydrogen-high (Thinking High)' },
       { id: 'gemini-4-hydrogen-medium', name: 'gemini-4-hydrogen-medium' },
@@ -6614,27 +6615,10 @@ ightarrow$ v1.0.3</p>
       { id: 'gemini-3.8-flash-low', name: 'gemini-3.8-flash-low' },
       { id: 'gemini-3.8-flash-tiered', name: 'gemini-3.8-flash-tiered (Tiered)' },
       { id: 'gemini-3.8-flash-deepagent', name: 'gemini-3.8-flash-deepagent (Deep Work)' },
-      { id: 'gemini-3.7-flash-high', name: 'gemini-3.7-flash-high (Thinking)' },
-      { id: 'gemini-3.7-flash-medium', name: 'gemini-3.7-flash-medium' },
-      { id: 'gemini-3.7-flash-low', name: 'gemini-3.7-flash-low' },
-      { id: 'gemini-3.7-flash-tiered', name: 'gemini-3.7-flash-tiered (Tiered)' },
-      { id: 'gemini-3.6-flash-high', name: 'gemini-3.6-flash-high' },
-      { id: 'gemini-3.6-flash-medium', name: 'gemini-3.6-flash-medium' },
-      { id: 'gemini-3.6-flash-low', name: 'gemini-3.6-flash-low' },
-      { id: 'gemini-3.6-flash-tiered', name: 'gemini-3.6-flash-tiered (Tiered)' },
-      { id: 'gemini-3.5-flash-low', name: 'gemini-3.5-flash-low' },
-      { id: 'gemini-3.5-flash-extra-low', name: 'gemini-3.5-flash-extra-low' },
       { id: 'gemini-3.5-flash-lite', name: 'gemini-3.5-flash-lite' },
-      { id: 'gemini-3.5-flash-lite-high', name: 'gemini-3.5-flash-lite-high' },
-      { id: 'gemini-3.5-flash-lite-medium', name: 'gemini-3.5-flash-lite-medium' },
-      { id: 'gemini-3.5-flash-lite-low', name: 'gemini-3.5-flash-lite-low' },
-      { id: 'gemini-pro-agent', name: 'gemini-pro-agent (Agentic)' },
-      { id: 'gemini-3.1-pro-high', name: 'gemini-3.1-pro-high (Deep Reasoning)' },
-      { id: 'gemini-3.1-pro-low', name: 'gemini-3.1-pro-low' },
       { id: 'gemini-3.1-flash-lite', name: 'gemini-3.1-flash-lite (Ultra Fast)' },
       { id: 'gemini-3.1-flash-image', name: 'gemini-3.1-flash-image' },
       { id: 'gemini-3-flash', name: 'gemini-3-flash' },
-      { id: 'gemini-3-flash-agent', name: 'gemini-3-flash-agent (Fast Tooling)' },
       { id: 'gemini-2.5-pro', name: 'gemini-2.5-pro' },
       { id: 'gemini-2.5-flash', name: 'gemini-2.5-flash' },
       { id: 'gemini-2.5-flash-lite', name: 'gemini-2.5-flash-lite' },
@@ -6649,11 +6633,6 @@ ightarrow$ v1.0.3</p>
       { id: 'claude-opus-5-5-high', name: 'claude-opus-5-5-high' },
       { id: 'claude-opus-5-5-medium', name: 'claude-opus-5-5-medium' },
       { id: 'claude-opus-5-5-low', name: 'claude-opus-5-5-low' },
-      { id: 'claude-haiku-4-5', name: 'claude-haiku-4-5' },
-      { id: 'claude-haiku-4-5-thinking', name: 'claude-haiku-4-5-thinking' },
-      { id: 'gemini-riftrunner', name: 'gemini-riftrunner (Autonomous)' },
-      { id: 'gemini-infinityjet', name: 'gemini-infinityjet (High Speed)' },
-      { id: 'gemini-infinitybloom', name: 'gemini-infinitybloom (Creative)' },
       { id: 'gpt-oss-120b-medium', name: 'gpt-oss-120b-medium' },
     ];
 
@@ -6730,7 +6709,13 @@ ightarrow$ v1.0.3</p>
         let list = ANTIGRAVITY_MODELS;
         if (acc.available_models) {
           const rawList = Array.isArray(acc.available_models) ? acc.available_models : Object.keys(acc.available_models);
-          const valid = rawList.filter(m => !m.startsWith('tab_') && !m.startsWith('chat_'));
+          const valid = rawList.filter(m =>
+            !m.startsWith('tab_') &&
+            !m.startsWith('chat_') &&
+            m !== 'gemini-flash-worker-agy' &&
+            m !== 'claude-haiku-4-5' &&
+            m !== 'claude-haiku-4-5-thinking'
+          );
           if (valid.length > 0) {
             list = valid.map(m => ANTIGRAVITY_MODELS.find(d => d.id === m) || { id: m, name: m });
           }

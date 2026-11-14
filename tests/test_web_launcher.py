@@ -497,8 +497,8 @@ def test_enhance_user_status_direct_and_proxy_models(tmp_path):
     assert '"gemini-4-argon-high":1417' in patched_js
     assert '"gemini-4-argon-medium":1418' in patched_js
     assert '"gemini-4-argon-low":1419' in patched_js
-    assert '"claude-sonnet-5-5-high":1515' in patched_js
-    assert '"claude-opus-5-5-high":1518' in patched_js
+    assert '"claude-sonnet-5-5-high":1405' in patched_js
+    assert '"claude-opus-5-5-high":1402' in patched_js
     assert '"gemini-3.8-flash-deepagent":1522' in patched_js
     assert '"gemini-3.7-flash":1315' in patched_js
     assert '"gemini-3.6-flash-high":1524' in patched_js
@@ -560,7 +560,9 @@ def test_enhance_user_status_direct_and_proxy_models(tmp_path):
         assert "Gemini 3.8 Flash (Tiered)" in direct_labels
         assert "Gemini 3.8 Flash (DeepAgent)" not in direct_labels
         assert "Gemini Riftrunner" not in direct_labels
-        assert "Claude 4.5 Haiku" in direct_labels
+        assert "Orchestrator (Argon)" in direct_labels
+        assert "Claude 4.5 Haiku" not in direct_labels
+        assert "Gemini Flash (Execution Worker)" not in direct_labels
         assert "Gemini 2.5 Pro" in direct_labels
         assert "Gemini 3.1 Flash (Image)" in direct_labels
         assert "Tab Flash Lite Preview [Unlimited]" in direct_labels

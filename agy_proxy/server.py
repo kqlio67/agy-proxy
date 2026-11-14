@@ -5202,12 +5202,29 @@ def create_app(
 
                 from agy_proxy.models import (
                     is_argon_model,
+                    is_claude_4_5_model,
                     is_claude_5_5_model,
                     get_claude_fallback_model,
                     is_deepagent_model,
                     is_gemini_web_model,
                     resolve_cloudcode_argon_model,
                 )
+
+                # 0. Transparently route retired Claude 4.5 Haiku aliases to working models
+                if is_claude_4_5_model(target_m):
+                    unsupported_set = getattr(acc, "unsupported_models", set()) or set()
+                    if getattr(acc, "supports_claude_5_5", False):
+                        mapped_haiku = "claude-sonnet-5-5-low"
+                    elif "claude-sonnet-4-6" in unsupported_set:
+                        mapped_haiku = "gemini-3.8-flash-low"
+                    else:
+                        mapped_haiku = "claude-sonnet-4-6"
+                    logger.info("[%s] Auto-mapping retired alias %s -> %s for CloudCode backend", acc_label, target_m, mapped_haiku)
+                    target_m = mapped_haiku
+                    if isinstance(candidate_body, dict):
+                        candidate_body["model"] = target_m
+                        if "request" in candidate_body and isinstance(candidate_body["request"], dict):
+                            candidate_body["request"]["model"] = target_m
 
                 # 1. DeepAgent swarm presets: route through flagship backend with 64k thinking budget
                 if is_deepagent_model(target_m):

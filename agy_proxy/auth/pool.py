@@ -1467,7 +1467,12 @@ class AccountPool:
                 models = acc.available_models or {}
 
             for m_id, info in models.items():
-                if m_id.startswith(("tab_", "chat_")) or m_id.endswith("-disabled") or info.get("disabled") is True:
+                if (
+                    m_id.startswith(("tab_", "chat_"))
+                    or m_id.endswith("-disabled")
+                    or m_id in ("gemini-flash-worker-agy", "claude-haiku-4-5", "claude-haiku-4-5-thinking")
+                    or info.get("disabled") is True
+                ):
                     continue
 
                 if m_id not in combined_models:
