@@ -981,6 +981,42 @@ def test_cli_web_hub_flag_parsing():
     assert args.port == 44900
 
 
+def test_print_web_banner_full_paths(tmp_path):
+    from io import StringIO
+    from rich.console import Console
+    import agy_proxy.web_launcher as wl
+
+    fake_bin = tmp_path / "bin" / "language_server"
+    fake_log = tmp_path / "logs" / "language_server.log"
+    fake_bin.parent.mkdir(parents=True)
+    fake_log.parent.mkdir(parents=True)
+    fake_bin.touch()
+    fake_log.touch()
+
+    buf = StringIO()
+    test_console = Console(file=buf, width=120)
+    orig_console = wl.console
+    try:
+        wl.console = test_console
+        wl.print_web_banner(
+            url="https://127.0.0.1:44741/",
+            port=44741,
+            csrf_token="test-token",
+            proxy_url="http://127.0.0.1:8000",
+            proxy_active=True,
+            ls_path=fake_bin,
+            log_path=fake_log,
+        )
+        output = buf.getvalue()
+        assert ".../language_server" not in output
+        assert ".../language_server.log" not in output
+        assert str(fake_bin.resolve()) in output
+        assert str(fake_log.resolve()) in output
+    finally:
+        wl.console = orig_console
+
+
+
 
 
 

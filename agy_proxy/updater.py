@@ -3,6 +3,7 @@ Version and Update Checker for Antigravity Proxy.
 Fetches latest release info from GitHub Releases with caching and timeout safety.
 """
 
+import asyncio
 import logging
 import subprocess
 import time
@@ -129,7 +130,8 @@ async def trigger_git_pull(repo_dir: Path | None = None) -> dict[str, Any]:
     """Executes git pull to update the agy-proxy local repository."""
     target_dir = repo_dir or REPO_ROOT
     try:
-        proc = subprocess.run(
+        proc = await asyncio.to_thread(
+            subprocess.run,
             ["git", "pull", "--ff-only"],
             cwd=str(target_dir),
             capture_output=True,
@@ -139,6 +141,7 @@ async def trigger_git_pull(repo_dir: Path | None = None) -> dict[str, Any]:
         output = proc.stdout.strip() if proc.returncode == 0 else proc.stderr.strip()
         return {
             "success": proc.returncode == 0,
+            "returncode": proc.returncode,
             "stdout": proc.stdout.strip(),
             "stderr": proc.stderr.strip(),
             "output": output,
@@ -168,7 +171,8 @@ async def perform_self_update() -> dict[str, Any]:
 
     # Standalone / pip upgrade
     try:
-        proc = subprocess.run(
+        proc = await asyncio.to_thread(
+            subprocess.run,
             ["pip", "install", "--upgrade", f"git+https://github.com/{GITHUB_REPO}.git"],
             capture_output=True,
             text=True,

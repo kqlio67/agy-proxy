@@ -2387,6 +2387,14 @@ class TestServerRoutes(unittest.IsolatedAsyncioTestCase):
             self.assertLess(elapsed, 1.0)
             self.assertTrue(mock_pool.load_accounts.called)
 
+    async def test_dashboard_spa_tab_routes(self):
+        """Tests that /, /accounts, and /traffic all serve the dashboard HTML."""
+        for route in ("/", "/accounts", "/traffic"):
+            resp = await self.client.get(route)
+            self.assertEqual(resp.status_code, 200, f"Expected 200 for {route}")
+            self.assertIn("text/html", resp.headers.get("content-type", ""))
+            self.assertIn("Google Antigravity Proxy", resp.text)
+
 
 if __name__ == "__main__":
     unittest.main()

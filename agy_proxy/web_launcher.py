@@ -2164,7 +2164,7 @@ def print_web_banner(
 
     table = Table(show_header=False, box=None, padding=(0, 1), expand=True)
     table.add_column("Key", style="bold cyan", no_wrap=True)
-    table.add_column("Value", ratio=1)
+    table.add_column("Value", ratio=1, overflow="fold")
 
     table.add_row("🌐 Antigravity Web UI:", f"[bold green]{url}[/bold green]")
     table.add_row("⚡ Performance Mode:", "[bold yellow]Standalone Web (No Electron)[/bold yellow]")
@@ -2189,15 +2189,17 @@ def print_web_banner(
 
     table.add_row("🔑 CSRF Token:", f"[dim]{csrf_token}[/dim]")
 
-    ls_str = str(ls_path)
-    if len(ls_str) > 35 and is_compact:
-        ls_str = f".../{Path(ls_str).name}"
+    try:
+        ls_str = str(Path(ls_path).resolve())
+    except Exception:
+        ls_str = str(ls_path)
     table.add_row("📦 Server Binary:", f"[dim]{ls_str}[/dim]")
 
     if log_path:
-        log_str = str(log_path)
-        if len(log_str) > 35 and is_compact:
-            log_str = f".../{Path(log_str).name}"
+        try:
+            log_str = str(Path(log_path).resolve())
+        except Exception:
+            log_str = str(log_path)
         table.add_row("📄 Server Logs:", f"[dim]{log_str}[/dim]")
 
     if killed_electron:

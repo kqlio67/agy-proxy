@@ -56,7 +56,6 @@
         radial-gradient(ellipse 90% 60% at 50% -20%, rgba(99, 102, 241, 0.15), transparent 70%),
         radial-gradient(ellipse 70% 50% at 95% 10%, rgba(6, 182, 212, 0.08), transparent 60%),
         radial-gradient(ellipse 60% 40% at 5% 40%, rgba(168, 85, 247, 0.06), transparent 60%);
-      background-attachment: fixed;
       color: #f1f5f9;
       font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       -webkit-font-smoothing: antialiased;
@@ -72,17 +71,16 @@
     .thought-bubble { border-left: 3px solid #818cf8; background: rgba(99, 102, 241, 0.06); }
     .prose pre { background: rgba(11, 17, 32, 0.85); border-radius: 0.75rem; padding: 0.75rem; overflow-x: auto; border: 1px solid rgba(255, 255, 255, 0.06); }
     .prose code { color: #38bdf8; }
-    .safe-area-pb { padding-bottom: max(16px, env(safe-area-inset-bottom, 16px)); }
+    .safe-area-pb, .safe-area-bottom { padding-bottom: max(16px, env(safe-area-inset-bottom, 16px)); }
     html, body { overflow-x: hidden; max-width: 100vw; }
+    select option, select optgroup { background-color: #0b101d; color: #e2e8f0; }
     
-    /* Premium Glass Design System */
+    /* Premium Glass Design System (GPU-friendly: avoid per-card backdrop-filter compositor layers) */
     .glass-card {
-      background: rgba(15, 23, 42, 0.38);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
+      background: rgba(13, 19, 36, 0.82);
       border: 1px solid rgba(255, 255, 255, 0.07);
       box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.4), inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
-      transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     }
     .glass-card:hover {
       border-color: rgba(99, 102, 241, 0.32);
@@ -90,17 +88,15 @@
       transform: translateY(-1.5px);
     }
     .glass-panel {
-      background: rgba(12, 17, 29, 0.65);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
+      background: rgba(12, 17, 29, 0.88);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
       border: 1px solid rgba(255, 255, 255, 0.08);
       box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
     }
     .glass-well {
-      background: rgba(255, 255, 255, 0.025);
+      background: rgba(255, 255, 255, 0.03);
       border: 1px solid rgba(255, 255, 255, 0.05);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
     }
     .glass-pill {
       background: rgba(255, 255, 255, 0.035);
@@ -175,8 +171,8 @@
       </div>
     </div>
 
-    <!-- Bottom Row: Navigation Tabs (Glass Underline Style) -->
-    <div class="border-t border-white/[0.05] bg-[#06080e]/60 backdrop-blur-md">
+    <!-- Bottom Row: Navigation Tabs (Glass Underline Style, hidden on mobile where bottom dock is used) -->
+    <div class="hidden md:block border-t border-white/[0.05] bg-[#06080e]/60 backdrop-blur-md">
       <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 flex items-center justify-between">
         <nav class="flex items-center space-x-1 sm:space-x-3 overflow-x-auto no-scrollbar text-xs font-medium -mb-px flex-1 min-w-0" id="mainNavTabs">
           <button onclick="switchTab('accounts')" id="tabBtn-accounts" class="nav-tab-btn py-2.5 px-2.5 sm:px-3 border-b-2 border-indigo-400 text-white font-semibold flex items-center space-x-1.5 transition whitespace-nowrap text-xs">
@@ -190,7 +186,7 @@
           <button onclick="switchTab('traffic')" id="tabBtn-traffic" class="nav-tab-btn py-2.5 px-2.5 sm:px-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-700 font-medium flex items-center space-x-1.5 transition whitespace-nowrap text-xs" title="Live HTTP traffic inspector & streaming tokens">
             <i class="fa-solid fa-bolt text-[11px] text-amber-400"></i>
             <span>Live Traffic</span>
-            <span id="trafficBadge" class="hidden text-[10px] px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">0</span>
+            <span id="trafficBadge" class="hidden text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">0</span>
           </button>
           <button onclick="switchTab('playground')" id="tabBtn-playground" class="nav-tab-btn py-2.5 px-2.5 sm:px-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-700 font-medium flex items-center space-x-1.5 transition whitespace-nowrap text-xs">
             <i class="fa-solid fa-terminal text-[11px]"></i>
@@ -213,11 +209,6 @@
             <i class="fa-solid fa-users text-indigo-400 text-[10px]"></i>
             <span id="navActivePoolCounter" class="text-white font-semibold">0</span>
             <span>accounts</span>
-          </div>
-          <!-- Gateway Status Pill -->
-          <div class="flex items-center space-x-1.5 text-[11px] font-mono text-slate-300 glass-pill px-3 py-1 rounded-full shadow-sm" title="Proxy Gateway is healthy and listening">
-            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span class="text-white font-semibold">Gateway :8000</span>
           </div>
         </div>
       </div>
@@ -344,6 +335,17 @@
             </button>
             <!-- Dropdown Menu -->
             <div id="mobilePoolActionsMenu" class="hidden absolute right-0 top-full mt-1.5 w-48 bg-slate-950/95 backdrop-blur-2xl border border-white/[0.1] rounded-2xl shadow-2xl p-1.5 z-30 space-y-0.5 text-xs">
+              <div id="mobileBatchActionsSection" class="hidden space-y-0.5">
+                <button id="mBatchRefreshBtn" onclick="batchRefreshAccounts(); toggleMobilePoolActionsMenu()" class="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-indigo-500/15 text-indigo-300 flex items-center space-x-2">
+                  <i class="fa-solid fa-rotate text-indigo-400 text-[10px] w-4 text-center"></i>
+                  <span>Refresh Selected</span>
+                </button>
+                <button id="mBatchDeleteBtn" onclick="batchDeleteAccounts(); toggleMobilePoolActionsMenu()" class="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-rose-500/15 text-rose-300 flex items-center space-x-2">
+                  <i class="fa-solid fa-trash text-rose-400 text-[10px] w-4 text-center"></i>
+                  <span>Delete Selected</span>
+                </button>
+                <div class="border-t border-white/[0.06] my-1"></div>
+              </div>
               <button onclick="toggleAllAccounts(true); toggleMobilePoolActionsMenu()" class="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] text-slate-200 flex items-center space-x-2">
                 <i class="fa-solid fa-play text-emerald-400 text-[10px] w-4 text-center"></i>
                 <span>Enable All</span>
@@ -471,7 +473,7 @@
             <!-- Sort Dropdown -->
             <div class="relative flex items-center flex-1 sm:flex-initial">
               <i class="fa-solid fa-arrow-down-short-wide absolute left-2.5 text-slate-400 text-[11px] pointer-events-none"></i>
-              <select id="accountSortSelect" onchange="renderAccounts()" class="w-full sm:w-auto bg-black/40 backdrop-blur-md border border-white/[0.08] hover:border-white/[0.15] focus:border-indigo-500/60 focus:ring-2 focus:ring-indigo-500/20 rounded-xl pl-7 pr-8 py-2 text-slate-200 text-xs font-medium focus:outline-none transition cursor-pointer appearance-none">
+              <select id="accountSortSelect" onchange="renderAccounts()" class="w-full sm:w-auto bg-black/40 border border-white/[0.08] hover:border-white/[0.15] focus:border-indigo-500/60 focus:ring-2 focus:ring-indigo-500/20 rounded-xl pl-7 pr-8 py-2 text-slate-200 text-xs font-medium focus:outline-none transition cursor-pointer appearance-none">
                 <option value="default">Sort: Default (Primary first)</option>
                 <option value="quota-desc">Sort: Highest Quota</option>
                 <option value="quota-asc">Sort: Lowest Quota</option>
@@ -479,16 +481,6 @@
                 <option value="name-asc">Sort: Name (A-Z)</option>
               </select>
               <i class="fa-solid fa-chevron-down absolute right-2.5 text-slate-400 text-[9px] pointer-events-none"></i>
-            </div>
-
-            <!-- View Switcher (Mobile icon fallback) -->
-            <div class="flex items-center bg-black/40 rounded-xl border border-white/[0.08] p-0.5 sm:hidden shrink-0">
-              <button onclick="setAccountView('grid')" class="p-1.5 rounded-lg text-slate-400 hover:text-white transition" title="Grid View">
-                <i class="fa-solid fa-grip text-xs"></i>
-              </button>
-              <button onclick="setAccountView('table')" class="p-1.5 rounded-lg text-slate-400 hover:text-white transition" title="Compact View">
-                <i class="fa-solid fa-list text-xs"></i>
-              </button>
             </div>
           </div>
         </div>
@@ -501,43 +493,43 @@
             <button type="button" onclick="setCompanyFilter('all')" data-company="all" class="company-filter-btn px-3 py-1.5 rounded-full text-xs font-medium bg-indigo-600/30 text-indigo-200 border border-indigo-500/50 shadow-[0_0_12px_rgba(99,102,241,0.25)] transition-all flex items-center gap-1.5 shrink-0 active:scale-95">
               <i class="fa-solid fa-layer-group text-[10px] pointer-events-none"></i>
               <span class="pointer-events-none">All</span>
-              <span class="company-count px-1.5 py-0.2 bg-white/20 rounded-full text-[10px] font-mono text-white font-bold pointer-events-none" id="countAll">0</span>
+              <span class="company-count px-1.5 py-0.5 bg-white/20 rounded-full text-[10px] font-mono text-white font-bold pointer-events-none" id="countAll">0</span>
             </button>
 
             <button type="button" onclick="setCompanyFilter('google')" data-company="google" class="company-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-blue-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="Google (OAuth 2.0, Gemini Web Session, AI Studio API Key)">
               <i class="fa-brands fa-google text-blue-400 text-[10px] pointer-events-none"></i>
               <span class="pointer-events-none">Google</span>
-              <span class="company-count px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold pointer-events-none" id="countGoogle">0</span>
+              <span class="company-count px-1.5 py-0.5 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold pointer-events-none" id="countGoogle">0</span>
             </button>
 
             <button type="button" onclick="setCompanyFilter('openai')" data-company="openai" class="company-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-emerald-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="OpenAI & ChatGPT (Web Free Sentinel Session & Direct API Key)">
               <i class="fa-solid fa-brain text-emerald-400 text-[10px] pointer-events-none"></i>
               <span class="pointer-events-none">OpenAI</span>
-              <span class="company-count px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold pointer-events-none" id="countOpenAI">0</span>
+              <span class="company-count px-1.5 py-0.5 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold pointer-events-none" id="countOpenAI">0</span>
             </button>
 
             <button type="button" onclick="setCompanyFilter('anthropic')" data-company="anthropic" class="company-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-amber-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="Anthropic Claude (Direct API Key)">
               <i class="fa-solid fa-cube text-amber-400 text-[10px] pointer-events-none"></i>
               <span class="pointer-events-none">Anthropic</span>
-              <span class="company-count px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold pointer-events-none" id="countAnthropic">0</span>
+              <span class="company-count px-1.5 py-0.5 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold pointer-events-none" id="countAnthropic">0</span>
             </button>
 
             <button type="button" onclick="setCompanyFilter('deepseek')" data-company="deepseek" class="company-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-cyan-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="DeepSeek (Web Free PoW Session & Direct API Key)">
               <i class="fa-solid fa-atom text-cyan-400 text-[10px] pointer-events-none"></i>
               <span class="pointer-events-none">DeepSeek</span>
-              <span class="company-count px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold pointer-events-none" id="countDeepSeek">0</span>
+              <span class="company-count px-1.5 py-0.5 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold pointer-events-none" id="countDeepSeek">0</span>
             </button>
 
             <button type="button" onclick="setCompanyFilter('local')" data-company="local" class="company-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-teal-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="Local AI (Ollama Localhost / LM Studio)">
               <i class="fa-solid fa-server text-teal-400 text-[10px] pointer-events-none"></i>
               <span class="pointer-events-none">Local AI</span>
-              <span class="company-count px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold pointer-events-none" id="countLocal">0</span>
+              <span class="company-count px-1.5 py-0.5 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold pointer-events-none" id="countLocal">0</span>
             </button>
 
             <button type="button" onclick="setCompanyFilter('gateways')" data-company="gateways" class="company-filter-btn px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 bg-white/[0.03] border border-white/[0.06] hover:text-purple-400 hover:bg-white/[0.06] hover:border-white/[0.12] transition-all flex items-center gap-1.5 shrink-0 active:scale-95" title="Cloud Gateways (OpenRouter, Groq, NVIDIA NIM API Keys)">
               <i class="fa-solid fa-cloud-bolt text-purple-400 text-[10px] pointer-events-none"></i>
               <span class="pointer-events-none">Gateways</span>
-              <span class="company-count px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold pointer-events-none" id="countGateways">0</span>
+              <span class="company-count px-1.5 py-0.5 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold pointer-events-none" id="countGateways">0</span>
             </button>
           </div>
 
@@ -817,7 +809,7 @@
       </div> <!-- End Left Column (lg:col-span-1) -->
 
       <!-- Right Column: Interactive Chat Interface (2 Cols) -->
-      <div id="playgroundChatCol" class="flex lg:col-span-2 flex-col h-[540px] sm:h-[620px] lg:h-[740px] rounded-2xl glass-card overflow-hidden shadow-xl relative">
+      <div id="playgroundChatCol" class="flex lg:flex lg:col-span-2 flex-col h-[540px] sm:h-[620px] lg:h-[740px] rounded-2xl glass-card overflow-hidden shadow-xl relative">
         <div class="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/[0.15] to-transparent pointer-events-none"></div>
 
         <!-- Chat Header -->
@@ -1628,7 +1620,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
         <div class="p-4 rounded-2xl glass-well border border-white/[0.08] flex items-center justify-between">
           <div>
             <div class="font-semibold text-white text-sm flex items-center">
-              <i class="fa-solid fa-server mr-2 text-indigo-400"></i> agy proxy
+              <i class="fa-solid fa-server mr-2 text-indigo-400"></i> Antigravity (agy)
             </div>
             <div id="processStatus-agy" class="text-xs text-slate-400 mt-1 flex items-center space-x-1.5 font-mono">
               <span class="w-2 h-2 rounded-full bg-slate-500"></span> <span>Checking...</span>
@@ -1736,8 +1728,6 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       </div>
     </div>
 
-    </div>
-
   </div> <!-- End #tabContent-settings -->
 
     <!-- Footer with Version & GitHub Links -->
@@ -1766,7 +1756,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
   </main>
 
   <!-- Add Account Modal -->
-  <div id="addAccountModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 hidden">
+  <div id="addAccountModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 hidden" onclick="if(event.target===this) closeAddAccountModal()">
     <div class="glass-panel bg-[#090d16]/95 border border-white/[0.12] rounded-3xl max-w-2xl w-full p-5 sm:p-6 space-y-5 shadow-[0_25px_70px_rgba(0,0,0,0.85)] max-h-[92vh] overflow-y-auto no-scrollbar relative">
       <div class="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/[0.15] to-transparent pointer-events-none"></div>
       <div class="flex items-center justify-between border-b border-white/[0.08] pb-4">
@@ -1903,7 +1893,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
               <div class="min-w-0">
                 <div class="text-white font-bold flex items-center gap-1.5">
                   <span>⚡ Local HAR Detected</span>
-                  <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-cyan-500/30 text-cyan-200">PoW Ready</span>
+                  <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/30 text-cyan-200">PoW Ready</span>
                 </div>
                 <div class="text-[11px] text-cyan-300 font-mono truncate" id="localHarPathPreview">~/.config/agy-proxy/har/</div>
               </div>
@@ -1921,7 +1911,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
               <div class="min-w-0">
                 <div class="text-white font-bold flex items-center gap-1.5">
                   <span>⚡ Zero-Auth Guest Mode</span>
-                  <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-blue-500/30 text-blue-200 font-bold">Flash-Lite Free</span>
+                  <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-blue-500/30 text-blue-200 font-bold">Flash-Lite Free</span>
                 </div>
                 <div class="text-[11px] text-blue-300">Вхід та кукіси не потрібні. Прямий доступ до Gemini 2.0 Flash-Lite через WebChannel.</div>
               </div>
@@ -1939,7 +1929,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
               <div class="min-w-0">
                 <div class="text-white font-bold flex items-center gap-1.5">
                   <span>⚡ Zero-Auth Guest Mode</span>
-                  <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/30 text-emerald-200">100% Free</span>
+                  <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/30 text-emerald-200">100% Free</span>
                 </div>
                 <div class="text-[11px] text-emerald-300">Вхід та кукіси не потрібні. Прямий доступ через Octane conduit pipeline.</div>
               </div>
@@ -2091,7 +2081,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
   </div>
 
   <!-- Account Test Result Modal -->
-  <div id="testResultModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 hidden">
+  <div id="testResultModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 hidden" onclick="if(event.target===this) closeTestResultModal()">
     <div class="glass-panel bg-[#090d16]/95 border border-white/[0.12] rounded-3xl max-w-md w-full p-5 space-y-4 shadow-[0_25px_70px_rgba(0,0,0,0.85)] max-h-[92vh] overflow-y-auto no-scrollbar relative">
       <div class="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/[0.15] to-transparent pointer-events-none"></div>
       <div class="flex items-center justify-between border-b border-white/[0.08] pb-3">
@@ -2120,7 +2110,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
   </div>
 
   <!-- Rename Account Modal -->
-  <div id="renameModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 hidden">
+  <div id="renameModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 hidden" onclick="if(event.target===this) closeRenameModal()">
     <div class="glass-panel bg-[#090d16]/95 border border-white/[0.12] rounded-3xl max-w-sm w-full p-5 space-y-4 shadow-[0_25px_70px_rgba(0,0,0,0.85)] max-h-[92vh] overflow-y-auto no-scrollbar relative">
       <div class="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/[0.15] to-transparent pointer-events-none"></div>
       <div class="flex items-center justify-between border-b border-white/[0.08] pb-3">
@@ -2153,7 +2143,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
   </div>
 
   <!-- Switch Antigravity Session Modal (CLI / Standalone / Both) -->
-  <div id="activateSessionModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 hidden">
+  <div id="activateSessionModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 hidden" onclick="if(event.target===this) closeActivateSessionModal()">
     <div class="glass-panel bg-[#090d16]/95 border border-white/[0.12] rounded-3xl max-w-md w-full p-5 sm:p-6 space-y-4 shadow-[0_25px_70px_rgba(0,0,0,0.85)] max-h-[92vh] overflow-y-auto no-scrollbar relative">
       <div class="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/[0.15] to-transparent pointer-events-none"></div>
       <div class="flex items-center justify-between border-b border-white/[0.08] pb-3">
@@ -2234,7 +2224,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
   </div>
 
   <!-- Official Antigravity Models & Quota Modal -->
-  <div id="modelsQuotaModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 hidden">
+  <div id="modelsQuotaModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 hidden" onclick="if(event.target===this) closeQuotaModal()">
     <div class="glass-panel bg-[#090d16]/95 border border-white/[0.12] rounded-3xl max-w-lg w-full p-5 sm:p-6 space-y-4 shadow-[0_25px_70px_rgba(0,0,0,0.85)] max-h-[92vh] overflow-y-auto no-scrollbar relative">
       <div class="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/[0.15] to-transparent pointer-events-none"></div>
       <div class="flex items-center justify-between border-b border-white/[0.08] pb-3">
@@ -2274,7 +2264,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
   </div>
 
   <!-- Update Modal -->
-  <div id="updateModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 hidden">
+  <div id="updateModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 hidden" onclick="if(event.target===this) closeUpdateModal()">
     <div class="glass-panel bg-[#090d16]/95 border border-white/[0.12] rounded-3xl max-w-lg w-full p-5 sm:p-6 space-y-5 shadow-[0_25px_70px_rgba(0,0,0,0.85)] max-h-[92vh] overflow-y-auto no-scrollbar relative">
       <div class="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/[0.15] to-transparent pointer-events-none"></div>
       <div class="flex items-center justify-between border-b border-white/[0.08] pb-4">
@@ -2284,8 +2274,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
           </div>
           <div>
             <h3 class="text-base font-bold text-white">Software Update Available</h3>
-            <p class="text-xs text-slate-400" id="updateModalSub">v1.0.2 $
-ightarrow$ v1.0.3</p>
+            <p class="text-xs text-slate-400" id="updateModalSub">v1.0.2 &rarr; v1.0.3</p>
           </div>
         </div>
         <button onclick="closeUpdateModal()" class="w-8 h-8 rounded-xl glass-pill flex items-center justify-center text-slate-400 hover:text-white transition">
@@ -2336,7 +2325,7 @@ ightarrow$ v1.0.3</p>
   </div>
 
   <!-- Live Traffic Details Modal -->
-  <div id="trafficDetailModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 hidden">
+  <div id="trafficDetailModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 hidden" onclick="if(event.target===this) closeTrafficDetailModal()">
     <div class="glass-panel bg-[#090d16]/95 border border-white/[0.12] rounded-3xl max-w-lg w-full p-5 sm:p-6 space-y-4 shadow-[0_25px_70px_rgba(0,0,0,0.85)] max-h-[92vh] overflow-y-auto no-scrollbar relative">
       <div class="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/[0.15] to-transparent pointer-events-none"></div>
       <div class="flex items-center justify-between border-b border-white/[0.08] pb-3">
@@ -2365,7 +2354,7 @@ ightarrow$ v1.0.3</p>
   </div>
 
   <!-- Mobile Bottom Navigation Dock (Visible only on mobile screens < 768px) -->
-  <nav id="mobileBottomNav" class="md:hidden fixed bottom-3 inset-x-3 max-w-md mx-auto z-40 bg-[#06080e]/90 backdrop-blur-2xl border border-white/[0.12] rounded-2xl px-2 py-1.5 flex items-center justify-around shadow-[0_12px_40px_rgba(0,0,0,0.85)] safe-area-bottom">
+  <nav id="mobileBottomNav" class="md:hidden fixed bottom-3 inset-x-3 max-w-md mx-auto z-40 bg-[#06080e]/90 backdrop-blur-2xl border border-white/[0.12] rounded-2xl px-2 py-1.5 flex items-center justify-around shadow-[0_12px_40px_rgba(0,0,0,0.85)] safe-area-pb">
     <button onclick="switchTab('accounts')" id="mTabBtn-accounts" class="flex-1 py-1 flex flex-col items-center justify-center text-[10px] font-bold text-indigo-400 transition">
       <i class="fa-solid fa-users text-sm mb-0.5"></i>
       <span>Accounts</span>
@@ -2409,11 +2398,76 @@ ightarrow$ v1.0.3</p>
     let currentModelCompanyFilter = 'all';
     let currentModelPickerCompany = 'all';
     let collapsedSections = new Set(); // tracks which company section IDs are collapsed
+    const selectedBatchAccountIds = new Set();
     let cliActiveAccountId = null;           // account_id currently active in AGY CLI
     let standaloneActiveAccountId = null;    // account_id currently active in AGY Hub (Standalone)
     let ideActiveAccountId = null;           // account_id currently active in AGY IDE
     let cliActiveInfo = { cli: null, ide: null, standalone: null };
     let targetActivateAccountId = null;
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function debounce(fn, delayMs = 120) {
+      let timerId = null;
+      return (...args) => {
+        if (timerId) clearTimeout(timerId);
+        timerId = setTimeout(() => {
+          timerId = null;
+          fn(...args);
+        }, delayMs);
+      };
+    }
+
+    async function safeReadJsonResponse(res) {
+      const rawText = await res.text();
+      if (!rawText) return {};
+      try {
+        return JSON.parse(rawText);
+      } catch (_) {
+        return { detail: rawText };
+      }
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        if (typeof currentActiveTab !== 'undefined' && currentActiveTab !== 'accounts') {
+          switchTab('accounts');
+        }
+        const searchEl = document.getElementById('accountSearchInput');
+        if (searchEl) {
+          searchEl.focus();
+          searchEl.select();
+        }
+        return;
+      }
+      if (e.key === 'Escape') {
+        if (typeof closeCompanyModeMenu === 'function') closeCompanyModeMenu();
+        const modalClosers = [
+          ['modelPickerModal', () => closeModelPickerModal()],
+          ['addAccountModal', () => closeAddAccountModal()],
+          ['testResultModal', () => closeTestResultModal()],
+          ['renameModal', () => closeRenameModal()],
+          ['activateSessionModal', () => closeActivateSessionModal()],
+          ['modelsQuotaModal', () => closeQuotaModal()],
+          ['updateModal', () => closeUpdateModal()],
+          ['trafficDetailModal', () => closeTrafficDetailModal()],
+        ];
+        for (const [id, closeFn] of modalClosers) {
+          const el = document.getElementById(id);
+          if (el && !el.classList.contains('hidden')) {
+            closeFn();
+          }
+        }
+      }
+    });
 
     function classifyProviderCompany(p) {
       const id = (p?.id || '').toLowerCase();
@@ -2437,17 +2491,20 @@ ightarrow$ v1.0.3</p>
 
     function setAccountView(mode) {
       currentAccountView = mode;
-      const btnGrid = document.getElementById('viewBtnGrid');
-      const btnTable = document.getElementById('viewBtnTable');
-      if (mode === 'grid') {
-        btnGrid.className = 'px-2.5 py-1 rounded-md font-medium text-white bg-indigo-600 transition flex items-center space-x-1';
-        btnTable.className = 'px-2.5 py-1 rounded-md font-medium text-slate-400 hover:text-white transition flex items-center space-x-1';
-      } else {
-        btnTable.className = 'px-2.5 py-1 rounded-md font-medium text-white bg-indigo-600 transition flex items-center space-x-1';
-        btnGrid.className = 'px-2.5 py-1 rounded-md font-medium text-slate-400 hover:text-white transition flex items-center space-x-1';
-      }
+      const activeCls = 'px-2.5 py-1 rounded-lg font-semibold text-white bg-indigo-600 shadow transition flex items-center space-x-1';
+      const inactiveCls = 'px-2.5 py-1 rounded-lg font-medium text-slate-400 hover:text-white transition flex items-center space-x-1';
+      const pairs = [
+        [document.getElementById('viewBtnGrid'), document.getElementById('viewBtnTable')],
+        [document.getElementById('mViewBtnGrid'), document.getElementById('mViewBtnTable')],
+      ];
+      pairs.forEach(([gridBtn, tableBtn]) => {
+        if (gridBtn) gridBtn.className = mode === 'grid' ? activeCls : inactiveCls;
+        if (tableBtn) tableBtn.className = mode === 'table' ? activeCls : inactiveCls;
+      });
       renderAccounts();
     }
+
+    const debouncedRenderAccounts = debounce(() => renderAccounts(), 120);
 
     function onAccountSearchInput(val) {
       const clearBtn = document.getElementById('clearAccountSearchBtn');
@@ -2455,7 +2512,7 @@ ightarrow$ v1.0.3</p>
         if (val && val.trim().length > 0) clearBtn.classList.remove('hidden');
         else clearBtn.classList.add('hidden');
       }
-      renderAccounts();
+      debouncedRenderAccounts();
     }
 
     function clearAccountSearch() {
@@ -2555,8 +2612,8 @@ ightarrow$ v1.0.3</p>
 
         if (countBadge) {
           countBadge.className = isActive
-            ? 'company-count px-1.5 py-0.2 bg-white/20 rounded-full text-[10px] font-mono text-white font-bold'
-            : 'company-count px-1.5 py-0.2 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold';
+            ? 'company-count px-1.5 py-0.5 bg-white/20 rounded-full text-[10px] font-mono text-white font-bold'
+            : 'company-count px-1.5 py-0.5 bg-white/[0.06] rounded-full text-[10px] font-mono text-slate-300 font-bold';
         }
       });
     }
@@ -2598,7 +2655,7 @@ ightarrow$ v1.0.3</p>
           <button type="button" onclick="setMethodFilter('${m}')" data-method="${m}" class="method-filter-btn px-2.5 py-1 rounded-full text-xs font-medium border transition-all flex items-center gap-1.5 shrink-0 active:scale-95 ${activeCls}">
             <i class="${def.icon}"></i>
             <span>${def.label}</span>
-            <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${isActive ? (m === 'exhausted' ? 'bg-rose-500/30 text-white' : 'bg-white/25 text-white') : (m === 'exhausted' ? 'bg-rose-500/15 text-rose-300' : 'bg-white/[0.06] text-slate-300')}">${cnt}</span>
+            <span class="px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${isActive ? (m === 'exhausted' ? 'bg-rose-500/30 text-white' : 'bg-white/25 text-white') : (m === 'exhausted' ? 'bg-rose-500/15 text-rose-300' : 'bg-white/[0.06] text-slate-300')}">${cnt}</span>
           </button>
         `;
       });
@@ -2608,7 +2665,9 @@ ightarrow$ v1.0.3</p>
     }
 
     function closeCompanyModeMenu() {
-      // Compatibility stub
+      const menu = document.getElementById('companyModeDropdown');
+      if (menu) menu.classList.add('hidden');
+      openModeMenuCompany = null;
     }
 
     function onCompanyPillClick(company, event) {
@@ -2626,7 +2685,7 @@ ightarrow$ v1.0.3</p>
         return;
       }
 
-      const pill = document.querySelector(`.company-filter-pill[data-company="${company}"]`);
+      const pill = document.querySelector(`.company-filter-btn[data-company="${company}"]`);
       if (!pill) return;
 
       const counts = computeCompanyModeCounts(company);
@@ -2641,7 +2700,7 @@ ightarrow$ v1.0.3</p>
       };
 
       let html = `<div class="px-2.5 py-1.5 text-[10px] font-mono uppercase tracking-wider text-slate-400 border-b border-white/[0.07] mb-1 flex items-center justify-between">
-        <span>${companyNames[company] || company}</span>
+        <span>${escapeHtml(companyNames[company] || company)}</span>
         <span class="text-slate-500">${counts.all}</span>
       </div>`;
 
@@ -2649,13 +2708,13 @@ ightarrow$ v1.0.3</p>
         const meta = MODE_META[m] || MODE_META.all;
         const cnt = counts[m] || 0;
         const isSelected = currentCompanyFilter === company && currentMethodFilter === m;
-        html += `<button type="button" onclick="selectCompanyMode('${company}', '${m}')" class="w-full px-2.5 py-1.5 rounded-xl text-xs flex items-center justify-between gap-3 transition ${isSelected ? 'bg-indigo-600/25 text-white font-semibold border border-indigo-500/40' : 'text-slate-300 hover:text-white hover:bg-white/[0.06] border border-transparent'}">
+        html += `<button type="button" onclick="selectCompanyMode('${escapeHtml(company)}', '${escapeHtml(m)}')" class="w-full px-2.5 py-1.5 rounded-xl text-xs flex items-center justify-between gap-3 transition ${isSelected ? 'bg-indigo-600/25 text-white font-semibold border border-indigo-500/40' : 'text-slate-300 hover:text-white hover:bg-white/[0.06] border border-transparent'}">
           <span class="flex items-center gap-2">
             <i class="${meta.icon} text-[10px] w-3.5 text-center"></i>
             <span>${meta.label}</span>
           </span>
           <span class="flex items-center gap-1.5">
-            <span class="px-1.5 py-0.2 rounded-full bg-white/[0.07] text-[10px] font-mono text-slate-300">${cnt}</span>
+            <span class="px-1.5 py-0.5 rounded-full bg-white/[0.07] text-[10px] font-mono text-slate-300">${cnt}</span>
             ${isSelected ? '<i class="fa-solid fa-check text-[10px] text-indigo-400"></i>' : ''}
           </span>
         </button>`;
@@ -2949,8 +3008,9 @@ ightarrow$ v1.0.3</p>
       let text = '';
       let name = 'Snippet';
 
+      const origin = window.location.origin;
       if (param === 'claude') {
-        text = `export ANTHROPIC_BASE_URL="http://127.0.0.1:8000" && claude --settings '{"availableModels": ["anthropic.gemini-3.8-flash-high", "anthropic.gemini-4-argon", "anthropic.gemini-3.8-flash-tiered"]}'`;
+        text = `export ANTHROPIC_BASE_URL="${origin}" && claude --settings '{"availableModels": ["anthropic.gemini-3.8-flash-high", "anthropic.gemini-4-argon", "anthropic.gemini-3.8-flash-tiered"]}'`;
         name = 'Claude Code launcher';
       } else if (param === 'agy') {
         text = `agy-proxy agy --mode auto`;
@@ -2959,13 +3019,13 @@ ightarrow$ v1.0.3</p>
         text = `agy-proxy acp`;
         name = 'ACP Stdio Server launcher';
       } else if (param === 'codex') {
-        text = `OPENAI_API_KEY="dummy" codex -c 'openai_base_url="http://127.0.0.1:8000/v1"' -m "gemini-3.8-flash-high"`;
+        text = `OPENAI_API_KEY="dummy" codex -c 'openai_base_url="${origin}/v1"' -m "gemini-3.8-flash-high"`;
         name = 'Codex CLI launcher';
       } else if (param === 'agyweb') {
         text = `agy-proxy web`;
         name = 'Antigravity Web launcher';
       } else if (param === 'baseurl') {
-        text = `http://127.0.0.1:8000/v1`;
+        text = `${origin}/v1`;
         name = 'Base URL';
       } else if (document.getElementById(param)) {
         const textElem = document.getElementById(param);
@@ -3013,16 +3073,17 @@ ightarrow$ v1.0.3</p>
 
         if (data.status === 'running') {
           const webUrl = data.url || 'https://127.0.0.1:44741/';
+          const safeWebUrl = escapeHtml(webUrl);
           if (dot) dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0';
           if (btn) {
             btn.href = webUrl;
             btn.onclick = null;
             btn.title = `Antigravity Web is RUNNING on ${webUrl} (PID: ${data.pid || 'N/A'}, ~${data.estimated_ram_saved_mb || 1600}MB RAM saved)`;
-            btn.classList.remove('bg-cyan-600/20', 'text-cyan-300', 'border-cyan-500/40', 'opacity-70');
-            btn.classList.add('bg-emerald-600/20', 'text-emerald-300', 'border-emerald-500/40');
+            btn.classList.remove('bg-cyan-500/10', 'hover:bg-cyan-500/20', 'text-cyan-300', 'border-cyan-500/30', 'opacity-70');
+            btn.classList.add('bg-emerald-500/15', 'hover:bg-emerald-500/25', 'text-emerald-300', 'border-emerald-500/40');
           }
           if (cardStatus) {
-            cardStatus.innerHTML = `<span class="text-emerald-400 flex items-center space-x-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span><span>Online (${webUrl})</span></span>`;
+            cardStatus.innerHTML = `<span class="text-emerald-400 flex items-center space-x-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span><span>Online (${safeWebUrl})</span></span>`;
           }
           if (sDot) sDot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
           if (sText) {
@@ -3041,8 +3102,8 @@ ightarrow$ v1.0.3</p>
           if (btn) {
             btn.removeAttribute('href');
             btn.title = `Antigravity Web is stopped. Click to launch browser mode.`;
-            btn.classList.remove('bg-emerald-600/20', 'text-emerald-300', 'border-emerald-500/40');
-            btn.classList.add('bg-cyan-600/20', 'text-cyan-300', 'border-cyan-500/40');
+            btn.classList.remove('bg-emerald-500/15', 'hover:bg-emerald-500/25', 'text-emerald-300', 'border-emerald-500/40');
+            btn.classList.add('bg-cyan-500/10', 'hover:bg-cyan-500/20', 'text-cyan-300', 'border-cyan-500/30');
             btn.onclick = (e) => {
               e.preventDefault();
               triggerWebLaunch(false);
@@ -3092,18 +3153,12 @@ ightarrow$ v1.0.3</p>
     async function setPrimaryAccount(accountId) {
       try {
         const res = await fetch(`/api/accounts/${encodeURIComponent(accountId)}/primary`, { method: 'POST' });
-        let data = {};
-        try {
-          data = await res.json();
-        } catch (_) {
-          const text = await res.text();
-          data = { detail: text || `HTTP ${res.status}` };
-        }
+        const data = await safeReadJsonResponse(res);
         if (res.ok) {
           showToast('Account set as primary!', 'success');
-          loadAccounts();
+          await loadAccounts();
         } else {
-          showToast(data.detail || data.error || 'Failed to set primary account', 'error');
+          showToast(data.detail || data.error || `Failed to set primary account (HTTP ${res.status})`, 'error');
         }
       } catch (err) {
         showToast(`Error: ${err.message}`, 'error');
@@ -3130,8 +3185,8 @@ ightarrow$ v1.0.3</p>
           previewContainer.innerHTML = `
             ${renderAvatar(acc, 'w-9 h-9', 'text-sm')}
             <div class="min-w-0 flex-1">
-              <div class="font-bold text-white text-xs sm:text-sm truncate">${acc.name || acc.email}</div>
-              <div class="text-[11px] text-slate-400 font-mono truncate">${acc.email}</div>
+              <div class="font-bold text-white text-xs sm:text-sm truncate">${escapeHtml(acc.name || acc.email)}</div>
+              <div class="text-[11px] text-slate-400 font-mono truncate">${escapeHtml(acc.email)}</div>
             </div>
           `;
         } else {
@@ -3202,18 +3257,12 @@ ightarrow$ v1.0.3</p>
         const res = await fetch(`/api/accounts/${encodeURIComponent(accountIdToActivate)}/activate-cli?target=${encodeURIComponent(target)}&set_primary=${setPrimary}`, {
           method: 'POST'
         });
-        let data = {};
-        try {
-          data = await res.json();
-        } catch (_) {
-          const text = await res.text();
-          data = { detail: text || `HTTP ${res.status}` };
-        }
+        const data = await safeReadJsonResponse(res);
         if (res.ok && data.status === 'activated') {
           showToast(`Active in ${targetLabel}: ${data.email || accName}!`, 'success');
-          loadAccounts();
+          await loadAccounts();
         } else {
-          showToast(data.detail || data.error || 'Failed to activate session', 'error');
+          showToast(data.detail || data.error || `Failed to activate session (HTTP ${res.status})`, 'error');
         }
       } catch (err) {
         showToast(`Error: ${err.message}`, 'error');
@@ -3288,7 +3337,7 @@ ightarrow$ v1.0.3</p>
       const copyBtn = document.getElementById('quotaModalCopyBtn');
       if (!content) return;
       try {
-        await navigator.clipboard.writeText(content.textContent);
+        await copyToClipboard(content.textContent);
         if (copyBtn) {
           const origText = copyBtn.innerHTML;
           copyBtn.innerHTML = '<i class="fa-solid fa-check text-xs"></i><span>Copied!</span>';
@@ -3367,6 +3416,13 @@ ightarrow$ v1.0.3</p>
         renderAnalytics();
       } else if (tabId === 'traffic') {
         initTrafficInspector();
+        if (trafficTableDirty) renderTrafficTable();
+      } else if (tabId === 'playground') {
+        renderModelCatalog(document.getElementById('modelSearchInput')?.value || '');
+      } else if (tabId === 'settings') {
+        pollProcessStatus();
+        loadSuiteStatus();
+        checkAntigravityWebStatus();
       }
 
       // 5. Update browser history / hash seamlessly without reload
@@ -3412,10 +3468,7 @@ ightarrow$ v1.0.3</p>
     function setAutoRefreshState(enable, showNotify = false) {
       const btn = document.getElementById('autoRefreshBtn');
       const label = document.getElementById('autoRefreshLabel');
-      const shortLabel = document.getElementById('autoRefreshLabelShort');
-      const mobileLabel = document.getElementById('autoRefreshLabelMobile');
       const dot = document.getElementById('autoRefreshDot');
-      const settingsLabel = document.getElementById('settingsAutoRefreshBtnText');
 
       if (autoRefreshIntervalId) {
         clearInterval(autoRefreshIntervalId);
@@ -3425,23 +3478,17 @@ ightarrow$ v1.0.3</p>
       if (enable) {
         localStorage.setItem('agy_auto_refresh', 'true');
         if (label) label.innerText = 'Auto: 15s';
-        if (shortLabel) shortLabel.innerText = 'Auto: 15s';
-        if (mobileLabel) mobileLabel.innerText = '15s';
-        if (settingsLabel) settingsLabel.innerText = 'Disable Auto-Refresh (Active: 15s)';
         if (dot) dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0';
-        if (btn) btn.className = 'flex items-center space-x-1.5 text-xs font-semibold px-2 py-1.5 sm:px-2.5 sm:py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 transition shrink-0';
+        if (btn) btn.className = 'flex items-center space-x-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/35 text-emerald-300 transition shrink-0';
         autoRefreshIntervalId = setInterval(() => {
-          loadAccounts(true);
+          if (!document.hidden) loadAccounts(true);
         }, 15000);
         if (showNotify) showToast('Auto-refresh enabled (every 15s)', 'success');
       } else {
         localStorage.setItem('agy_auto_refresh', 'false');
         if (label) label.innerText = 'Auto: OFF';
-        if (shortLabel) shortLabel.innerText = 'Auto: OFF';
-        if (mobileLabel) mobileLabel.innerText = 'OFF';
-        if (settingsLabel) settingsLabel.innerText = 'Enable Auto-Refresh (Currently OFF)';
         if (dot) dot.className = 'w-2 h-2 rounded-full bg-slate-500 shrink-0';
-        if (btn) btn.className = 'flex items-center space-x-1.5 text-xs font-semibold px-2 py-1.5 sm:px-2.5 sm:py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 transition shrink-0';
+        if (btn) btn.className = 'flex items-center space-x-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-xl glass-pill text-slate-400 transition shrink-0';
         if (showNotify) showToast('Auto-refresh disabled', 'info');
       }
     }
@@ -3468,8 +3515,8 @@ ightarrow$ v1.0.3</p>
         const card = document.getElementById(`stratCard-${s}`);
         if (card) {
           const isSel = s === currentRoutingStrategy;
-          card.className = `p-4 rounded-xl bg-slate-900 border transition cursor-pointer space-y-2 flex flex-col justify-between group ${
-            isSel ? 'border-indigo-500 shadow-md ring-1 ring-indigo-500/30' : 'border-slate-800 hover:border-slate-700'
+          card.className = `p-4 rounded-2xl glass-well border transition cursor-pointer space-y-2 flex flex-col justify-between group ${
+            isSel ? 'border-indigo-500/60 shadow-[0_0_20px_rgba(99,102,241,0.18)] ring-1 ring-indigo-500/30' : 'border-white/[0.08] hover:border-white/[0.16]'
           }`;
           const radio = card.querySelector('.strat-radio');
           if (radio) {
@@ -3499,50 +3546,67 @@ ightarrow$ v1.0.3</p>
       }
     }
 
+    let loadAccountsInFlight = null;
+
     async function loadAccounts(isSilent = false) {
+      if (loadAccountsInFlight) {
+        return loadAccountsInFlight;
+      }
       const dot = document.getElementById('autoRefreshDot');
       if (isSilent && dot && autoRefreshIntervalId) {
         dot.className = 'w-2 h-2 rounded-full bg-amber-400 animate-ping';
       }
-      try {
-        const [res, cliRes, provRes] = await Promise.all([
-          fetch('/api/accounts'),
-          fetch('/api/accounts/cli-active').catch(() => null),
-          fetch('/api/providers').catch(() => null),
-        ]);
-        const data = await res.json();
-        currentRoutingStrategy = data.routing_strategy || 'primary';
-        updateRoutingStrategyUI(currentRoutingStrategy);
-        rawAccountsData = data.accounts || [];
-        if (cliRes && cliRes.ok) {
-          const cliData = await cliRes.json();
-          cliActiveInfo = cliData || { cli: null, ide: null };
-          cliActiveAccountId = cliData?.cli?.account_id || null;
-          standaloneActiveAccountId = cliData?.standalone?.account_id || null;
-          ideActiveAccountId = cliData?.ide?.account_id || null;
+      loadAccountsInFlight = (async () => {
+        try {
+          const [res, cliRes, provRes] = await Promise.all([
+            fetch('/api/accounts'),
+            fetch('/api/accounts/cli-active').catch(() => null),
+            fetch('/api/providers').catch(() => null),
+          ]);
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+          }
+          const data = await res.json();
+          currentRoutingStrategy = data.routing_strategy || 'primary';
+          updateRoutingStrategyUI(currentRoutingStrategy);
+          rawAccountsData = data.accounts || [];
+          const validAccountIds = new Set(rawAccountsData.map(a => a.account_id));
+          for (const selId of Array.from(selectedBatchAccountIds)) {
+            if (!validAccountIds.has(selId)) selectedBatchAccountIds.delete(selId);
+          }
+          if (cliRes && cliRes.ok) {
+            const cliData = await cliRes.json();
+            cliActiveInfo = cliData || { cli: null, ide: null };
+            cliActiveAccountId = cliData?.cli?.account_id || null;
+            standaloneActiveAccountId = cliData?.standalone?.account_id || null;
+            ideActiveAccountId = cliData?.ide?.account_id || null;
+          }
+          if (provRes && provRes.ok) {
+            const provData = await provRes.json();
+            rawProvidersData = sortProvidersByEcosystem(provData.providers || []);
+            rawRoutingSettings = provData.routing || { enable_external_failover: false, fallback_model: null };
+          }
+          renderAccounts();
+          if (currentActiveTab === 'playground') {
+            renderModelCatalog(document.getElementById('modelSearchInput')?.value || '');
+          }
+          if (currentActiveTab === 'analytics') {
+            renderAnalytics();
+          }
+        } catch (err) {
+          console.error("Accounts load failed", err);
+        } finally {
+          loadAccountsInFlight = null;
+          if (isSilent && dot && autoRefreshIntervalId) {
+            setTimeout(() => {
+              if (autoRefreshIntervalId) {
+                dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+              }
+            }, 400);
+          }
         }
-        if (provRes && provRes.ok) {
-          const provData = await provRes.json();
-          rawProvidersData = sortProvidersByEcosystem(provData.providers || []);
-          rawRoutingSettings = provData.routing || { enable_external_failover: false, fallback_model: null };
-        }
-        renderAccounts();
-        populatePlaygroundAccounts();
-        renderModelCatalog(document.getElementById('modelSearchInput')?.value || '');
-        if (currentActiveTab === 'analytics') {
-          renderAnalytics();
-        }
-      } catch (err) {
-        console.error("Accounts load failed", err);
-      } finally {
-        if (isSilent && dot && autoRefreshIntervalId) {
-          setTimeout(() => {
-            if (autoRefreshIntervalId) {
-              dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
-            }
-          }, 400);
-        }
-      }
+      })();
+      return loadAccountsInFlight;
     }
 
     // Render Analytics Dashboard Tab
@@ -4206,16 +4270,18 @@ ightarrow$ v1.0.3</p>
         container.innerHTML = `
           <div class="p-8 rounded-2xl glass-card text-center space-y-2.5 text-slate-400 text-xs sm:text-sm">
             <i class="fa-solid fa-filter-circle-xmark text-2xl text-slate-500 block"></i>
-            <p>No providers match the active filter${searchQ ? ` "<span class="text-white font-semibold">${searchQ}</span>"` : ''}.</p>
+            <p>No providers match the active filter${searchQ ? ` "<span class="text-white font-semibold">${escapeHtml(searchQ)}</span>"` : ''}.</p>
             <button type="button" onclick="setCompanyFilter('all'); clearAccountSearch();" class="px-3 py-1.5 rounded-xl glass-pill text-indigo-300 hover:text-white text-xs font-semibold transition">
               Reset Filters
             </button>
           </div>
         `;
+        updateBatchButtons();
         return;
       }
 
       container.innerHTML = `<div class="space-y-8">${sectionsHtml.join('')}</div>`;
+      updateBatchButtons();
     }
 
     // Section collapse/expand
@@ -4230,7 +4296,7 @@ ightarrow$ v1.0.3</p>
     }
 
     function collapseAllSections() {
-      ['google', 'openai', 'anthropic', 'deepseek', 'local', 'gateways'].forEach(t => collapsedSections.add(t));
+      ['google', 'openai', 'anthropic', 'deepseek', 'local', 'gateways', 'oauth', 'web', 'apikey', 'external'].forEach(t => collapsedSections.add(t));
       renderAccounts();
     }
 
@@ -4283,7 +4349,7 @@ ightarrow$ v1.0.3</p>
               <i class="${icon}"></i>
             </div>
             <span class="text-xs font-bold text-slate-200 tracking-wide font-sans">${title}</span>
-            <span class="text-[10px] font-mono font-bold px-2 py-0.2 rounded-full ${badgeColor || 'bg-white/[0.08] text-slate-300 border-white/[0.06]'} border shrink-0">${count}</span>
+            <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${badgeColor || 'bg-white/[0.08] text-slate-300 border-white/[0.06]'} border shrink-0">${count}</span>
             ${desc ? `<span class="text-[10px] text-slate-400 font-mono hidden md:inline truncate">· ${desc}</span>` : ''}
           </div>
           ${addTab ? `
@@ -4521,6 +4587,9 @@ ightarrow$ v1.0.3</p>
     }
 
     function renderSection(title, icon, iconColor, count, desc, addType, items, isGrid) {
+      const esc = typeof escapeHtml === 'function'
+        ? escapeHtml
+        : (v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'));
       let addBtnText = addType === 'web' ? '+ Add Web Session' : (addType === 'apikey' ? '+ Add API Key' : '+ Add OAuth');
       let addBtnColor = addType === 'web' ? 'bg-teal-600 hover:bg-teal-500' : (addType === 'apikey' ? 'bg-amber-600 hover:bg-amber-500' : 'bg-indigo-600 hover:bg-indigo-500');
       const sectionId = 'acc-section-' + addType;
@@ -4560,7 +4629,7 @@ ightarrow$ v1.0.3</p>
             : (isHub ? 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30' : 'bg-purple-500/15 text-purple-400 border-purple-500/30');
           const dotColor = isCli ? 'bg-emerald-400' : (isHub ? 'bg-cyan-400' : 'bg-purple-400');
           const label = targets.join('+');
-          agyActivePills += `<span class="text-[10px] font-mono px-2 py-0.5 rounded-full ${pillColor} border flex items-center space-x-1 shrink-0" title="Active session in ${targets.join(', ')}"><span class="w-1.5 h-1.5 rounded-full ${dotColor} animate-pulse"></span><span>${label}: <b class="text-white">${acc.name || acc.email}</b></span></span>`;
+          agyActivePills += `<span class="text-[10px] font-mono px-2 py-0.5 rounded-full ${pillColor} border flex items-center space-x-1 shrink-0" title="Active session in ${targets.join(', ')}"><span class="w-1.5 h-1.5 rounded-full ${dotColor} animate-pulse"></span><span>${label}: <b class="text-white">${esc(acc.name || acc.email)}</b></span></span>`;
         });
       }
 
@@ -4766,8 +4835,16 @@ ightarrow$ v1.0.3</p>
       const oldHtml = btn ? btn.innerHTML : '';
       if (btn) btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>Discovering...';
       try {
-        const provType = id.toLowerCase().includes('ollama') ? 'ollama' : 'openai_compatible';
-        await fetch('/api/providers', {
+        const idLow = id.toLowerCase();
+        const method = typeof currentAuthMethod !== 'undefined' ? currentAuthMethod : '';
+        const provType = (idLow.includes('ollama') || method === 'ollama_local') ? 'ollama'
+          : ((idLow.includes('anthropic') || method === 'anthropic_api') ? 'anthropic'
+          : ((idLow.includes('openai') && !idLow.includes('openrouter') || method === 'openai_api') ? 'openai'
+          : ((idLow.includes('deepseek') || method === 'deepseek_api') ? 'deepseek'
+          : ((idLow.includes('openrouter') || method === 'openrouter') ? 'openrouter'
+          : ((idLow.includes('groq') || method === 'groq') ? 'groq'
+          : ((idLow.includes('nvidia') || method === 'nvidia') ? 'nvidia' : 'openai_compatible'))))));
+        const saveRes = await fetch('/api/providers', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -4780,8 +4857,15 @@ ightarrow$ v1.0.3</p>
             models: []
           })
         });
+        if (!saveRes.ok) {
+          const saveErr = await safeReadJsonResponse(saveRes);
+          throw new Error(saveErr.detail || saveErr.error || `Failed to save provider (HTTP ${saveRes.status})`);
+        }
         const discRes = await fetch(`/api/providers/${encodeURIComponent(id)}/discover`, { method: 'POST' });
-        const data = await discRes.json();
+        const data = await safeReadJsonResponse(discRes);
+        if (!discRes.ok) {
+          throw new Error(data.detail || data.error || `Discovery failed (HTTP ${discRes.status})`);
+        }
         if (data.models && data.models.length > 0) {
           const mList = data.models.map(m => m.id).join(', ');
           const inputEl = document.getElementById('provModelsInput');
@@ -4959,6 +5043,10 @@ ightarrow$ v1.0.3</p>
     }
 
     function renderSingleProviderCard(p) {
+      const esc = typeof escapeHtml === 'function'
+        ? escapeHtml
+        : (v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'));
+      const escJs = (v) => esc(String(v ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r?\n/g, ' '));
       let iconClass = 'fa-solid fa-brain text-purple-400';
       let bgIcon = 'bg-purple-500/15 border-purple-500/30';
       let categoryBadge = '';
@@ -5013,17 +5101,22 @@ ightarrow$ v1.0.3</p>
       let modelsBadgesHtml = '';
       if (p.models && p.models.length > 0) {
         modelsBadgesHtml = p.models.map(m => `
-          <span class="inline-flex items-center gap-1.5 text-[10px] font-mono px-2.5 py-1 rounded-lg glass-well border border-white/[0.06] text-slate-300 hover:border-white/[0.15] transition" title="Model: ${p.id}/${m.id}">
+          <span class="inline-flex items-center gap-1.5 text-[10px] font-mono px-2.5 py-1 rounded-lg glass-well border border-white/[0.06] text-slate-300 hover:border-white/[0.15] transition" title="Model: ${esc(p.id)}/${esc(m.id)}">
             ${m.supports_thinking ? '<i class="fa-solid fa-brain text-purple-400 text-[9px]" title="Thinking / CoT"></i>' : ''}
-            <span class="whitespace-normal leading-tight font-medium">${m.name || m.id}</span>
+            <span class="whitespace-normal leading-tight font-medium">${esc(m.name || m.id)}</span>
           </span>
         `).join('');
       } else {
         modelsBadgesHtml = '<span class="text-[10px] text-slate-500 italic">No models listed. Click Discover or Add.</span>';
       }
 
+      const safePidHtml = esc(p.id);
+      const safePidJs = escJs(p.id);
+      const safePName = esc(p.name || p.id);
+      const safeBaseUrl = esc(p.base_url);
+
       return `
-        <div class="p-4 sm:p-5 rounded-2xl glass-card flex flex-col justify-between hover:border-indigo-500/30 transition shadow-sm space-y-3.5 relative overflow-hidden group">
+        <div class="p-4 sm:p-5 rounded-2xl glass-card flex flex-col justify-between transition shadow-sm space-y-3.5 relative overflow-hidden group ${isEnabled ? 'border-white/[0.08] hover:border-indigo-500/30' : 'border-white/[0.04] opacity-60'}">
           <div class="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/[0.12] to-transparent pointer-events-none"></div>
           <div>
             <div class="flex items-center justify-between gap-2 pb-2.5 border-b border-white/[0.07]">
@@ -5033,16 +5126,17 @@ ightarrow$ v1.0.3</p>
                 </div>
                 <div class="min-w-0">
                   <div class="flex items-center space-x-1.5 flex-wrap gap-y-0.5">
-                    <h4 class="text-xs sm:text-sm font-bold text-white tracking-tight truncate">${p.name || p.id}</h4>
-                    <span class="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-white/[0.05] text-slate-300 border border-white/[0.08]">${p.id}</span>
+                    <h4 class="text-xs sm:text-sm font-bold text-white tracking-tight truncate">${safePName}</h4>
+                    <span class="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-white/[0.05] text-slate-300 border border-white/[0.08]">${safePidHtml}</span>
                     ${categoryBadge}
+                    ${!isEnabled ? '<span class="text-[9px] sm:text-[10px] px-2 py-0.5 rounded-full glass-pill text-slate-400 font-medium font-mono shrink-0">Paused</span>' : ''}
                   </div>
-                  <span class="text-[10px] text-slate-400 font-mono block truncate mt-0.5" title="${p.base_url}">${p.base_url}</span>
+                  <span class="text-[10px] text-slate-400 font-mono block truncate mt-0.5" title="${safeBaseUrl}">${safeBaseUrl}</span>
                 </div>
               </div>
               <div class="flex items-center space-x-2 shrink-0">
                 <label class="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" onchange="toggleProvider('${p.id}', this.checked)" ${isEnabled ? 'checked' : ''} class="sr-only peer">
+                  <input type="checkbox" onchange="toggleProvider('${safePidJs}', this.checked)" ${isEnabled ? 'checked' : ''} class="sr-only peer">
                   <div class="w-8 h-4 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-purple-600"></div>
                 </label>
               </div>
@@ -5054,8 +5148,8 @@ ightarrow$ v1.0.3</p>
                 <i class="fa-solid ${(p.provider_type === 'gemini_guest' || p.id === 'gemini-web-guest') ? 'fa-bolt text-blue-400' : ((p.provider_type === 'deepseek_web' || p.id === 'deepseek-web') ? 'fa-shield-halved text-cyan-400' : ((p.provider_type === 'chatgpt_web' || p.id === 'chatgpt-web') ? ((!p.api_key || p.api_key === 'zero-auth' || p.api_key === 'guest') ? 'fa-bolt text-amber-400' : 'fa-shield-halved text-emerald-400') : (p.api_key ? 'fa-key text-slate-500' : 'fa-cube text-slate-500')))} text-[9px]"></i>
                 ${(p.provider_type === 'gemini_guest' || p.id === 'gemini-web-guest') ? 'Zero-Auth Guest (Flash-Lite)' : ((p.provider_type === 'deepseek_web' || p.id === 'deepseek-web') ? 'Web Session (PoW Verified)' : ((p.provider_type === 'chatgpt_web' || p.id === 'chatgpt-web') ? ((!p.api_key || p.api_key === 'zero-auth' || p.api_key === 'guest') ? 'Zero-Auth Guest (No Login)' : 'Web Session (Sentinel PoW)') : (p.api_key ? 'API Key Set' : 'No Key (Local)')))}
               </span>
-              <span id="prov-ping-${p.id}" class="text-[10px] font-mono text-slate-300 glass-pill px-2.5 py-0.5 rounded-full flex items-center gap-1.5">
-                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>Ready
+              <span id="prov-ping-${safePidHtml}" class="text-[10px] font-mono ${isEnabled ? 'text-slate-300' : 'text-slate-400'} glass-pill px-2.5 py-0.5 rounded-full flex items-center gap-1.5">
+                <span class="w-1.5 h-1.5 rounded-full ${isEnabled ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}"></span>${isEnabled ? 'Ready' : 'Paused'}
               </span>
             </div>
 
@@ -5073,27 +5167,27 @@ ightarrow$ v1.0.3</p>
           <!-- Card Actions -->
           <div class="flex items-center justify-between pt-2.5 border-t border-white/[0.07]">
             <div class="flex items-center gap-1.5 flex-wrap">
-              <button onclick="openPlaygroundForProvider('${p.id}')" class="px-2.5 py-1 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 hover:text-white border border-indigo-500/30 font-medium text-[11px] flex items-center gap-1 transition shadow-sm" title="Test in Live Playground">
+              <button onclick="openPlaygroundForProvider('${safePidJs}')" class="px-2.5 py-1 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 hover:text-white border border-indigo-500/30 font-medium text-[11px] flex items-center gap-1 transition shadow-sm" title="Test in Live Playground">
                 <i class="fa-solid fa-terminal text-indigo-400 text-[10px]"></i>
                 <span>Playground</span>
               </button>
-              <button onclick="testProvider('${p.id}')" class="px-2.5 py-1 rounded-xl glass-pill hover:bg-amber-500/15 hover:text-amber-300 hover:border-amber-500/30 text-slate-300 font-medium text-[11px] flex items-center gap-1 transition shadow-sm" title="Test Connection & Latency">
+              <button onclick="testProvider('${safePidJs}')" class="px-2.5 py-1 rounded-xl glass-pill hover:bg-amber-500/15 hover:text-amber-300 hover:border-amber-500/30 text-slate-300 font-medium text-[11px] flex items-center gap-1 transition shadow-sm" title="Test Connection & Latency">
                 <i class="fa-solid fa-bolt text-amber-400 text-[10px]"></i>
                 <span>Ping</span>
               </button>
               ${classifyProviderMethod(p) === 'web' ? `
-              <button onclick="refreshProviderCdp('${p.id}')" class="px-2.5 py-1 rounded-xl glass-pill hover:bg-teal-500/15 hover:text-teal-300 hover:border-teal-500/30 text-slate-300 font-medium text-[11px] flex items-center gap-1 transition shadow-sm" title="Sync session token / cookies from Chrome CDP (port 9222)">
+              <button onclick="refreshProviderCdp('${safePidJs}')" class="px-2.5 py-1 rounded-xl glass-pill hover:bg-teal-500/15 hover:text-teal-300 hover:border-teal-500/30 text-slate-300 font-medium text-[11px] flex items-center gap-1 transition shadow-sm" title="Sync session token / cookies from Chrome CDP (port 9222)">
                 <i class="fa-solid fa-rotate text-teal-400 text-[10px]"></i>
                 <span>CDP</span>
               </button>
               ` : `
-              <button onclick="discoverProvider('${p.id}')" class="px-2.5 py-1 rounded-xl glass-pill hover:bg-purple-500/15 hover:text-purple-300 hover:border-purple-500/30 text-slate-300 font-medium text-[11px] flex items-center gap-1 transition shadow-sm" title="Auto-discover models from this provider">
+              <button onclick="discoverProvider('${safePidJs}')" class="px-2.5 py-1 rounded-xl glass-pill hover:bg-purple-500/15 hover:text-purple-300 hover:border-purple-500/30 text-slate-300 font-medium text-[11px] flex items-center gap-1 transition shadow-sm" title="Auto-discover models from this provider">
                 <i class="fa-solid fa-arrows-rotate text-purple-400 text-[10px]"></i>
                 <span>Discover</span>
               </button>
               `}
             </div>
-            <button onclick="deleteProvider('${p.id}')" class="p-1.5 rounded-xl hover:bg-rose-500/15 text-slate-400 hover:text-rose-400 transition" title="Delete Provider">
+            <button onclick="deleteProvider('${safePidJs}')" class="p-1.5 rounded-xl hover:bg-rose-500/15 text-slate-400 hover:text-rose-400 transition" title="Delete Provider">
               <i class="fa-solid fa-trash text-xs"></i>
             </button>
           </div>
@@ -5107,6 +5201,8 @@ ightarrow$ v1.0.3</p>
       const method = classifyProviderMethod(p);
       const modelsCount = (p.models || []).length;
       const modelPreview = (p.models || []).slice(0, 3).map(m => m.id).join(', ') + (modelsCount > 3 ? ` +${modelsCount - 3}` : '');
+      const safePidHtml = escapeHtml(p.id);
+      const safePidJs = escapeHtml(String(p.id ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
       const methodBadge = method === 'web'
         ? '<span class="inline-flex items-center text-[10px] px-2 py-0.5 rounded-full bg-teal-500/15 text-teal-300 border border-teal-500/30"><i class="fa-solid fa-globe mr-1 text-[9px]"></i>Web Session</span>'
         : (method === 'local'
@@ -5114,35 +5210,35 @@ ightarrow$ v1.0.3</p>
           : '<span class="inline-flex items-center text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30"><i class="fa-solid fa-key mr-1 text-[9px]"></i>API Key</span>');
 
       return `
-        <tr class="hover:bg-white/[0.03] transition border-b border-white/[0.05] ${!isEnabled ? 'opacity-55' : ''}">
+        <tr class="hover:bg-white/[0.03] transition border-b border-white/[0.05] ${!isEnabled ? 'opacity-50' : ''}">
           <td class="px-4 py-3.5">
             <div class="font-bold text-white flex items-center gap-2">
-              <span class="truncate max-w-[180px]">${p.name || p.id}</span>
-              <span class="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-white/[0.05] text-slate-300 border border-white/[0.08]">${p.id}</span>
+              <span class="truncate max-w-[180px]">${escapeHtml(p.name || p.id)}</span>
+              <span class="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-white/[0.05] text-slate-300 border border-white/[0.08]">${safePidHtml}</span>
             </div>
-            <div class="text-[10px] text-slate-400 font-mono truncate max-w-[260px] mt-0.5">${p.base_url}</div>
+            <div class="text-[10px] text-slate-400 font-mono truncate max-w-[260px] mt-0.5">${escapeHtml(p.base_url)}</div>
           </td>
           <td class="px-3 py-3.5">
             <div class="flex items-center flex-wrap gap-1">${methodBadge}</div>
           </td>
           <td class="px-3 py-3.5">
             <span class="text-[11px] font-mono text-slate-300">${modelsCount} model${modelsCount === 1 ? '' : 's'}</span>
-            <div class="text-[10px] font-mono text-slate-500 truncate max-w-[220px]">${modelPreview || '—'}</div>
+            <div class="text-[10px] font-mono text-slate-500 truncate max-w-[220px]">${escapeHtml(modelPreview || '—')}</div>
           </td>
           <td class="px-3 py-3.5">
-            <span id="prov-ping-${p.id}" class="text-[10px] font-mono text-slate-300 glass-pill px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5">
+            <span id="prov-ping-${safePidHtml}" class="text-[10px] font-mono text-slate-300 glass-pill px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5">
               <span class="w-1.5 h-1.5 rounded-full ${isEnabled ? 'bg-emerald-400' : 'bg-slate-500'}"></span>${isEnabled ? 'Ready' : 'Paused'}
             </span>
           </td>
           <td class="px-4 py-3.5 text-right">
             <div class="flex items-center justify-end space-x-1.5">
-              <button onclick="openPlaygroundForProvider('${p.id}')" class="text-slate-400 hover:text-indigo-400 p-1 transition" title="Test in Live Playground"><i class="fa-solid fa-terminal text-xs"></i></button>
-              <button onclick="testProvider('${p.id}')" class="text-slate-400 hover:text-amber-400 p-1 transition" title="Ping / Test Connection"><i class="fa-solid fa-bolt text-xs"></i></button>
-              ${method === 'web' ? `<button onclick="refreshProviderCdp('${p.id}')" class="text-slate-400 hover:text-teal-400 p-1 transition" title="Sync session from Chrome CDP port 9222"><i class="fa-solid fa-rotate text-xs text-teal-400"></i></button>` : `<button onclick="discoverProvider('${p.id}')" class="text-slate-400 hover:text-purple-400 p-1 transition" title="Discover Models"><i class="fa-solid fa-arrows-rotate text-xs"></i></button>`}
-              <button onclick="toggleProvider('${p.id}', ${!isEnabled})" class="relative inline-flex h-4 w-7 flex-shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isEnabled ? 'bg-purple-600' : 'bg-slate-700'}" title="${isEnabled ? 'Disable' : 'Enable'}">
+              <button onclick="openPlaygroundForProvider('${safePidJs}')" class="text-slate-400 hover:text-indigo-400 p-1 transition" title="Test in Live Playground"><i class="fa-solid fa-terminal text-xs"></i></button>
+              <button onclick="testProvider('${safePidJs}')" class="text-slate-400 hover:text-amber-400 p-1 transition" title="Ping / Test Connection"><i class="fa-solid fa-bolt text-xs"></i></button>
+              ${method === 'web' ? `<button onclick="refreshProviderCdp('${safePidJs}')" class="text-slate-400 hover:text-teal-400 p-1 transition" title="Sync session from Chrome CDP port 9222"><i class="fa-solid fa-rotate text-xs text-teal-400"></i></button>` : `<button onclick="discoverProvider('${safePidJs}')" class="text-slate-400 hover:text-purple-400 p-1 transition" title="Discover Models"><i class="fa-solid fa-arrows-rotate text-xs"></i></button>`}
+              <button onclick="toggleProvider('${safePidJs}', ${!isEnabled})" class="relative inline-flex h-4 w-7 flex-shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isEnabled ? 'bg-purple-600' : 'bg-slate-700'}" title="${isEnabled ? 'Disable' : 'Enable'}">
                 <span class="pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${isEnabled ? 'translate-x-3' : 'translate-x-0'}"></span>
               </button>
-              <button onclick="deleteProvider('${p.id}')" class="text-slate-500 hover:text-rose-400 p-1 transition" title="Delete Provider"><i class="fa-solid fa-trash-can text-xs"></i></button>
+              <button onclick="deleteProvider('${safePidJs}')" class="text-slate-500 hover:text-rose-400 p-1 transition" title="Delete Provider"><i class="fa-solid fa-trash-can text-xs"></i></button>
             </div>
           </td>
         </tr>
@@ -5287,16 +5383,6 @@ ightarrow$ v1.0.3</p>
           ];
         } else if (sectionId === 'anthropic') {
           providerGroups = [
-            {
-              title: 'Claude.ai Web Sessions',
-              icon: 'fa-solid fa-globe',
-              iconColor: 'bg-teal-500/15 border-teal-500/30 text-teal-400',
-              badgeColor: 'bg-teal-500/20 text-teal-300 border-teal-500/30',
-              desc: 'Claude.ai Browser Sessions',
-              addTab: 'anthropic_web',
-              addLabel: 'Add Web Session',
-              providers: webProviders,
-            },
             {
               title: 'Anthropic Direct API Keys',
               icon: 'fa-solid fa-key',
@@ -5513,6 +5599,15 @@ ightarrow$ v1.0.3</p>
     }
 
     function renderAccountCard(acc) {
+      const esc = typeof escapeHtml === 'function'
+        ? escapeHtml
+        : (v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'));
+      const escJs = (v) => esc(String(v ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r?\n/g, ' '));
+      const isBatchChecked = (typeof selectedBatchAccountIds !== 'undefined' && selectedBatchAccountIds.has(acc.account_id)) ? 'checked' : '';
+      const safeAccIdHtml = esc(acc.account_id);
+      const safeAccIdJs = escJs(acc.account_id);
+      const safeNameHtml = esc(acc.name || acc.email);
+      const safeEmailHtml = esc(acc.email);
       const isEnabled = acc.enabled !== false;
       const isApiKey = acc.auth_method === 'api_key';
       const isWeb = acc.auth_method === 'gemini_web';
@@ -5584,10 +5679,10 @@ ightarrow$ v1.0.3</p>
                 </div>
               </div>
               <div class="flex items-center gap-1.5 pt-1">
-                <button onclick="openPlaygroundForAccount('${acc.account_id}')" class="flex-1 py-1.5 px-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 hover:text-white text-[11px] font-medium border border-indigo-500/25 transition flex items-center justify-center gap-1 shadow-sm" title="Test in Live Playground">
+                <button onclick="openPlaygroundForAccount('${safeAccIdJs}')" class="flex-1 py-1.5 px-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 hover:text-white text-[11px] font-medium border border-indigo-500/25 transition flex items-center justify-center gap-1 shadow-sm" title="Test in Live Playground">
                   <i class="fa-solid fa-terminal text-[10px]"></i> Playground
                 </button>
-                <button onclick="testAccount('${acc.account_id}')" class="flex-1 py-1.5 px-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 hover:text-white text-[11px] font-medium border border-blue-500/25 transition flex items-center justify-center gap-1 shadow-sm" title="Test session connectivity">
+                <button onclick="testAccount('${safeAccIdJs}')" class="flex-1 py-1.5 px-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 hover:text-white text-[11px] font-medium border border-blue-500/25 transition flex items-center justify-center gap-1 shadow-sm" title="Test session connectivity">
                   <i class="fa-solid fa-vial-circle-check text-[10px]"></i> Test
                 </button>
               </div>
@@ -5609,7 +5704,7 @@ ightarrow$ v1.0.3</p>
               <div class="grid grid-cols-2 gap-2 text-[11px] pt-1">
                 <div class="p-2 rounded-lg bg-white/[0.02] border border-white/[0.05]">
                   <div class="text-[10px] text-slate-400">Cookies</div>
-                  <div class="font-mono font-semibold text-slate-200 mt-0.5">${acc.cookies_count || 0} active</div>
+                  <div class="font-mono font-semibold text-slate-200 mt-0.5">${esc(acc.cookies_count || 0)} active</div>
                 </div>
                 <div class="p-2 rounded-lg bg-white/[0.02] border border-white/[0.05]">
                   <div class="text-[10px] text-slate-400">CSRF / AT Token</div>
@@ -5617,13 +5712,13 @@ ightarrow$ v1.0.3</p>
                 </div>
               </div>
               <div class="flex items-center gap-1.5 pt-1">
-                <button onclick="openPlaygroundForAccount('${acc.account_id}')" class="flex-1 py-1.5 px-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 hover:text-white text-[11px] font-medium border border-indigo-500/25 transition flex items-center justify-center gap-1 shadow-sm" title="Test in Live Playground">
+                <button onclick="openPlaygroundForAccount('${safeAccIdJs}')" class="flex-1 py-1.5 px-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 hover:text-white text-[11px] font-medium border border-indigo-500/25 transition flex items-center justify-center gap-1 shadow-sm" title="Test in Live Playground">
                   <i class="fa-solid fa-terminal text-[10px]"></i> Playground
                 </button>
-                <button onclick="testAccount('${acc.account_id}')" class="flex-1 py-1.5 px-2 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 text-teal-300 hover:text-white text-[11px] font-medium border border-teal-500/25 transition flex items-center justify-center gap-1 shadow-sm" title="Test session connectivity">
+                <button onclick="testAccount('${safeAccIdJs}')" class="flex-1 py-1.5 px-2 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 text-teal-300 hover:text-white text-[11px] font-medium border border-teal-500/25 transition flex items-center justify-center gap-1 shadow-sm" title="Test session connectivity">
                   <i class="fa-solid fa-vial-circle-check text-[10px]"></i> Test
                 </button>
-                <button onclick="refreshWebCookies('${acc.account_id}')" class="py-1.5 px-2.5 rounded-xl glass-pill text-slate-300 hover:text-white text-[11px] font-medium transition flex items-center justify-center gap-1 shadow-sm" title="Sync cookies from Chrome CDP port ${acc.cdp_port || 9222}">
+                <button onclick="refreshWebCookies('${safeAccIdJs}')" class="py-1.5 px-2.5 rounded-xl glass-pill text-slate-300 hover:text-white text-[11px] font-medium transition flex items-center justify-center gap-1 shadow-sm" title="Sync cookies from Chrome CDP port ${esc(acc.cdp_port || 9222)}">
                   <i class="fa-solid fa-rotate text-teal-400 text-[10px]"></i> CDP
                 </button>
               </div>
@@ -5652,10 +5747,10 @@ ightarrow$ v1.0.3</p>
                 <span class="text-emerald-400 font-semibold font-mono text-[11px] flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>Active · PayG</span>
               </div>
               <div class="flex items-center gap-1.5 pt-1">
-                <button onclick="openPlaygroundForAccount('${acc.account_id}')" class="flex-1 py-1.5 px-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 hover:text-white text-[11px] font-medium border border-indigo-500/25 transition flex items-center justify-center gap-1 shadow-sm" title="Test in Live Playground">
+                <button onclick="openPlaygroundForAccount('${safeAccIdJs}')" class="flex-1 py-1.5 px-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 hover:text-white text-[11px] font-medium border border-indigo-500/25 transition flex items-center justify-center gap-1 shadow-sm" title="Test in Live Playground">
                   <i class="fa-solid fa-terminal text-[10px]"></i> Playground
                 </button>
-                <button onclick="testAccount('${acc.account_id}')" class="flex-1 py-1.5 px-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 hover:text-white text-[11px] font-medium border border-amber-500/25 transition flex items-center justify-center gap-1 shadow-sm" title="Test API Key">
+                <button onclick="testAccount('${safeAccIdJs}')" class="flex-1 py-1.5 px-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 hover:text-white text-[11px] font-medium border border-amber-500/25 transition flex items-center justify-center gap-1 shadow-sm" title="Test API Key">
                   <i class="fa-solid fa-vial-circle-check text-[10px]"></i> Test
                 </button>
               </div>
@@ -5672,7 +5767,7 @@ ightarrow$ v1.0.3</p>
         const argonCooldown = hasArgonBucket ? ((acc.rate_limited_models && acc.rate_limited_models.argon) ? acc.rate_limited_models.argon : (argonQ.cooldown_seconds || 0)) : 0;
         const argonIsExhausted = hasArgonBucket && argonWkPct <= 0;
         const argonBoxHtml = hasArgonBucket ? `
-          <div class="p-3 rounded-xl glass-well border border-emerald-500/25 space-y-1.5 text-xs mt-2" title="${argonQ.description || 'Gemini 4 Argon: Dedicated Weekly Limit'}">
+          <div class="p-3 rounded-xl glass-well border border-emerald-500/25 space-y-1.5 text-xs mt-2" title="${esc(argonQ.description || 'Gemini 4 Argon: Dedicated Weekly Limit')}">
             <div class="flex justify-between text-[11px] items-center">
               <span class="text-emerald-300 font-semibold flex items-center gap-1.5">
                 <i class="fa-solid fa-atom text-emerald-400 text-[10px]"></i>
@@ -5692,21 +5787,21 @@ ightarrow$ v1.0.3</p>
                       ? `<span class="text-amber-400 font-semibold flex items-center gap-1"><i class="fa-solid fa-clock-rotate-left text-[8px]"></i>Cooldown (${formatCooldown(argonCooldown)})</span>`
                       : 'Argon tier active')
               }</span>
-              <span class="${argonIsExhausted ? 'text-red-400 font-semibold' : (argonCooldown > 0 ? 'text-amber-400' : 'text-slate-400')}">${argonResetBadge}</span>
+              <span class="${argonIsExhausted ? 'text-red-400 font-semibold' : (argonCooldown > 0 ? 'text-amber-400' : 'text-slate-400')}">${esc(argonResetBadge)}</span>
             </div>
           </div>
         ` : '';
         quotaSectionHtml = `
           <div class="grid grid-cols-2 gap-2 text-xs pt-1">
             <!-- Gemini Models Box -->
-            <div class="p-3 rounded-xl glass-well space-y-2 flex flex-col justify-between" title="${geminiQ.description || 'Gemini Models: Weekly + 5-Hour Limits'}">
+            <div class="p-3 rounded-xl glass-well space-y-2 flex flex-col justify-between" title="${esc(geminiQ.description || 'Gemini Models: Weekly + 5-Hour Limits')}">
               <div class="space-y-1.5">
                 <div class="flex justify-between text-[11px] items-center border-b border-white/[0.06] pb-1.5">
                   <span class="text-slate-200 font-semibold flex items-center gap-1.5">
                     <i class="fa-brands fa-google text-blue-400 text-[10px]"></i>
                     <span>Gemini</span>
                   </span>
-                  <button onclick="openQuotaModal('${acc.account_id}')" class="text-[10px] text-blue-400 hover:text-blue-300 font-medium flex items-center gap-1 transition" title="View official agy Models & Quota">
+                  <button onclick="openQuotaModal('${safeAccIdJs}')" class="text-[10px] text-blue-400 hover:text-blue-300 font-medium flex items-center gap-1 transition" title="View official agy Models & Quota">
                     <i class="fa-solid fa-chart-pie text-[9px]"></i><span>Quota</span>
                   </button>
                 </div>
@@ -5737,19 +5832,19 @@ ightarrow$ v1.0.3</p>
                         ? `<span class="text-amber-400 font-semibold flex items-center gap-1"><i class="fa-solid fa-clock-rotate-left text-[8px]"></i>Cooldown (${formatCooldown(geminiCooldown)})</span>`
                         : 'Quota available')
                 }</span>
-                <span class="${geminiIsExhausted ? 'text-red-400 font-semibold' : (geminiCooldown > 0 ? 'text-amber-400' : 'text-slate-400')}">${geminiResetBadge}</span>
+                <span class="${geminiIsExhausted ? 'text-red-400 font-semibold' : (geminiCooldown > 0 ? 'text-amber-400' : 'text-slate-400')}">${esc(geminiResetBadge)}</span>
               </div>
             </div>
 
             <!-- Claude & GPT Models Box -->
-            <div class="p-3 rounded-xl glass-well space-y-2 flex flex-col justify-between" title="${claudeQ.description || 'Claude & GPT Models: Weekly + 5-Hour Limits'}">
+            <div class="p-3 rounded-xl glass-well space-y-2 flex flex-col justify-between" title="${esc(claudeQ.description || 'Claude & GPT Models: Weekly + 5-Hour Limits')}">
               <div class="space-y-1.5">
                 <div class="flex justify-between text-[11px] items-center border-b border-white/[0.06] pb-1.5">
                   <span class="text-slate-200 font-semibold flex items-center gap-1.5">
                     <i class="fa-solid fa-brain text-purple-400 text-[10px]"></i>
                     <span class="truncate">Claude & GPT</span>
                   </span>
-                  <button onclick="openQuotaModal('${acc.account_id}')" class="text-[10px] text-purple-400 hover:text-purple-300 font-medium flex items-center gap-1 transition" title="View official agy Models & Quota">
+                  <button onclick="openQuotaModal('${safeAccIdJs}')" class="text-[10px] text-purple-400 hover:text-purple-300 font-medium flex items-center gap-1 transition" title="View official agy Models & Quota">
                     <i class="fa-solid fa-chart-pie text-[8px]"></i><span>Quota</span>
                   </button>
                 </div>
@@ -5780,7 +5875,7 @@ ightarrow$ v1.0.3</p>
                         ? `<span class="text-amber-400 font-semibold flex items-center gap-1"><i class="fa-solid fa-clock-rotate-left text-[8px]"></i>Cooldown (${formatCooldown(claudeCooldown)})</span>`
                         : 'Quota available')
                 }</span>
-                <span class="${claudeIsExhausted ? 'text-red-400 font-semibold' : (claudeCooldown > 0 ? 'text-amber-400' : 'text-slate-400')}">${claudeResetBadge}</span>
+                <span class="${claudeIsExhausted ? 'text-red-400 font-semibold' : (claudeCooldown > 0 ? 'text-amber-400' : 'text-slate-400')}">${esc(claudeResetBadge)}</span>
               </div>
             </div>
           </div>
@@ -5838,32 +5933,32 @@ ightarrow$ v1.0.3</p>
         ? `<span class="text-[9px] sm:text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 font-semibold border border-emerald-500/30 flex items-center gap-1 shrink-0 shadow-sm" title="Available Google One / CloudCode AI Credits"><i class="fa-solid fa-coins text-emerald-400 text-[9px]"></i><span>${aiCreditsTotal} cr</span></span>`
         : '';
 
-      const cardBorderClass = isBothActive
-        ? 'border-emerald-500/50 ring-1 ring-emerald-500/30 shadow-[0_8px_30px_rgba(16,185,129,0.15)]'
-        : (isCliActive
-            ? 'border-emerald-500/40 ring-1 ring-emerald-500/25 shadow-[0_8px_30px_rgba(16,185,129,0.12)]'
-            : (isStandaloneActive
-                ? 'border-cyan-500/40 ring-1 ring-cyan-500/25 shadow-[0_8px_30px_rgba(6,182,212,0.12)]'
-                : (isEnabled
-                    ? 'border-white/[0.08] hover:border-indigo-500/35'
-                    : 'border-white/[0.04] opacity-60')));
+      const cardBorderClass = !isEnabled
+        ? 'border-white/[0.04] opacity-60'
+        : (isBothActive
+          ? 'border-emerald-500/50 ring-1 ring-emerald-500/30 shadow-[0_8px_30px_rgba(16,185,129,0.15)]'
+          : (isCliActive
+              ? 'border-emerald-500/40 ring-1 ring-emerald-500/25 shadow-[0_8px_30px_rgba(16,185,129,0.12)]'
+              : (isStandaloneActive
+                  ? 'border-cyan-500/40 ring-1 ring-cyan-500/25 shadow-[0_8px_30px_rgba(6,182,212,0.12)]'
+                  : 'border-white/[0.08] hover:border-indigo-500/35')));
 
       return `
-        <div class="p-4 sm:p-5 rounded-2xl glass-card transition-all space-y-3.5 relative overflow-hidden min-w-0 ${cardBorderClass}">
+        <div class="p-4 sm:p-5 rounded-2xl glass-card space-y-3.5 relative overflow-hidden min-w-0 ${cardBorderClass}">
           <div class="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/[0.12] to-transparent pointer-events-none"></div>
           <div class="flex items-start justify-between gap-2">
             <div class="flex items-center space-x-2 sm:space-x-2.5 min-w-0 flex-1">
-              <input type="checkbox" class="account-batch-checkbox w-3.5 h-3.5 rounded bg-slate-900 border-white/[0.15] text-indigo-500 focus:ring-0 cursor-pointer shrink-0" value="${acc.account_id}" onchange="updateBatchButtons()">
+              <input type="checkbox" class="account-batch-checkbox w-3.5 h-3.5 rounded bg-slate-900 border-white/[0.15] text-indigo-500 focus:ring-0 cursor-pointer shrink-0" value="${safeAccIdHtml}" ${isBatchChecked} onchange="if(typeof handleBatchCheckboxChange==='function') handleBatchCheckboxChange(this); else if(typeof updateBatchButtons==='function') updateBatchButtons();">
               ${renderAvatar(acc, 'w-8 h-8 sm:w-9 sm:h-9', 'text-xs sm:text-sm')}
               <div class="min-w-0 flex-1">
                 <div class="font-bold text-white text-xs sm:text-sm flex items-center flex-wrap gap-1.5">
-                  <span class="truncate max-w-[120px] sm:max-w-[170px]" title="${acc.name || acc.email}">${acc.name || acc.email}</span>
-                  <button onclick="openRenameModal('${acc.account_id}', '${(acc.name || acc.email).replace(/'/g, "\\'")}')" class="text-slate-400 hover:text-indigo-400 p-0.5 transition shrink-0" title="Rename account / key">
+                  <span class="truncate max-w-[120px] sm:max-w-[170px]" title="${safeNameHtml}">${safeNameHtml}</span>
+                  <button onclick="openRenameModal('${safeAccIdJs}', '${escJs(acc.name || acc.email)}')" class="text-slate-400 hover:text-indigo-400 p-0.5 transition shrink-0" title="Rename account / key">
                     <i class="fa-solid fa-pen-to-square text-[10px] sm:text-[11px]"></i>
                   </button>
                   ${acc.is_primary 
                     ? '<span class="text-[9px] sm:text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 font-semibold border border-amber-500/30 flex items-center space-x-1 shrink-0 shadow-sm"><i class="fa-solid fa-star text-amber-400 text-[8px]"></i><span>Primary</span></span>' 
-                    : `<button onclick="setPrimaryAccount('${acc.account_id}')" class="text-[9px] sm:text-[10px] px-2 py-0.5 rounded-full glass-pill text-slate-300 hover:text-white transition flex items-center space-x-1 shrink-0" title="Set as primary active account"><i class="fa-regular fa-star text-[8px]"></i><span>Set Primary</span></button>`}
+                    : `<button onclick="setPrimaryAccount('${safeAccIdJs}')" class="text-[9px] sm:text-[10px] px-2 py-0.5 rounded-full glass-pill text-slate-300 hover:text-white transition flex items-center space-x-1 shrink-0" title="Set as primary active account"><i class="fa-regular fa-star text-[8px]"></i><span>Set Primary</span></button>`}
                   ${tierBadgeHtml}
                   ${gcpTosBadgeHtml}
                   ${aiCreditsBadgeHtml}
@@ -5871,17 +5966,17 @@ ightarrow$ v1.0.3</p>
                   ${maxAccountCooldown > 0 ? `<span class="text-[9px] sm:text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-semibold border border-amber-500/30 flex items-center space-x-1 shrink-0 shadow-sm" title="Rate limit cooldown active: resets in ${formatCooldown(maxAccountCooldown)}"><i class="fa-solid fa-clock-rotate-left text-amber-400 text-[9px]"></i><span>Cooldown (${formatCooldown(maxAccountCooldown)})</span></span>` : ((!isApiKey && !isWeb && geminiIsExhausted && claudeIsExhausted) ? '<span class="text-[9px] sm:text-[10px] px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 font-semibold border border-red-500/30 shrink-0">Exhausted</span>' : '')}
                   ${!isEnabled ? '<span class="text-[9px] sm:text-[10px] px-2 py-0.5 rounded-full glass-pill text-slate-400 font-medium font-mono shrink-0">Paused</span>' : ''}
                 </div>
-                <div class="text-[11px] sm:text-xs text-slate-400 font-mono truncate flex items-center space-x-1.5 mt-0.5 cursor-pointer hover:text-slate-200" onclick="copySnippetText('${acc.email}', 'Email copied!')" title="Click to copy email">
+                <div class="text-[11px] sm:text-xs text-slate-400 font-mono truncate flex items-center space-x-1.5 mt-0.5 cursor-pointer hover:text-slate-200" onclick="copySnippetText('${escJs(acc.email)}', 'Email copied!')" title="Click to copy email">
                   <i class="fa-regular fa-envelope text-slate-500 text-[10px] sm:text-[11px] shrink-0"></i>
-                  <span class="truncate select-all">${acc.email}</span>
+                  <span class="truncate select-all">${safeEmailHtml}</span>
                 </div>
               </div>
             </div>
             <div class="flex items-center space-x-1 sm:space-x-1.5 shrink-0 pt-0.5">
-              <button onclick="toggleAccount('${acc.account_id}', ${!isEnabled})" class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isEnabled ? 'bg-indigo-600 shadow-[0_0_10px_rgba(99,102,241,0.4)]' : 'bg-slate-700/80'}" title="${isEnabled ? 'Pause account' : 'Enable account'}">
+              <button onclick="toggleAccount('${safeAccIdJs}', ${!isEnabled})" class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isEnabled ? 'bg-indigo-600 shadow-[0_0_10px_rgba(99,102,241,0.4)]' : 'bg-slate-700/80'}" title="${isEnabled ? 'Pause account' : 'Enable account'}">
                 <span class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isEnabled ? 'translate-x-4' : 'translate-x-0'}"></span>
               </button>
-              <button onclick="deleteAccount('${acc.account_id}')" class="text-slate-400 hover:text-rose-400 text-xs p-1 sm:p-1.5 rounded-lg hover:bg-rose-500/10 transition" title="Remove account"><i class="fa-solid fa-trash-can text-[11px] sm:text-xs"></i></button>
+              <button onclick="deleteAccount('${safeAccIdJs}')" class="text-slate-400 hover:text-rose-400 text-xs p-1 sm:p-1.5 rounded-lg hover:bg-rose-500/10 transition" title="Remove account"><i class="fa-solid fa-trash-can text-[11px] sm:text-xs"></i></button>
             </div>
           </div>
 
@@ -5889,16 +5984,16 @@ ightarrow$ v1.0.3</p>
 
           ${!isWeb && !isApiKey ? `
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 pt-1">
-              <button onclick="openQuotaModal('${acc.account_id}')" class="py-1.5 px-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 font-medium text-[11px] transition border border-purple-500/25 flex items-center justify-center gap-1.5 shadow-sm" title="View official agy Models & Quota format">
+              <button onclick="openQuotaModal('${safeAccIdJs}')" class="py-1.5 px-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 font-medium text-[11px] transition border border-purple-500/25 flex items-center justify-center gap-1.5 shadow-sm" title="View official agy Models & Quota format">
                 <i class="fa-solid fa-chart-pie text-[10px]"></i><span>Quota</span>
               </button>
-              <button onclick="openPlaygroundForAccount('${acc.account_id}')" class="py-1.5 px-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 font-medium text-[11px] transition border border-indigo-500/25 flex items-center justify-center gap-1.5 shadow-sm" title="Test in Playground">
+              <button onclick="openPlaygroundForAccount('${safeAccIdJs}')" class="py-1.5 px-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 font-medium text-[11px] transition border border-indigo-500/25 flex items-center justify-center gap-1.5 shadow-sm" title="Test in Playground">
                 <i class="fa-solid fa-terminal text-[10px]"></i><span>Playground</span>
               </button>
-              <button onclick="testAccount('${acc.account_id}')" class="py-1.5 px-2 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 text-teal-300 font-medium text-[11px] transition border border-teal-500/25 flex items-center justify-center gap-1.5 shadow-sm" title="Test connection">
+              <button onclick="testAccount('${safeAccIdJs}')" class="py-1.5 px-2 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 text-teal-300 font-medium text-[11px] transition border border-teal-500/25 flex items-center justify-center gap-1.5 shadow-sm" title="Test connection">
                 <i class="fa-solid fa-vial-circle-check text-[10px]"></i><span>Test</span>
               </button>
-              <button onclick="openActivateSessionModal('${acc.account_id}')" class="py-1.5 px-2 rounded-xl ${isCliActive ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.2)]' : (isHubActive ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-[0_0_12px_rgba(6,182,212,0.2)]' : (isIdeActive ? 'bg-purple-500/20 text-purple-300 border-purple-500/40 shadow-[0_0_12px_rgba(168,85,247,0.2)]' : 'bg-white/[0.03] hover:bg-emerald-500/20 text-slate-300 hover:text-emerald-300 border-white/[0.08] hover:border-emerald-500/30'))} font-medium text-[11px] transition border flex items-center justify-center gap-1.5 shadow-sm" title="Activate this account in Antigravity (CLI / Hub / IDE)">
+              <button onclick="openActivateSessionModal('${safeAccIdJs}')" class="py-1.5 px-2 rounded-xl ${isCliActive ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.2)]' : (isHubActive ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-[0_0_12px_rgba(6,182,212,0.2)]' : (isIdeActive ? 'bg-purple-500/20 text-purple-300 border-purple-500/40 shadow-[0_0_12px_rgba(168,85,247,0.2)]' : 'bg-white/[0.03] hover:bg-emerald-500/20 text-slate-300 hover:text-emerald-300 border-white/[0.08] hover:border-emerald-500/30'))} font-medium text-[11px] transition border flex items-center justify-center gap-1.5 shadow-sm" title="Activate this account in Antigravity (CLI / Hub / IDE)">
                 <i class="fa-solid ${isCliActive ? 'fa-terminal text-emerald-400' : (isHubActive ? 'fa-globe text-cyan-400' : (isIdeActive ? 'fa-code text-purple-400' : 'fa-user-check text-[10px]'))}"></i><span class="truncate">${agyActiveBadges.length > 0 ? ('In ' + agyActiveBadges.join('+')) : 'Activate'}</span>
               </button>
             </div>
@@ -5906,12 +6001,12 @@ ightarrow$ v1.0.3</p>
 
           <div class="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-white/[0.05]">
             <div class="flex items-center space-x-1.5">
-              <span class="truncate max-w-[150px] sm:max-w-[200px]">Model: <code class="text-indigo-400 font-mono text-[10px]">${acc.last_used_model || 'standby'}</code></span>
+              <span class="truncate max-w-[150px] sm:max-w-[200px]">Model: <code class="text-indigo-400 font-mono text-[10px]">${esc(acc.last_used_model || 'standby')}</code></span>
             </div>
             <div class="flex items-center space-x-1.5 shrink-0">
               <span>Reqs: <b class="text-slate-200 font-mono">${acc.total_requests || 0}</b></span>
               ${(acc.total_requests > 0 || (acc.last_used_model && acc.last_used_model !== 'standby')) ? `
-                <button onclick="resetAccountStats('${acc.account_id}')" class="text-slate-400 hover:text-slate-200 p-0.5 rounded transition" title="Reset session stats to 0 / standby">
+                <button onclick="resetAccountStats('${safeAccIdJs}')" class="text-slate-400 hover:text-slate-200 p-0.5 rounded transition" title="Reset session stats to 0 / standby">
                   <i class="fa-solid fa-rotate-left text-[9px]"></i>
                 </button>
               ` : ''}
@@ -6010,26 +6105,33 @@ ightarrow$ v1.0.3</p>
         ? `<span class="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 font-semibold border border-emerald-500/30 inline-flex items-center gap-1 shadow-sm" title="Available Google One / CloudCode AI Credits"><i class="fa-solid fa-coins text-emerald-400 text-[8px]"></i><span>${aiCreditsTotal} cr</span></span>`
         : '';
 
+      const safeRowAccIdHtml = escapeHtml(acc.account_id);
+      const safeRowAccIdJs = escapeHtml(String(acc.account_id ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
+      const safeRowNameHtml = escapeHtml(acc.name || acc.email);
+      const safeRowNameJs = escapeHtml(String(acc.name || acc.email || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
+      const safeRowEmailHtml = escapeHtml(acc.email);
+      const isRowChecked = selectedBatchAccountIds.has(acc.account_id) ? 'checked' : '';
+
       return `
         <tr class="hover:bg-white/[0.03] transition border-b border-white/[0.05] ${!isEnabled ? 'opacity-50' : ''} ${isCliActive ? 'bg-emerald-500/[0.04]' : (isHubActive ? 'bg-cyan-500/[0.04]' : (isIdeActive ? 'bg-purple-500/[0.04]' : ''))}">
           <td class="w-8 px-3 py-3.5 text-center">
-            <input type="checkbox" class="account-batch-checkbox w-3.5 h-3.5 rounded bg-slate-900 border-white/[0.15] text-indigo-500 focus:ring-0 cursor-pointer" value="${acc.account_id}" onchange="updateBatchButtons()">
+            <input type="checkbox" class="account-batch-checkbox w-3.5 h-3.5 rounded bg-slate-900 border-white/[0.15] text-indigo-500 focus:ring-0 cursor-pointer" value="${safeRowAccIdHtml}" ${isRowChecked} onchange="handleBatchCheckboxChange(this)">
           </td>
           <td class="px-4 py-3.5">
             <div class="flex items-center space-x-2.5">
               ${renderAvatar(acc, 'w-7 h-7', 'text-xs')}
               <div class="min-w-0">
                 <div class="font-bold text-white flex items-center space-x-1.5">
-                  <span class="truncate max-w-[180px]" title="${acc.name || acc.email}">${acc.name || acc.email}</span>
-                  <button onclick="openRenameModal('${acc.account_id}', '${(acc.name || acc.email).replace(/'/g, "\\'")}')" class="text-slate-400 hover:text-indigo-400 transition" title="Rename"><i class="fa-solid fa-pen-to-square text-[10px]"></i></button>
+                  <span class="truncate max-w-[180px]" title="${safeRowNameHtml}">${safeRowNameHtml}</span>
+                  <button onclick="openRenameModal('${safeRowAccIdJs}', '${safeRowNameJs}')" class="text-slate-400 hover:text-indigo-400 transition" title="Rename"><i class="fa-solid fa-pen-to-square text-[10px]"></i></button>
                   ${acc.is_primary
                     ? '<span class="text-[9px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 font-semibold border border-amber-500/30"><i class="fa-solid fa-star text-amber-400 mr-1 text-[8px]"></i>Primary</span>'
-                    : `<button onclick="setPrimaryAccount('${acc.account_id}')" class="text-[9px] px-2 py-0.5 rounded-full glass-pill text-slate-400 hover:text-white transition" title="Set as primary"><i class="fa-regular fa-star mr-1 text-[8px]"></i>Set Primary</button>`}
+                    : `<button onclick="setPrimaryAccount('${safeRowAccIdJs}')" class="text-[9px] px-2 py-0.5 rounded-full glass-pill text-slate-400 hover:text-white transition" title="Set as primary"><i class="fa-regular fa-star mr-1 text-[8px]"></i>Set Primary</button>`}
                   ${agyActiveTableBadge}
                 </div>
-                <div class="text-[11px] text-slate-400 font-mono truncate max-w-[220px] flex items-center space-x-1 mt-0.5" title="${acc.email}">
+                <div class="text-[11px] text-slate-400 font-mono truncate max-w-[220px] flex items-center space-x-1 mt-0.5" title="${safeRowEmailHtml}">
                   <i class="fa-regular fa-envelope text-slate-500 text-[10px] shrink-0"></i>
-                  <span class="truncate select-all">${acc.email}</span>
+                  <span class="truncate select-all">${safeRowEmailHtml}</span>
                 </div>
               </div>
             </div>
@@ -6051,10 +6153,10 @@ ightarrow$ v1.0.3</p>
           </td>
 
           <td class="px-3 py-3.5">
-            <code class="text-[11px] font-mono ${acc.last_used_model ? 'text-indigo-400 font-semibold' : 'text-slate-500'}">${acc.last_used_model || '—'}</code>
+            <code class="text-[11px] font-mono ${acc.last_used_model ? 'text-indigo-400 font-semibold' : 'text-slate-500'}">${escapeHtml(acc.last_used_model || '—')}</code>
           </td>
 
-          <td class="px-4 py-3.5 min-w-[150px]" title="${geminiQ.description || 'Gemini Models: Weekly + 5-Hour Limits'}">
+          <td class="px-4 py-3.5 min-w-[150px]" title="${escapeHtml(geminiQ.description || 'Gemini Models: Weekly + 5-Hour Limits')}">
             ${isWeb ? `
               <div class="flex items-center space-x-1.5">
                 ${!isEnabled 
@@ -6062,11 +6164,11 @@ ightarrow$ v1.0.3</p>
                   : (acc.has_cookies ? '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span><span class="text-emerald-400 font-semibold text-[11px]">Ready (' + (acc.cookies_count||0) + ' cookies)</span>' : '<span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span><span class="text-amber-400 font-semibold text-[11px]">No Cookies</span>')}
               </div>
             ` : (isApiKey ? (!isEnabled ? '<span class="px-2 py-0.5 rounded-full text-[10px] glass-pill text-slate-400 font-semibold font-mono">Paused</span>' : '<span class="text-emerald-400 font-semibold text-[11px]">PayG Active</span>') : `
-              <div class="space-y-1 cursor-pointer hover:opacity-90" onclick="openQuotaModal('${acc.account_id}')" title="Click to view official agy Models & Quota">
+              <div class="space-y-1 cursor-pointer hover:opacity-90" onclick="openQuotaModal('${safeRowAccIdJs}')" title="Click to view official agy Models & Quota">
                 <div>
                   <div class="flex justify-between items-center text-[10px]">
                     <span class="text-slate-400">Wk: <span class="font-bold font-mono ${geminiWkPct <= 0 ? 'text-red-400' : 'text-slate-200'}">${geminiWkPct}%</span></span>
-                    <span class="text-[9px] ${geminiIsExhausted ? 'text-red-400 font-semibold' : (geminiCooldown > 0 ? 'text-amber-400 font-semibold' : 'text-slate-400')}">${geminiIsExhausted ? geminiResetBadge : (geminiCooldown > 0 ? 'Cooldown (' + formatCooldown(geminiCooldown) + ')' : geminiResetBadge)}</span>
+                    <span class="text-[9px] ${geminiIsExhausted ? 'text-red-400 font-semibold' : (geminiCooldown > 0 ? 'text-amber-400 font-semibold' : 'text-slate-400')}">${geminiIsExhausted ? escapeHtml(geminiResetBadge) : (geminiCooldown > 0 ? 'Cooldown (' + formatCooldown(geminiCooldown) + ')' : escapeHtml(geminiResetBadge))}</span>
                   </div>
                   <div class="w-full h-1.5 bg-slate-950/80 rounded-full overflow-hidden mt-0.5 border border-white/[0.05]">
                     <div class="h-full rounded-full ${geminiWkPct <= 0 ? 'bg-red-500' : (geminiWkPct > 30 ? 'bg-gradient-to-r from-blue-500 to-indigo-500' : 'bg-gradient-to-r from-amber-500 to-yellow-400')}" style="width: ${Math.max(0, Math.min(100, geminiWkPct))}%"></div>
@@ -6084,13 +6186,13 @@ ightarrow$ v1.0.3</p>
             `)}
           </td>
 
-          <td class="px-4 py-3 min-w-[150px]" title="${claudeQ.description || 'Claude & GPT Models: Weekly + 5-Hour Limits'}">
+          <td class="px-4 py-3 min-w-[150px]" title="${escapeHtml(claudeQ.description || 'Claude & GPT Models: Weekly + 5-Hour Limits')}">
             ${(isApiKey || isWeb) ? '<span class="text-slate-500 text-[11px]">—</span>' : `
-              <div class="space-y-1 cursor-pointer hover:opacity-90" onclick="openQuotaModal('${acc.account_id}')" title="Click to view official agy Models & Quota">
+              <div class="space-y-1 cursor-pointer hover:opacity-90" onclick="openQuotaModal('${safeRowAccIdJs}')" title="Click to view official agy Models & Quota">
                 <div>
                   <div class="flex justify-between items-center text-[10px]">
                     <span class="text-slate-400">Wk: <span class="font-bold font-mono ${claudeWkPct <= 0 ? 'text-red-400' : 'text-slate-300'}">${claudeWkPct}%</span></span>
-                    <span class="text-[9px] ${claudeIsExhausted ? 'text-red-400 font-semibold' : (claudeCooldown > 0 ? 'text-amber-400 font-semibold' : 'text-slate-500')}">${claudeIsExhausted ? claudeResetBadge : (claudeCooldown > 0 ? 'Cooldown (' + formatCooldown(claudeCooldown) + ')' : claudeResetBadge)}</span>
+                    <span class="text-[9px] ${claudeIsExhausted ? 'text-red-400 font-semibold' : (claudeCooldown > 0 ? 'text-amber-400 font-semibold' : 'text-slate-500')}">${claudeIsExhausted ? escapeHtml(claudeResetBadge) : (claudeCooldown > 0 ? 'Cooldown (' + formatCooldown(claudeCooldown) + ')' : escapeHtml(claudeResetBadge))}</span>
                   </div>
                   <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mt-0.5">
                     <div class="h-full ${claudeWkPct <= 0 ? 'bg-red-500' : (claudeWkPct > 30 ? 'bg-purple-500' : 'bg-amber-500')}" style="width: ${Math.max(0, Math.min(100, claudeWkPct))}%"></div>
@@ -6112,7 +6214,7 @@ ightarrow$ v1.0.3</p>
             <div class="inline-flex items-center space-x-1 font-mono font-bold text-slate-300">
               <span>${acc.total_requests || 0}</span>
               ${(acc.total_requests > 0 || (acc.last_used_model && acc.last_used_model !== 'standby')) ? `
-                <button onclick="resetAccountStats('${acc.account_id}')" class="text-slate-500 hover:text-slate-300 p-0.5 rounded transition" title="Reset session stats to 0 / standby">
+                <button onclick="resetAccountStats('${safeRowAccIdJs}')" class="text-slate-500 hover:text-slate-300 p-0.5 rounded transition" title="Reset session stats to 0 / standby">
                   <i class="fa-solid fa-rotate-left text-[8px]"></i>
                 </button>
               ` : ''}
@@ -6121,15 +6223,15 @@ ightarrow$ v1.0.3</p>
 
           <td class="px-4 py-3 text-right">
             <div class="flex items-center justify-end space-x-1.5">
-              ${!isWeb && !isApiKey ? `<button onclick="openQuotaModal('${acc.account_id}')" class="text-slate-400 hover:text-purple-400 p-1 transition" title="View official agy Models & Quota"><i class="fa-solid fa-chart-pie text-xs"></i></button>` : ''}
-              <button onclick="openPlaygroundForAccount('${acc.account_id}')" class="text-slate-400 hover:text-indigo-400 p-1 transition" title="Test in Live Playground"><i class="fa-solid fa-terminal text-xs"></i></button>
-              <button onclick="testAccount('${acc.account_id}')" class="text-slate-400 hover:text-teal-400 p-1 transition" title="Test connection"><i class="fa-solid fa-vial-circle-check text-xs"></i></button>
-              ${!isWeb && !isApiKey ? `<button onclick="openActivateSessionModal('${acc.account_id}')" class="${isCliActive ? 'text-emerald-400 hover:text-emerald-300' : (isHubActive ? 'text-cyan-400 hover:text-cyan-300' : (isIdeActive ? 'text-purple-400 hover:text-purple-300' : 'text-slate-400 hover:text-emerald-400'))} p-1 transition" title="${agyActiveBadges.length > 0 ? `Active in ${agyActiveBadges.join(' + ')} (click to switch)` : 'Configure or switch AGY session'}"><i class="fa-solid ${isCliActive ? 'fa-terminal' : (isHubActive ? 'fa-globe' : (isIdeActive ? 'fa-code' : 'fa-user-check'))} text-xs"></i></button>` : ''}
-              ${isWeb ? `<button onclick="refreshWebCookies('${acc.account_id}')" class="text-slate-400 hover:text-teal-400 p-1 transition" title="Sync cookies from CDP port ${acc.cdp_port || 9222}"><i class="fa-solid fa-rotate text-xs"></i></button>` : ''}
-              <button onclick="toggleAccount('${acc.account_id}', ${!isEnabled})" class="relative inline-flex h-4 w-7 flex-shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isEnabled ? 'bg-indigo-600' : 'bg-slate-700'}" title="${isEnabled ? 'Pause' : 'Enable'}">
+              ${!isWeb && !isApiKey ? `<button onclick="openQuotaModal('${safeRowAccIdJs}')" class="text-slate-400 hover:text-purple-400 p-1 transition" title="View official agy Models & Quota"><i class="fa-solid fa-chart-pie text-xs"></i></button>` : ''}
+              <button onclick="openPlaygroundForAccount('${safeRowAccIdJs}')" class="text-slate-400 hover:text-indigo-400 p-1 transition" title="Test in Live Playground"><i class="fa-solid fa-terminal text-xs"></i></button>
+              <button onclick="testAccount('${safeRowAccIdJs}')" class="text-slate-400 hover:text-teal-400 p-1 transition" title="Test connection"><i class="fa-solid fa-vial-circle-check text-xs"></i></button>
+              ${!isWeb && !isApiKey ? `<button onclick="openActivateSessionModal('${safeRowAccIdJs}')" class="${isCliActive ? 'text-emerald-400 hover:text-emerald-300' : (isHubActive ? 'text-cyan-400 hover:text-cyan-300' : (isIdeActive ? 'text-purple-400 hover:text-purple-300' : 'text-slate-400 hover:text-emerald-400'))} p-1 transition" title="${agyActiveBadges.length > 0 ? `Active in ${escapeHtml(agyActiveBadges.join(' + '))} (click to switch)` : 'Configure or switch AGY session'}"><i class="fa-solid ${isCliActive ? 'fa-terminal' : (isHubActive ? 'fa-globe' : (isIdeActive ? 'fa-code' : 'fa-user-check'))} text-xs"></i></button>` : ''}
+              ${isWeb ? `<button onclick="refreshWebCookies('${safeRowAccIdJs}')" class="text-slate-400 hover:text-teal-400 p-1 transition" title="Sync cookies from CDP port ${escapeHtml(acc.cdp_port || 9222)}"><i class="fa-solid fa-rotate text-xs"></i></button>` : ''}
+              <button onclick="toggleAccount('${safeRowAccIdJs}', ${!isEnabled})" class="relative inline-flex h-4 w-7 flex-shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isEnabled ? 'bg-indigo-600' : 'bg-slate-700'}" title="${isEnabled ? 'Pause' : 'Enable'}">
                 <span class="pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${isEnabled ? 'translate-x-3' : 'translate-x-0'}"></span>
               </button>
-              <button onclick="deleteAccount('${acc.account_id}')" class="text-slate-500 hover:text-red-400 p-1 transition" title="Delete"><i class="fa-solid fa-trash-can text-xs"></i></button>
+              <button onclick="deleteAccount('${safeRowAccIdJs}')" class="text-slate-500 hover:text-red-400 p-1 transition" title="Delete"><i class="fa-solid fa-trash-can text-xs"></i></button>
             </div>
           </td>
         </tr>
@@ -6517,7 +6619,7 @@ ightarrow$ v1.0.3</p>
       });
 
       if (filtered.length === 0) {
-        listEl.innerHTML = `<div class="text-center py-10 text-slate-400 text-xs">No active models found matching "${q || currentModelPickerCompany}".</div>`;
+        listEl.innerHTML = `<div class="text-center py-10 text-slate-400 text-xs">No active models found matching "${escapeHtml(q || currentModelPickerCompany)}".</div>`;
         return;
       }
 
@@ -6544,19 +6646,19 @@ ightarrow$ v1.0.3</p>
         `;
         items.forEach(e => {
           const isActive = activeModelId === e.id;
-          const safeId = e.id.replace(/'/g, "\\'");
-          const safeTarget = (e.targetValue || '').replace(/'/g, "\\'");
+          const safeId = escapeHtml(String(e.id ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
+          const safeTarget = escapeHtml(String(e.targetValue || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
           html += `
             <button type="button" onclick="selectPlaygroundModel('${safeId}', '${safeTarget}'); closeModelPickerModal();" class="text-left p-3 rounded-xl border transition flex flex-col justify-between gap-1.5 ${isActive ? 'bg-indigo-600/20 border-indigo-500/60 ring-1 ring-indigo-500/30' : 'bg-white/[0.025] border-white/[0.07] hover:bg-white/[0.06] hover:border-white/[0.18]'}">
               <div class="flex items-center justify-between gap-2 w-full">
                 <span class="text-xs font-bold text-white truncate flex items-center gap-1.5">
                   ${e.supportsThinking ? '<i class="fa-solid fa-brain text-purple-400 text-[10px]"></i>' : ''}
-                  <span class="truncate">${e.displayName}</span>
+                  <span class="truncate">${escapeHtml(e.displayName)}</span>
                 </span>
-                ${isActive ? '<span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-indigo-500/30 text-indigo-200 border border-indigo-400/40 shrink-0">ACTIVE</span>' : `<span class="text-[9px] font-mono px-1.5 py-0.5 rounded-full border shrink-0 ${meta.badge}">${e.sourceLabel}</span>`}
+                ${isActive ? '<span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-indigo-500/30 text-indigo-200 border border-indigo-400/40 shrink-0">ACTIVE</span>' : `<span class="text-[9px] font-mono px-1.5 py-0.5 rounded-full border shrink-0 ${meta.badge}">${escapeHtml(e.sourceLabel)}</span>`}
               </div>
               <div class="flex items-center justify-between text-[10px] font-mono text-slate-400 w-full">
-                <span class="truncate">${e.id}</span>
+                <span class="truncate">${escapeHtml(e.id)}</span>
                 <span class="shrink-0 ml-2">${e.isExternal ? `${Math.round((e.maxTokens || 131072) / 1024)}k` : `${e.poolQuota}% quota`}</span>
               </div>
             </button>
@@ -6567,9 +6669,11 @@ ightarrow$ v1.0.3</p>
       listEl.innerHTML = html;
     }
 
+    const debouncedRenderModelCatalog = debounce((q) => renderModelCatalog(q), 120);
+
     function filterModelCatalog() {
       const q = document.getElementById('modelSearchInput')?.value || '';
-      renderModelCatalog(q);
+      debouncedRenderModelCatalog(q);
     }
 
     const GEMINI_WEB_MODELS = [
@@ -7108,8 +7212,7 @@ ightarrow$ v1.0.3</p>
         badge: 'Claude',
         badgeClass: 'text-amber-300 bg-amber-500/15 border-amber-500/30',
         methods: [
-          { id: 'anthropic_api', name: 'Anthropic API Key', icon: 'fa-solid fa-key', color: 'text-amber-400' },
-          { id: 'anthropic_web', name: 'Claude.ai Web Session', icon: 'fa-solid fa-globe', color: 'text-teal-400' }
+          { id: 'anthropic_api', name: 'Anthropic API Key', icon: 'fa-solid fa-key', color: 'text-amber-400' }
         ]
       },
       openai: {
@@ -7268,16 +7371,6 @@ ightarrow$ v1.0.3</p>
           if (webHint) webHint.innerText = 'paste HAR JSON or Cookie: header';
           const geminiZeroAuth = document.getElementById('geminiZeroAuthHelperContainer');
           if (geminiZeroAuth) geminiZeroAuth.classList.remove('hidden');
-        } else if (methodId === 'anthropic_web') {
-          const geminiZeroAuth = document.getElementById('geminiZeroAuthHelperContainer');
-          if (geminiZeroAuth) geminiZeroAuth.classList.add('hidden');
-          if (webTitle) webTitle.innerHTML = '<i class="fa-solid fa-cube mr-2 text-amber-400"></i> Claude.ai Web Session';
-          if (webBadge) webBadge.innerText = 'Claude Web';
-          if (webDesc) webDesc.innerHTML = 'Connect an active browser session from <a href="https://claude.ai" target="_blank" class="text-amber-400 underline">claude.ai</a>:';
-          if (webExtra) webExtra.classList.add('hidden');
-          if (webName) webName.placeholder = 'e.g. Claude Web Pro';
-          if (webCookies) webCookies.placeholder = 'Paste sessionKey cookie (sk-ant-sid01-...) or cURL request copied from Claude Web developer tools...';
-          if (webHint) webHint.innerText = 'paste sessionKey cookie or cURL';
         } else if (methodId === 'openai_web') {
           const geminiZeroAuth = document.getElementById('geminiZeroAuthHelperContainer');
           if (geminiZeroAuth) geminiZeroAuth.classList.add('hidden');
@@ -7385,8 +7478,6 @@ ightarrow$ v1.0.3</p>
         selectEcosystem('deepseek', 'deepseek_web');
       } else if (tab === 'deepseek_api' || tab === 'deepseek') {
         selectEcosystem('deepseek', 'deepseek_api');
-      } else if (tab === 'anthropic_web') {
-        selectEcosystem('anthropic', 'anthropic_web');
       } else if (tab === 'anthropic_api' || tab === 'anthropic' || tab === 'claude') {
         selectEcosystem('anthropic', 'anthropic_api');
       } else if (tab === 'external' || tab === 'gateways') {
@@ -7483,7 +7574,7 @@ ightarrow$ v1.0.3</p>
       const nameInput = document.getElementById('webNameInput');
       if (cookiesInput) cookiesInput.value = 'zero-auth';
       if (nameInput) nameInput.value = 'ChatGPT Web (Zero-Auth Guest)';
-      showToast('Обрано безкоштовний режим Zero-Auth Guest! Натисніть "Add to Pool" для збереження.', 'info');
+      showToast('Zero-Auth Guest selected! Click "Connect Session" to save.', 'info');
     }
 
     function handleHarFileUpload(input) {
@@ -7498,7 +7589,7 @@ ightarrow$ v1.0.3</p>
             cookiesInput.value = content;
             if (typeof autoDetectAuthUser === 'function') autoDetectAuthUser(content);
           }
-          showToast(`Завантажено файл ${file.name}. Натисніть Add to Pool для збереження сесії в ~/.config/agy-proxy.`, 'success');
+          showToast(`Loaded ${file.name}. Click "Connect Session" to save.`, 'success');
         }
       };
       reader.readAsText(file);
@@ -7507,6 +7598,8 @@ ightarrow$ v1.0.3</p>
 
     async function openAddAccountModal(initialTab = 'oauth') {
       const tab = initialTab || 'oauth';
+      currentOAuthState = null;
+      currentOAuthVerifier = null;
       document.getElementById('authCodeInput').value = '';
       document.getElementById('apiKeyValueInput').value = '';
       document.getElementById('apiKeyLabelInput').value = '';
@@ -7524,10 +7617,6 @@ ightarrow$ v1.0.3</p>
 
       switchAddTab(tab);
       document.getElementById('addAccountModal').classList.remove('hidden');
-
-      if (tab === 'oauth') {
-        initOAuthFlow(true);
-      }
     }
 
     function closeAddAccountModal() {
@@ -7798,7 +7887,14 @@ ightarrow$ v1.0.3</p>
       btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
 
       try {
-        const providerType = id.toLowerCase().includes('ollama') ? 'ollama' : 'openai_compatible';
+        const idLow = id.toLowerCase();
+        const providerType = (idLow.includes('ollama') || currentAuthMethod === 'ollama_local') ? 'ollama'
+          : ((idLow.includes('anthropic') || currentAuthMethod === 'anthropic_api') ? 'anthropic'
+          : (((idLow.includes('openai') && !idLow.includes('openrouter')) || currentAuthMethod === 'openai_api') ? 'openai'
+          : ((idLow.includes('deepseek') || currentAuthMethod === 'deepseek_api') ? 'deepseek'
+          : ((idLow.includes('openrouter') || currentAuthMethod === 'openrouter') ? 'openrouter'
+          : ((idLow.includes('groq') || currentAuthMethod === 'groq') ? 'groq'
+          : ((idLow.includes('nvidia') || currentAuthMethod === 'nvidia') ? 'nvidia' : 'openai_compatible'))))));
         const res = await fetch('/api/providers', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -7814,8 +7910,8 @@ ightarrow$ v1.0.3</p>
           })
         });
         if (!res.ok) {
-          const errText = await res.text();
-          throw new Error(errText);
+          const errData = await safeReadJsonResponse(res);
+          throw new Error(errData.detail || errData.error || `HTTP ${res.status}`);
         }
         showToast(`Successfully configured provider "${name}"!`, 'success');
         closeAddAccountModal();
@@ -7825,7 +7921,7 @@ ightarrow$ v1.0.3</p>
         showToast('Failed to save provider: ' + err.message, 'error');
       } finally {
         btn.disabled = false;
-        btn.innerHTML = '<i class="fa-solid fa-check"></i> Add to Pool';
+        btn.innerHTML = '<i class="fa-solid fa-check"></i><span>Add to Pool</span>';
       }
     }
 
@@ -7843,7 +7939,7 @@ ightarrow$ v1.0.3</p>
         <div class="p-6 text-center space-y-3">
           <i class="fa-solid fa-circle-notch fa-spin text-teal-400 text-2xl"></i>
           <p class="text-slate-300 font-medium">Testing connectivity & credentials...</p>
-          <p class="text-slate-500 text-[11px] font-mono">Target: ${accountId}</p>
+          <p class="text-slate-500 text-[11px] font-mono">Target: ${escapeHtml(accountId)}</p>
         </div>
       `;
 
@@ -7855,14 +7951,14 @@ ightarrow$ v1.0.3</p>
       }
 
       try {
-        const res = await fetch(`/api/accounts/${accountId}/test`, { method: 'POST' });
-        const data = await res.json();
+        const res = await fetch(`/api/accounts/${encodeURIComponent(accountId)}/test`, { method: 'POST' });
+        const data = await safeReadJsonResponse(res);
         const acc = (rawAccountsData || []).find(a => a.account_id === accountId) || {};
         const authMethod = data.auth_method || acc.auth_method || 'oauth';
         const latency = data.latency_ms !== undefined ? `${data.latency_ms} ms` : 'N/A';
         const accName = data.name || acc.name || data.email || acc.email || accountId;
 
-        if (data.ok) {
+        if (res.ok && data.ok) {
           let extraHtml = '';
           if (authMethod === 'gemini_web') {
             const cookiesCount = data.details?.cookies_count ?? acc.cookies_count ?? 0;
@@ -7871,7 +7967,7 @@ ightarrow$ v1.0.3</p>
               <div class="grid grid-cols-2 gap-2 text-slate-300 pt-1">
                 <div class="p-2 rounded-xl bg-slate-900 border border-slate-800">
                   <span class="text-[10px] text-slate-500 uppercase font-mono block">Cookies Detected</span>
-                  <span class="font-mono text-emerald-400 font-bold text-sm">${cookiesCount} active</span>
+                  <span class="font-mono text-emerald-400 font-bold text-sm">${escapeHtml(cookiesCount)} active</span>
                 </div>
                 <div class="p-2 rounded-xl bg-slate-900 border border-slate-800">
                   <span class="text-[10px] text-slate-500 uppercase font-mono block">AT Security Token</span>
@@ -7901,22 +7997,22 @@ ightarrow$ v1.0.3</p>
               <i class="fa-solid fa-circle-check text-emerald-400 text-base mt-0.5 shrink-0"></i>
               <div>
                 <h4 class="text-xs font-bold text-emerald-300">Connection Successful</h4>
-                <p class="text-[11px] text-slate-300 mt-0.5">${data.message || 'Account is valid and responsive.'}</p>
+                <p class="text-[11px] text-slate-300 mt-0.5">${escapeHtml(data.message || 'Account is valid and responsive.')}</p>
               </div>
             </div>
 
             <div class="space-y-1.5 p-3 rounded-xl bg-slate-900 border border-slate-800 text-[11px]">
               <div class="flex justify-between items-center text-slate-400">
                 <span>Account:</span>
-                <span class="font-mono text-white font-semibold truncate max-w-[200px]">${accName}</span>
+                <span class="font-mono text-white font-semibold truncate max-w-[200px]">${escapeHtml(accName)}</span>
               </div>
               <div class="flex justify-between items-center text-slate-400">
                 <span>Type:</span>
-                <span class="font-mono text-slate-200 uppercase text-[10px] px-1.5 py-0.5 rounded bg-slate-800">${authMethod}</span>
+                <span class="font-mono text-slate-200 uppercase text-[10px] px-1.5 py-0.5 rounded bg-slate-800">${escapeHtml(authMethod)}</span>
               </div>
               <div class="flex justify-between items-center text-slate-400">
                 <span>Response Latency:</span>
-                <span class="font-mono text-emerald-400 font-bold">${latency}</span>
+                <span class="font-mono text-emerald-400 font-bold">${escapeHtml(latency)}</span>
               </div>
             </div>
 
@@ -7925,7 +8021,7 @@ ightarrow$ v1.0.3</p>
         } else {
           let helpText = 'Check network connectivity and credentials.';
           if (authMethod === 'gemini_web') {
-            helpText = 'Ensure Chrome or Helium is running with <code class="font-mono text-teal-300">--remote-debugging-port=' + (acc.cdp_port || 9222) + '</code> and signed in to <a href="https://gemini.google.com" target="_blank" class="underline text-teal-400">gemini.google.com</a>, or paste fresh cookies in the Edit modal.';
+            helpText = 'Ensure Chrome or Helium is running with <code class="font-mono text-teal-300">--remote-debugging-port=' + escapeHtml(acc.cdp_port || 9222) + '</code> and signed in to <a href="https://gemini.google.com" target="_blank" class="underline text-teal-400">gemini.google.com</a>, or paste fresh cookies in the Edit modal.';
           } else if (authMethod === 'api_key') {
             helpText = 'Your AI Studio API Key may be disabled, deleted, or quota exhausted. Generate a fresh key at <a href="https://aistudio.google.com/app/apikey" target="_blank" class="underline text-amber-400">aistudio.google.com</a>.';
           } else {
@@ -7937,22 +8033,22 @@ ightarrow$ v1.0.3</p>
               <i class="fa-solid fa-circle-xmark text-red-400 text-base mt-0.5 shrink-0"></i>
               <div>
                 <h4 class="text-xs font-bold text-red-300">Connection Test Failed</h4>
-                <p class="text-[11px] text-red-200 mt-0.5">${data.error || 'Unknown error occurred during test.'}</p>
+                <p class="text-[11px] text-red-200 mt-0.5">${escapeHtml(data.error || data.detail || res.statusText || 'Unknown error occurred during test.')}</p>
               </div>
             </div>
 
             <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 text-[11px] space-y-1.5">
               <div class="flex justify-between items-center text-slate-400">
                 <span>Account:</span>
-                <span class="font-mono text-white font-semibold truncate max-w-[200px]">${accName}</span>
+                <span class="font-mono text-white font-semibold truncate max-w-[200px]">${escapeHtml(accName)}</span>
               </div>
               <div class="flex justify-between items-center text-slate-400">
                 <span>Type:</span>
-                <span class="font-mono text-slate-200 uppercase text-[10px] px-1.5 py-0.5 rounded bg-slate-800">${authMethod}</span>
+                <span class="font-mono text-slate-200 uppercase text-[10px] px-1.5 py-0.5 rounded bg-slate-800">${escapeHtml(authMethod)}</span>
               </div>
               <div class="flex justify-between items-center text-slate-400">
                 <span>Latency:</span>
-                <span class="font-mono text-red-400">${latency}</span>
+                <span class="font-mono text-red-400">${escapeHtml(latency)}</span>
               </div>
             </div>
 
@@ -7969,7 +8065,7 @@ ightarrow$ v1.0.3</p>
         body.innerHTML = `
           <div class="p-3 rounded-xl bg-red-500/15 border border-red-500/30 text-red-300 text-xs space-y-1">
             <h4 class="font-bold">Client / Network Error</h4>
-            <p>${err.message || err}</p>
+            <p>${escapeHtml(err.message || err)}</p>
           </div>
         `;
       }
@@ -8105,11 +8201,14 @@ ightarrow$ v1.0.3</p>
       try {
         const res = await fetch(`/api/accounts/${encodeURIComponent(accId)}`, { method: 'DELETE' });
         if (res.ok) {
+          selectedBatchAccountIds.delete(accId);
           showToast('Account removed from pool', 'success');
         } else {
-          showToast('Failed to remove account', 'error');
+          const err = await safeReadJsonResponse(res);
+          showToast(err.detail || err.error || 'Failed to remove account', 'error');
         }
         await loadAccounts();
+        await loadModels();
       } catch (e) {
         showToast('Failed to remove account: ' + e.message, 'error');
       }
@@ -8117,16 +8216,20 @@ ightarrow$ v1.0.3</p>
 
     async function refreshAllAccounts() {
       const icon = document.getElementById('refreshIcon');
-      icon.classList.add('fa-spin');
+      if (icon) icon.classList.add('fa-spin');
       try {
-        await fetch('/api/accounts/refresh_all', { method: 'POST' });
+        const res = await fetch('/api/accounts/refresh_all', { method: 'POST' });
+        if (!res.ok) {
+          const err = await safeReadJsonResponse(res);
+          throw new Error(err.detail || err.error || `HTTP ${res.status}`);
+        }
         await loadAccounts();
         await loadModels();
         showToast('All accounts and models refreshed', 'success');
       } catch (err) {
         showToast('Refresh failed: ' + err.message, 'error');
       } finally {
-        icon.classList.remove('fa-spin');
+        if (icon) icon.classList.remove('fa-spin');
       }
     }
 
@@ -8153,13 +8256,21 @@ ightarrow$ v1.0.3</p>
 
       input.value = '';
 
-      if (messagesHistory.length === 0) {
-        document.getElementById('chatContainer').innerHTML = '';
+      const chatContainerEl = document.getElementById('chatContainer');
+      if (messagesHistory.length === 0 && chatContainerEl) {
+        chatContainerEl.innerHTML = '';
       }
 
-      // Add user message
+      // Add user message (tracked for rollback on request failure)
+      const userTurnIndex = messagesHistory.length;
       messagesHistory.push({ role: 'user', content: text });
       appendMessageUI('user', text);
+
+      const rollbackUserTurn = () => {
+        if (messagesHistory.length > userTurnIndex) {
+          messagesHistory.splice(userTurnIndex);
+        }
+      };
 
       // Prepare assistant bubble
       const model = document.getElementById('modelSelect').value;
@@ -8172,8 +8283,10 @@ ightarrow$ v1.0.3</p>
       const msgStatsElem = assistantBubble.querySelector('.msg-stats');
 
       const system = document.getElementById('systemPrompt').value.trim();
-      const temperature = parseFloat(document.getElementById('tempSlider').value);
-      const maxTokens = parseInt(document.getElementById('maxTokens').value);
+      const parsedTemp = parseFloat(document.getElementById('tempSlider')?.value ?? '0.7');
+      const temperature = Number.isFinite(parsedTemp) ? parsedTemp : 0.7;
+      const parsedMaxTokens = parseInt(document.getElementById('maxTokens')?.value ?? '', 10);
+      const maxTokens = Number.isFinite(parsedMaxTokens) && parsedMaxTokens > 0 ? parsedMaxTokens : 4096;
       const stream = document.getElementById('streamToggle').checked;
 
       const reqMessages = [];
@@ -8189,9 +8302,14 @@ ightarrow$ v1.0.3</p>
       let fullThought = '';
       let thinkStartTime = Date.now();
       let hasFinishedThinking = false;
+      let renderRafId = null;
 
       const targetAcc = document.getElementById('playgroundAccountSelect')?.value || '';
       const reqHeaders = { 'Content-Type': 'application/json' };
+      const savedApiKey = (localStorage.getItem('agy_proxy_api_key') || '').trim();
+      if (savedApiKey) {
+        reqHeaders['Authorization'] = `Bearer ${savedApiKey}`;
+      }
       if (targetAcc) {
         reqHeaders['x-account-id'] = targetAcc;
       }
@@ -8204,110 +8322,139 @@ ightarrow$ v1.0.3</p>
         ...(targetAcc ? { account_id: targetAcc } : {})
       };
 
+      const renderErrorBox = (statusCode, errMsg) => {
+        const displayMsg = statusCode === 401
+          ? `${errMsg} (Proxy requires an API key — configure agy_proxy_api_key or disable API key auth)`
+          : errMsg;
+        contentElem.innerHTML = `
+          <div class="p-3 rounded-xl bg-red-500/15 border border-red-500/30 text-red-300 text-xs space-y-1">
+            <div class="font-bold flex items-center gap-1.5 text-red-400">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+              <span>Request Failed (${escapeHtml(statusCode)})</span>
+            </div>
+            <p class="font-mono text-[11px] leading-relaxed">${escapeHtml(displayMsg)}</p>
+          </div>
+        `;
+      };
+
+      const flushStreamDom = () => {
+        if (fullThought) {
+          thoughtElem.classList.remove('hidden');
+          thoughtContentElem.innerText = fullThought;
+          const elapsed = ((Date.now() - thinkStartTime) / 1000).toFixed(1);
+          thoughtTimeElem.innerText = hasFinishedThinking
+            ? `Thought for ${elapsed}s (~${Math.round(fullThought.length / 4)} tokens)`
+            : `Thinking (${elapsed}s)...`;
+        }
+        if (fullText) {
+          contentElem.innerHTML = formatMarkdownAndMath(fullText);
+        }
+        if (chatContainerEl) {
+          chatContainerEl.scrollTop = chatContainerEl.scrollHeight;
+        }
+      };
+
+      const scheduleStreamRender = () => {
+        if (renderRafId !== null) return;
+        renderRafId = requestAnimationFrame(() => {
+          renderRafId = null;
+          flushStreamDom();
+        });
+      };
+
       try {
-        if (stream) {
-          const resp = await fetch('/v1/chat/completions', {
-            method: 'POST',
-            headers: reqHeaders,
-            body: JSON.stringify(reqPayload)
-          });
+        const resp = await fetch('/v1/chat/completions', {
+          method: 'POST',
+          headers: reqHeaders,
+          body: JSON.stringify(reqPayload)
+        });
 
-          if (!resp.ok) {
-            let errMsg = resp.statusText;
-            try {
-              const errData = await resp.json();
-              errMsg = errData.error?.message || errData.detail || errData.error || errMsg;
-            } catch (_) {
-              errMsg = await resp.text();
-            }
-            contentElem.innerHTML = `
-              <div class="p-3 rounded-xl bg-red-500/15 border border-red-500/30 text-red-300 text-xs space-y-1">
-                <div class="font-bold flex items-center gap-1.5 text-red-400">
-                  <i class="fa-solid fa-triangle-exclamation"></i>
-                  <span>Request Failed (${resp.status})</span>
-                </div>
-                <p class="font-mono text-[11px] leading-relaxed">${errMsg}</p>
-              </div>
-            `;
-            return;
-          }
+        if (!resp.ok) {
+          const errData = await safeReadJsonResponse(resp);
+          const errMsg = errData.error?.message || errData.detail || errData.error || resp.statusText || 'Request failed';
+          rollbackUserTurn();
+          renderErrorBox(resp.status, errMsg);
+          return;
+        }
 
+        if (stream && resp.body) {
           const reader = resp.body.getReader();
           const decoder = new TextDecoder();
           let buffer = '';
+          let streamDone = false;
 
-          while (true) {
+          const processSseLine = (rawLine) => {
+            const trimmed = rawLine.trim();
+            if (!trimmed.startsWith('data:')) return;
+            const dataStr = trimmed.slice(5).trim();
+            if (dataStr === '[DONE]') {
+              streamDone = true;
+              return;
+            }
+            let chunk = null;
+            try {
+              chunk = JSON.parse(dataStr);
+            } catch (pe) {
+              return;
+            }
+            if (chunk && chunk.error) {
+              const streamErrMsg = chunk.error?.message || (typeof chunk.error === 'string' ? chunk.error : JSON.stringify(chunk.error));
+              throw new Error(streamErrMsg);
+            }
+            const delta = chunk?.choices?.[0]?.delta || {};
+
+            // 1. Thinking / Reasoning Process Delta
+            if (delta.reasoning_content) {
+              fullThought += delta.reasoning_content;
+              scheduleStreamRender();
+            }
+
+            // 2. Main Content Delta
+            if (delta.content) {
+              // When main response starts after thinking, collapse the thought box and stop pulse
+              if (fullThought && !hasFinishedThinking) {
+                hasFinishedThinking = true;
+                const dur = ((Date.now() - thinkStartTime) / 1000).toFixed(1);
+                thoughtTimeElem.innerText = `Thought for ${dur}s (~${Math.round(fullThought.length / 4)} tokens)`;
+                if (thoughtIconElem) thoughtIconElem.classList.remove('animate-pulse');
+                thoughtElem.removeAttribute('open'); // Auto-collapse for clean view
+              }
+              fullText += delta.content;
+              scheduleStreamRender();
+            }
+          };
+
+          while (!streamDone) {
             const { done, value } = await reader.read();
-            if (done) break;
+            if (done) {
+              if (buffer.trim()) {
+                processSseLine(buffer);
+                buffer = '';
+              }
+              break;
+            }
 
             buffer += decoder.decode(value, { stream: true });
             const lines = buffer.split('\n');
-            buffer = lines.pop();
+            buffer = lines.pop() ?? '';
 
             for (const line of lines) {
-              const trimmed = line.trim();
-              if (trimmed.startsWith('data:')) {
-                const dataStr = trimmed.slice(5).trim();
-                if (dataStr === '[DONE]') break;
-                try {
-                  const chunk = JSON.parse(dataStr);
-                  const delta = chunk.choices?.[0]?.delta || {};
-
-                  // 1. Thinking / Reasoning Process Delta
-                  if (delta.reasoning_content) {
-                    fullThought += delta.reasoning_content;
-                    thoughtElem.classList.remove('hidden');
-                    thoughtContentElem.innerText = fullThought;
-                    const elapsed = ((Date.now() - thinkStartTime) / 1000).toFixed(1);
-                    thoughtTimeElem.innerText = `Thinking (${elapsed}s)...`;
-                  }
-
-                  // 2. Main Content Delta
-                  if (delta.content) {
-                    // When main response starts after thinking, collapse the thought box and stop pulse
-                    if (fullThought && !hasFinishedThinking) {
-                      hasFinishedThinking = true;
-                      const dur = ((Date.now() - thinkStartTime) / 1000).toFixed(1);
-                      thoughtTimeElem.innerText = `Thought for ${dur}s (~${Math.round(fullThought.length / 4)} tokens)`;
-                      if (thoughtIconElem) thoughtIconElem.classList.remove('animate-pulse');
-                      thoughtElem.removeAttribute('open'); // Auto-collapse for clean view
-                    }
-                    fullText += delta.content;
-                    contentElem.innerHTML = formatMarkdownAndMath(fullText);
-                  }
-                } catch (pe) {}
-              }
+              processSseLine(line);
+              if (streamDone) break;
             }
-            document.getElementById('chatContainer').scrollTop = document.getElementById('chatContainer').scrollHeight;
           }
+
+          if (renderRafId !== null) {
+            cancelAnimationFrame(renderRafId);
+            renderRafId = null;
+          }
+          flushStreamDom();
         } else {
-          const resp = await fetch('/v1/chat/completions', {
-            method: 'POST',
-            headers: reqHeaders,
-            body: JSON.stringify(reqPayload)
-          });
-
-          if (!resp.ok) {
-            let errMsg = resp.statusText;
-            try {
-              const errData = await resp.json();
-              errMsg = errData.error?.message || errData.detail || errData.error || errMsg;
-            } catch (_) {
-              errMsg = await resp.text();
-            }
-            contentElem.innerHTML = `
-              <div class="p-3 rounded-xl bg-red-500/15 border border-red-500/30 text-red-300 text-xs space-y-1">
-                <div class="font-bold flex items-center gap-1.5 text-red-400">
-                  <i class="fa-solid fa-triangle-exclamation"></i>
-                  <span>Request Failed (${resp.status})</span>
-                </div>
-                <p class="font-mono text-[11px] leading-relaxed">${errMsg}</p>
-              </div>
-            `;
-            return;
+          const resJson = await safeReadJsonResponse(resp);
+          if (resJson.error) {
+            const errDetail = resJson.error?.message || (typeof resJson.error === 'string' ? resJson.error : JSON.stringify(resJson.error));
+            throw new Error(errDetail);
           }
-
-          const resJson = await resp.json();
           const msg = resJson.choices?.[0]?.message || {};
           if (msg.reasoning_content) {
             fullThought = msg.reasoning_content;
@@ -8338,7 +8485,12 @@ ightarrow$ v1.0.3</p>
         messagesHistory.push({ role: 'assistant', content: fullText });
         await loadAccounts(); // Update live quota and request counts
       } catch (err) {
-        contentElem.innerHTML = `<span class="text-red-400"><i class="fa-solid fa-triangle-exclamation mr-1.5"></i>Error: ${err.message}</span>`;
+        if (renderRafId !== null) {
+          cancelAnimationFrame(renderRafId);
+          renderRafId = null;
+        }
+        rollbackUserTurn();
+        contentElem.innerHTML = `<span class="text-red-400"><i class="fa-solid fa-triangle-exclamation mr-1.5"></i>Error: ${escapeHtml(err.message || err)}</span>`;
       } finally {
         isGenerating = false;
         document.getElementById('sendBtn').disabled = false;
@@ -8541,12 +8693,12 @@ ightarrow$ v1.0.3</p>
       btn.disabled = true;
       btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Pulling latest changes...';
       out.classList.remove('hidden');
-      out.innerText = 'Running: git pull origin main...';
+      out.innerText = 'Running: git pull --ff-only...';
 
       try {
         const res = await fetch('/api/update/pull', { method: 'POST' });
-        const data = await res.json();
-        if (data.success) {
+        const data = await safeReadJsonResponse(res);
+        if (res.ok && data.success) {
           out.innerText = `Successfully updated!
 ${data.stdout || 'Already up to date.'}
 
@@ -8556,8 +8708,8 @@ Please restart the proxy server if python files changed.`;
             checkForSoftwareUpdates(true);
           }, 2000);
         } else {
-          out.innerText = `Update failed (code ${data.returncode}):
-${data.stderr || data.stdout || data.error}`;
+          out.innerText = `Update failed (code ${data.returncode ?? 'err'}):
+${data.stderr || data.stdout || data.error || data.detail || res.statusText}`;
           btn.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Retry';
           btn.disabled = false;
         }
@@ -8710,42 +8862,53 @@ ${data.stderr || data.stdout || data.error}`;
     }
 
     // Process Control
+    let processPollInFlight = false;
     async function pollProcessStatus() {
+      if (processPollInFlight) return;
+      processPollInFlight = true;
       try {
         const res = await fetch('/api/processes/status');
         if (res.ok) {
-          const data = await res.json();
+          const data = await safeReadJsonResponse(res);
           const pAgy = document.getElementById('processStatus-agy');
           const pLs = document.getElementById('processStatus-ls');
           
           if (pAgy && data.agy) {
             const isUp = typeof data.agy === 'object' ? data.agy.status === 'running' : data.agy === 'running';
             const pid = typeof data.agy === 'object' ? data.agy.pid : null;
-            pAgy.innerHTML = `<span class="w-2 h-2 rounded-full ${isUp ? 'bg-emerald-500' : 'bg-red-500'}"></span> <span>${isUp ? 'Running' : 'Stopped'}</span> <span class="ml-2 text-[10px]">PID: ${pid || 'N/A'}</span>`;
+            pAgy.innerHTML = `<span class="w-2 h-2 rounded-full ${isUp ? 'bg-emerald-500' : 'bg-red-500'}"></span> <span>${isUp ? 'Running' : 'Stopped'}</span> <span class="ml-2 text-[10px]">PID: ${escapeHtml(pid || 'N/A')}</span>`;
           }
           if (pLs && data.language_server) {
             const isUp = typeof data.language_server === 'object' ? data.language_server.status === 'running' : data.language_server === 'running';
             const pid = typeof data.language_server === 'object' ? data.language_server.pid : null;
-            pLs.innerHTML = `<span class="w-2 h-2 rounded-full ${isUp ? 'bg-emerald-500' : 'bg-red-500'}"></span> <span>${isUp ? 'Running' : 'Stopped'}</span> <span class="ml-2 text-[10px]">PID: ${pid || 'N/A'}</span>`;
+            pLs.innerHTML = `<span class="w-2 h-2 rounded-full ${isUp ? 'bg-emerald-500' : 'bg-red-500'}"></span> <span>${isUp ? 'Running' : 'Stopped'}</span> <span class="ml-2 text-[10px]">PID: ${escapeHtml(pid || 'N/A')}</span>`;
           }
         }
       } catch (err) {
         console.error('Failed to poll process status:', err);
+      } finally {
+        processPollInFlight = false;
       }
     }
     
-    // Start polling automatically
-    setInterval(pollProcessStatus, 5000);
-    setTimeout(pollProcessStatus, 1000); 
+    // Poll heavy process status only when Settings tab is active and page is visible
+    setInterval(() => {
+      if (!document.hidden && currentActiveTab === 'settings') {
+        pollProcessStatus();
+      }
+    }, 8000);
 
     async function controlProcess(procName, action) {
       try {
-        const res = await fetch(`/api/processes/${action}`, {
+        const res = await fetch(`/api/processes/${encodeURIComponent(action)}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ process: procName, process_name: procName })
         });
-        if (!res.ok) throw new Error(`Failed to ${action} ${procName}`);
+        if (!res.ok) {
+          const errData = await safeReadJsonResponse(res);
+          throw new Error(errData.detail || errData.error || `Failed to ${action} ${procName}`);
+        }
         showToast(`Process ${procName} ${action} command sent`, 'success');
         pollProcessStatus();
       } catch (err) {
@@ -8754,30 +8917,63 @@ ${data.stderr || data.stdout || data.error}`;
     }
 
     // Batch Operations
+    function handleBatchCheckboxChange(cb) {
+      if (!cb || !cb.value) return;
+      if (cb.checked) {
+        selectedBatchAccountIds.add(cb.value);
+      } else {
+        selectedBatchAccountIds.delete(cb.value);
+      }
+      document.querySelectorAll('.account-batch-checkbox').forEach(other => {
+        if (other !== cb && other.value === cb.value) {
+          other.checked = cb.checked;
+        }
+      });
+      updateBatchButtons();
+    }
+
     function getSelectedBatchAccounts() {
-      const boxes = document.querySelectorAll('.account-batch-checkbox:checked');
-      return Array.from(boxes).map(b => b.value);
+      return Array.from(selectedBatchAccountIds);
     }
 
     function toggleSelectAllBatch(master) {
-      document.querySelectorAll('.account-batch-checkbox').forEach(cb => {
-        cb.checked = master.checked;
+      const scope = master?.closest('table') || document;
+      const isChecked = !!master?.checked;
+      scope.querySelectorAll('.account-batch-checkbox').forEach(cb => {
+        cb.checked = isChecked;
+        if (cb.value) {
+          if (isChecked) selectedBatchAccountIds.add(cb.value);
+          else selectedBatchAccountIds.delete(cb.value);
+        }
       });
       updateBatchButtons();
     }
 
     function updateBatchButtons() {
-      const selected = getSelectedBatchAccounts();
+      const count = selectedBatchAccountIds.size;
       const delBtn = document.getElementById('batchDeleteBtn');
       const refBtn = document.getElementById('batchRefreshBtn');
-      if (delBtn && refBtn) {
-        if (selected.length > 0) {
-          delBtn.classList.remove('hidden');
-          refBtn.classList.remove('hidden');
-        } else {
-          delBtn.classList.add('hidden');
-          refBtn.classList.add('hidden');
-        }
+      const mBatchSec = document.getElementById('mobileBatchActionsSection');
+      const mDelBtn = document.getElementById('mBatchDeleteBtn');
+      const mRefBtn = document.getElementById('mBatchRefreshBtn');
+
+      const syncBtn = (btn, labelBase) => {
+        if (!btn) return;
+        btn.classList.toggle('hidden', count === 0);
+        const label = btn.querySelector('span');
+        if (label) label.textContent = count > 0 ? `${labelBase} (${count})` : labelBase;
+      };
+
+      syncBtn(delBtn, 'Delete Selected');
+      syncBtn(refBtn, 'Refresh Selected');
+      if (mBatchSec) mBatchSec.classList.toggle('hidden', count === 0);
+      if (mDelBtn) {
+        const label = mDelBtn.querySelector('span');
+        if (label) label.textContent = count > 0 ? `Delete Selected (${count})` : 'Delete Selected';
+      }
+      if (mRefBtn) {
+        const label = mRefBtn.querySelector('span');
+        if (label) label.textContent = count > 0 ? `Refresh Selected (${count})` : 'Refresh Selected';
       }
     }
 
@@ -8792,10 +8988,14 @@ ${data.stderr || data.stdout || data.error}`;
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ account_ids: selected })
         });
-        if (!res.ok) throw new Error('Batch delete failed');
+        if (!res.ok) {
+          const errData = await safeReadJsonResponse(res);
+          throw new Error(errData.detail || errData.error || 'Batch delete failed');
+        }
+        selected.forEach(id => selectedBatchAccountIds.delete(id));
         showToast(`Deleted ${selected.length} accounts`, 'success');
-        loadAccounts();
         updateBatchButtons();
+        await loadAccounts();
       } catch (err) {
         showToast(err.message, 'error');
       }
@@ -8811,9 +9011,12 @@ ${data.stderr || data.stdout || data.error}`;
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ account_ids: selected })
         });
-        if (!res.ok) throw new Error('Batch refresh failed');
+        if (!res.ok) {
+          const errData = await safeReadJsonResponse(res);
+          throw new Error(errData.detail || errData.error || 'Batch refresh failed');
+        }
         showToast(`Refreshing ${selected.length} accounts...`, 'success');
-        setTimeout(loadAccounts, 2000);
+        setTimeout(() => loadAccounts(true), 2000);
       } catch (err) {
         showToast(err.message, 'error');
       }
@@ -8823,6 +9026,7 @@ ${data.stderr || data.stdout || data.error}`;
     let trafficRecords = [];
     let trafficEventSource = null;
     let trafficInitialized = false;
+    let trafficTableDirty = true;
 
     async function initTrafficInspector() {
       if (trafficInitialized) return;
@@ -8835,9 +9039,12 @@ ${data.stderr || data.stdout || data.error}`;
       try {
         const res = await fetch('/api/traffic?limit=100');
         if (!res.ok) return;
-        const data = await res.json();
+        const data = await safeReadJsonResponse(res);
         trafficRecords = data.records || [];
-        renderTrafficTable();
+        trafficTableDirty = true;
+        if (currentActiveTab === 'traffic') {
+          renderTrafficTable();
+        }
         updateTrafficBadge();
       } catch (e) {
         console.warn('Failed to load traffic history:', e);
@@ -8862,7 +9069,10 @@ ${data.stderr || data.stdout || data.error}`;
             const record = JSON.parse(event.data);
             trafficRecords.unshift(record);
             if (trafficRecords.length > 200) trafficRecords.pop();
-            renderTrafficTable();
+            trafficTableDirty = true;
+            if (currentActiveTab === 'traffic') {
+              renderTrafficTable();
+            }
             updateTrafficBadge();
           } catch (err) {
             console.debug('SSE parse err:', err);
@@ -8900,20 +9110,39 @@ ${data.stderr || data.stdout || data.error}`;
       }
     }
 
+    const debouncedRenderTrafficTable = debounce(() => renderTrafficTable(), 120);
     function filterTrafficTable() {
-      renderTrafficTable();
+      debouncedRenderTrafficTable();
     }
 
     function renderTrafficTable() {
+      trafficTableDirty = false;
       const tbody = document.getElementById('trafficTableBody');
       const cardsContainer = document.getElementById('trafficCardsContainer');
       if (!tbody && !cardsContainer) return;
 
       const total = trafficRecords.length;
-      const successCount = trafficRecords.filter(r => r.status_code >= 200 && r.status_code < 400).length;
+      let successCount = 0;
+      let totalDuration = 0;
+      let totalTokens = 0;
+
+      const filterQuery = (document.getElementById('trafficSearchInput')?.value || '').trim().toLowerCase();
+      const filteredEntries = [];
+      for (let rawIdx = 0; rawIdx < total; rawIdx++) {
+        const r = trafficRecords[rawIdx];
+        if (r.status_code >= 200 && r.status_code < 400) successCount++;
+        totalDuration += (r.duration_ms || 0);
+        totalTokens += (r.total_tokens || ((r.prompt_tokens || 0) + (r.completion_tokens || 0)));
+
+        if (filterQuery) {
+          const haystack = `${r.path || ''} ${r.client_model || ''} ${r.backend_model || ''} ${r.account_email || ''} ${r.status_code ?? ''} ${r.method || ''}`.toLowerCase();
+          if (!haystack.includes(filterQuery)) continue;
+        }
+        filteredEntries.push({ rec: r, rawIdx });
+      }
+
       const successRate = total > 0 ? Math.round((successCount / total) * 100) + '%' : '100%';
-      const avgLatency = total > 0 ? Math.round(trafficRecords.reduce((acc, r) => acc + (r.duration_ms || 0), 0) / total) + ' ms' : '0 ms';
-      const totalTokens = trafficRecords.reduce((acc, r) => acc + (r.total_tokens || ((r.prompt_tokens || 0) + (r.completion_tokens || 0))), 0);
+      const avgLatency = total > 0 ? Math.round(totalDuration / total) + ' ms' : '0 ms';
 
       const elTotal = document.getElementById('trafficStatTotal');
       if (elTotal) elTotal.innerText = total;
@@ -8924,14 +9153,7 @@ ${data.stderr || data.stdout || data.error}`;
       const elTokens = document.getElementById('trafficStatTokens');
       if (elTokens) elTokens.innerText = totalTokens.toLocaleString();
 
-      const filterQuery = (document.getElementById('trafficSearchInput')?.value || '').trim().toLowerCase();
-      const filtered = trafficRecords.filter(r => {
-        if (!filterQuery) return true;
-        const haystack = `${r.path} ${r.client_model} ${r.backend_model} ${r.account_email} ${r.status_code} ${r.method}`.toLowerCase();
-        return haystack.includes(filterQuery);
-      });
-
-      if (filtered.length === 0) {
+      if (filteredEntries.length === 0) {
         if (tbody) {
           tbody.innerHTML = `
             <tr>
@@ -8955,18 +9177,26 @@ ${data.stderr || data.stdout || data.error}`;
         return;
       }
 
-      let tableHtml = '';
-      let cardsHtml = '';
-      for (let idx = 0; idx < filtered.length; idx++) {
-        const rec = filtered[idx];
-        const rawIdx = trafficRecords.indexOf(rec);
+      const tableParts = [];
+      const cardParts = [];
+      for (let i = 0; i < filteredEntries.length; i++) {
+        const { rec, rawIdx } = filteredEntries[i];
+        const safeTimestamp = escapeHtml(rec.timestamp || '');
+        const safeMethod = escapeHtml(rec.method || '');
+        const safePath = escapeHtml(rec.path || '');
+        const safeClientModel = escapeHtml(rec.client_model || '-');
+        const safeBackendModel = escapeHtml(rec.backend_model || '-');
+        const safeAccountEmail = escapeHtml(rec.account_email || '-');
+        const safeStatus = escapeHtml(rec.status_code ?? '');
+        const safeDuration = escapeHtml(rec.duration_ms ?? 0);
+
         let statusBadge = '';
         if (rec.status_code >= 200 && rec.status_code < 300) {
-          statusBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">${rec.status_code}</span>`;
+          statusBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">${safeStatus}</span>`;
         } else if (rec.status_code === 429) {
-          statusBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse">${rec.status_code}</span>`;
+          statusBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse">${safeStatus}</span>`;
         } else {
-          statusBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">${rec.status_code}</span>`;
+          statusBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">${safeStatus}</span>`;
         }
 
         const streamBadge = rec.stream
@@ -8975,55 +9205,58 @@ ${data.stderr || data.stdout || data.error}`;
 
         let tokenDisplay = '-';
         if (rec.total_tokens || rec.prompt_tokens || rec.completion_tokens) {
-          tokenDisplay = `<span class="text-white font-semibold">${rec.total_tokens || ((rec.prompt_tokens || 0) + (rec.completion_tokens || 0))}</span> <span class="text-[10px] text-slate-400">(${rec.prompt_tokens || 0}↑ ${rec.completion_tokens || 0}↓)</span>`;
+          const totalTok = escapeHtml(rec.total_tokens || ((rec.prompt_tokens || 0) + (rec.completion_tokens || 0)));
+          const promptTok = escapeHtml(rec.prompt_tokens || 0);
+          const compTok = escapeHtml(rec.completion_tokens || 0);
+          tokenDisplay = `<span class="text-white font-semibold">${totalTok}</span> <span class="text-[10px] text-slate-400">(${promptTok}↑ ${compTok}↓)</span>`;
         }
 
-        tableHtml += `
+        tableParts.push(`
           <tr onclick="openTrafficDetail(${rawIdx})" class="hover:bg-slate-900/60 transition cursor-pointer">
-            <td class="py-2.5 px-3.5 text-slate-400 whitespace-nowrap">${rec.timestamp}</td>
+            <td class="py-2.5 px-3.5 text-slate-400 whitespace-nowrap">${safeTimestamp}</td>
             <td class="py-2.5 px-3 whitespace-nowrap">${statusBadge}</td>
-            <td class="py-2.5 px-3 font-bold text-slate-300 whitespace-nowrap">${rec.method}</td>
-            <td class="py-2.5 px-3 text-cyan-300 font-semibold whitespace-nowrap">${rec.path}</td>
-            <td class="py-2.5 px-3 text-indigo-300 whitespace-nowrap">${rec.client_model || '-'}</td>
-            <td class="py-2.5 px-3 text-slate-400 whitespace-nowrap">${rec.backend_model || '-'}</td>
-            <td class="py-2.5 px-3 text-slate-300 max-w-[150px] truncate" title="${rec.account_email}">${rec.account_email || '-'}</td>
-            <td class="py-2.5 px-3 text-amber-300 whitespace-nowrap">${rec.duration_ms} ms</td>
+            <td class="py-2.5 px-3 font-bold text-slate-300 whitespace-nowrap">${safeMethod}</td>
+            <td class="py-2.5 px-3 text-cyan-300 font-semibold whitespace-nowrap">${safePath}</td>
+            <td class="py-2.5 px-3 text-indigo-300 whitespace-nowrap">${safeClientModel}</td>
+            <td class="py-2.5 px-3 text-slate-400 whitespace-nowrap">${safeBackendModel}</td>
+            <td class="py-2.5 px-3 text-slate-300 max-w-[150px] truncate" title="${escapeHtml(rec.account_email || '')}">${safeAccountEmail}</td>
+            <td class="py-2.5 px-3 text-amber-300 whitespace-nowrap">${safeDuration} ms</td>
             <td class="py-2.5 px-3 whitespace-nowrap">${tokenDisplay}</td>
             <td class="py-2.5 px-3.5 whitespace-nowrap">${streamBadge}</td>
           </tr>
-        `;
+        `);
 
-        cardsHtml += `
+        cardParts.push(`
           <div onclick="openTrafficDetail(${rawIdx})" class="p-3.5 rounded-2xl bg-dark-card border border-dark-border hover:border-indigo-500/50 transition cursor-pointer shadow-sm space-y-2.5">
             <div class="flex items-center justify-between gap-2">
               <div class="flex items-center space-x-2">
-                <span class="font-bold text-xs text-white">${rec.method}</span>
+                <span class="font-bold text-xs text-white">${safeMethod}</span>
                 ${statusBadge}
                 ${streamBadge}
               </div>
-              <span class="text-[10px] text-slate-400 font-mono">${rec.timestamp}</span>
+              <span class="text-[10px] text-slate-400 font-mono">${safeTimestamp}</span>
             </div>
 
             <div class="flex items-center justify-between text-xs">
-              <span class="text-cyan-300 font-mono font-semibold truncate max-w-[200px]">${rec.path}</span>
-              <span class="text-amber-300 font-mono text-[11px] font-semibold">${rec.duration_ms} ms</span>
+              <span class="text-cyan-300 font-mono font-semibold truncate max-w-[200px]">${safePath}</span>
+              <span class="text-amber-300 font-mono text-[11px] font-semibold">${safeDuration} ms</span>
             </div>
 
             <div class="flex items-center justify-between pt-1 border-t border-slate-800/80 text-[11px]">
               <div class="flex items-center space-x-1.5 text-indigo-300 truncate max-w-[180px]">
                 <i class="fa-solid fa-microchip text-[10px] text-indigo-400 shrink-0"></i>
-                <span class="truncate">${rec.client_model || '-'}</span>
+                <span class="truncate">${safeClientModel}</span>
               </div>
               <div class="font-mono text-slate-300">
                 ${tokenDisplay}
               </div>
             </div>
           </div>
-        `;
+        `);
       }
 
-      if (tbody) tbody.innerHTML = tableHtml;
-      if (cardsContainer) cardsContainer.innerHTML = cardsHtml;
+      if (tbody) tbody.innerHTML = tableParts.join('');
+      if (cardsContainer) cardsContainer.innerHTML = cardParts.join('');
     }
 
     let selectedTrafficRecord = null;
@@ -9039,42 +9272,43 @@ ${data.stderr || data.stdout || data.error}`;
         ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' 
         : (rec.status_code === 429 ? 'text-amber-400 bg-amber-500/10 border-amber-500/30' : 'text-rose-400 bg-rose-500/10 border-rose-500/30');
 
+      const totalTok = escapeHtml(rec.total_tokens || ((rec.prompt_tokens || 0) + (rec.completion_tokens || 0)));
       body.innerHTML = `
         <div class="space-y-4">
           <div class="flex items-center justify-between pb-3 border-b border-slate-800">
             <div class="flex items-center space-x-2">
-              <span class="font-bold text-sm text-white font-mono">${rec.method}</span>
-              <span class="px-2 py-0.5 rounded text-xs font-mono font-bold border ${statusColor}">${rec.status_code}</span>
+              <span class="font-bold text-sm text-white font-mono">${escapeHtml(rec.method || '')}</span>
+              <span class="px-2 py-0.5 rounded text-xs font-mono font-bold border ${statusColor}">${escapeHtml(rec.status_code ?? '')}</span>
               ${rec.stream ? '<span class="px-2 py-0.5 rounded text-[10px] font-mono bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">STREAM</span>' : '<span class="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-400 border border-slate-700">UNARY</span>'}
             </div>
-            <span class="text-xs text-slate-400 font-mono">${rec.timestamp}</span>
+            <span class="text-xs text-slate-400 font-mono">${escapeHtml(rec.timestamp || '')}</span>
           </div>
 
           <div class="space-y-2.5 text-xs">
             <div>
               <div class="text-slate-400 text-[11px] mb-1">Path</div>
-              <div class="p-2.5 rounded-xl bg-slate-950 font-mono text-cyan-300 border border-slate-800 break-all select-all">${rec.path}</div>
+              <div class="p-2.5 rounded-xl bg-slate-950 font-mono text-cyan-300 border border-slate-800 break-all select-all">${escapeHtml(rec.path || '')}</div>
             </div>
 
             <div class="grid grid-cols-2 gap-2">
               <div>
                 <div class="text-slate-400 text-[11px] mb-1">Client Model</div>
-                <div class="p-2 rounded-lg bg-slate-950 font-mono text-indigo-300 border border-slate-800 truncate">${rec.client_model || '-'}</div>
+                <div class="p-2 rounded-lg bg-slate-950 font-mono text-indigo-300 border border-slate-800 truncate">${escapeHtml(rec.client_model || '-')}</div>
               </div>
               <div>
                 <div class="text-slate-400 text-[11px] mb-1">Backend Model</div>
-                <div class="p-2 rounded-lg bg-slate-950 font-mono text-slate-300 border border-slate-800 truncate">${rec.backend_model || '-'}</div>
+                <div class="p-2 rounded-lg bg-slate-950 font-mono text-slate-300 border border-slate-800 truncate">${escapeHtml(rec.backend_model || '-')}</div>
               </div>
             </div>
 
             <div class="grid grid-cols-2 gap-2">
               <div>
                 <div class="text-slate-400 text-[11px] mb-1">Account</div>
-                <div class="p-2 rounded-lg bg-slate-950 font-mono text-slate-300 border border-slate-800 truncate" title="${rec.account_email}">${rec.account_email || '-'}</div>
+                <div class="p-2 rounded-lg bg-slate-950 font-mono text-slate-300 border border-slate-800 truncate" title="${escapeHtml(rec.account_email || '')}">${escapeHtml(rec.account_email || '-')}</div>
               </div>
               <div>
                 <div class="text-slate-400 text-[11px] mb-1">Duration</div>
-                <div class="p-2 rounded-lg bg-slate-950 font-mono text-amber-300 border border-slate-800 font-semibold">${rec.duration_ms} ms</div>
+                <div class="p-2 rounded-lg bg-slate-950 font-mono text-amber-300 border border-slate-800 font-semibold">${escapeHtml(rec.duration_ms ?? 0)} ms</div>
               </div>
             </div>
 
@@ -9083,17 +9317,17 @@ ${data.stderr || data.stdout || data.error}`;
               <div class="p-2.5 rounded-xl bg-slate-950 font-mono border border-slate-800 flex items-center justify-around text-center">
                 <div>
                   <div class="text-[10px] text-slate-500">TOTAL</div>
-                  <div class="font-bold text-white text-sm">${rec.total_tokens || ((rec.prompt_tokens || 0) + (rec.completion_tokens || 0))}</div>
+                  <div class="font-bold text-white text-sm">${totalTok}</div>
                 </div>
                 <div class="h-6 w-px bg-slate-800"></div>
                 <div>
                   <div class="text-[10px] text-slate-500">PROMPT (↑)</div>
-                  <div class="font-bold text-indigo-300 text-sm">${rec.prompt_tokens || 0}</div>
+                  <div class="font-bold text-indigo-300 text-sm">${escapeHtml(rec.prompt_tokens || 0)}</div>
                 </div>
                 <div class="h-6 w-px bg-slate-800"></div>
                 <div>
                   <div class="text-[10px] text-slate-500">COMPLETION (↓)</div>
-                  <div class="font-bold text-emerald-300 text-sm">${rec.completion_tokens || 0}</div>
+                  <div class="font-bold text-emerald-300 text-sm">${escapeHtml(rec.completion_tokens || 0)}</div>
                 </div>
               </div>
             </div>
@@ -9113,7 +9347,13 @@ ${data.stderr || data.stdout || data.error}`;
     function copySelectedTrafficCurl() {
       if (!selectedTrafficRecord) return;
       const rec = selectedTrafficRecord;
-      const curlCmd = `curl -X ${rec.method} "http://127.0.0.1:8000${rec.path}" \\\n  -H "Content-Type: application/json" \\\n  -H "Authorization: Bearer your-api-key" \\\n  -d '{"model": "${rec.client_model || 'gemini-2.5-flash'}", "messages": [{"role": "user", "content": "Hello"}]}'`;
+      const origin = window.location.origin;
+      const safePath = String(rec.path || '/v1/chat/completions');
+      const payloadJson = JSON.stringify({
+        model: rec.client_model || 'gemini-2.5-flash',
+        messages: [{ role: 'user', content: 'Hello' }]
+      }).replace(/'/g, "'\\''");
+      const curlCmd = `curl -X ${rec.method || 'POST'} "${origin}${safePath}" \\\n  -H "Content-Type: application/json" \\\n  -H "Authorization: Bearer your-api-key" \\\n  -d '${payloadJson}'`;
       copySnippetText(curlCmd, 'cURL command copied!');
     }
 
@@ -9122,7 +9362,10 @@ ${data.stderr || data.stdout || data.error}`;
         const res = await fetch('/api/traffic/clear', { method: 'POST' });
         if (res.ok) {
           trafficRecords = [];
-          renderTrafficTable();
+          trafficTableDirty = true;
+          if (currentActiveTab === 'traffic') {
+            renderTrafficTable();
+          }
           updateTrafficBadge();
           showToast('Traffic history cleared', 'success');
         }
@@ -9154,67 +9397,38 @@ ${data.stderr || data.stdout || data.error}`;
       const chatCol = document.getElementById('playgroundChatCol');
       const btnChat = document.getElementById('pgmViewChatBtn');
       const btnSettings = document.getElementById('pgmViewSettingsBtn');
+      const activeBtnCls = 'flex-1 py-1.5 rounded-xl bg-indigo-600/40 text-indigo-200 border border-indigo-500/40 shadow-sm flex items-center justify-center space-x-1.5 transition font-semibold';
+      const inactiveBtnCls = 'flex-1 py-1.5 rounded-xl text-slate-400 hover:text-white flex items-center justify-center space-x-1.5 transition font-medium';
 
       if (view === 'settings') {
         if (controlsCol) {
           controlsCol.classList.remove('hidden');
-          controlsCol.classList.add('flex');
+          controlsCol.classList.add('flex', 'lg:flex');
         }
         if (chatCol) {
-          chatCol.classList.add('hidden');
+          chatCol.classList.add('hidden', 'lg:flex');
           chatCol.classList.remove('flex');
         }
-        if (btnSettings) {
-          btnSettings.className = 'flex-1 py-1.5 rounded-lg bg-indigo-600 text-white shadow-sm flex items-center justify-center space-x-1.5 transition font-semibold';
-        }
-        if (btnChat) {
-          btnChat.className = 'flex-1 py-1.5 rounded-lg text-slate-400 hover:text-white flex items-center justify-center space-x-1.5 transition font-medium';
-        }
+        if (btnSettings) btnSettings.className = activeBtnCls;
+        if (btnChat) btnChat.className = inactiveBtnCls;
       } else {
         if (controlsCol) {
-          controlsCol.classList.add('hidden');
+          controlsCol.classList.add('hidden', 'lg:flex');
           controlsCol.classList.remove('flex');
         }
         if (chatCol) {
           chatCol.classList.remove('hidden');
-          chatCol.classList.add('flex');
+          chatCol.classList.add('flex', 'lg:flex');
         }
-        if (btnChat) {
-          btnChat.className = 'flex-1 py-1.5 rounded-lg bg-indigo-600 text-white shadow-sm flex items-center justify-center space-x-1.5 transition font-semibold';
-        }
-        if (btnSettings) {
-          btnSettings.className = 'flex-1 py-1.5 rounded-lg text-slate-400 hover:text-white flex items-center justify-center space-x-1.5 transition font-medium';
-        }
+        if (btnChat) btnChat.className = activeBtnCls;
+        if (btnSettings) btnSettings.className = inactiveBtnCls;
       }
     }
 
     function copySnippetText(text, msg = 'Copied to clipboard!') {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(() => {
-          showToast(msg, 'success');
-        }).catch(() => {
-          fallbackCopyText(text, msg);
-        });
-      } else {
-        fallbackCopyText(text, msg);
-      }
-    }
-
-    function fallbackCopyText(text, msg) {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.focus();
-      ta.select();
-      try {
-        document.execCommand('copy');
-        showToast(msg, 'success');
-      } catch (e) {
-        showToast('Failed to copy', 'error');
-      }
-      document.body.removeChild(ta);
+      copyToClipboard(text)
+        .then(() => showToast(msg, 'success'))
+        .catch(() => showToast('Failed to copy', 'error'));
     }
 
     async function loadSuiteStatus() {
@@ -9334,7 +9548,11 @@ ${data.stderr || data.stdout || data.error}`;
     async function triggerAutoGuardCheck() {
       try {
         const r = await fetch('/api/patch/autoguard/check', { method: 'POST' });
-        const d = await r.json();
+        const d = await safeReadJsonResponse(r);
+        if (!r.ok || d.error) {
+          showToast(d.detail || d.error || `AutoGuard check failed (${r.status})`, 'error');
+          return;
+        }
         if (d.repaired) {
           showToast(`AutoGuard repaired patch: ${d.reason}`, 'success');
         } else {
@@ -9349,11 +9567,11 @@ ${data.stderr || data.stdout || data.error}`;
     async function triggerLauncherInstall() {
       try {
         const r = await fetch('/api/patch/launcher/install', { method: 'POST' });
-        const d = await r.json();
-        if (d.success) {
+        const d = await safeReadJsonResponse(r);
+        if (r.ok && d.success) {
           showToast('Non-destructive desktop launcher override installed!', 'success');
         } else {
-          showToast('Failed to install launcher', 'error');
+          showToast(d.detail || d.error || 'Failed to install launcher', 'error');
         }
       } catch (e) {
         showToast('Failed to install launcher: ' + e.message, 'error');
@@ -9364,7 +9582,7 @@ ${data.stderr || data.stdout || data.error}`;
       try {
         const r = await fetch('/api/tunnel/snippet');
         if (r.ok) {
-          const d = await r.json();
+          const d = await safeReadJsonResponse(r);
           copySnippetText(d.snippet, 'Copied Remote SSH Environment script to clipboard!');
         } else {
           showToast('Failed to generate snippet', 'error');
@@ -9376,17 +9594,37 @@ ${data.stderr || data.stdout || data.error}`;
 
     // Init
     initTabFromHash();
-    loadAccounts();
-    loadModels();
+    Promise.resolve(loadAccounts()).finally(() => {
+      loadModels();
+    });
     loadCompactorSettings();
     initAutoRefresh();
     checkForSoftwareUpdates();
     updateCacheStats();
-    setInterval(updateCacheStats, 10000);
+    setInterval(() => {
+      if (!document.hidden) updateCacheStats();
+    }, 15000);
     checkAntigravityWebStatus();
-    setInterval(checkAntigravityWebStatus, 15000);
-    loadSuiteStatus();
-    setInterval(loadSuiteStatus, 15000);
+    setInterval(() => {
+      if (!document.hidden) checkAntigravityWebStatus();
+    }, 20000);
+    setInterval(() => {
+      if (!document.hidden && currentActiveTab === 'settings') {
+        loadSuiteStatus();
+      }
+    }, 15000);
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        updateCacheStats();
+        checkAntigravityWebStatus();
+        if (currentActiveTab === 'settings') {
+          pollProcessStatus();
+          loadSuiteStatus();
+        } else if (currentActiveTab === 'traffic' && trafficTableDirty) {
+          renderTrafficTable();
+        }
+      }
+    });
     initTrafficInspector();
   </script>
 
@@ -9394,6 +9632,6 @@ ${data.stderr || data.stdout || data.error}`;
   <div id="companyModeDropdown" class="hidden fixed z-50 min-w-[215px] rounded-2xl glass-panel bg-[#0b101d]/95 backdrop-blur-xl border border-white/[0.12] shadow-2xl p-1.5 space-y-0.5"></div>
 
   <!-- Floating Toast Notifications Container -->
-  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none max-w-sm"></div>
+  <div id="toastContainer" class="fixed bottom-20 md:bottom-5 right-3 sm:right-5 z-50 flex flex-col space-y-2 pointer-events-none max-w-sm"></div>
 </body>
 </html>

@@ -121,8 +121,11 @@ class TrafficInspector:
             # Send initial keep-alive ping
             yield ": connected\n\n"
             while True:
-                msg = await q.get()
-                yield f"data: {msg}\n\n"
+                try:
+                    msg = await asyncio.wait_for(q.get(), timeout=20.0)
+                    yield f"data: {msg}\n\n"
+                except asyncio.TimeoutError:
+                    yield ": ping\n\n"
         except (asyncio.CancelledError, GeneratorExit):
             pass
         finally:

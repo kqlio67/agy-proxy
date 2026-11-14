@@ -783,6 +783,8 @@ def create_app(
         return HTMLResponse(content=get_dashboard_html())
 
     @app.get("/dashboard", response_class=HTMLResponse)
+    @app.get("/accounts", response_class=HTMLResponse)
+    @app.get("/traffic", response_class=HTMLResponse)
     @app.get("/playground", response_class=HTMLResponse)
     @app.get("/analytics", response_class=HTMLResponse)
     @app.get("/integrations", response_class=HTMLResponse)
@@ -1508,8 +1510,26 @@ def create_app(
         def target(self) -> str:
             return (self.process or self.process_name or "").lower().strip()
 
-    @app.get("/api/processes/status")
-    async def get_processes_status():
+    def _classify_managed_process(cmd: list[str], name: str) -> tuple[bool, bool]:
+        """Classifies an OS process as (is_agy, is_language_server), excluding agy-proxy itself."""
+        cmd_str = " ".join(cmd).lower()
+        name_l = (name or "").lower()
+        if "agy_proxy" in cmd_str or "agy-proxy" in cmd_str:
+            return False, False
+        bin_name = os.path.basename(cmd[0]).lower() if cmd else ""
+        is_agy = (
+            name_l in ("antigravity", "agy")
+            or bin_name in ("antigravity", "agy")
+            or (bin_name == "python" and len(cmd) > 1 and "agy" in os.path.basename(cmd[1]).lower())
+        )
+        is_ls = (
+            "language_server" in name_l
+            or "language-server" in name_l
+            or any("language_server" in os.path.basename(arg) or "language-server" in os.path.basename(arg) for arg in cmd)
+        )
+        return is_agy, is_ls
+
+    def _collect_processes_status() -> dict[str, Any]:
         import psutil
         agy_running = False
         agy_pid = None
@@ -1517,36 +1537,20 @@ def create_app(
         ls_pid = None
         my_pid = os.getpid()
 
-        for p in psutil.process_iter(['pid', 'name', 'cmdline']):
+        for p in psutil.process_iter(["pid", "name", "cmdline"]):
             try:
-                pid = p.info.get('pid')
+                pid = p.info.get("pid")
                 if pid == my_pid:
                     continue
-                cmd = p.info.get('cmdline') or []
-                cmd_str = " ".join(cmd).lower()
-                name = (p.info.get('name') or "").lower()
-
-                # Exclude agy_proxy itself or its worker threads
-                if "agy_proxy" in cmd_str or "agy-proxy" in cmd_str:
-                    continue
-
-                bin_name = os.path.basename(cmd[0]).lower() if cmd else ""
-
-                if not agy_running and (
-                    name in ("antigravity", "agy")
-                    or bin_name in ("antigravity", "agy")
-                    or (bin_name == "python" and len(cmd) > 1 and "agy" in os.path.basename(cmd[1]).lower())
-                ):
+                is_agy, is_ls = _classify_managed_process(p.info.get("cmdline") or [], p.info.get("name") or "")
+                if not agy_running and is_agy:
                     agy_running = True
                     agy_pid = pid
-
-                if not ls_running and (
-                    "language_server" in name
-                    or "language-server" in name
-                    or any("language_server" in os.path.basename(arg) or "language-server" in os.path.basename(arg) for arg in cmd)
-                ):
+                if not ls_running and is_ls:
                     ls_running = True
                     ls_pid = pid
+                if agy_running and ls_running:
+                    break
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 pass
         return {
@@ -1554,12 +1558,32 @@ def create_app(
             "language_server": {"status": "running" if ls_running else "stopped", "pid": ls_pid},
         }
 
+    def _kill_matching_processes(target: str) -> int:
+        import psutil
+        killed = 0
+        my_pid = os.getpid()
+        for p in psutil.process_iter(["pid", "name", "cmdline"]):
+            try:
+                if p.info.get("pid") == my_pid:
+                    continue
+                is_agy, is_ls = _classify_managed_process(p.info.get("cmdline") or [], p.info.get("name") or "")
+                if (target in ("agy", "antigravity") and is_agy) or (target in ("language_server", "language-server") and is_ls):
+                    p.kill()
+                    killed += 1
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                pass
+        return killed
+
+    @app.get("/api/processes/status")
+    async def get_processes_status():
+        return await asyncio.to_thread(_collect_processes_status)
+
     @app.get("/api/web/status")
     async def get_antigravity_web_status(port: int = 44741):
         """Returns the real-time status of Antigravity Web Mode."""
         try:
             from agy_proxy.web_launcher import get_web_status
-            return get_web_status(port=port)
+            return await asyncio.to_thread(get_web_status, port=port)
         except Exception as e:
             return {"status": "error", "error": str(e), "port": port}
 
@@ -1576,7 +1600,8 @@ def create_app(
         """Launches Antigravity in browser-based Web Mode (No Electron or agy --hub)."""
         try:
             from agy_proxy.web_launcher import launch_antigravity_web
-            code = launch_antigravity_web(
+            code = await asyncio.to_thread(
+                launch_antigravity_web,
                 port=req.port,
                 kill_electron=req.kill_electron,
                 no_open=req.no_open,
@@ -1603,45 +1628,8 @@ def create_app(
 
     @app.post("/api/processes/kill")
     async def kill_process(req: ProcessActionRequest):
-        import psutil
-        killed = 0
-        target = req.target
-        my_pid = os.getpid()
-
-        for p in psutil.process_iter(['pid', 'name', 'cmdline']):
-            try:
-                pid = p.info.get('pid')
-                if pid == my_pid:
-                    continue
-                cmd = p.info.get('cmdline') or []
-                cmd_str = " ".join(cmd).lower()
-                name = (p.info.get('name') or "").lower()
-
-                # Safety guard: never kill agy-proxy itself
-                if "agy_proxy" in cmd_str or "agy-proxy" in cmd_str:
-                    continue
-
-                bin_name = os.path.basename(cmd[0]).lower() if cmd else ""
-                match = False
-                if target in ("agy", "antigravity") and (
-                    name in ("antigravity", "agy")
-                    or bin_name in ("antigravity", "agy")
-                    or (bin_name == "python" and len(cmd) > 1 and "agy" in os.path.basename(cmd[1]).lower())
-                ):
-                    match = True
-                elif target in ("language_server", "language-server") and (
-                    "language_server" in name
-                    or "language-server" in name
-                    or any("language_server" in os.path.basename(arg) or "language-server" in os.path.basename(arg) for arg in cmd)
-                ):
-                    match = True
-
-                if match:
-                    p.kill()
-                    killed += 1
-            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                pass
-        return {"status": "ok", "process": target, "killed_count": killed}
+        killed = await asyncio.to_thread(_kill_matching_processes, req.target)
+        return {"status": "ok", "process": req.target, "killed_count": killed}
 
     class AddApiKeyRequest(BaseModel):
         api_key: str
@@ -2377,7 +2365,7 @@ def create_app(
     @app.get("/api/cache/summary")
     async def get_ide_cache_summary():
         from agy_proxy.cleaner import cache_cleaner
-        return cache_cleaner.get_cache_summary()
+        return await asyncio.to_thread(cache_cleaner.get_cache_summary)
 
     @app.post("/api/cache/clean")
     async def clean_ide_cache(request: Request):
@@ -2389,7 +2377,7 @@ def create_app(
                 categories = body["categories"]
         except Exception:
             pass
-        return cache_cleaner.clean_cache(categories=categories)
+        return await asyncio.to_thread(cache_cleaner.clean_cache, categories=categories)
 
     @app.get("/api/tunnel/status")
     async def get_tunnel_status():
@@ -2436,34 +2424,33 @@ def create_app(
     @app.get("/api/patch/status")
     async def get_patch_status_endpoint():
         from agy_proxy.patcher import get_patch_status
-        return get_patch_status()
+        return await asyncio.to_thread(get_patch_status)
 
     @app.get("/api/patch/launcher")
     async def get_launcher_status_endpoint():
         from agy_proxy.patcher import DesktopLauncher
-        return DesktopLauncher().status()
+        return await asyncio.to_thread(DesktopLauncher().status)
 
     @app.post("/api/patch/launcher/install")
     async def install_launcher_endpoint():
         from agy_proxy.patcher import DesktopLauncher
-        return DesktopLauncher().install()
+        return await asyncio.to_thread(DesktopLauncher().install)
 
     @app.post("/api/patch/launcher/uninstall")
     async def uninstall_launcher_endpoint():
         from agy_proxy.patcher import DesktopLauncher
-        return DesktopLauncher().uninstall()
+        return await asyncio.to_thread(DesktopLauncher().uninstall)
 
     @app.get("/api/patch/autoguard")
     async def get_autoguard_status():
         from agy_proxy.patcher import AutoGuard
-        guard = AutoGuard()
-        running, pid = guard.is_running()
+        running, pid = await asyncio.to_thread(AutoGuard().is_running)
         return {"running": running, "pid": pid}
 
     @app.post("/api/patch/autoguard/check")
     async def check_autoguard_endpoint():
         from agy_proxy.patcher import AutoGuard
-        return AutoGuard().check_and_repair()
+        return await asyncio.to_thread(AutoGuard().check_and_repair)
 
     @app.post("/api/patch/autoguard/start")
     async def start_autoguard_endpoint(request: Request):
@@ -2475,12 +2462,12 @@ def create_app(
                 interval = int(body["interval"])
         except Exception:
             pass
-        return AutoGuard().start_daemon(interval_seconds=interval)
+        return await asyncio.to_thread(AutoGuard().start_daemon, interval_seconds=interval)
 
     @app.post("/api/patch/autoguard/stop")
     async def stop_autoguard_endpoint():
         from agy_proxy.patcher import AutoGuard
-        return AutoGuard().stop_daemon()
+        return await asyncio.to_thread(AutoGuard().stop_daemon)
 
     def _default_ide_proxy_url(request: Request) -> str:
         scheme = request.url.scheme or "http"
@@ -2498,10 +2485,11 @@ def create_app(
     ):
         from agy_proxy.patcher import AntigravityIDESettingsConfigurator
         eff_url = (proxy_url or _default_ide_proxy_url(request)).rstrip("/")
-        return AntigravityIDESettingsConfigurator(
+        cfg = AntigravityIDESettingsConfigurator(
             proxy_url=eff_url,
             settings_path=settings_path,
-        ).status()
+        )
+        return await asyncio.to_thread(cfg.status)
 
     @app.post("/api/patch/ide-settings")
     async def apply_ide_settings_endpoint(request: Request):
@@ -2519,10 +2507,11 @@ def create_app(
             or _default_ide_proxy_url(request)
         )
         sp = body.get("settings_path") or request.query_params.get("settings_path")
-        res = AntigravityIDESettingsConfigurator(
+        cfg = AntigravityIDESettingsConfigurator(
             proxy_url=str(eff_url).rstrip("/"),
             settings_path=sp,
-        ).apply()
+        )
+        res = await asyncio.to_thread(cfg.apply)
         if not res.get("success"):
             raise HTTPException(
                 status_code=400,
@@ -2547,10 +2536,11 @@ def create_app(
             or _default_ide_proxy_url(request)
         )
         sp = body.get("settings_path") or request.query_params.get("settings_path")
-        res = AntigravityIDESettingsConfigurator(
+        cfg = AntigravityIDESettingsConfigurator(
             proxy_url=str(eff_url).rstrip("/"),
             settings_path=sp,
-        ).restore()
+        )
+        res = await asyncio.to_thread(cfg.restore)
         if not res.get("success"):
             raise HTTPException(
                 status_code=400,

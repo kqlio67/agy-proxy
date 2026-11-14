@@ -249,6 +249,252 @@ class TestDashboardTemplate(unittest.TestCase):
         self.assertIn("buildUnifiedModelCatalogEntries", html)
         self.assertIn("selectPlaygroundModel", html)
 
+    def test_dashboard_removes_gateway_status_pill_and_dims_disabled_cards(self):
+        html = get_dashboard_html()
+        self.assertNotIn("Gateway :8000", html)
+        self.assertNotIn("Gateway Status Pill", html)
+
+        node_script = """
+        const html = require('fs').readFileSync('agy_proxy/templates/dashboard.html', 'utf8');
+        const provMatch = html.match(/function renderSingleProviderCard\\(p\\) \\{([\\s\\S]*?)\\n    \\}/);
+        if (!provMatch) throw new Error("Could not extract renderSingleProviderCard");
+
+        const classifyProviderMethod = () => 'api';
+        const renderProvCard = new Function('p', 'classifyProviderMethod', provMatch[1]);
+
+        const pausedOpenAI = {
+            id: 'openai',
+            name: 'OpenAI Direct',
+            provider_type: 'openai',
+            base_url: 'https://api.openai.com/v1',
+            enabled: false,
+            models: [{ id: 'gpt-4o', name: 'GPT-4o (Direct)' }]
+        };
+        const pausedProvOut = renderProvCard(pausedOpenAI, classifyProviderMethod);
+        if (!pausedProvOut.includes('opacity-60')) throw new Error("Paused external provider card missing opacity-60");
+        if (!pausedProvOut.includes('border-white/[0.04]')) throw new Error("Paused external provider card missing dimmed border");
+        if (!pausedProvOut.includes('>Paused<')) throw new Error("Paused external provider card missing Paused badge");
+        if (!pausedProvOut.includes('>Paused\\n') && !pausedProvOut.includes('>Paused<')) throw new Error("Paused external provider card missing Paused status");
+        if (pausedProvOut.includes('animate-pulse')) throw new Error("Paused external provider card should not have pulsing dot");
+        if (pausedProvOut.includes('Ready')) throw new Error("Paused external provider card should not show Ready");
+
+        const activeOpenAI = { ...pausedOpenAI, enabled: true };
+        const activeProvOut = renderProvCard(activeOpenAI, classifyProviderMethod);
+        if (activeProvOut.includes('opacity-60')) throw new Error("Active external provider card should not have opacity-60");
+        if (!activeProvOut.includes('Ready')) throw new Error("Active external provider card should show Ready");
+        if (activeProvOut.includes('>Paused<')) throw new Error("Active external provider card should not show Paused badge");
+
+        const cardMatch = html.match(/function renderAccountCard\\(acc\\) \\{([\\s\\S]*?)\\n    \\}/);
+        if (!cardMatch) throw new Error("Could not extract renderAccountCard");
+        const renderAvatar = () => '<div>avatar</div>';
+        const formatResetBadge = () => 'Active';
+        const renderAccCard = new Function('acc', 'cliActiveAccountId', 'ideActiveAccountId', 'renderAvatar', 'formatResetBadge', 'standaloneActiveAccountId', cardMatch[1]);
+
+        const pausedCliAcc = {
+            account_id: 'acc_cli_paused',
+            email: 'paused@example.com',
+            enabled: false,
+            auth_method: 'consumer',
+            rate_limited: false,
+            rate_limited_models: {},
+            quota_details: {
+                gemini: { percent: 100, fraction: 1.0, '5h': { percent: 100, fraction: 1.0 }, weekly: { percent: 100, fraction: 1.0 } },
+                '3p': { percent: 100, fraction: 1.0, '5h': { percent: 100, fraction: 1.0 }, weekly: { percent: 100, fraction: 1.0 } }
+            }
+        };
+        const pausedCliOut = renderAccCard(pausedCliAcc, 'acc_cli_paused', null, renderAvatar, formatResetBadge, null);
+        if (!pausedCliOut.includes('opacity-60')) throw new Error("Paused CLI-active account card should still dim with opacity-60");
+        if (!pausedCliOut.includes('>Paused<')) throw new Error("Paused account card missing Paused badge");
+
+        console.log("OK");
+        """
+        proc = subprocess.run(["node", "-e", node_script], capture_output=True, text=True)
+        self.assertEqual(proc.returncode, 0, f"Node script failed: {proc.stderr}")
+        self.assertIn("OK", proc.stdout)
+
+    def test_dashboard_html_tag_balance_and_no_duplicate_ids(self):
+        import re
+        from collections import Counter
+        from html.parser import HTMLParser
+
+        html = get_dashboard_html()
+        void_tags = {
+            "area", "base", "br", "col", "embed", "hr", "img",
+            "input", "link", "meta", "param", "source", "track", "wbr",
+        }
+
+        class TagBalanceParser(HTMLParser):
+            def __init__(self):
+                super().__init__(convert_charrefs=False)
+                self.stack = []
+                self.mismatches = []
+                self.ids = []
+
+            def handle_starttag(self, tag, attrs):
+                tag_l = tag.lower()
+                attr_map = dict(attrs)
+                if attr_map.get("id"):
+                    self.ids.append(attr_map["id"])
+                if tag_l not in void_tags:
+                    self.stack.append((tag_l, self.getpos()[0]))
+
+            def handle_startendtag(self, tag, attrs):
+                attr_map = dict(attrs)
+                if attr_map.get("id"):
+                    self.ids.append(attr_map["id"])
+
+            def handle_endtag(self, tag):
+                tag_l = tag.lower()
+                if tag_l in void_tags:
+                    return
+                if not self.stack:
+                    self.mismatches.append(f"Unexpected </{tag_l}> at line {self.getpos()[0]}")
+                    return
+                if self.stack[-1][0] != tag_l:
+                    self.mismatches.append(
+                        f"Expected </{self.stack[-1][0]}> (opened line {self.stack[-1][1]}), "
+                        f"got </{tag_l}> at line {self.getpos()[0]}"
+                    )
+                else:
+                    self.stack.pop()
+
+        parser = TagBalanceParser()
+        parser.feed(html)
+        parser.close()
+
+        self.assertEqual(parser.mismatches, [], f"HTML tag mismatches found: {parser.mismatches}")
+        self.assertEqual(parser.stack, [], f"Unclosed HTML tags left: {parser.stack}")
+        dup_ids = [el_id for el_id, count in Counter(parser.ids).items() if count > 1]
+        self.assertEqual(dup_ids, [], f"Duplicate HTML element IDs found: {dup_ids}")
+        self.assertEqual(len(re.findall(r"py-0\.2\b", html)), 0)
+        self.assertNotIn(r"\rightarrow", html)
+        self.assertEqual(len(re.findall(r"function\s+fallbackCopyText\s*\(", html)), 1)
+
+    def test_dashboard_inline_scripts_parse_cleanly_in_node(self):
+        import os
+        import tempfile
+        from html.parser import HTMLParser
+
+        html = get_dashboard_html()
+
+        class ScriptExtractor(HTMLParser):
+            def __init__(self):
+                super().__init__(convert_charrefs=False)
+                self.scripts = []
+                self._in_inline = False
+                self._buf = []
+                self._start_line = 0
+
+            def handle_starttag(self, tag, attrs):
+                if tag.lower() == "script" and "src" not in dict(attrs):
+                    self._in_inline = True
+                    self._buf = []
+                    self._start_line = self.getpos()[0]
+
+            def handle_endtag(self, tag):
+                if tag.lower() == "script" and self._in_inline:
+                    self.scripts.append((self._start_line, "".join(self._buf)))
+                    self._in_inline = False
+
+            def handle_data(self, data):
+                if self._in_inline:
+                    self._buf.append(data)
+
+        extractor = ScriptExtractor()
+        extractor.feed(html)
+        extractor.close()
+        self.assertGreaterEqual(len(extractor.scripts), 2)
+
+        for start_line, code in extractor.scripts:
+            tmp_path = None
+            try:
+                with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False, encoding="utf-8") as tf:
+                    tf.write(code)
+                    tmp_path = tf.name
+                proc = subprocess.run(["node", "--check", tmp_path], capture_output=True, text=True)
+                self.assertEqual(
+                    proc.returncode,
+                    0,
+                    f"JS syntax error in <script> starting at line {start_line}: {proc.stderr}",
+                )
+            finally:
+                if tmp_path and os.path.exists(tmp_path):
+                    os.unlink(tmp_path)
+
+    def test_dashboard_xss_escaping_and_perf_regression_guards(self):
+        html = get_dashboard_html()
+
+        # Performance and responsive guards
+        self.assertNotIn("background-attachment: fixed", html)
+        self.assertIn("function closeCompanyModeMenu()", html)
+        self.assertIn(".company-filter-btn", html)
+        self.assertIn("mViewBtnGrid", html)
+        self.assertIn("mViewBtnTable", html)
+        self.assertIn("id=\"mobileBatchActionsSection\"", html)
+        self.assertIn("handleBatchCheckboxChange", html)
+        self.assertIn("requestAnimationFrame", html)
+        self.assertIn("chunk && chunk.error", html)
+        self.assertIn("trafficTableDirty", html)
+        self.assertIn("!document.hidden", html)
+        self.assertIn("visibilitychange", html)
+        self.assertIn("function escapeHtml(", html)
+        self.assertNotIn("'anthropic_web'", html)
+
+        # Verify escapeHtml & card escaping in Node
+        node_script = r"""
+        const fs = require('fs');
+        const html = fs.readFileSync('agy_proxy/templates/dashboard.html', 'utf8');
+        const escMatch = html.match(/function escapeHtml\(value\) \{([\s\S]*?)\n    \}/);
+        if (!escMatch) throw new Error('Missing escapeHtml');
+        const escapeHtml = new Function('value', escMatch[1]);
+
+        const cardMatch = html.match(/function renderAccountCard\(acc\) \{([\s\S]*?)\n    \}/);
+        const provMatch = html.match(/function renderSingleProviderCard\(p\) \{([\s\S]*?)\n    \}/);
+        if (!cardMatch || !provMatch) throw new Error('Missing renderers');
+
+        const renderAccCard = new Function(
+            'acc', 'cliActiveAccountId', 'ideActiveAccountId', 'renderAvatar',
+            'formatResetBadge', 'standaloneActiveAccountId', 'escapeHtml',
+            cardMatch[1]
+        );
+        const xssAcc = {
+            account_id: "id'\"<img src=x onerror=alert(1)>",
+            name: "<script>alert(1)</script>",
+            email: "bad<img src=x>@example.com",
+            enabled: true,
+            auth_method: "oauth",
+            quota_details: {
+                gemini: { percent: 80, fraction: 0.8, '5h': { percent: 80, fraction: 0.8 }, weekly: { percent: 80, fraction: 0.8 } },
+                '3p': { percent: 80, fraction: 0.8, '5h': { percent: 80, fraction: 0.8 }, weekly: { percent: 80, fraction: 0.8 } }
+            }
+        };
+        const out = renderAccCard(xssAcc, null, null, () => '<div>av</div>', () => 'OK', null, escapeHtml);
+        if (out.includes('<script>') || out.includes('<img src=x')) {
+            throw new Error('Unescaped XSS payload found in renderAccountCard output');
+        }
+        const guestXss = { ...xssAcc, auth_method: 'gemini_web', is_guest: true };
+        const guestOut = renderAccCard(guestXss, null, null, () => '<div>av</div>', () => 'OK', null, escapeHtml);
+        if (guestOut.includes('<script>') || guestOut.includes('<img src=x')) {
+            throw new Error('Unescaped XSS payload found in guest renderAccountCard output');
+        }
+        const renderProvCard = new Function('p', 'classifyProviderMethod', 'escapeHtml', provMatch[1]);
+        const provOut = renderProvCard({
+            id: "bad'<script>alert(1)</script>",
+            name: "<img src=x onerror=alert(1)>",
+            provider_type: "anthropic",
+            base_url: "https://example.com/'\"><img src=x>",
+            enabled: true,
+            models: [{ id: "m'<script>", name: "<script>m</script>" }]
+        }, () => 'api', escapeHtml);
+        if (provOut.includes('<script>') || provOut.includes('<img src=x')) {
+            throw new Error('Unescaped XSS payload found in renderSingleProviderCard output');
+        }
+        console.log('XSS_OK');
+        """
+        proc = subprocess.run(["node", "-e", node_script], capture_output=True, text=True)
+        self.assertEqual(proc.returncode, 0, f"Node XSS test failed: {proc.stderr}")
+        self.assertIn("XSS_OK", proc.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()
