@@ -645,6 +645,7 @@ class CloudCodeClient:
         recorded = False
         prompt_tokens = 0
         candidates_tokens = 0
+        thoughts_tokens = 0
         preferred_account = None
         if session_key:
             pinned = session_affinity.get_pinned_account(session_key)
@@ -985,6 +986,7 @@ class CloudCodeClient:
                                                 if isinstance(usage_m, dict):
                                                     prompt_tokens = usage_m.get("promptTokenCount", prompt_tokens)
                                                     candidates_tokens = usage_m.get("candidatesTokenCount", candidates_tokens)
+                                                    thoughts_tokens = usage_m.get("thoughtsTokenCount", thoughts_tokens)
                                             has_yielded = True
                                             yield data_obj
                                         except json.JSONDecodeError as e:
@@ -1005,6 +1007,7 @@ class CloudCodeClient:
                                         stream=is_streaming,
                                         prompt_tokens=prompt_tokens,
                                         completion_tokens=candidates_tokens,
+                                        thoughts_tokens=thoughts_tokens,
                                     )
                                     recorded = True
                                 except Exception:
@@ -1332,7 +1335,7 @@ class CloudCodeClient:
                 req.messages = compacted
             except Exception as e:
                 logger.warning("Cascade checkpointer auto-compaction error: %s", e)
-        elif should_auto_compact(req.messages):
+        elif should_auto_compact(req.messages, model=model):
             try:
                 compacted, _, _ = await compact_conversation_history(self.pool, req.messages)
                 req.messages = compacted
@@ -1475,7 +1478,7 @@ class CloudCodeClient:
                 req.messages = compacted
             except Exception as e:
                 logger.warning("Cascade checkpointer auto-compaction error: %s", e)
-        elif should_auto_compact(req.messages):
+        elif should_auto_compact(req.messages, model=model):
             try:
                 compacted, _, _ = await compact_conversation_history(self.pool, req.messages)
                 req.messages = compacted
@@ -1686,7 +1689,7 @@ class CloudCodeClient:
                 req.messages = compacted
             except Exception as e:
                 logger.warning("Cascade checkpointer auto-compaction error: %s", e)
-        elif should_auto_compact(req.messages, system=req.system):
+        elif should_auto_compact(req.messages, system=req.system, model=model):
             try:
                 compacted, _, _ = await compact_conversation_history(self.pool, req.messages)
                 req.messages = compacted
@@ -1997,7 +2000,7 @@ class CloudCodeClient:
                 req.messages = compacted
             except Exception as e:
                 logger.warning("Cascade checkpointer auto-compaction error: %s", e)
-        elif should_auto_compact(req.messages, system=req.system):
+        elif should_auto_compact(req.messages, system=req.system, model=model):
             try:
                 compacted, _, _ = await compact_conversation_history(self.pool, req.messages)
                 req.messages = compacted
@@ -2018,6 +2021,7 @@ class CloudCodeClient:
         tool_blocks: list[dict[str, Any]] = []
         prompt_tokens = 0
         candidates_tokens = 0
+        thoughts_tokens = 0
         cached_tokens = 0
         current_thought_sig: str | None = None
 

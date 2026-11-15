@@ -233,6 +233,7 @@ class CloudCodeSSETranslator:
         self.in_think_block = False
         self.prompt_tokens = 0
         self.completion_tokens = 0
+        self.thoughts_tokens = 0
         self.total_tokens = 0
 
     def process_chunk(self, chunk: dict[str, Any]) -> list[dict[str, Any]]:
@@ -245,6 +246,8 @@ class CloudCodeSSETranslator:
             self.prompt_tokens = int(usage.get("prompt_tokens", self.prompt_tokens))
             self.completion_tokens = int(usage.get("completion_tokens", self.completion_tokens))
             self.total_tokens = int(usage.get("total_tokens", self.total_tokens))
+            details = usage.get("completion_tokens_details") or {}
+            self.thoughts_tokens = int(details.get("reasoning_tokens", usage.get("thoughts_tokens", usage.get("thoughtsTokenCount", self.thoughts_tokens))))
 
         choices = chunk.get("choices", [])
         if not choices or not isinstance(choices, list):
@@ -436,12 +439,15 @@ class CloudCodeSSETranslator:
                     "candidates": [resp_candidate],
                 }
             }
-            if self.total_tokens or self.prompt_tokens or self.completion_tokens:
-                final_event["response"]["usageMetadata"] = {
+            if self.total_tokens or self.prompt_tokens or self.completion_tokens or self.thoughts_tokens:
+                usage_meta: dict[str, Any] = {
                     "promptTokenCount": self.prompt_tokens,
                     "candidatesTokenCount": self.completion_tokens,
                     "totalTokenCount": self.total_tokens or (self.prompt_tokens + self.completion_tokens),
                 }
+                if self.thoughts_tokens:
+                    usage_meta["thoughtsTokenCount"] = self.thoughts_tokens
+                final_event["response"]["usageMetadata"] = usage_meta
 
             events.append(final_event)
 
@@ -487,6 +493,16 @@ def openai_response_to_cloudcode(openai_resp: dict[str, Any]) -> dict[str, Any]:
     prompt_tokens = int(usage.get("prompt_tokens", 0))
     completion_tokens = int(usage.get("completion_tokens", 0))
     total_tokens = int(usage.get("total_tokens", prompt_tokens + completion_tokens))
+    details = usage.get("completion_tokens_details") or {}
+    thoughts_tokens = int(details.get("reasoning_tokens", usage.get("thoughts_tokens", usage.get("thoughtsTokenCount", 0))))
+
+    usage_metadata: dict[str, Any] = {
+        "promptTokenCount": prompt_tokens,
+        "candidatesTokenCount": completion_tokens,
+        "totalTokenCount": total_tokens,
+    }
+    if thoughts_tokens:
+        usage_metadata["thoughtsTokenCount"] = thoughts_tokens
 
     return {
         "response": {
@@ -497,11 +513,7 @@ def openai_response_to_cloudcode(openai_resp: dict[str, Any]) -> dict[str, Any]:
                     "index": 0,
                 }
             ],
-            "usageMetadata": {
-                "promptTokenCount": prompt_tokens,
-                "candidatesTokenCount": completion_tokens,
-                "totalTokenCount": total_tokens,
-            },
+            "usageMetadata": usage_metadata,
         }
     }
 
@@ -517,6 +529,7 @@ class OpenAIToAnthropicSSETranslator:
         self.current_block_index = -1
         self.prompt_tokens = 0
         self.completion_tokens = 0
+        self.thoughts_tokens = 0
 
     def process_chunk(self, chunk: dict[str, Any]) -> list[str]:
         lines: list[str] = []
@@ -525,6 +538,8 @@ class OpenAIToAnthropicSSETranslator:
         if isinstance(usage, dict):
             self.prompt_tokens = int(usage.get("prompt_tokens", self.prompt_tokens))
             self.completion_tokens = int(usage.get("completion_tokens", self.completion_tokens))
+            details = usage.get("completion_tokens_details") or {}
+            self.thoughts_tokens = int(details.get("reasoning_tokens", usage.get("thoughts_tokens", self.thoughts_tokens)))
 
         if not self.has_started:
             self.has_started = True

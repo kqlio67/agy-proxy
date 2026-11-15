@@ -44,6 +44,23 @@ class TestTrafficModule(unittest.IsolatedAsyncioTestCase):
         self.inspector.clear()
         self.assertEqual(len(self.inspector.get_history()), 0)
 
+    def test_record_with_thoughts_tokens(self):
+        rec = self.inspector.record(
+            method="POST",
+            path="/v1internal:streamGenerateContent",
+            client_model="gemini-3.8-flash-high",
+            backend_model="Google CloudCode",
+            status_code=200,
+            prompt_tokens=100,
+            completion_tokens=50,
+            thoughts_tokens=250,
+        )
+        self.assertEqual(rec.thoughts_tokens, 250)
+        self.assertEqual(rec.prompt_tokens, 100)
+        self.assertEqual(rec.completion_tokens, 50)
+        history = self.inspector.get_history()
+        self.assertEqual(history[0]["thoughts_tokens"], 250)
+
     async def test_sse_subscriber(self):
         sub_gen = self.inspector.subscribe()
         initial = await sub_gen.__anext__()

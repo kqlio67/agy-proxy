@@ -9555,11 +9555,12 @@ ${data.stderr || data.stdout || data.error || data.detail || res.statusText}`;
           : `<span class="px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-400 border border-slate-700">UNARY</span>`;
 
         let tokenDisplay = '-';
-        if (rec.total_tokens || rec.prompt_tokens || rec.completion_tokens) {
+        if (rec.total_tokens || rec.prompt_tokens || rec.completion_tokens || rec.thoughts_tokens) {
           const totalTok = escapeHtml(rec.total_tokens || ((rec.prompt_tokens || 0) + (rec.completion_tokens || 0)));
           const promptTok = escapeHtml(rec.prompt_tokens || 0);
           const compTok = escapeHtml(rec.completion_tokens || 0);
-          tokenDisplay = `<span class="text-white font-semibold">${totalTok}</span> <span class="text-[10px] text-slate-400">(${promptTok}↑ ${compTok}↓)</span>`;
+          const thoughtsTok = rec.thoughts_tokens ? ` <span class="text-purple-400 font-semibold" title="Reasoning / Thoughts tokens">${escapeHtml(rec.thoughts_tokens)}🧠</span>` : '';
+          tokenDisplay = `<span class="text-white font-semibold">${totalTok}</span> <span class="text-[10px] text-slate-400">(${promptTok}↑ ${compTok}↓${thoughtsTok})</span>`;
         }
 
         tableParts.push(`
@@ -9680,6 +9681,12 @@ ${data.stderr || data.stdout || data.error || data.detail || res.statusText}`;
                   <div class="text-[10px] text-slate-500">COMPLETION (↓)</div>
                   <div class="font-bold text-emerald-300 text-sm">${escapeHtml(rec.completion_tokens || 0)}</div>
                 </div>
+                ${rec.thoughts_tokens ? `
+                <div class="h-6 w-px bg-slate-800"></div>
+                <div>
+                  <div class="text-[10px] text-purple-400">THOUGHTS (🧠)</div>
+                  <div class="font-bold text-purple-300 text-sm">${escapeHtml(rec.thoughts_tokens)}</div>
+                </div>` : ''}
               </div>
             </div>
           </div>

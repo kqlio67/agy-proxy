@@ -4,6 +4,7 @@ Data models and schemas for OpenAI, Anthropic, and Gemini API requests and respo
 
 from __future__ import annotations
 
+from enum import Enum
 import time
 from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
@@ -1549,6 +1550,117 @@ def is_deepagent_model(model_name: str | None) -> bool:
     return "deepagent" in norm or "deep-agent" in norm
 
 
+# ==============================================================================
+# ANTIGRAVITY RUNTIME & SERVICE CONSTANTS
+# ==============================================================================
+
+class ThinkingLevel(str, Enum):
+    """Standardized reasoning effort / thinking levels matching Antigravity SDK."""
+    MINIMAL = "minimal"
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    EXTRA_HIGH = "extra_high"
+
+
+class ServiceTier(str, Enum):
+    """Google CloudCode / Antigravity routing and latency tiers."""
+    STANDARD = "standard"
+    PRIORITY = "priority"
+    FLEX = "flex"
+
+
+# Maximum context window sizes in tokens for native and compatibility models
+MODEL_CONTEXT_WINDOWS: dict[str, int] = {
+    # Gemini models (1M or 2M tokens)
+    "gemini-4-argon": 1_048_576,
+    "gemini-4-hydrogen": 1_048_576,
+    "gemini-4-carbon": 1_048_576,
+    "gemini-3.8-flash": 1_048_576,
+    "gemini-3.7-flash": 1_048_576,
+    "gemini-3.6-flash": 1_048_576,
+    "gemini-3.5-flash": 1_048_576,
+    "gemini-3.5-flash-lite": 1_048_576,
+    "gemini-3.1-flash-lite": 1_048_576,
+    "gemini-3.1-pro": 2_097_152,
+    "gemini-2.5-pro": 2_097_152,
+    "gemini-2.5-flash": 1_048_576,
+    "gemini-pro-orchestrator-g1-pro": 1_048_576,
+    "gemini-flash-worker-agy": 1_048_576,
+    # Claude models (200k tokens)
+    "claude-sonnet-4-6": 200_000,
+    "claude-opus-4-6": 200_000,
+    "claude-haiku-4-5": 200_000,
+    "claude-sonnet-5-5": 200_000,
+    "claude-opus-5-5": 200_000,
+    "claude-3-5-sonnet": 200_000,
+    "claude-3-7-sonnet": 200_000,
+    "claude-3-opus": 200_000,
+    "claude-3-5-haiku": 200_000,
+    # GPT models
+    "gpt-oss-120b": 128_000,
+    "gpt-oss-120b-medium": 128_000,
+    "gpt-4o": 128_000,
+    "gpt-4o-mini": 128_000,
+    "o1": 200_000,
+    "o3-mini": 200_000,
+    # DeepSeek models
+    "deepseek-r1": 65_536,
+    "deepseek-v3": 65_536,
+    "deepseek-chat": 65_536,
+}
+
+
+def get_model_context_window(model_name: str | None) -> int:
+    """
+    Returns the maximum context window size (in tokens) for a given model.
+    Checks exact raw model names, registered external providers, alias normalized models,
+    heuristic prefixes, and defaults to 200,000.
+    """
+    if not model_name:
+        return 200_000
+    raw = str(model_name).strip().lower()
+
+    # 1. Direct match on raw input name (e.g. "deepseek-r1", "gpt-4o")
+    if raw in MODEL_CONTEXT_WINDOWS:
+        return MODEL_CONTEXT_WINDOWS[raw]
+    for k, v in MODEL_CONTEXT_WINDOWS.items():
+        if raw.startswith(k) or k in raw:
+            return v
+
+    # 2. Check external provider model configurations if loaded
+    try:
+        from agy_proxy.providers import external_provider_manager
+        ext = external_provider_manager.resolve_model(model_name)
+        if ext and ext[2] and getattr(ext[2], "context_window", None):
+            return int(ext[2].context_window)
+    except Exception:
+        pass
+
+    # 3. Check normalized model name
+    norm = normalize_model_name(model_name).lower()
+    if norm in MODEL_CONTEXT_WINDOWS:
+        return MODEL_CONTEXT_WINDOWS[norm]
+    for k, v in MODEL_CONTEXT_WINDOWS.items():
+        if norm.startswith(k) or k in norm:
+            return v
+
+    # 4. Heuristics based on raw or normalized name
+    check_str = f"{raw} {norm}"
+    if "pro" in check_str and "gemini" in check_str:
+        return 2_097_152
+    if "gemini" in check_str or "argon" in check_str or "hydrogen" in check_str or "carbon" in check_str:
+        return 1_048_576
+    if "claude" in check_str:
+        return 200_000
+    if "deepseek" in check_str:
+        return 65_536
+    if "gpt" in check_str or "120b" in check_str:
+        return 128_000
+
+    return 200_000
+
+
 # ---------------------------------------------------------
 # OpenAI Compatible Schemas
 # ---------------------------------------------------------
@@ -1576,6 +1688,7 @@ class OpenAIChatRequest(BaseModel):
     user: str | None = None
     thinking: dict[str, Any] | None = None
     reasoning_effort: str | None = None
+    service_tier: str | None = None
     stream_options: dict[str, Any] | None = None
     model_config = ConfigDict(extra="allow")
 
@@ -1642,6 +1755,7 @@ class AnthropicRequest(BaseModel):
     top_p: float | None = None
     stream: bool | None = False
     thinking: dict[str, Any] | None = None
+    service_tier: str | None = None
     output_config: dict[str, Any] | None = None
     tools: list[dict[str, Any]] | None = None
     tool_choice: str | dict[str, Any] | None = None

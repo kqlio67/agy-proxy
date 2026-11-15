@@ -3009,6 +3009,7 @@ def create_app(
                     p_toks = 0
                     c_toks = 0
                     t_toks = 0
+                    r_toks = 0
                     try:
                         async for chunk in provider.stream_chat(ext_payload):
                             yield f"data: {json.dumps(chunk)}\n\n"
@@ -3017,6 +3018,8 @@ def create_app(
                                 p_toks = usage.get("prompt_tokens", p_toks)
                                 c_toks = usage.get("completion_tokens", c_toks)
                                 t_toks = usage.get("total_tokens", t_toks)
+                                details = usage.get("completion_tokens_details") or {}
+                                r_toks = details.get("reasoning_tokens", usage.get("thoughts_tokens", r_toks))
                         yield "data: [DONE]\n\n"
 
                         from agy_proxy.traffic import traffic_inspector
@@ -3033,6 +3036,7 @@ def create_app(
                             prompt_tokens=p_toks,
                             completion_tokens=c_toks,
                             total_tokens=t_toks or (p_toks + c_toks),
+                            thoughts_tokens=r_toks,
                         )
                     except Exception as err:
                         logger.error("[%s] External stream error: %s", provider.name, err)
@@ -3057,6 +3061,8 @@ def create_app(
                 usage = ext_resp.get("usage", {})
                 p_toks = usage.get("prompt_tokens", 0)
                 c_toks = usage.get("completion_tokens", 0)
+                details = usage.get("completion_tokens_details") or {}
+                r_toks = details.get("reasoning_tokens", usage.get("thoughts_tokens", 0))
                 traffic_inspector.record(
                     method="POST",
                     path="/v1/chat/completions",
@@ -3069,7 +3075,8 @@ def create_app(
                     stream=False,
                     prompt_tokens=p_toks,
                     completion_tokens=c_toks,
-                    total_tokens=p_toks + c_toks,
+                    total_tokens=usage.get("total_tokens", p_toks + c_toks),
+                    thoughts_tokens=r_toks,
                 )
                 return JSONResponse(content=ext_resp)
 
@@ -3831,6 +3838,7 @@ def create_app(
                             prompt_tokens=translator.prompt_tokens,
                             completion_tokens=translator.completion_tokens,
                             total_tokens=translator.prompt_tokens + translator.completion_tokens,
+                            thoughts_tokens=translator.thoughts_tokens,
                         )
                     except Exception as err:
                         logger.error("[%s] External stream error for Anthropic client: %s", provider.name, err)
@@ -3858,6 +3866,8 @@ def create_app(
                 usage = ext_resp.get("usage", {})
                 p_toks = usage.get("prompt_tokens", 0)
                 c_toks = usage.get("completion_tokens", 0)
+                details = usage.get("completion_tokens_details") or {}
+                r_toks = details.get("reasoning_tokens", usage.get("thoughts_tokens", 0))
                 traffic_inspector.record(
                     method="POST",
                     path="/v1/messages",
@@ -3870,7 +3880,8 @@ def create_app(
                     stream=False,
                     prompt_tokens=p_toks,
                     completion_tokens=c_toks,
-                    total_tokens=p_toks + c_toks,
+                    total_tokens=usage.get("total_tokens", p_toks + c_toks),
+                    thoughts_tokens=r_toks,
                 )
                 return JSONResponse(content=anth_resp)
 
@@ -4471,6 +4482,7 @@ def create_app(
                 )
                 prompt_tokens = 0
                 completion_tokens = 0
+                thoughts_tokens = 0
                 total_tokens = 0
 
                 if is_count_tokens:
@@ -4484,6 +4496,7 @@ def create_app(
                         if isinstance(usage, dict):
                             prompt_tokens = int(usage.get("promptTokenCount", 0))
                             completion_tokens = int(usage.get("candidatesTokenCount", 0))
+                            thoughts_tokens = int(usage.get("thoughtsTokenCount", 0))
                             total_tokens = int(usage.get("totalTokenCount", prompt_tokens + completion_tokens))
                     if not prompt_tokens and raw_text and "usageMetadata" in raw_text:
                         import re
@@ -4493,6 +4506,9 @@ def create_app(
                         m_c = re.search(r'"candidatesTokenCount"\s*:\s*(\d+)', raw_text)
                         if m_c:
                             completion_tokens = int(m_c.group(1))
+                        m_th = re.search(r'"thoughtsTokenCount"\s*:\s*(\d+)', raw_text)
+                        if m_th:
+                            thoughts_tokens = int(m_th.group(1))
                         m_t = re.search(r'"totalTokenCount"\s*:\s*(\d+)', raw_text)
                         if m_t:
                             total_tokens = int(m_t.group(1))
@@ -4513,6 +4529,7 @@ def create_app(
                     prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,
                     total_tokens=total_tokens or (prompt_tokens + completion_tokens),
+                    thoughts_tokens=thoughts_tokens,
                     error=err_msg,
                 )
             except Exception:

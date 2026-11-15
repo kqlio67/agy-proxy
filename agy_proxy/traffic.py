@@ -30,6 +30,7 @@ class TrafficRecord:
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_tokens: int = 0
+    thoughts_tokens: int = 0
     error: Optional[str] = None
     created_at: float = field(default_factory=time.time)
 
@@ -58,6 +59,7 @@ class TrafficInspector:
         prompt_tokens: int = 0,
         completion_tokens: int = 0,
         total_tokens: int = 0,
+        thoughts_tokens: int = 0,
         error: Optional[str] = None,
         record_id: Optional[str] = None,
     ) -> TrafficRecord:
@@ -65,7 +67,7 @@ class TrafficInspector:
         rec_id = record_id or f"tr_{uuid.uuid4().hex[:8]}"
         now_str = datetime.now().strftime("%H:%M:%S")
 
-        if total_tokens == 0 and (prompt_tokens or completion_tokens):
+        if total_tokens == 0 and (prompt_tokens or completion_tokens or thoughts_tokens):
             total_tokens = prompt_tokens + completion_tokens
 
         rec = TrafficRecord(
@@ -83,6 +85,7 @@ class TrafficInspector:
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
             total_tokens=total_tokens,
+            thoughts_tokens=thoughts_tokens,
             error=error,
         )
 

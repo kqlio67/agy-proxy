@@ -181,6 +181,13 @@ class CompactorSettings:
             "checkpointer_enabled": self.checkpointer_enabled,
         }
 
+    def get_threshold_for_model(self, model: str | None = None) -> int:
+        """Returns the effective compaction threshold for a given model, clamped to avoid context window overflow."""
+        if not model:
+            return self.threshold_tokens
+        rec = get_recommended_compaction_threshold(model=model)
+        return min(self.threshold_tokens, rec)
+
 
 compactor_settings = CompactorSettings()
 
@@ -402,11 +409,34 @@ def prune_tool_results(
     return messages, pruned_count, tokens_saved
 
 
+def get_recommended_compaction_threshold(
+    model: str | None = None,
+    context_window: int | None = None,
+    ratio: float = 0.625,
+) -> int:
+    """
+    Computes a recommended context compaction trigger threshold (~62.5% of context window capacity),
+    matching the Antigravity SDK's dynamic compaction heuristic (e.g. 40,960 tokens for 64k models,
+    81,920 tokens for 128k models, ~125,000 for 200k models).
+    """
+    if context_window is None:
+        if model:
+            try:
+                from agy_proxy.models import get_model_context_window
+                context_window = get_model_context_window(model)
+            except Exception:
+                context_window = 200_000
+        else:
+            context_window = 200_000
+    return max(4096, int(context_window * ratio))
+
+
 def should_auto_compact(
     messages: list[Any],
     system: str | list[Any] | None = None,
     threshold_tokens: int | None = None,
     min_messages: int = 4,
+    model: str | None = None,
 ) -> bool:
     """Determines if the conversation history has exceeded the compaction threshold."""
     if not compactor_settings.enabled:
@@ -414,7 +444,14 @@ def should_auto_compact(
     if len(messages) < min_messages:
         return False
 
-    threshold = threshold_tokens or compactor_settings.threshold_tokens
+    if threshold_tokens is not None:
+        threshold = threshold_tokens
+    elif model:
+        rec_thresh = get_recommended_compaction_threshold(model=model)
+        threshold = min(compactor_settings.threshold_tokens, rec_thresh)
+    else:
+        threshold = compactor_settings.threshold_tokens
+
     estimated = estimate_total_tokens(messages, system=system)
     return estimated >= threshold
 

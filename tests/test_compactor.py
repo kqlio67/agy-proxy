@@ -419,5 +419,36 @@ class TestExplicitCompactDetection(unittest.TestCase):
         )
 
 
+class TestDynamicCompactorThreshold(unittest.TestCase):
+    def test_recommended_threshold_calculations(self):
+        from agy_proxy.compactor import get_recommended_compaction_threshold
+
+        # 64k model -> 40,960 tokens (62.5% heuristic matching Antigravity SDK)
+        self.assertEqual(get_recommended_compaction_threshold(context_window=65536), 40960)
+
+        # 128k model -> 81,920 tokens
+        self.assertEqual(get_recommended_compaction_threshold(context_window=131072), 81920)
+
+        # 200k model -> 125,000 tokens
+        self.assertEqual(get_recommended_compaction_threshold(context_window=200000), 125000)
+
+        # By model name
+        self.assertEqual(get_recommended_compaction_threshold("deepseek-r1"), 40960)
+        self.assertEqual(get_recommended_compaction_threshold("claude-sonnet-4-6"), 125000)
+        self.assertEqual(get_recommended_compaction_threshold("gemini-3.8-flash-high"), 655360)
+
+    def test_clamped_threshold_for_model(self):
+        from agy_proxy.compactor import compactor_settings
+        compactor_settings.threshold_tokens = 130000
+
+        # For a 64k model, threshold is clamped down to 40,960 to avoid overflow
+        effective = compactor_settings.get_threshold_for_model("deepseek-r1")
+        self.assertEqual(effective, 40960)
+
+        # For a 1M model, user threshold of 130,000 is honored because 130k < 655k
+        effective_gemini = compactor_settings.get_threshold_for_model("gemini-3.8-flash-high")
+        self.assertEqual(effective_gemini, 130000)
+
+
 if __name__ == "__main__":
     unittest.main()

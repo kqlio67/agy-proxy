@@ -518,6 +518,49 @@ class TestSchemas(unittest.TestCase):
         self.assertTrue(oai_tc["includeThoughts"])
         self.assertNotIn("thinkingBudget", oai_tc)
 
+    def test_antigravity_sdk_constants_and_context_windows(self):
+        from agy_proxy.models import (
+            ThinkingLevel,
+            ServiceTier,
+            get_model_context_window,
+            OpenAIChatRequest,
+            AnthropicRequest,
+        )
+
+        # Enums
+        self.assertEqual(ThinkingLevel.MINIMAL, "minimal")
+        self.assertEqual(ThinkingLevel.LOW, "low")
+        self.assertEqual(ThinkingLevel.MEDIUM, "medium")
+        self.assertEqual(ThinkingLevel.HIGH, "high")
+        self.assertEqual(ThinkingLevel.EXTRA_HIGH, "extra_high")
+
+        self.assertEqual(ServiceTier.STANDARD, "standard")
+        self.assertEqual(ServiceTier.PRIORITY, "priority")
+        self.assertEqual(ServiceTier.FLEX, "flex")
+
+        # Context windows
+        self.assertEqual(get_model_context_window("gemini-3.8-flash-high"), 1048576)
+        self.assertEqual(get_model_context_window("gemini-3.1-pro-high"), 2097152)
+        self.assertEqual(get_model_context_window("claude-sonnet-4-6"), 200000)
+        self.assertEqual(get_model_context_window("deepseek-r1"), 65536)
+        self.assertEqual(get_model_context_window("gpt-oss-120b"), 128000)
+        self.assertEqual(get_model_context_window(None), 200000)
+
+        # Service tier in requests
+        oai = OpenAIChatRequest(
+            model="gemini-3.8-flash-high",
+            messages=[{"role": "user", "content": "hi"}],
+            service_tier="priority",
+        )
+        self.assertEqual(oai.service_tier, "priority")
+
+        anth = AnthropicRequest(
+            model="claude-sonnet-4-6",
+            messages=[{"role": "user", "content": "hi"}],
+            service_tier="standard",
+        )
+        self.assertEqual(anth.service_tier, "standard")
+
 
 if __name__ == "__main__":
     unittest.main()
