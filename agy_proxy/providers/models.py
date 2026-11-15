@@ -454,7 +454,7 @@ DEFAULT_PROVIDER_PRESETS: dict[str, dict[str, Any]] = {
         "models": [
             {
                 "id": "gpt-4o",
-                "display_name": "GPT-4o (Web Free)",
+                "display_name": "GPT-4o (Web Session)",
                 "context_window": 128000,
                 "max_output_tokens": 16384,
                 "supports_tools": True,
@@ -465,7 +465,7 @@ DEFAULT_PROVIDER_PRESETS: dict[str, dict[str, Any]] = {
             },
             {
                 "id": "gpt-4o-mini",
-                "display_name": "GPT-4o mini (Web Free)",
+                "display_name": "GPT-4o mini (Web Session)",
                 "context_window": 128000,
                 "max_output_tokens": 16384,
                 "supports_tools": True,
@@ -476,7 +476,7 @@ DEFAULT_PROVIDER_PRESETS: dict[str, dict[str, Any]] = {
             },
             {
                 "id": "o3-mini",
-                "display_name": "o3-mini (Web Free Reasoning)",
+                "display_name": "o3-mini (Web Session Reasoning)",
                 "context_window": 200000,
                 "max_output_tokens": 100000,
                 "supports_tools": True,
@@ -487,7 +487,7 @@ DEFAULT_PROVIDER_PRESETS: dict[str, dict[str, Any]] = {
             },
             {
                 "id": "chatgpt-4o-latest",
-                "display_name": "ChatGPT-4o Latest (Web Free)",
+                "display_name": "ChatGPT-4o Latest (Web Session)",
                 "context_window": 128000,
                 "max_output_tokens": 16384,
                 "supports_tools": True,
@@ -508,7 +508,7 @@ DEFAULT_PROVIDER_PRESETS: dict[str, dict[str, Any]] = {
         "models": [
             {
                 "id": "gpt-4o",
-                "display_name": "GPT-4o (Web Free)",
+                "display_name": "GPT-4o (Web Guest)",
                 "context_window": 128000,
                 "max_output_tokens": 16384,
                 "supports_tools": True,
@@ -519,7 +519,7 @@ DEFAULT_PROVIDER_PRESETS: dict[str, dict[str, Any]] = {
             },
             {
                 "id": "gpt-4o-mini",
-                "display_name": "GPT-4o mini (Web Free)",
+                "display_name": "GPT-4o mini (Web Guest)",
                 "context_window": 128000,
                 "max_output_tokens": 16384,
                 "supports_tools": True,
@@ -530,7 +530,7 @@ DEFAULT_PROVIDER_PRESETS: dict[str, dict[str, Any]] = {
             },
             {
                 "id": "o3-mini",
-                "display_name": "o3-mini (Web Free Reasoning)",
+                "display_name": "o3-mini (Web Guest Reasoning)",
                 "context_window": 200000,
                 "max_output_tokens": 100000,
                 "supports_tools": True,
@@ -541,7 +541,7 @@ DEFAULT_PROVIDER_PRESETS: dict[str, dict[str, Any]] = {
             },
             {
                 "id": "chatgpt-4o-latest",
-                "display_name": "ChatGPT-4o Latest (Web Free)",
+                "display_name": "ChatGPT-4o Latest (Web Guest)",
                 "context_window": 128000,
                 "max_output_tokens": 16384,
                 "supports_tools": True,

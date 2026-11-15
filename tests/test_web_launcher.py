@@ -571,10 +571,13 @@ def test_enhance_user_status_direct_and_proxy_models(tmp_path):
         for lbl in direct_labels:
             assert "(Web)" not in lbl
             
-        # Verify all models have disabled: false
+        # Verify all standard models have disabled: false (except authentic Ultra models like Gemini 4 Carbon)
         for cfg in out["direct"]["configs"]:
-            if not cfg["label"].startswith("──"):
+            if not cfg["label"].startswith("──") and cfg["label"] != "Gemini 4 Carbon":
                 assert cfg["disabled"] is False, f"Model {cfg['label']} should be enabled"
+        carbon_cfg = next((c for c in out["direct"]["configs"] if c["label"] == "Gemini 4 Carbon"), None)
+        assert carbon_cfg is not None
+        assert carbon_cfg["disabled"] is True
                 
         # In proxy mode:
         proxy_labels = out["proxy"]["labels"]

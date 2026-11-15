@@ -2214,12 +2214,18 @@ def enhance_available_models(data: dict[str, Any]) -> dict[str, Any]:
             models[_h_k].setdefault("supportsThinking", True)
             models[_h_k].pop("betaWarningMessage", None)
 
-    # Strip Notice / Unavailable / deprecation warning badges from all models for clean desktop UI
-    for m_info in models.values():
+    # Clean deprecation warning messages while preserving authentic badges (Notice, Unavailable, New)
+    for m_k, m_info in models.items():
         if isinstance(m_info, dict):
             tag_t = str(m_info.get("tagTitle", ""))
             tag_d = str(m_info.get("tagDescription", ""))
-            if tag_t in ("Notice", "Unavailable") or any(kw in tag_d.lower() for kw in ("retir", "deprecat", "no longer", "switch to")):
+            # Preserve authentic official badges on GPT-OSS 120B (Notice) and Gemini 4 Carbon (Unavailable)
+            is_preserved = (
+                "gpt-oss" in m_k.lower()
+                or "carbon" in m_k.lower()
+                or tag_t in ("Notice", "Unavailable", "New")
+            )
+            if not is_preserved and any(kw in tag_d.lower() for kw in ("retir", "deprecat", "no longer", "switch to")):
                 m_info.pop("tagTitle", None)
                 m_info.pop("tagDescription", None)
             m_info.pop("betaWarningMessage", None)
