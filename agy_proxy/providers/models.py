@@ -5,6 +5,7 @@ Supports OpenRouter, Ollama, DeepSeek, Groq, NVIDIA NIM, and custom OpenAI-compa
 
 from __future__ import annotations
 
+import uuid
 from typing import Any
 from pydantic import BaseModel, Field, model_validator, computed_field
 
@@ -46,11 +47,52 @@ class ExternalProviderConfig(BaseModel):
     proxy_url: str | None = None             # Optional custom upstream proxy for this provider
 
 
+class ModelFallbackRule(BaseModel):
+    """Explicit mapping from a source model to a fallback target model."""
+    id: str = Field(default_factory=lambda: f"rule_{uuid.uuid4().hex[:8]}")
+    source_model: str                        # e.g. "claude-sonnet-4-6", "gemini-2.5-pro", "gpt-4o"
+    target_model: str                        # e.g. "chatgpt-web-guest/gpt-4o", "gemini-3.8-flash-high"
+    enabled: bool = True
+
+
 class RoutingSettings(BaseModel):
     """Routing and automatic failover settings."""
     auto_failover_enabled: bool = False
     fallback_model: str | None = None        # Model ID to use when all Google accounts return 429
     fallback_provider_id: str | None = None  # Provider ID hosting the fallback model
+    enable_model_fallback: bool = False      # Allow falling back to alternate models on 429/errors (Default False: strict mode!)
+    model_fallback_target: str = "gemini-3.8-flash-high" # Default fallback target if enabled and legacy mapping matched
+    model_fallbacks: dict[str, str] = Field(default_factory=dict) # Legacy mapping: e.g. {"claude-opus-4-6": "claude-sonnet-4-6"}
+    fallback_rules: list[ModelFallbackRule] = Field(default_factory=list) # Granular model-to-model rules
+
+    def get_target_for_model(self, model_id: str) -> str | None:
+        """Returns the fallback target model for model_id if fallback is enabled and configured, else None."""
+        if not self.enable_model_fallback:
+            return None
+        m_lower = (model_id or "").strip().lower()
+        m_clean = m_lower.replace("-", "").replace(".", "").replace(":", "")
+
+        # 1. Search active rules
+        for rule in self.fallback_rules:
+            if not rule.enabled:
+                continue
+            src = (rule.source_model or "").strip().lower()
+            src_clean = src.replace("-", "").replace(".", "").replace(":", "")
+            if src == m_lower or src_clean == m_clean:
+                return rule.target_model
+
+        # 2. Check model_fallbacks legacy mapping
+        if model_id in self.model_fallbacks:
+            return self.model_fallbacks[model_id]
+        if m_lower in self.model_fallbacks:
+            return self.model_fallbacks[m_lower]
+
+        # 3. If rules exist but none matched, strictly do NOT fallback
+        if self.fallback_rules:
+            return None
+
+        # 4. If no rules exist at all, return default target model if set
+        return self.model_fallback_target or None
 
     @model_validator(mode="before")
     @classmethod
@@ -60,6 +102,10 @@ class RoutingSettings(BaseModel):
                 data["auto_failover_enabled"] = bool(data["enable_external_failover"])
             elif "auto_failover_enabled" in data and "enable_external_failover" not in data:
                 data["enable_external_failover"] = bool(data["auto_failover_enabled"])
+            if "allow_model_fallback" in data and "enable_model_fallback" not in data:
+                data["enable_model_fallback"] = bool(data["allow_model_fallback"])
+            elif "enable_model_fallback" in data and "allow_model_fallback" not in data:
+                data["allow_model_fallback"] = bool(data["enable_model_fallback"])
         return data
 
     @computed_field  # type: ignore[misc]
@@ -70,6 +116,15 @@ class RoutingSettings(BaseModel):
     @enable_external_failover.setter
     def enable_external_failover(self, val: bool) -> None:
         self.auto_failover_enabled = bool(val)
+
+    @computed_field  # type: ignore[misc]
+    @property
+    def allow_model_fallback(self) -> bool:
+        return self.enable_model_fallback
+
+    @allow_model_fallback.setter
+    def allow_model_fallback(self, val: bool) -> None:
+        self.enable_model_fallback = bool(val)
 
 
 # Presets for 1-click provider setup
@@ -396,6 +451,60 @@ DEFAULT_PROVIDER_PRESETS: dict[str, dict[str, Any]] = {
         "base_url": "https://chatgpt.com/backend-api",
         "api_key": "",
         "enabled": False,
+        "models": [
+            {
+                "id": "gpt-4o",
+                "display_name": "GPT-4o (Web Free)",
+                "context_window": 128000,
+                "max_output_tokens": 16384,
+                "supports_tools": True,
+                "supports_thinking": False,
+                "supports_vision": True,
+                "is_fallback": True,
+                "enabled": True,
+            },
+            {
+                "id": "gpt-4o-mini",
+                "display_name": "GPT-4o mini (Web Free)",
+                "context_window": 128000,
+                "max_output_tokens": 16384,
+                "supports_tools": True,
+                "supports_thinking": False,
+                "supports_vision": True,
+                "is_fallback": True,
+                "enabled": True,
+            },
+            {
+                "id": "o3-mini",
+                "display_name": "o3-mini (Web Free Reasoning)",
+                "context_window": 200000,
+                "max_output_tokens": 100000,
+                "supports_tools": True,
+                "supports_thinking": True,
+                "supports_vision": False,
+                "is_fallback": True,
+                "enabled": True,
+            },
+            {
+                "id": "chatgpt-4o-latest",
+                "display_name": "ChatGPT-4o Latest (Web Free)",
+                "context_window": 128000,
+                "max_output_tokens": 16384,
+                "supports_tools": True,
+                "supports_thinking": False,
+                "supports_vision": True,
+                "is_fallback": False,
+                "enabled": True,
+            },
+        ],
+    },
+    "chatgpt-web-guest": {
+        "id": "chatgpt-web-guest",
+        "name": "ChatGPT Web (Zero-Auth Guest)",
+        "provider_type": "chatgpt_web",
+        "base_url": "https://chatgpt.com/backend-api",
+        "api_key": "zero-auth",
+        "enabled": True,
         "models": [
             {
                 "id": "gpt-4o",

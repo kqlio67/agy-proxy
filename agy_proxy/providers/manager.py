@@ -36,7 +36,7 @@ def _create_provider_instance(config: ExternalProviderConfig) -> BaseExternalPro
     if p_type == "deepseek_web" or p_id == "deepseek-web" or p_id == "deepseek_web":
         from agy_proxy.providers.deepseek_web import DeepSeekWebProvider
         return DeepSeekWebProvider(config)
-    if p_type == "chatgpt_web" or p_id == "chatgpt-web" or p_id == "chatgpt_web":
+    if p_type == "chatgpt_web" or p_id == "chatgpt-web" or p_id == "chatgpt_web" or p_id.startswith("chatgpt-web") or p_id.startswith("chatgpt_web") or "chatgpt" in p_id:
         from agy_proxy.providers.chatgpt_web import ChatGPTWebProvider
         return ChatGPTWebProvider(config)
     if p_type in ("gemini_guest", "gemini_web_guest") or p_id in ("gemini-guest", "gemini-web-guest", "gemini_guest", "gemini_web_guest"):
@@ -80,7 +80,7 @@ class ExternalProviderManager:
             for pid, preset in DEFAULT_PROVIDER_PRESETS.items():
                 if pid not in self.providers:
                     preset_copy = dict(preset)
-                    if pid == "gemini-web-guest":
+                    if pid in ("gemini-web-guest", "chatgpt-web-guest"):
                         preset_copy["enabled"] = True
                     else:
                         preset_copy["enabled"] = False
@@ -221,7 +221,7 @@ class ExternalProviderManager:
                 if not p_cfg.enabled:
                     continue
                 for m in p_cfg.models:
-                    if m.enabled and m.id == clean:
+                    if m.enabled and (m.id == clean or m.display_name == clean or m.name == clean):
                         instance = self.get_provider_instance(p_id)
                         if instance:
                             return instance, m.id, m

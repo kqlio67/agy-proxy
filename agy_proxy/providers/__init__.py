@@ -9,6 +9,7 @@ from agy_proxy.providers.models import (
     DEFAULT_PROVIDER_PRESETS,
     ExternalModelConfig,
     ExternalProviderConfig,
+    ModelFallbackRule,
     RoutingSettings,
 )
 from agy_proxy.providers.manager import (
@@ -32,6 +33,7 @@ __all__ = [
     "ExternalProviderConfig",
     "ExternalProviderManager",
     "GeminiGuestProvider",
+    "ModelFallbackRule",
     "OllamaProvider",
     "OpenAICompatProvider",
     "RoutingSettings",

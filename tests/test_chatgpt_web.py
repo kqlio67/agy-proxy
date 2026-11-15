@@ -313,3 +313,21 @@ async def test_upload_anonymous_image():
                 assert mock_put.call_args[1]["content"] == b"fake-jpeg-data"
 
     await prov.close()
+
+
+def test_chatgpt_web_guest_preset_and_manager():
+    from agy_proxy.providers.models import DEFAULT_PROVIDER_PRESETS
+    from agy_proxy.providers.manager import _create_provider_instance
+
+    assert "chatgpt-web-guest" in DEFAULT_PROVIDER_PRESETS
+    preset = DEFAULT_PROVIDER_PRESETS["chatgpt-web-guest"]
+    assert preset["provider_type"] == "chatgpt_web"
+    assert preset["api_key"] == "zero-auth"
+    assert preset["enabled"] is True
+
+    cfg = ExternalProviderConfig(**preset)
+    prov = _create_provider_instance(cfg)
+    assert isinstance(prov, ChatGPTWebProvider)
+    assert prov.id == "chatgpt-web-guest"
+    assert prov.is_anonymous is True
+

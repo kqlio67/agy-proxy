@@ -458,6 +458,23 @@ class TestServerRoutes(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(comp_resp.status_code, 400)
         self.assertIn("does not support model", comp_resp.text)
 
+    async def test_chatgpt_web_add_guest_endpoint(self):
+        # 1. Direct guest endpoint
+        resp = await self.client.post("/api/accounts/chatgpt-web/add-guest")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data["status"], "ok")
+        self.assertEqual(data["provider_id"], "chatgpt-web-guest")
+        self.assertTrue(data["guest_mode"])
+        self.assertIn("ChatGPT Web (Zero-Auth Guest)", data["name"])
+
+        # 2. Add guest via /api/accounts/chatgpt-web with is_guest=True
+        resp2 = await self.client.post("/api/accounts/chatgpt-web", json={"is_guest": True})
+        self.assertEqual(resp2.status_code, 200)
+        data2 = resp2.json()
+        self.assertEqual(data2["status"], "ok")
+        self.assertTrue(data2["guest_mode"])
+
     async def test_api_accounts_quota_retention_and_cooldown(self):
         from agy_proxy.auth import AccountSession
         acc = AccountSession(
@@ -2231,6 +2248,9 @@ class TestServerRoutes(unittest.IsolatedAsyncioTestCase):
 
     async def test_cloudcode_passthrough_claude_429_fallback_to_gemini_sanitizes_thought_signatures(self):
         """Tests that when Claude 4.6 hits 429 quota, fallback to gemini-3.8-flash-high sanitizes thought signatures on tool calls."""
+        from agy_proxy.providers import external_provider_manager
+        orig_fb = external_provider_manager.routing_settings.enable_model_fallback
+        external_provider_manager.routing_settings.enable_model_fallback = True
         acc1 = AccountSession(
             account_id="acc_amy_test",
             email="amystery894@gmail.com",
@@ -2311,6 +2331,142 @@ class TestServerRoutes(unittest.IsolatedAsyncioTestCase):
         labels = posted_requests[1]["request"].get("labels", {})
         self.assertNotIn("used_claude", labels)
         self.assertNotIn("model_enum", labels)
+        external_provider_manager.routing_settings.enable_model_fallback = orig_fb
+
+    async def test_strict_mode_prevents_silent_fallback_on_429(self):
+        """Tests that when enable_model_fallback is False (default), 429 returns an honest error without silent downgrade."""
+        from agy_proxy.providers import external_provider_manager
+        orig_fb = external_provider_manager.routing_settings.enable_model_fallback
+        external_provider_manager.routing_settings.enable_model_fallback = False
+        try:
+            acc1 = AccountSession(
+                account_id="acc_strict_test",
+                email="strict_test@gmail.com",
+                refresh_token="rf_strict",
+                is_primary=True,
+            )
+            self.pool.accounts["acc_strict_test"] = acc1
+            posted_requests = []
+
+            class QuotaErrorClient:
+                async def post(self, url, json=None, **kwargs):
+                    posted_requests.append(dict(json or {}))
+                    return unittest.mock.Mock(
+                        status_code=429,
+                        text='{"error": {"code": 429, "message": "Resource has been exhausted (quota exceeded)."}}',
+                        content=b'{"error": {"code": 429, "message": "Resource has been exhausted (quota exceeded)."}}',
+                        headers={"content-type": "application/json"},
+                        json=lambda: {"error": {"code": 429, "message": "Resource has been exhausted (quota exceeded)."}},
+                    )
+
+            acc1.get_http_client = unittest.mock.AsyncMock(return_value=QuotaErrorClient())
+            acc1.get_auth_headers = unittest.mock.AsyncMock(return_value={"Authorization": "Bearer tok_strict"})
+
+            payload = {
+                "model": "claude-sonnet-4-6",
+                "request": {
+                    "model": "claude-sonnet-4-6",
+                    "contents": [{"role": "user", "parts": [{"text": "Hello"}]}],
+                },
+            }
+
+            resp = await self.client.post("/v1internal:streamGenerateContent", json=payload)
+            # In strict mode, returns 429 and does NOT downgrade to Gemini Flash!
+            self.assertEqual(resp.status_code, 429)
+            self.assertEqual(len(posted_requests), 1)
+            self.assertEqual(posted_requests[0]["model"], "claude-sonnet-4-6")
+        finally:
+            external_provider_manager.routing_settings.enable_model_fallback = orig_fb
+
+    async def test_model_fallback_rules_crud_and_routing(self):
+        """Tests that granular model-to-model fallback rules configure and route accurately."""
+        from agy_proxy.providers import external_provider_manager, ModelFallbackRule
+        orig_fb = external_provider_manager.routing_settings.enable_model_fallback
+        orig_rules = list(external_provider_manager.routing_settings.fallback_rules)
+        try:
+            # 1. Update rules via API
+            routing_payload = {
+                "enable_model_fallback": True,
+                "fallback_rules": [
+                    {
+                        "id": "rule_c46_to_g38",
+                        "source_model": "claude-sonnet-4-6",
+                        "target_model": "gemini-3.8-flash-high",
+                        "enabled": True,
+                    },
+                    {
+                        "id": "rule_g25_to_disabled",
+                        "source_model": "gemini-2.5-pro",
+                        "target_model": "chatgpt-web-guest/gpt-4o",
+                        "enabled": False,
+                    },
+                ],
+            }
+            resp = await self.client.post("/api/providers/routing", json=routing_payload)
+            self.assertEqual(resp.status_code, 200)
+            data = resp.json()
+            self.assertTrue(data["routing"]["enable_model_fallback"])
+            self.assertEqual(len(data["routing"]["fallback_rules"]), 2)
+
+            rs = external_provider_manager.routing_settings
+            # 2. Check get_target_for_model
+            self.assertEqual(rs.get_target_for_model("claude-sonnet-4-6"), "gemini-3.8-flash-high")
+            # Disabled rule returns None
+            self.assertIsNone(rs.get_target_for_model("gemini-2.5-pro"))
+            # Unmapped model returns None
+            self.assertIsNone(rs.get_target_for_model("unknown-model"))
+
+            # 3. Simulate request to claude-sonnet-4-6 getting 429 -> successfully routes to gemini-3.8-flash-high
+            acc1 = AccountSession(
+                account_id="acc_rule_test",
+                email="rule_test@gmail.com",
+                refresh_token="rf_rule",
+                is_primary=True,
+            )
+            self.pool.accounts["acc_rule_test"] = acc1
+            posted_requests = []
+
+            class QuotaRuleFallbackClient:
+                async def post(self, url, json=None, **kwargs):
+                    body = dict(json or {})
+                    posted_requests.append(body)
+                    req_m = body.get("model", "")
+                    if "claude" in req_m:
+                        return unittest.mock.Mock(
+                            status_code=429,
+                            text='{"error": {"code": 429, "message": "Resource has been exhausted."}}',
+                            content=b'{"error": {"code": 429, "message": "Resource has been exhausted."}}',
+                            headers={"content-type": "application/json"},
+                            json=lambda: {"error": {"code": 429, "message": "Resource has been exhausted."}},
+                        )
+                    return unittest.mock.Mock(
+                        status_code=200,
+                        text='{"response": {"text": "Success via Gemini Fallback Rule"}}',
+                        content=b'{"response": {"text": "Success via Gemini Fallback Rule"}}',
+                        headers={"content-type": "application/json"},
+                        json=lambda: {"response": {"text": "Success via Gemini Fallback Rule"}},
+                    )
+
+            acc1.get_http_client = unittest.mock.AsyncMock(return_value=QuotaRuleFallbackClient())
+            acc1.get_auth_headers = unittest.mock.AsyncMock(return_value={"Authorization": "Bearer tok_rule"})
+
+            req_payload = {
+                "model": "claude-sonnet-4-6",
+                "request": {
+                    "model": "claude-sonnet-4-6",
+                    "contents": [{"role": "user", "parts": [{"text": "Write code"}]}],
+                },
+            }
+            exec_resp = await self.client.post("/v1internal:streamGenerateContent", json=req_payload)
+            self.assertEqual(exec_resp.status_code, 200)
+            self.assertEqual(exec_resp.json(), {"response": {"text": "Success via Gemini Fallback Rule"}})
+            self.assertEqual(len(posted_requests), 2)
+            self.assertEqual(posted_requests[0]["model"], "claude-sonnet-4-6")
+            self.assertEqual(posted_requests[1]["model"], "gemini-3.8-flash-high")
+
+        finally:
+            external_provider_manager.routing_settings.enable_model_fallback = orig_fb
+            external_provider_manager.routing_settings.fallback_rules = orig_rules
 
     async def test_claude_otlp_metrics_sink(self):
         """Tests that OTLP metrics endpoint absorbs telemetry silently without 404."""
@@ -2394,6 +2550,67 @@ class TestServerRoutes(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(resp.status_code, 200, f"Expected 200 for {route}")
             self.assertIn("text/html", resp.headers.get("content-type", ""))
             self.assertIn("Google Antigravity Proxy", resp.text)
+
+
+    async def test_api_providers_returns_model_enum_map(self):
+        """Tests that /api/providers returns model_enum_map with external models mapped to protobuf enums."""
+        resp = await self.client.get("/api/providers")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertIn("model_enum_map", data)
+        self.assertIn("deepseek-web/deepseek-chat", data["model_enum_map"])
+        self.assertEqual(data["model_enum_map"]["deepseek-web/deepseek-chat"], 2004)
+
+    async def test_cloudcode_passthrough_placeholder_enum_routes_to_external_deepseek(self):
+        """Tests that calling /v1internal:streamGenerateContent with MODEL_PLACEHOLDER_M1004 routes to DeepSeek Web."""
+        from agy_proxy.providers import external_provider_manager
+        prov_inst, _, _ = external_provider_manager.resolve_model("deepseek-web/deepseek-chat")
+        self.assertIsNotNone(prov_inst)
+
+        async def fake_stream_chat(payload):
+            yield {"choices": [{"delta": {"content": "Hello from DeepSeek Web!"}}]}
+
+        with unittest.mock.patch.object(prov_inst, "stream_chat", side_effect=fake_stream_chat):
+            resp = await self.client.post(
+                "/v1internal:streamGenerateContent?alt=sse",
+                json={
+                    "model": "MODEL_PLACEHOLDER_M1004",
+                    "request": {
+                        "model": "MODEL_PLACEHOLDER_M1004",
+                        "contents": [{"role": "user", "parts": [{"text": "Hello"}]}],
+                    },
+                },
+            )
+            self.assertEqual(resp.status_code, 200)
+            self.assertIn("text/event-stream", resp.headers.get("content-type", ""))
+            body_text = resp.text
+            self.assertIn("Hello from DeepSeek Web!", body_text)
+
+    async def test_count_tokens_placeholder_external_model(self):
+        """Tests that /v1internal:countTokens with MODEL_PLACEHOLDER_M1004 returns estimated token count."""
+        resp = await self.client.post(
+            "/v1internal:countTokens",
+            json={
+                "model": "MODEL_PLACEHOLDER_M1004",
+                "contents": [{"role": "user", "parts": [{"text": "Hello world from external!"}]}],
+            },
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertIn("totalTokens", data)
+        self.assertGreater(data["totalTokens"], 0)
+
+    async def test_fetch_available_models_mirrors_placeholders(self):
+        """Tests that enhance_available_models bidirectionally populates MODEL_PLACEHOLDER_M keys with quotaInfo."""
+        from agy_proxy.experiments import enhance_available_models
+        data = {"models": {}}
+        res = enhance_available_models(data)
+        self.assertIn("deepseek-web/deepseek-chat", res["models"])
+        self.assertIn("MODEL_PLACEHOLDER_M1004", res["models"])
+        ph_entry = res["models"]["MODEL_PLACEHOLDER_M1004"]
+        self.assertEqual(ph_entry.get("model"), "MODEL_PLACEHOLDER_M1004")
+        self.assertEqual(ph_entry.get("quotaInfo", {}).get("remainingFraction"), 1.0)
+        self.assertFalse(ph_entry.get("quotaInfo", {}).get("disabled"))
 
 
 if __name__ == "__main__":

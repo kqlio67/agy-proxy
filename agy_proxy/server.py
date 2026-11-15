@@ -1847,16 +1847,23 @@ def create_app(
             token = "zero-auth"
             email = "Zero-Auth Guest"
             p_name = req.name or "ChatGPT Web (Zero-Auth Guest)"
+            existing_main = external_provider_manager.providers.get("chatgpt-web")
+            has_user_token = bool(existing_main and existing_main.api_key and existing_main.api_key.lower() not in ("zero-auth", "guest", "anonymous", "none"))
+            p_id = "chatgpt-web-guest" if has_user_token else "chatgpt-web"
         elif not token:
             # Default to Zero-Auth Guest mode if no token provided
             token = "zero-auth"
             email = "Zero-Auth Guest"
             p_name = req.name or "ChatGPT Web (Zero-Auth Guest)"
+            existing_main = external_provider_manager.providers.get("chatgpt-web")
+            has_user_token = bool(existing_main and existing_main.api_key and existing_main.api_key.lower() not in ("zero-auth", "guest", "anonymous", "none"))
+            p_id = "chatgpt-web-guest" if has_user_token else "chatgpt-web"
         else:
             p_name = req.name or (f"ChatGPT Web ({email})" if email else "ChatGPT Web Session")
+            p_id = "chatgpt-web"
 
         cfg = ExternalProviderConfig(
-            id="chatgpt-web",
+            id=p_id,
             name=p_name,
             provider_type="chatgpt_web",
             base_url="https://chatgpt.com/backend-api",
@@ -1873,12 +1880,43 @@ def create_app(
         external_provider_manager.add_or_update_provider(cfg)
         return {
             "status": "ok",
-            "provider_id": "chatgpt-web",
+            "provider_id": p_id,
             "name": p_name,
             "email": email,
             "guest_mode": token == "zero-auth",
             "message": f"Successfully configured {p_name}!",
         }
+
+    @app.post("/api/accounts/chatgpt-web/add-guest")
+    async def add_chatgpt_web_guest():
+        """Adds or restores the Zero-Auth Guest session for ChatGPT Web."""
+        try:
+            from agy_proxy.providers import external_provider_manager, ExternalProviderConfig, ExternalModelConfig
+            cfg = ExternalProviderConfig(
+                id="chatgpt-web-guest",
+                name="ChatGPT Web (Zero-Auth Guest)",
+                provider_type="chatgpt_web",
+                base_url="https://chatgpt.com/backend-api",
+                api_key="zero-auth",
+                enabled=True,
+                models=[
+                    ExternalModelConfig(id="gpt-4o", display_name="GPT-4o (Web Free)"),
+                    ExternalModelConfig(id="gpt-4o-mini", display_name="GPT-4o mini (Web Free)"),
+                    ExternalModelConfig(id="o3-mini", display_name="o3-mini (Web Free Reasoning)", supports_thinking=True),
+                    ExternalModelConfig(id="chatgpt-4o-latest", display_name="ChatGPT-4o Latest (Web Free)"),
+                ],
+            )
+            external_provider_manager.add_or_update_provider(cfg)
+            return {
+                "status": "ok",
+                "provider_id": "chatgpt-web-guest",
+                "name": "ChatGPT Web (Zero-Auth Guest)",
+                "guest_mode": True,
+                "message": "ChatGPT Web Zero-Auth Guest session added to pool!",
+            }
+        except Exception as e:
+            logger.error("Error adding ChatGPT Web guest session: %s", e)
+            raise HTTPException(status_code=400, detail=str(e))
 
     @app.get("/api/accounts/chatgpt-web/detect-har")
     async def detect_local_chatgpt_har():
@@ -2226,11 +2264,13 @@ def create_app(
     @app.get("/api/providers")
     async def list_external_providers():
         from agy_proxy.providers import external_provider_manager, DEFAULT_PROVIDER_PRESETS
+        from agy_proxy.models import sync_all_external_model_placeholders
         return {
             "providers": [p.model_dump() for p in external_provider_manager.providers.values()],
             "routing": external_provider_manager.routing_settings.model_dump(),
             "presets": DEFAULT_PROVIDER_PRESETS,
             "active_models": external_provider_manager.get_all_active_models(),
+            "model_enum_map": sync_all_external_model_placeholders(),
         }
 
     @app.post("/api/providers")
@@ -4521,6 +4561,22 @@ def create_app(
 
         # ── Third-party External LLM routing (Antigravity IDE -> OpenRouter, Ollama, DeepSeek, Groq, NVIDIA NIM) ──
         from agy_proxy.providers import external_provider_manager
+        if is_count_tokens and external_provider_manager.is_external_model(req_model):
+            text_len = 0
+            if isinstance(body, dict):
+                contents = body.get("contents") or body.get("request", {}).get("contents") or []
+                for c in contents:
+                    for p in c.get("parts", []):
+                        text_len += len(p.get("text", ""))
+            est_tokens = max(1, text_len // 4)
+            _record_cloudcode_traffic(
+                acc_obj=type("ExternalAccount", (), {"account_id": "external", "email": "external", "auth_method": "external"})(),
+                st_code=200,
+                data_dict={"totalTokens": est_tokens},
+                raw_text=None,
+            )
+            return JSONResponse(status_code=200, content={"totalTokens": est_tokens})
+
         if is_generation and external_provider_manager.is_external_model(req_model):
             ext_target = external_provider_manager.resolve_model(req_model)
             if ext_target:
@@ -5574,66 +5630,71 @@ def create_app(
 
                 # Last candidate got 503 No capacity available (Google server overloaded for gemini-2.5-pro)
                 if resp.status_code == 503 and is_generation and is_last and "capacity" in err_lower:
-                    fallback_model = "gemini-3.8-flash-high"
-                    logger.warning(
-                        "[%s] ⚠️ All accounts reported 503 capacity exhausted for %s. 🔄 Auto-falling back to %s to prevent failure!",
-                        acc_label,
-                        req_model,
-                        fallback_model,
-                    )
-                    if pool:
-                        try:
-                            fb_cands = [a for a in pool.get_candidate_accounts(fallback_model, allow_auto_routing=False)]
-                            for fb_acc in fb_cands:
-                                fb_label = getattr(fb_acc, "email", fb_acc.account_id)
-                                fb_body = copy.deepcopy(candidate_body) if isinstance(candidate_body, dict) else candidate_body
-                                if isinstance(fb_body, dict):
-                                    fb_body["model"] = fallback_model
-                                    if "request" in fb_body and isinstance(fb_body["request"], dict):
-                                        fb_body["request"]["model"] = fallback_model
-                                        if "labels" in fb_body["request"] and isinstance(fb_body["request"]["labels"], dict):
-                                            for k in ("model_enum", "used_claude", "used_non_gemini_model"):
-                                                fb_body["request"]["labels"].pop(k, None)
-                                        if "contents" in fb_body["request"] and isinstance(fb_body["request"]["contents"], list):
-                                            from agy_proxy.converters.common import (
-                                                ensure_tool_pairing_integrity,
-                                                sanitize_gemini_contents_thought_signatures,
-                                            )
-                                            fb_body["request"]["contents"] = ensure_tool_pairing_integrity(
-                                                fb_body["request"]["contents"],
-                                                model=fallback_model,
-                                            )
-                                            fb_body["request"]["contents"] = sanitize_gemini_contents_thought_signatures(
-                                                fb_body["request"]["contents"]
-                                            )
-                                    fb_proj = getattr(fb_acc, "project_id", None) or "aicode-consumers"
-                                    fb_body["project"] = fb_proj
-                                    if "request" in fb_body and isinstance(fb_body["request"], dict):
-                                        if is_generation:
-                                            fb_body["request"].pop("project", None)
-                                        elif "project" in fb_body["request"]:
-                                            fb_body["request"]["project"] = fb_proj
-                                fb_headers = await fb_acc.get_auth_headers()
-                                _apply_client_user_agent(fb_headers)
-                                fb_c = await fb_acc.get_http_client()
-                                fb_target_url = _build_cc_target_url(_acc_cc_base(fb_acc))
-                                if is_streaming_call and isinstance(fb_c, httpx.AsyncClient):
-                                    timeout_obj = httpx.Timeout(timeout_sec, connect=20.0, read=timeout_sec, write=120.0, pool=60.0)
-                                    req_send = fb_c.build_request("POST", fb_target_url, headers=fb_headers, json=fb_body, params=query_params, timeout=timeout_obj)
-                                    fb_resp = await fb_c.send(req_send, stream=True)
-                                    if fb_resp.status_code != 200:
-                                        await fb_resp.aread()
-                                else:
-                                    fb_resp = await fb_c.post(fb_target_url, headers=fb_headers, json=fb_body, params=query_params, timeout=timeout_sec)
-                                if fb_resp.status_code == 200:
-                                    logger.info("[%s] ✅ Capacity fallback to %s succeeded seamlessly!", fb_label, fallback_model)
-                                    resp = fb_resp
-                                    acc = fb_acc
-                                    acc_label = fb_label
-                                    req_model = fallback_model
-                                    break
-                        except Exception as fb_err:
-                            logger.debug("Capacity fallback error: %s", fb_err)
+                    from agy_proxy.providers import external_provider_manager
+                    if getattr(external_provider_manager.routing_settings, "enable_model_fallback", False):
+                        fallback_model = external_provider_manager.routing_settings.model_fallbacks.get(
+                            req_model,
+                            external_provider_manager.routing_settings.model_fallback_target or "gemini-3.8-flash-high"
+                        )
+                        logger.warning(
+                            "[%s] ⚠️ All accounts reported 503 capacity exhausted for %s. 🔄 Auto-falling back to %s to prevent failure!",
+                            acc_label,
+                            req_model,
+                            fallback_model,
+                        )
+                        if pool:
+                            try:
+                                fb_cands = [a for a in pool.get_candidate_accounts(fallback_model, allow_auto_routing=False)]
+                                for fb_acc in fb_cands:
+                                    fb_label = getattr(fb_acc, "email", fb_acc.account_id)
+                                    fb_body = copy.deepcopy(candidate_body) if isinstance(candidate_body, dict) else candidate_body
+                                    if isinstance(fb_body, dict):
+                                        fb_body["model"] = fallback_model
+                                        if "request" in fb_body and isinstance(fb_body["request"], dict):
+                                            fb_body["request"]["model"] = fallback_model
+                                            if "labels" in fb_body["request"] and isinstance(fb_body["request"]["labels"], dict):
+                                                for k in ("model_enum", "used_claude", "used_non_gemini_model"):
+                                                    fb_body["request"]["labels"].pop(k, None)
+                                            if "contents" in fb_body["request"] and isinstance(fb_body["request"]["contents"], list):
+                                                from agy_proxy.converters.common import (
+                                                    ensure_tool_pairing_integrity,
+                                                    sanitize_gemini_contents_thought_signatures,
+                                                )
+                                                fb_body["request"]["contents"] = ensure_tool_pairing_integrity(
+                                                    fb_body["request"]["contents"],
+                                                    model=fallback_model,
+                                                )
+                                                fb_body["request"]["contents"] = sanitize_gemini_contents_thought_signatures(
+                                                    fb_body["request"]["contents"]
+                                                )
+                                        fb_proj = getattr(fb_acc, "project_id", None) or "aicode-consumers"
+                                        fb_body["project"] = fb_proj
+                                        if "request" in fb_body and isinstance(fb_body["request"], dict):
+                                            if is_generation:
+                                                fb_body["request"].pop("project", None)
+                                            elif "project" in fb_body["request"]:
+                                                fb_body["request"]["project"] = fb_proj
+                                    fb_headers = await fb_acc.get_auth_headers()
+                                    _apply_client_user_agent(fb_headers)
+                                    fb_c = await fb_acc.get_http_client()
+                                    fb_target_url = _build_cc_target_url(_acc_cc_base(fb_acc))
+                                    if is_streaming_call and isinstance(fb_c, httpx.AsyncClient):
+                                        timeout_obj = httpx.Timeout(timeout_sec, connect=20.0, read=timeout_sec, write=120.0, pool=60.0)
+                                        req_send = fb_c.build_request("POST", fb_target_url, headers=fb_headers, json=fb_body, params=query_params, timeout=timeout_obj)
+                                        fb_resp = await fb_c.send(req_send, stream=True)
+                                        if fb_resp.status_code != 200:
+                                            await fb_resp.aread()
+                                    else:
+                                        fb_resp = await fb_c.post(fb_target_url, headers=fb_headers, json=fb_body, params=query_params, timeout=timeout_sec)
+                                    if fb_resp.status_code == 200:
+                                        logger.info("[%s] ✅ Capacity fallback to %s succeeded seamlessly!", fb_label, fallback_model)
+                                        resp = fb_resp
+                                        acc = fb_acc
+                                        acc_label = fb_label
+                                        req_model = fallback_model
+                                        break
+                            except Exception as fb_err:
+                                logger.debug("Capacity fallback error: %s", fb_err)
 
                 # Last candidate got 404 or 429: If Claude 5.5 reached quota or is not enabled, auto-fallback to Claude 4.6 on another account
                 if resp.status_code in (404, 429) and is_generation and is_last:
@@ -5730,26 +5791,93 @@ def create_app(
                                 logger.debug("[%s] Fallback attempt to %s error: %s", fb_label, fallback_model, fb_err)
                                 continue
 
-                    if resp.status_code != 200 and req_model != DEFAULT_MODEL:
-                        reason_msg = "reached quota limit (429)" if resp.status_code == 429 else "returned 404"
-                        logger.warning("[%s] Model %s %s. Attempting automatic fallback to %s...", acc_label, req_model, reason_msg, DEFAULT_MODEL)
+                    from agy_proxy.providers import external_provider_manager
+                    allow_model_fb = getattr(external_provider_manager.routing_settings, "enable_model_fallback", False)
+                    target_model = external_provider_manager.routing_settings.get_target_for_model(req_model) if allow_model_fb else None
+
+                    if resp.status_code != 200 and target_model and target_model != req_model:
+                        reason_msg = "reached quota limit (429)" if resp.status_code == 429 else f"returned error ({resp.status_code})"
+                        logger.warning("[%s] Model %s %s. 🔄 Model fallback rule triggered ➔ %s...", acc_label, req_model, reason_msg, target_model)
+
+                        # Check if target_model is hosted by an external provider
+                        ext_target = external_provider_manager.resolve_model(target_model)
+                        if ext_target:
+                            fb_provider, fb_upstream_id, fb_m_cfg = ext_target
+                            logger.info(
+                                "[Model-Fallback] Routing from %s to external provider %s (%s)...",
+                                req_model, fb_provider.name, fb_upstream_id
+                            )
+                            from agy_proxy.converters.cloudcode_to_openai import (
+                                cloudcode_to_openai_chat,
+                                CloudCodeSSETranslator,
+                                openai_response_to_cloudcode,
+                            )
+                            openai_payload = cloudcode_to_openai_chat(candidate_body or body, fb_upstream_id)
+                            query_params = dict(request.query_params)
+                            is_sse = query_params.get("alt") == "sse" or "alt=sse" in str(request.url)
+                            if is_sse:
+                                async def ext_rule_sse_stream():
+                                    translator = CloudCodeSSETranslator()
+                                    try:
+                                        async for chunk in fb_provider.stream_chat(openai_payload):
+                                            events = translator.process_chunk(chunk)
+                                            for ev in events:
+                                                yield f"data: {json.dumps(ev)}\n\n"
+                                    except Exception as fb_err:
+                                        logger.error("[Model-Fallback] Stream error (%s): %s", fb_provider.name, fb_err)
+                                        err_event = {
+                                            "response": {
+                                                "candidates": [{"content": {"role": "model", "parts": [{"text": f"Error from fallback {fb_provider.name}: {fb_err}"}]}, "finishReason": "STOP"}]
+                                            }
+                                        }
+                                        yield f"data: {json.dumps(err_event)}\n\n"
+
+                                return StreamingResponse(
+                                    ext_rule_sse_stream(),
+                                    media_type="text/event-stream",
+                                    headers={
+                                        "Cache-Control": "no-cache",
+                                        "Connection": "keep-alive",
+                                        "Content-Type": "text/event-stream; charset=utf-8",
+                                        "X-Accel-Buffering": "no",
+                                        "X-AGY-Fallback": "true",
+                                        "X-AGY-Fallback-From": req_model,
+                                        "X-AGY-Fallback-To": target_model,
+                                    },
+                                )
+                            else:
+                                try:
+                                    raw_resp = await fb_provider.chat_completion(openai_payload)
+                                    cc_resp_dict = openai_response_to_cloudcode(raw_resp)
+                                    return JSONResponse(
+                                        cc_resp_dict,
+                                        headers={
+                                            "X-AGY-Fallback": "true",
+                                            "X-AGY-Fallback-From": req_model,
+                                            "X-AGY-Fallback-To": target_model,
+                                        }
+                                    )
+                                except Exception as ext_err:
+                                    logger.error("[Model-Fallback] External model %s call failed: %s", target_model, ext_err)
+
+                        # If not external or external attempt failed, check Google candidates pool
                         if pool:
                             try:
                                 fallback_candidates = [
-                                    a for a in pool.get_candidate_accounts(DEFAULT_MODEL, allow_auto_routing=False)
-                                    if a.is_model_supported(DEFAULT_MODEL) and not a.is_rate_limited(DEFAULT_MODEL)
+                                    a for a in pool.get_candidate_accounts(target_model, allow_auto_routing=False)
+                                    if a.is_model_supported(target_model) and not a.is_rate_limited(target_model)
                                 ]
                                 if not fallback_candidates:
                                     fallback_candidates = [
-                                        a for a in pool.get_candidate_accounts(DEFAULT_MODEL, allow_auto_routing=False)
-                                        if a.is_model_supported(DEFAULT_MODEL)
+                                        a for a in pool.get_candidate_accounts(target_model, allow_auto_routing=False)
+                                        if a.is_model_supported(target_model)
                                     ]
                             except Exception:
                                 fallback_candidates = []
                             if not fallback_candidates:
                                 fallback_candidates = [acc]
                         else:
-                            fallback_candidates = [a for a in candidates if a.is_model_supported(DEFAULT_MODEL)]
+                            fallback_candidates = [a for a in candidates if a.is_model_supported(target_model)]
                             if not fallback_candidates:
                                 fallback_candidates = list(candidates) or [acc]
 
@@ -5757,9 +5885,9 @@ def create_app(
                             fb_label = getattr(fb_acc, "email", fb_acc.account_id)
                             fallback_body = copy.deepcopy(candidate_body) if isinstance(candidate_body, dict) else candidate_body
                             if isinstance(fallback_body, dict):
-                                fallback_body["model"] = DEFAULT_MODEL
+                                fallback_body["model"] = target_model
                                 if "request" in fallback_body and isinstance(fallback_body["request"], dict):
-                                    fallback_body["request"]["model"] = DEFAULT_MODEL
+                                    fallback_body["request"]["model"] = target_model
                                     # Strip Claude-specific labels
                                     if "labels" in fallback_body["request"] and isinstance(fallback_body["request"]["labels"], dict):
                                         for k in ("model_enum", "used_claude", "used_non_gemini_model"):
@@ -5772,7 +5900,7 @@ def create_app(
                                         )
                                         fallback_body["request"]["contents"] = ensure_tool_pairing_integrity(
                                             fallback_body["request"]["contents"],
-                                            model=DEFAULT_MODEL,
+                                            model=target_model,
                                         )
                                         fallback_body["request"]["contents"] = sanitize_gemini_contents_thought_signatures(
                                             fallback_body["request"]["contents"]
@@ -5808,16 +5936,16 @@ def create_app(
                                     fb_resp = await fb_c.post(fb_target_url, headers=fb_headers, json=fallback_body, params=query_params, timeout=timeout_sec)
 
                                 if fb_resp.status_code == 200:
-                                    logger.info("[%s] ✅ Fallback to %s succeeded! Generation continuing seamlessly.", fb_label, DEFAULT_MODEL)
+                                    logger.info("[%s] ✅ Fallback to %s succeeded! Generation continuing seamlessly.", fb_label, target_model)
                                     resp = fb_resp
                                     acc = fb_acc
                                     acc_label = fb_label
-                                    req_model = DEFAULT_MODEL
+                                    req_model = target_model
                                     break
                                 else:
                                     resp = fb_resp
                             except Exception as fb_err:
-                                logger.debug("[%s] Fallback attempt to %s error: %s", fb_label, DEFAULT_MODEL, fb_err)
+                                logger.debug("[%s] Fallback attempt to %s error: %s", fb_label, target_model, fb_err)
                                 continue
 
                 # Auto-Failover to external provider (OpenRouter, Ollama, DeepSeek) if all Google attempts failed

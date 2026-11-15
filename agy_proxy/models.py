@@ -541,17 +541,110 @@ CLOUDCODE_PLACEHOLDER_MAP: dict[str, str] = {
     "gemini-3.5-flash-lite-medium": "MODEL_PLACEHOLDER_M545",
     "gemini-3.5-flash-lite-low": "MODEL_PLACEHOLDER_M546",
     "gemini-pro-agent": "MODEL_PLACEHOLDER_M547",
+    # External Web & API models (Language Server protobuf placeholder range M1000..M1650 -> enums 2000..2650)
+    "chatgpt-web/gpt-4o": "MODEL_PLACEHOLDER_M1000",
+    "chatgpt-web/gpt-4o-mini": "MODEL_PLACEHOLDER_M1001",
+    "chatgpt-web/o3-mini": "MODEL_PLACEHOLDER_M1002",
+    "chatgpt-web/chatgpt-4o-latest": "MODEL_PLACEHOLDER_M1003",
+    "deepseek-web/deepseek-chat": "MODEL_PLACEHOLDER_M1004",
+    "deepseek-web/deepseek-reasoner": "MODEL_PLACEHOLDER_M1005",
+    "gemini-web-guest/gemini-2.0-flash-lite": "MODEL_PLACEHOLDER_M1006",
+    "gemini-web-guest/gemini-flash-lite": "MODEL_PLACEHOLDER_M1007",
+    "chatgpt-web-guest/gpt-4o": "MODEL_PLACEHOLDER_M1008",
+    "chatgpt-web-guest/gpt-4o-mini": "MODEL_PLACEHOLDER_M1009",
+    "chatgpt-web-guest/o3-mini": "MODEL_PLACEHOLDER_M1010",
+    "chatgpt-web-guest/chatgpt-4o-latest": "MODEL_PLACEHOLDER_M1011",
+    "deepseek-chat": "MODEL_PLACEHOLDER_M1004",
+    "deepseek-reasoner": "MODEL_PLACEHOLDER_M1005",
+    "DeepSeek V3 (Web Free)": "MODEL_PLACEHOLDER_M1004",
+    "DeepSeek R1 (Web Free Thinking)": "MODEL_PLACEHOLDER_M1005",
 }
 
-REVERSE_PLACEHOLDER_MAP: dict[str, str] = {
-    v.lower(): k for k, v in CLOUDCODE_PLACEHOLDER_MAP.items()
-}
+DYNAMIC_MODEL_START_ENUM: int = 2000
+DYNAMIC_MODEL_MAX_ENUM: int = 2650
+
+
+def get_or_assign_model_placeholder(model_id: str, display_name: str | None = None) -> tuple[str, int]:
+    """
+    Returns (placeholder_name, proto_enum_value) for any model ID.
+    If the model already has an assigned placeholder in CLOUDCODE_PLACEHOLDER_MAP,
+    returns it. Otherwise, assigns a free dynamic placeholder from the 2000..2650 range
+    (MODEL_PLACEHOLDER_M1000..M1650) and updates CLOUDCODE_PLACEHOLDER_MAP and REVERSE_PLACEHOLDER_MAP.
+    """
+    # Check model_id
+    if model_id in CLOUDCODE_PLACEHOLDER_MAP:
+        ph = CLOUDCODE_PLACEHOLDER_MAP[model_id]
+        if ph.startswith("MODEL_PLACEHOLDER_M"):
+            try:
+                num = int(ph.split("MODEL_PLACEHOLDER_M")[1])
+                return ph, 1000 + num
+            except Exception:
+                pass
+    # Check display_name
+    if display_name and display_name in CLOUDCODE_PLACEHOLDER_MAP:
+        ph = CLOUDCODE_PLACEHOLDER_MAP[display_name]
+        if ph.startswith("MODEL_PLACEHOLDER_M"):
+            try:
+                num = int(ph.split("MODEL_PLACEHOLDER_M")[1])
+                return ph, 1000 + num
+            except Exception:
+                pass
+
+    # Find next available enum in 2000..2650
+    used_enums: set[int] = set()
+    for m, p in CLOUDCODE_PLACEHOLDER_MAP.items():
+        if p.startswith("MODEL_PLACEHOLDER_M"):
+            try:
+                used_enums.add(1000 + int(p.split("MODEL_PLACEHOLDER_M")[1]))
+            except Exception:
+                pass
+    enum_val = DYNAMIC_MODEL_START_ENUM
+    while enum_val in used_enums and enum_val < DYNAMIC_MODEL_MAX_ENUM:
+        enum_val += 1
+
+    ph = f"MODEL_PLACEHOLDER_M{enum_val - 1000}"
+    CLOUDCODE_PLACEHOLDER_MAP[model_id] = ph
+    REVERSE_PLACEHOLDER_MAP[ph.lower()] = model_id
+    REVERSE_PLACEHOLDER_MAP[str(enum_val)] = model_id
+    if display_name:
+        CLOUDCODE_PLACEHOLDER_MAP[display_name] = ph
+        REVERSE_PLACEHOLDER_MAP[display_name.lower()] = model_id
+    return ph, enum_val
+
+
+def sync_all_external_model_placeholders() -> dict[str, int]:
+    """
+    Ensures all currently active external and web models have registered placeholders
+    and returns a mapping of model_id/display_name -> proto_enum_value for Web UI sync.
+    """
+    mapping: dict[str, int] = {}
+    try:
+        from agy_proxy.providers import external_provider_manager
+        ext_models = external_provider_manager.get_all_active_models()
+        for em in ext_models:
+            m_id = em["id"]
+            d_name = em.get("display_name")
+            ph, enum_val = get_or_assign_model_placeholder(m_id, d_name)
+            mapping[m_id] = enum_val
+            if d_name:
+                mapping[d_name] = enum_val
+    except Exception:
+        pass
+    return mapping
+
+REVERSE_PLACEHOLDER_MAP: dict[str, str] = {}
+for k, v in CLOUDCODE_PLACEHOLDER_MAP.items():
+    v_low = v.lower()
+    if v_low not in REVERSE_PLACEHOLDER_MAP or "/" in k:
+        REVERSE_PLACEHOLDER_MAP[v_low] = k
 for _m, _p in CLOUDCODE_PLACEHOLDER_MAP.items():
     if _p.startswith("MODEL_PLACEHOLDER_M"):
         try:
             _num = int(_p.split("MODEL_PLACEHOLDER_M")[1])
             _enum_val = 1000 + _num
-            REVERSE_PLACEHOLDER_MAP[str(_enum_val)] = _m
+            _enum_str = str(_enum_val)
+            if _enum_str not in REVERSE_PLACEHOLDER_MAP or "/" in _m:
+                REVERSE_PLACEHOLDER_MAP[_enum_str] = _m
         except Exception:
             pass
 

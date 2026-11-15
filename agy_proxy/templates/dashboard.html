@@ -1549,6 +1549,49 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       </div>
     </div>
 
+    <!-- 2. Model-to-Model Fallback Rules & Strict Mode Guard -->
+    <div class="p-5 sm:p-6 rounded-3xl glass-card space-y-4 relative overflow-hidden" id="fallbackRulesContainer">
+      <div class="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/[0.15] to-transparent pointer-events-none"></div>
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/[0.08] pb-3">
+        <div>
+          <h2 class="text-base font-bold text-white flex items-center">
+            <i class="fa-solid fa-route mr-2 text-indigo-400"></i> Model-to-Model Fallback Rules
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">Explicit redirection rules. When a specific model hits quota (429) or is unavailable, seamlessly route to your designated backup model.</p>
+        </div>
+        <div class="flex items-center space-x-2">
+          <span id="settingsModelFallbackBadge" class="text-xs font-mono font-semibold px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+            Strict Mode (No Silent Downgrade)
+          </span>
+        </div>
+      </div>
+
+      <!-- Master Switch & Actions Toolbar -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl glass-well border border-white/[0.08]">
+        <div class="flex items-center space-x-3 min-w-0">
+          <label class="relative inline-flex items-center cursor-pointer shrink-0">
+            <input type="checkbox" id="settingsToggleModelFallback" onchange="handleModelFallbackSettingsChange()" class="sr-only peer">
+            <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+          </label>
+          <div class="min-w-0">
+            <span class="font-bold text-white text-xs block">Enable Fallback Rules</span>
+            <span class="text-[11px] text-slate-400 truncate block" id="settingsModelFallbackHint">
+              When disabled (Strict Mode), 429 returns an honest error without silent model downgrades.
+            </span>
+          </div>
+        </div>
+        <button type="button" onclick="openAddFallbackRuleModal()" class="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition flex items-center space-x-1.5 shadow active:scale-95 shrink-0 self-start sm:self-auto">
+          <i class="fa-solid fa-plus text-[10px]"></i>
+          <span>Add Fallback Rule</span>
+        </button>
+      </div>
+
+      <!-- Rules Table / Card List -->
+      <div id="fallbackRulesTableContainer" class="space-y-2 pt-1">
+        <!-- Rendered dynamically by renderFallbackRulesList() -->
+      </div>
+    </div>
+
     <!-- 2. Antigravity Web Mode Management -->
     <div class="p-5 sm:p-6 rounded-3xl glass-card space-y-4 relative overflow-hidden">
       <div class="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/[0.15] to-transparent pointer-events-none"></div>
@@ -2353,6 +2396,52 @@ https://your-tunnel.trycloudflare.com/v1</pre>
     </div>
   </div>
 
+  <!-- Add Fallback Rule Modal -->
+  <div id="addFallbackRuleModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 hidden" onclick="if(event.target===this) closeAddFallbackRuleModal()">
+    <div class="relative w-full max-w-lg rounded-3xl glass-card border border-white/[0.12] p-5 sm:p-6 space-y-4 shadow-2xl animate-fade-in">
+      <div class="flex items-center justify-between border-b border-white/[0.08] pb-3">
+        <h3 class="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-arrows-split-up-and-left text-indigo-400"></i>
+          <span>Add Model Fallback Rule</span>
+        </h3>
+        <button type="button" onclick="closeAddFallbackRuleModal()" class="text-slate-400 hover:text-white transition">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3.5 text-xs">
+        <div>
+          <label class="block text-slate-300 font-semibold mb-1">When this model hits quota (429) or is unavailable:</label>
+          <select id="ruleSourceModelSelect" class="w-full bg-slate-900/80 border border-white/[0.1] rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-indigo-400">
+            <!-- Dynamically populated -->
+          </select>
+        </div>
+
+        <div class="flex items-center justify-center text-slate-400 py-0.5">
+          <i class="fa-solid fa-arrow-down text-indigo-400 text-sm"></i>
+          <span class="ml-2 font-mono text-[11px] text-indigo-300 uppercase tracking-wider">Automatically fallback to:</span>
+        </div>
+
+        <div>
+          <label class="block text-slate-300 font-semibold mb-1">Backup Target Model:</label>
+          <select id="ruleTargetModelSelect" class="w-full bg-slate-900/80 border border-white/[0.1] rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-indigo-400">
+            <!-- Dynamically populated -->
+          </select>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end space-x-2 pt-2 border-t border-white/[0.08]">
+        <button type="button" onclick="closeAddFallbackRuleModal()" class="px-4 py-2 rounded-xl glass-pill text-slate-300 hover:text-white text-xs font-semibold transition">
+          Cancel
+        </button>
+        <button type="button" onclick="saveNewFallbackRule()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow">
+          <i class="fa-solid fa-check text-[11px]"></i>
+          <span>Save Rule</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Mobile Bottom Navigation Dock (Visible only on mobile screens < 768px) -->
   <nav id="mobileBottomNav" class="md:hidden fixed bottom-3 inset-x-3 max-w-md mx-auto z-40 bg-[#06080e]/90 backdrop-blur-2xl border border-white/[0.12] rounded-2xl px-2 py-1.5 flex items-center justify-around shadow-[0_12px_40px_rgba(0,0,0,0.85)] safe-area-pb">
     <button onclick="switchTab('accounts')" id="mTabBtn-accounts" class="flex-1 py-1 flex flex-col items-center justify-center text-[10px] font-bold text-indigo-400 transition">
@@ -2390,7 +2479,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
     let currentOAuthVerifier = null;
     let rawAccountsData = [];
     let rawProvidersData = [];
-    let rawRoutingSettings = { enable_external_failover: false, fallback_model: null };
+    let rawRoutingSettings = { enable_external_failover: false, fallback_model: null, enable_model_fallback: false, model_fallback_target: 'gemini-3.8-flash-high', model_fallbacks: {} };
     let currentAccountView = 'grid';
     let currentCompanyFilter = 'all';
     let currentMethodFilter = 'all';
@@ -3546,6 +3635,240 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       }
     }
 
+    function renderFallbackRulesList() {
+      const container = document.getElementById('fallbackRulesTableContainer');
+      if (!container) return;
+      const rules = rawRoutingSettings?.fallback_rules || [];
+      if (rules.length === 0) {
+        container.innerHTML = `
+          <div class="p-6 rounded-2xl glass-well text-center space-y-2 border border-dashed border-white/[0.1] text-xs text-slate-400">
+            <i class="fa-solid fa-route text-slate-500 text-xl block mb-1"></i>
+            <p class="font-medium text-slate-300">No explicit fallback rules configured.</p>
+            <p class="text-[11px] text-slate-400">In Strict Mode, any model hitting 429 quota will return an honest error without silent unexpected downgrades.</p>
+            <button type="button" onclick="openAddFallbackRuleModal()" class="mt-2 px-3 py-1.5 rounded-xl glass-pill hover:bg-white/[0.08] text-indigo-300 hover:text-white border border-indigo-500/30 text-xs font-semibold inline-flex items-center space-x-1.5 transition">
+              <i class="fa-solid fa-plus text-[10px]"></i>
+              <span>Add Your First Fallback Rule</span>
+            </button>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = rules.map(rule => `
+        <div class="p-3 sm:p-3.5 rounded-2xl glass-card border border-white/[0.08] flex items-center justify-between gap-3 hover:border-indigo-500/30 transition ${!rule.enabled ? 'opacity-50' : ''}">
+          <div class="flex items-center space-x-2.5 min-w-0 flex-1">
+            <div class="w-7 h-7 rounded-lg bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400 text-xs shrink-0">
+              <i class="fa-solid fa-shuffle"></i>
+            </div>
+            <div class="flex items-center space-x-2 flex-wrap min-w-0 gap-y-1">
+              <span class="px-2.5 py-1 rounded-lg glass-well font-mono text-xs font-semibold text-white border border-white/[0.08] truncate max-w-[160px] sm:max-w-none" title="Source: ${escapeHtml(rule.source_model)}">${escapeHtml(rule.source_model)}</span>
+              <i class="fa-solid fa-arrow-right text-[10px] text-indigo-400"></i>
+              <span class="px-2.5 py-1 rounded-lg bg-indigo-500/20 text-indigo-200 font-mono text-xs font-semibold border border-indigo-500/30 truncate max-w-[160px] sm:max-w-none" title="Target: ${escapeHtml(rule.target_model)}">${escapeHtml(rule.target_model)}</span>
+            </div>
+          </div>
+          <div class="flex items-center space-x-2 shrink-0">
+            <label class="relative inline-flex items-center cursor-pointer" title="${rule.enabled ? 'Disable Rule' : 'Enable Rule'}">
+              <input type="checkbox" onchange="toggleFallbackRule('${escapeHtml(rule.id)}', this.checked)" ${rule.enabled ? 'checked' : ''} class="sr-only peer">
+              <div class="w-8 h-4 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-indigo-600"></div>
+            </label>
+            <button onclick="deleteFallbackRule('${escapeHtml(rule.id)}')" class="text-slate-400 hover:text-rose-400 p-1.5 transition rounded-lg hover:bg-rose-500/10" title="Delete Rule">
+              <i class="fa-solid fa-trash-can text-xs"></i>
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function updateModelFallbackUI(routing) {
+      const isEnabled = Boolean(routing?.enable_model_fallback);
+      const toggle = document.getElementById('settingsToggleModelFallback');
+      if (toggle) toggle.checked = isEnabled;
+      const rules = routing?.fallback_rules || [];
+      const activeCount = rules.filter(r => r.enabled).length;
+      const badge = document.getElementById('settingsModelFallbackBadge');
+      if (badge) {
+        if (!isEnabled) {
+          badge.innerText = 'Strict Mode (No Silent Downgrade)';
+          badge.className = 'text-xs font-mono font-semibold px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+        } else {
+          badge.innerText = `${activeCount} Active Fallback Rule${activeCount === 1 ? '' : 's'}`;
+          badge.className = 'text-xs font-mono font-semibold px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30';
+        }
+      }
+      renderFallbackRulesList();
+    }
+
+    async function handleModelFallbackSettingsChange() {
+      const isEnabled = document.getElementById('settingsToggleModelFallback')?.checked ?? false;
+      try {
+        const payload = {
+          ...(rawRoutingSettings || {}),
+          enable_model_fallback: isEnabled,
+        };
+        const res = await fetch('/api/providers/routing', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        rawRoutingSettings = data.routing || payload;
+        updateModelFallbackUI(rawRoutingSettings);
+        showToast(`Fallback rules ${isEnabled ? 'enabled' : 'disabled (Strict Mode Active)'}`, 'success');
+      } catch (err) {
+        showToast('Failed to update fallback settings: ' + err.message, 'error');
+      }
+    }
+
+    function openAddFallbackRuleModal() {
+      const srcSel = document.getElementById('ruleSourceModelSelect');
+      const tgtSel = document.getElementById('ruleTargetModelSelect');
+      if (!srcSel || !tgtSel) return;
+
+      const googleModels = [
+        { id: 'claude-sonnet-4-6', name: 'Claude 4.6 Sonnet (Thinking)' },
+        { id: 'claude-opus-4-6', name: 'Claude 4.6 Opus (Thinking)' },
+        { id: 'claude-sonnet-5-5-high', name: 'Claude 5.5 Sonnet' },
+        { id: 'gemini-4-argon-high', name: 'Gemini 4 Argon' },
+        { id: 'gemini-4-hydrogen-high', name: 'Gemini 4 Hydrogen' },
+        { id: 'gemini-3.8-flash-high', name: 'Gemini 3.8 Flash' },
+        { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
+        { id: 'gemini-2.0-flash-lite', name: 'Gemini 2.0 Flash Lite' },
+      ];
+
+      let extModels = [];
+      (rawProvidersData || []).forEach(p => {
+        if (p.models && p.models.length > 0) {
+          p.models.forEach(m => {
+            const fullId = m.id.includes('/') ? m.id : `${p.id}/${m.id}`;
+            extModels.push({
+              id: fullId,
+              name: `${p.name}: ${m.name || m.display_name || m.id}`
+            });
+          });
+        }
+      });
+
+      let srcHtml = '<optgroup label="Google Antigravity Models">';
+      googleModels.forEach(m => {
+        srcHtml += `<option value="${escapeHtml(m.id)}">${escapeHtml(m.name)}</option>`;
+      });
+      srcHtml += '</optgroup>';
+      if (extModels.length > 0) {
+        srcHtml += '<optgroup label="External Provider Models">';
+        extModels.forEach(m => {
+          srcHtml += `<option value="${escapeHtml(m.id)}">${escapeHtml(m.name)}</option>`;
+        });
+        srcHtml += '</optgroup>';
+      }
+      srcSel.innerHTML = srcHtml;
+
+      let tgtHtml = '';
+      if (extModels.length > 0) {
+        tgtHtml += '<optgroup label="External Provider Models (Recommended Backups)">';
+        extModels.forEach(m => {
+          tgtHtml += `<option value="${escapeHtml(m.id)}">${escapeHtml(m.name)}</option>`;
+        });
+        tgtHtml += '</optgroup>';
+      }
+      tgtHtml += '<optgroup label="Google Models">';
+      googleModels.forEach(m => {
+        tgtHtml += `<option value="${escapeHtml(m.id)}">${escapeHtml(m.name)}</option>`;
+      });
+      tgtHtml += '</optgroup>';
+      tgtSel.innerHTML = tgtHtml;
+
+      document.getElementById('addFallbackRuleModal')?.classList.remove('hidden');
+    }
+
+    function closeAddFallbackRuleModal() {
+      document.getElementById('addFallbackRuleModal')?.classList.add('hidden');
+    }
+
+    async function saveNewFallbackRule() {
+      const src = document.getElementById('ruleSourceModelSelect')?.value;
+      const tgt = document.getElementById('ruleTargetModelSelect')?.value;
+      if (!src || !tgt) {
+        showToast('Please select both source and target models', 'error');
+        return;
+      }
+      if (src === tgt) {
+        showToast('Source and backup model cannot be identical', 'error');
+        return;
+      }
+
+      const existingRules = rawRoutingSettings?.fallback_rules || [];
+      const newRule = {
+        id: 'rule_' + Math.random().toString(36).slice(2, 10),
+        source_model: src,
+        target_model: tgt,
+        enabled: true
+      };
+      const updatedRules = [...existingRules, newRule];
+
+      try {
+        const payload = {
+          ...(rawRoutingSettings || {}),
+          enable_model_fallback: true,
+          fallback_rules: updatedRules
+        };
+        const res = await fetch('/api/providers/routing', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        rawRoutingSettings = data.routing || payload;
+        updateModelFallbackUI(rawRoutingSettings);
+        closeAddFallbackRuleModal();
+        showToast(`Added fallback rule: ${src} ➔ ${tgt}`, 'success');
+      } catch (err) {
+        showToast('Failed to save fallback rule: ' + err.message, 'error');
+      }
+    }
+
+    async function toggleFallbackRule(ruleId, isChecked) {
+      const rules = (rawRoutingSettings?.fallback_rules || []).map(r => {
+        if (r.id === ruleId) return { ...r, enabled: isChecked };
+        return r;
+      });
+      try {
+        const payload = { ...(rawRoutingSettings || {}), fallback_rules: rules };
+        const res = await fetch('/api/providers/routing', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        rawRoutingSettings = data.routing || payload;
+        updateModelFallbackUI(rawRoutingSettings);
+        showToast(`Rule ${isChecked ? 'enabled' : 'disabled'}`, 'info');
+      } catch (err) {
+        showToast('Failed to toggle rule: ' + err.message, 'error');
+      }
+    }
+
+    async function deleteFallbackRule(ruleId) {
+      const rules = (rawRoutingSettings?.fallback_rules || []).filter(r => r.id !== ruleId);
+      try {
+        const payload = { ...(rawRoutingSettings || {}), fallback_rules: rules };
+        const res = await fetch('/api/providers/routing', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        rawRoutingSettings = data.routing || payload;
+        updateModelFallbackUI(rawRoutingSettings);
+        showToast('Fallback rule deleted', 'success');
+      } catch (err) {
+        showToast('Failed to delete rule: ' + err.message, 'error');
+      }
+    }
+
     let loadAccountsInFlight = null;
 
     async function loadAccounts(isSilent = false) {
@@ -3584,7 +3907,8 @@ https://your-tunnel.trycloudflare.com/v1</pre>
           if (provRes && provRes.ok) {
             const provData = await provRes.json();
             rawProvidersData = sortProvidersByEcosystem(provData.providers || []);
-            rawRoutingSettings = provData.routing || { enable_external_failover: false, fallback_model: null };
+            rawRoutingSettings = provData.routing || { enable_external_failover: false, fallback_model: null, enable_model_fallback: false, model_fallback_target: 'gemini-3.8-flash-high', model_fallbacks: {} };
+            updateModelFallbackUI(rawRoutingSettings);
           }
           renderAccounts();
           if (currentActiveTab === 'playground') {
@@ -5060,9 +5384,12 @@ https://your-tunnel.trycloudflare.com/v1</pre>
         bgIcon = 'bg-amber-500/15 border-amber-500/30';
         categoryBadge = '<span class="text-[9px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20"><i class="fa-solid fa-cube text-[8px] mr-1"></i>Direct Anthropic</span>';
       } else if (idLower.includes('chatgpt') || (p.provider_type || '').toLowerCase().includes('chatgpt_web')) {
-        iconClass = 'fa-solid fa-globe text-emerald-400';
-        bgIcon = 'bg-emerald-500/15 border-emerald-500/30';
-        categoryBadge = '<span class="text-[9px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"><i class="fa-solid fa-globe text-[8px] mr-1"></i>Web Session (PoW)</span>';
+        const isGuest = (!p.api_key || p.api_key === 'zero-auth' || p.api_key === 'guest' || idLower.includes('guest'));
+        iconClass = isGuest ? 'fa-solid fa-bolt text-teal-400' : 'fa-solid fa-globe text-emerald-400';
+        bgIcon = isGuest ? 'bg-teal-500/15 border-teal-500/30' : 'bg-emerald-500/15 border-emerald-500/30';
+        categoryBadge = isGuest
+          ? '<span class="text-[9px] font-mono px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-500/40"><i class="fa-solid fa-bolt text-[8px] mr-1"></i>Zero-Auth Guest</span>'
+          : '<span class="text-[9px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"><i class="fa-solid fa-globe text-[8px] mr-1"></i>Web Session (PoW)</span>';
       } else if (idLower.includes('openai') && !idLower.includes('openrouter')) {
         iconClass = 'fa-solid fa-brain text-emerald-400';
         bgIcon = 'bg-emerald-500/15 border-emerald-500/30';
@@ -5145,8 +5472,8 @@ https://your-tunnel.trycloudflare.com/v1</pre>
             <!-- Auth & Latency Info -->
             <div class="flex items-center justify-between text-[11px] pt-2.5 text-slate-400">
               <span class="flex items-center gap-1 font-mono text-[10px]">
-                <i class="fa-solid ${(p.provider_type === 'gemini_guest' || p.id === 'gemini-web-guest') ? 'fa-bolt text-blue-400' : ((p.provider_type === 'deepseek_web' || p.id === 'deepseek-web') ? 'fa-shield-halved text-cyan-400' : ((p.provider_type === 'chatgpt_web' || p.id === 'chatgpt-web') ? ((!p.api_key || p.api_key === 'zero-auth' || p.api_key === 'guest') ? 'fa-bolt text-amber-400' : 'fa-shield-halved text-emerald-400') : (p.api_key ? 'fa-key text-slate-500' : 'fa-cube text-slate-500')))} text-[9px]"></i>
-                ${(p.provider_type === 'gemini_guest' || p.id === 'gemini-web-guest') ? 'Zero-Auth Guest (Flash-Lite)' : ((p.provider_type === 'deepseek_web' || p.id === 'deepseek-web') ? 'Web Session (PoW Verified)' : ((p.provider_type === 'chatgpt_web' || p.id === 'chatgpt-web') ? ((!p.api_key || p.api_key === 'zero-auth' || p.api_key === 'guest') ? 'Zero-Auth Guest (No Login)' : 'Web Session (Sentinel PoW)') : (p.api_key ? 'API Key Set' : 'No Key (Local)')))}
+                <i class="fa-solid ${(p.provider_type === 'gemini_guest' || p.id === 'gemini-web-guest') ? 'fa-bolt text-blue-400' : ((p.provider_type === 'deepseek_web' || p.id === 'deepseek-web') ? 'fa-shield-halved text-cyan-400' : ((p.provider_type === 'chatgpt_web' || idLower.includes('chatgpt')) ? ((!p.api_key || p.api_key === 'zero-auth' || p.api_key === 'guest' || idLower.includes('guest')) ? 'fa-bolt text-teal-400' : 'fa-shield-halved text-emerald-400') : (p.api_key ? 'fa-key text-slate-500' : 'fa-cube text-slate-500')))} text-[9px]"></i>
+                ${(p.provider_type === 'gemini_guest' || p.id === 'gemini-web-guest') ? 'Zero-Auth Guest (Flash-Lite)' : ((p.provider_type === 'deepseek_web' || p.id === 'deepseek-web') ? 'Web Session (PoW Verified)' : ((p.provider_type === 'chatgpt_web' || idLower.includes('chatgpt')) ? ((!p.api_key || p.api_key === 'zero-auth' || p.api_key === 'guest' || idLower.includes('guest')) ? 'Zero-Auth Guest (No Login)' : 'Web Session (Sentinel PoW)') : (p.api_key ? 'API Key Set' : 'No Key (Local)')))}
               </span>
               <span id="prov-ping-${safePidHtml}" class="text-[10px] font-mono ${isEnabled ? 'text-slate-300' : 'text-slate-400'} glass-pill px-2.5 py-0.5 rounded-full flex items-center gap-1.5">
                 <span class="w-1.5 h-1.5 rounded-full ${isEnabled ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}"></span>${isEnabled ? 'Ready' : 'Paused'}
@@ -5175,7 +5502,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
                 <i class="fa-solid fa-bolt text-amber-400 text-[10px]"></i>
                 <span>Ping</span>
               </button>
-              ${classifyProviderMethod(p) === 'web' ? `
+              ${classifyProviderMethod(p) === 'web' && !idLower.includes('guest') ? `
               <button onclick="refreshProviderCdp('${safePidJs}')" class="px-2.5 py-1 rounded-xl glass-pill hover:bg-teal-500/15 hover:text-teal-300 hover:border-teal-500/30 text-slate-300 font-medium text-[11px] flex items-center gap-1 transition shadow-sm" title="Sync session token / cookies from Chrome CDP (port 9222)">
                 <i class="fa-solid fa-rotate text-teal-400 text-[10px]"></i>
                 <span>CDP</span>
@@ -5203,11 +5530,14 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       const modelPreview = (p.models || []).slice(0, 3).map(m => m.id).join(', ') + (modelsCount > 3 ? ` +${modelsCount - 3}` : '');
       const safePidHtml = escapeHtml(p.id);
       const safePidJs = escapeHtml(String(p.id ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
-      const methodBadge = method === 'web'
-        ? '<span class="inline-flex items-center text-[10px] px-2 py-0.5 rounded-full bg-teal-500/15 text-teal-300 border border-teal-500/30"><i class="fa-solid fa-globe mr-1 text-[9px]"></i>Web Session</span>'
-        : (method === 'local'
-          ? '<span class="inline-flex items-center text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"><i class="fa-solid fa-server mr-1 text-[9px]"></i>Local Server</span>'
-          : '<span class="inline-flex items-center text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30"><i class="fa-solid fa-key mr-1 text-[9px]"></i>API Key</span>');
+      const isGuestWeb = method === 'web' && (!p.api_key || p.api_key === 'zero-auth' || p.api_key === 'guest' || (p.id || '').toLowerCase().includes('guest'));
+      const methodBadge = isGuestWeb
+        ? '<span class="inline-flex items-center text-[10px] px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-500/40"><i class="fa-solid fa-bolt mr-1 text-[9px]"></i>Zero-Auth</span>'
+        : (method === 'web'
+          ? '<span class="inline-flex items-center text-[10px] px-2 py-0.5 rounded-full bg-teal-500/15 text-teal-300 border border-teal-500/30"><i class="fa-solid fa-globe mr-1 text-[9px]"></i>Web Session</span>'
+          : (method === 'local'
+            ? '<span class="inline-flex items-center text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"><i class="fa-solid fa-server mr-1 text-[9px]"></i>Local Server</span>'
+            : '<span class="inline-flex items-center text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30"><i class="fa-solid fa-key mr-1 text-[9px]"></i>API Key</span>'));
 
       return `
         <tr class="hover:bg-white/[0.03] transition border-b border-white/[0.05] ${!isEnabled ? 'opacity-50' : ''}">
@@ -7569,12 +7899,33 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       }
     }
 
-    function enableChatGPTZeroAuth() {
-      const cookiesInput = document.getElementById('webCookiesInput');
-      const nameInput = document.getElementById('webNameInput');
-      if (cookiesInput) cookiesInput.value = 'zero-auth';
-      if (nameInput) nameInput.value = 'ChatGPT Web (Zero-Auth Guest)';
-      showToast('Zero-Auth Guest selected! Click "Connect Session" to save.', 'info');
+    async function enableChatGPTZeroAuth() {
+      const btn = document.getElementById('submitAuthBtn');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Connecting Guest...';
+      }
+      try {
+        const res = await fetch('/api/accounts/chatgpt-web/add-guest', { method: 'POST' });
+        if (!res.ok) {
+          const errText = await res.text();
+          let msg = errText;
+          try { msg = JSON.parse(errText).detail || errText; } catch (_) {}
+          throw new Error(msg);
+        }
+        const data = await res.json();
+        showToast(data.message || 'ChatGPT Web Zero-Auth Guest session added to pool!', 'success');
+        closeAddAccountModal();
+        await loadAccounts();
+        await loadModels();
+      } catch (err) {
+        showToast('Failed to add ChatGPT Web guest session: ' + err.message, 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fa-solid fa-globe"></i><span>Connect Session</span>';
+        }
+      }
     }
 
     function handleHarFileUpload(input) {

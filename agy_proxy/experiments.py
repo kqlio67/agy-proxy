@@ -2388,14 +2388,17 @@ def enhance_available_models(data: dict[str, Any]) -> dict[str, Any]:
     # 7. Inject configured third-party models (OpenRouter, Ollama, DeepSeek, Groq, NVIDIA NIM)
     try:
         from agy_proxy.providers import external_provider_manager
+        from agy_proxy.models import get_or_assign_model_placeholder
         ext_models = external_provider_manager.get_all_active_models()
         if ext_models:
             ext_model_ids = []
             for em in ext_models:
                 em_id = em["id"]
+                disp_name = em.get("display_name", em_id)
+                ph, enum_val = get_or_assign_model_placeholder(em_id, disp_name)
                 ext_model_ids.append(em_id)
-                models[em_id] = {
-                    "displayName": em["display_name"],
+                m_entry = {
+                    "displayName": disp_name,
                     "maxTokens": em["context_window"],
                     "maxOutputTokens": em["max_output_tokens"],
                     "capabilities": {
@@ -2414,7 +2417,10 @@ def enhance_available_models(data: dict[str, Any]) -> dict[str, Any]:
                     "supportsImages": em.get("supports_vision", False),
                     "recommended": True,
                     "disabled": False,
+                    "model": ph,
                 }
+                models[em_id] = m_entry
+                models[ph] = copy.deepcopy(m_entry)
 
             # Add to agentModelSorts so they appear grouped in Antigravity IDE UI
             sorts = data.get("agentModelSorts")
@@ -2437,11 +2443,30 @@ def enhance_available_models(data: dict[str, Any]) -> dict[str, Any]:
     except Exception as e:
         logger.debug("Failed to inject external models into fetchAvailableModels: %s", e)
 
-    # 4. Ensure all models have active quota to prevent Web UI send locks
+    # 8. Mirror ALL registered model placeholders bidirectionally so Language Server's
+    # GetModelInfoFromKey never fails with "unknown model key MODEL_PLACEHOLDER_M...: model not found"
+    try:
+        from agy_proxy.models import CLOUDCODE_PLACEHOLDER_MAP
+        for m_id, ph in list(CLOUDCODE_PLACEHOLDER_MAP.items()):
+            if ph.startswith("MODEL_PLACEHOLDER_M"):
+                if m_id in models and ph not in models:
+                    ph_entry = copy.deepcopy(models[m_id])
+                    ph_entry["model"] = ph
+                    models[ph] = ph_entry
+                elif ph in models and m_id not in models:
+                    id_entry = copy.deepcopy(models[ph])
+                    id_entry["model"] = ph
+                    models[m_id] = id_entry
+    except Exception as e:
+        logger.debug("Failed to mirror placeholder models into fetchAvailableModels: %s", e)
+
+    # 9. Ensure all models have active quota to prevent Web UI send locks
     for model_id, model_data in models.items():
         if isinstance(model_data, dict):
             q_info = model_data.get("quotaInfo")
-            if isinstance(q_info, dict):
+            if not isinstance(q_info, dict):
+                model_data["quotaInfo"] = {"remainingFraction": 1.0, "disabled": False}
+            else:
                 rem = q_info.get("remainingFraction")
                 if rem is None or rem <= 0:
                     q_info["remainingFraction"] = 1.0
