@@ -55,7 +55,18 @@ pip install -e .
 agy-proxy start
 ```
 
-### 3. Open the Web Dashboard
+### 3. Standalone Executable (Windows / Linux / macOS)
+
+Run without needing Python or manual virtual environment setup:
+- Download pre-built standalone binaries from **[GitHub Releases](https://github.com/kqlio67/agy-proxy/releases)** (e.g. `agy-proxy-windows-amd64.zip` for Windows).
+- **Build locally on Windows**: Double-click `build_exe.bat` or run:
+  ```cmd
+  pip install pyinstaller
+  python build_binary.py
+  ```
+  The standalone binary will be built in `dist\agy-proxy.exe`.
+
+### 4. Open the Web Dashboard
 
 Open **`http://127.0.0.1:8000`** in your browser to:
 - Connect Google accounts via 1-click OAuth (PKCE) or add AI Studio API keys.

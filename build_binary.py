@@ -56,6 +56,13 @@ def build():
         json_data_args.extend(["--add-data", f"{jf}{sep}agy_proxy"])
     for jf in (ROOT_DIR / "agy_proxy" / "auth").glob("*.json"):
         json_data_args.extend(["--add-data", f"{jf}{sep}agy_proxy/auth"])
+    for jf in (ROOT_DIR / "agy_proxy" / "providers").glob("*.json"):
+        json_data_args.extend(["--add-data", f"{jf}{sep}agy_proxy/providers"])
+
+    icon_args = []
+    icon_path = STATIC_DIR / "favicon.ico"
+    if icon_path.exists():
+        icon_args = ["--icon", str(icon_path)]
 
     cmd = [
         sys.executable,
@@ -69,13 +76,27 @@ def build():
         data_static,
         "--add-data",
         data_templates,
-    ] + json_data_args + [
+    ] + icon_args + json_data_args + [
         "--collect-all",
         "uvicorn",
         "--collect-all",
         "fastapi",
         "--collect-all",
         "sse_starlette",
+        "--collect-all",
+        "jinja2",
+        "--collect-all",
+        "cryptography",
+        "--collect-all",
+        "deepseek_pow",
+        "--collect-all",
+        "pystray",
+        "--collect-all",
+        "PIL",
+        "--collect-all",
+        "keyring",
+        "--collect-all",
+        "wasmtime",
         "--hidden-import",
         "uvicorn.logging",
         "--hidden-import",
@@ -92,6 +113,8 @@ def build():
         "uvicorn.lifespan",
         "--hidden-import",
         "uvicorn.lifespan.on",
+        "--hidden-import",
+        "agy_proxy.providers.browser_cookie_sync",
         str(ROOT_DIR / "main.py"),
     ]
 
