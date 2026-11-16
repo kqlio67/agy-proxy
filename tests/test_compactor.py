@@ -397,7 +397,7 @@ class TestExplicitCompactDetection(unittest.TestCase):
             {"type": "text", "text": "<local-command-caveat>The command below was run directly in Claude Code, not sent to you as a request, and its output goes straight to the user.</local-command-caveat>"},
             {"type": "text", "text": "<command-name>/compact</command-name>\n<command-message>compact</command-message>"},
             {"type": "text", "text": "<local-command-stdout>Compacted (ctrl+o to see full summary)</local-command-stdout>"},
-            {"type": "text", "text": "подивися тут тестувальщик сказав якісь баг є ось це написав 'Печати не можу купити , не працюють.'"},
+            {"type": "text", "text": "look here the tester reported a bug saying 'Cannot buy stamps, they do not work.'"},
         ]
 
         messages = [

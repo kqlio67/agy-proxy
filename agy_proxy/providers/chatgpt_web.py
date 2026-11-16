@@ -1190,9 +1190,9 @@ class ChatGPTWebProvider(BaseExternalProvider):
                                 "delta": {
                                     "content": (
                                         "⚠️ **ChatGPT Zero-Auth Guest Notice**:\n"
-                                        "OpenAI Cloudflare захист обмежив анонімні запити з вашої IP-адреси. "
-                                        "Будь ласка, відкрийте вкладку **Accounts**, оберіть **ChatGPT Web**, "
-                                        "та вставте ваш Access Token або сесію із `https://chatgpt.com/api/auth/session`."
+                                        "OpenAI Cloudflare protection has rate-limited anonymous requests from your IP address. "
+                                        "Please open the **Accounts** tab, select **ChatGPT Web**, "
+                                        "and paste your Access Token or session from `https://chatgpt.com/api/auth/session`."
                                     )
                                 },
                                 "finish_reason": "error",

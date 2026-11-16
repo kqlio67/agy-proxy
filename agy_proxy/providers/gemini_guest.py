@@ -380,7 +380,7 @@ class GeminiGuestProvider(BaseExternalProvider):
                 parts.append(f"Assistant: {text.strip()}")
 
         if not parts:
-            return "Привіт"
+            return "Hello"
 
         # If only one user message, return it directly without prefix
         if len(parts) == 1 and parts[0].startswith("User: "):

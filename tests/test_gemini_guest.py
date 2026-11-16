@@ -50,7 +50,7 @@ def test_protobuf_wire_encoder():
 
 def test_protobuf_candidate_extractor():
     """Tests candidate text extraction from candidate submessage path 2.7.1.4.4.5.2.1."""
-    text_content = "Привіт! Це згенерована відповідь моделі Flash-Lite."
+    text_content = "Hello! This is a generated response from Flash-Lite model."
     t_bytes = text_content.encode("utf-8")
 
     sub1 = _encode_len_delim(1, t_bytes)
@@ -101,8 +101,8 @@ def test_format_messages_to_prompt():
     provider = GeminiGuestProvider(cfg)
 
     # 1. Single user message
-    res1 = provider._format_messages_to_prompt([{"role": "user", "content": "Як справи?"}])
-    assert res1 == "Як справи?"
+    res1 = provider._format_messages_to_prompt([{"role": "user", "content": "How are you?"}])
+    assert res1 == "How are you?"
 
     # 2. Multi-turn with system instructions
     res2 = provider._format_messages_to_prompt([
@@ -165,11 +165,11 @@ async def test_chat_completion_non_streaming():
     async def mock_stream_chat(payload):
         yield {
             "id": "chatcmpl_1",
-            "choices": [{"index": 0, "delta": {"content": "Сонце "}, "finish_reason": None}],
+            "choices": [{"index": 0, "delta": {"content": "The sun "}, "finish_reason": None}],
         }
         yield {
             "id": "chatcmpl_1",
-            "choices": [{"index": 0, "delta": {"content": "світить яскравіше!"}, "finish_reason": None}],
+            "choices": [{"index": 0, "delta": {"content": "shines brighter!"}, "finish_reason": None}],
         }
         yield {
             "id": "chatcmpl_1",
@@ -179,12 +179,12 @@ async def test_chat_completion_non_streaming():
     with patch.object(provider, "stream_chat", side_effect=mock_stream_chat):
         payload = {
             "model": "gemini-2.0-flash-lite",
-            "messages": [{"role": "user", "content": "Скажи щось хороше"}],
+            "messages": [{"role": "user", "content": "Say something nice"}],
         }
         res = await provider.chat_completion(payload)
         assert res["object"] == "chat.completion"
         assert res["model"] == "gemini-2.0-flash-lite"
-        assert res["choices"][0]["message"]["content"] == "Сонце світить яскравіше!"
+        assert res["choices"][0]["message"]["content"] == "The sun shines brighter!"
         assert res["choices"][0]["finish_reason"] == "stop"
 
 

@@ -168,7 +168,7 @@ From reverse engineering the Claude Code binary (`chunk-rrq84hjd.js`), Code Mode
 
 While Antigravity / Gemini does not have a hardcoded JS REPL sandbox in the CLI, the exact same token-saving behavior is achieved with a simple instruction:
 
-> *"Не читай файли по одному. Напиши один скрипт на Python або Node.js, який виконає всю роботу паралельно та виведе лише фінальний результат у stdout. Запусти його та дай відповідь на основі виводу."*
+> *"Do not read files one by one. Write a single Python or Node.js script that performs all operations in parallel, filters the data, and prints only the final summary to stdout. Execute it and provide your response based on the output."*
 
 - **Demo Task (Scan 34 Markdown files for broken links)**:
   - Standard loop: 11 turns, 2m 8s, 46k tokens.
