@@ -78,14 +78,14 @@ def bump_version(
 
     # 1. Update agy_proxy/__init__.py
     init_content = init_file.read_text(encoding="utf-8")
+    if not re.search(r'__version__\s*=\s*["\'][^"\']+["\']', init_content):
+        raise ValueError(f"Could not locate '__version__ = ...' pattern in {init_file}")
     new_init_content = re.sub(
         r'__version__\s*=\s*["\'][^"\']+["\']',
         f'__version__ = "{next_ver}"',
         init_content,
         count=1,
     )
-    if new_init_content == init_content:
-        raise ValueError(f"Could not locate '__version__ = ...' pattern in {init_file}")
 
     if not dry_run:
         init_file.write_text(new_init_content, encoding="utf-8")
@@ -93,14 +93,14 @@ def bump_version(
 
     # 2. Update pyproject.toml
     pyproject_content = pyproject_file.read_text(encoding="utf-8")
+    if not re.search(r'version\s*=\s*["\'][^"\']+["\']', pyproject_content):
+        raise ValueError(f"Could not locate 'version = ...' pattern in {pyproject_file}")
     new_pyproject_content = re.sub(
         r'version\s*=\s*["\'][^"\']+["\']',
         f'version = "{next_ver}"',
         pyproject_content,
         count=1,
     )
-    if new_pyproject_content == pyproject_content:
-        raise ValueError(f"Could not locate 'version = ...' pattern in {pyproject_file}")
 
     if not dry_run:
         pyproject_file.write_text(new_pyproject_content, encoding="utf-8")
@@ -141,5 +141,5 @@ def handle_bump_command(target: str = "patch", dry_run: bool = False):
                 border_style="green",
             ))
     except Exception as e:
-        console.print(f"[bold red]❌ Error bumping version:[/bold red] {e}", file=sys.stderr)
+        Console(stderr=True).print(f"[bold red]❌ Error bumping version:[/bold red] {e}")
         sys.exit(1)
