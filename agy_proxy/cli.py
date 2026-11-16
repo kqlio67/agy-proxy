@@ -681,12 +681,14 @@ def handle_setup_claude(
     model: str = "anthropic.gemini-3.8-flash-high",
     url: str | None = None,
     direct: bool = False,
+    code_mode: bool = False,
 ):
     """Configures Claude Code CLI to route through Antigravity Proxy or debloats for official Anthropic use."""
     from agy_proxy.claude_helper import setup_claude
-    res = setup_claude(port=port, model=model, proxy_url=url, direct=direct)
+    res = setup_claude(port=port, model=model, proxy_url=url, direct=direct, code_mode=code_mode)
     if res.get("ok"):
         backup_text = f"\n• [bold cyan]Backup Saved:[/bold cyan] [green]{res['backup_path']}[/green]" if res.get("backup_created") else ""
+        code_mode_text = f"\n• [bold cyan]Code Mode (REPL):[/bold cyan] [green]Enabled (CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=1)[/green]" if res.get("code_mode") else ""
         if direct:
             console.print(Panel(
                 f"[bold green]✓ Claude Code CLI Successfully Configured (Direct Official Mode)![/bold green]\n\n"
@@ -695,6 +697,7 @@ def handle_setup_claude(
                 f"• [bold cyan]Telemetry:[/bold cyan] [green]Blocked (DISABLE_TELEMETRY=1)[/green]\n"
                 f"• [bold cyan]Non-Essential Traffic:[/bold cyan] [green]Blocked (GrowthBook disabled)[/green]\n"
                 f"• [bold cyan]MCP Relist:[/bold cyan] [green]Optimized (unchanged relists skipped)[/green]"
+                f"{code_mode_text}"
                 f"{backup_text}\n\n"
                 f"[dim]To restore original settings anytime, run:[/dim] [bold yellow]agy-proxy restore-claude[/bold yellow]",
                 title="[bold white]Claude Code Integration (Direct Mode)[/bold white]",
@@ -707,6 +710,7 @@ def handle_setup_claude(
                 f"• [bold cyan]Proxy Endpoint:[/bold cyan] [yellow]{res['proxy_url']}[/yellow]\n"
                 f"• [bold cyan]Default Model:[/bold cyan] [magenta]{res['model']}[/magenta]\n"
                 f"• [bold cyan]Authentication:[/bold cyan] [green]Logged In (oauth_token - background daemons enabled)[/green]"
+                f"{code_mode_text}"
                 f"{backup_text}\n\n"
                 f"[dim]Foreground sessions and all background agents will now automatically route through Antigravity Proxy.[/dim]\n"
                 f"[dim]To restore original settings anytime, run:[/dim] [bold yellow]agy-proxy restore-claude[/bold yellow]",
@@ -807,6 +811,7 @@ def handle_run_claude(
     mcp: str | None = None,
     list_mcp: bool = False,
     direct: bool = False,
+    code_mode: bool = False,
     extra_args: list = None,
 ):
     """Launches Claude Code CLI in ephemeral mode with proxy or direct official mode with zero permanent changes."""
@@ -966,12 +971,17 @@ def handle_run_claude(
     env = dict(os.environ)
     if direct:
         env.pop("ANTHROPIC_BASE_URL", None)
+        env.pop("_CLAUDE_CODE_ASSUME_FIRST_PARTY_BASE_URL", None)
+        env.pop("ANTHROPIC_DEFAULT_FABLE_MODEL", None)
     else:
         env.pop("ANTHROPIC_API_KEY", None)
         env["ANTHROPIC_AUTH_TOKEN"] = "agy-proxy-token"
         env["ANTHROPIC_BASE_URL"] = proxy_url
+        env["_CLAUDE_CODE_ASSUME_FIRST_PARTY_BASE_URL"] = "1"
         env["ANTHROPIC_MODEL"] = target_model
         env["ANTHROPIC_SMALL_FAST_MODEL"] = target_model
+        env["ANTHROPIC_DEFAULT_OPUS_MODEL"] = "claude-opus-5-5-medium"
+        env["ANTHROPIC_DEFAULT_FABLE_MODEL"] = "claude-fable-5-2"
         env["CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY"] = "1"
         env["CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT"] = "1"
         env["CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS"] = "1"
@@ -980,6 +990,14 @@ def handle_run_claude(
     env["DISABLE_ERROR_REPORTING"] = "1"
     env["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] = "1"
     env["CLAUDE_CODE_MCP_SKIP_UNCHANGED_RELIST"] = "1"
+    has_code_mode = code_mode or os.environ.get("CLAUDE_CODE_EXPERIMENTAL_CODE_MODE") == "1"
+    if has_code_mode:
+        env["CLAUDE_CODE_EXPERIMENTAL_CODE_MODE"] = "1"
+        try:
+            from agy_proxy.claude_helper import debloat_claude_json
+            debloat_claude_json()
+        except Exception:
+            pass
     if extra_danger or has_extra_danger_arg or os.environ.get("CLAUDE_CODE_EVEN_MORE_DANGEROUSLY_SKIP_PERMISSIONS") == "1":
         env["CLAUDE_CODE_EVEN_MORE_DANGEROUSLY_SKIP_PERMISSIONS"] = "1"
     if "CLAUDE_CODE_MAX_CONTEXT_TOKENS" not in env:
@@ -1000,6 +1018,8 @@ def handle_run_claude(
         out_console.print(f"  • Model:           [bold green]{target_model}[/bold green]")
         out_console.print(f"  • Context Window:  [bold green]{default_max_ctx} tokens[/bold green]")
         out_console.print(f"  • Auto-Compact At: [bold green]{default_compact} tokens[/bold green]")
+    if has_code_mode:
+        out_console.print("  • Code Mode:       [bold green]Enabled (JS Programmatic REPL - CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=1)[/bold green]")
     if mcp_mode == "selective":
         if selective_matched:
             out_console.print(f"  • MCP Servers:     [bold green]Selective ({', '.join(selective_matched)})[/bold green]")
@@ -1997,6 +2017,7 @@ def build_parser() -> argparse.ArgumentParser:
     setup_claude_p.add_argument("--url", type=str, default=None, help="Custom proxy base URL (e.g. http://127.0.0.1:8000)")
     setup_claude_p.add_argument("--model", "-m", type=str, default="anthropic.gemini-3.8-flash-high", help="Default model (default: anthropic.gemini-3.8-flash-high)")
     setup_claude_p.add_argument("--direct", action="store_true", help="Configure Claude Code for direct official Anthropic API with telemetry disabled & debloated settings")
+    setup_claude_p.add_argument("--code-mode", action="store_true", help="Enable experimental Code Mode (CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=1) in ~/.claude/settings.json")
 
     # restore-claude subcommand (agy-proxy restore-claude)
     subparsers.add_parser(
@@ -2055,6 +2076,12 @@ def build_parser() -> argparse.ArgumentParser:
     claude_run_p.add_argument("--no-mcp", dest="no_mcp", action="store_true", help="Launch without loading external MCP servers from ~/.claude.json (saves ~90k tokens)")
     claude_run_p.add_argument("--mcp", type=str, default=None, help="Selectively enable specific MCP servers by name (comma-separated, e.g. '--mcp rea' or '--mcp fast-browser,rea', 'none' to disable, 'all' for all)")
     claude_run_p.add_argument("--list-mcp", action="store_true", help="List installed MCP servers and exit")
+    claude_run_p.add_argument(
+        "--code-mode",
+        dest="code_mode",
+        action="store_true",
+        help="Enable experimental Code Mode (REPL programmatic tool calling in JS VM sandbox, saving up to 98% tokens)",
+    )
     claude_run_p.epilog = "Note: All unrecognized options, flags, prompts, and subcommands (e.g. -p, -c, --resume, --verbose, mcp, agents) are passed directly to Claude Code CLI."
 
     # setup-codex subcommand (agy-proxy setup-codex)
@@ -2570,6 +2597,7 @@ def main():
             model=getattr(args, "model", "anthropic.gemini-3.8-flash-high"),
             url=getattr(args, "url", None),
             direct=getattr(args, "direct", False),
+            code_mode=getattr(args, "code_mode", False),
         )
         return
     elif args.subcommand in ("restore-claude", "claude-restore"):
@@ -2589,6 +2617,7 @@ def main():
             mcp=getattr(args, "mcp", None),
             list_mcp=getattr(args, "list_mcp", False),
             direct=getattr(args, "direct", False),
+            code_mode=getattr(args, "code_mode", False),
             extra_args=getattr(args, "claude_args", []),
         )
         return

@@ -214,6 +214,7 @@ def anthropic_to_cloudcode_payload(
         thinking_config,
         backend_model=backend_model,
         thinking_req=req.thinking if isinstance(req.thinking, dict) else None,
+        reasoning_effort=getattr(req, "effort", None) or getattr(req, "reasoning_effort", None),
         output_config=getattr(req, "output_config", None),
     )
     max_out = req.max_tokens or 65536

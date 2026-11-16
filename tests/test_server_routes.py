@@ -175,14 +175,15 @@ class TestServerRoutes(unittest.IsolatedAsyncioTestCase):
         self.assertIn("deepseek-r1", model_ids)
         self.assertIn("claude-sonnet-4-6", model_ids)
         self.assertIn("anthropic.claude-sonnet-4-6", model_ids)
+        self.assertIn("claude-opus-5", model_ids)
         self.assertIn("gemini-4-argon-web-spark", model_ids)
 
         # Non-existent / fake models should NOT be advertised in /v1/models
         self.assertNotIn("claude-5-5", model_ids)
         self.assertNotIn("claude-5-fable", model_ids)
         self.assertNotIn("anthropic.claude-5-fable", model_ids)
-        self.assertNotIn("claude-opus-5", model_ids)
-        self.assertNotIn("anthropic.claude-opus-5", model_ids)
+        self.assertNotIn("claude-99-fake", model_ids)
+        self.assertNotIn("anthropic.claude-99-fake", model_ids)
 
     async def test_api_models_returns_exact_models_catalog(self):
         resp = await self.client.get("/api/models")

@@ -48,15 +48,27 @@ class TestClaudeHelper(unittest.TestCase):
         self.assertEqual(data["env"]["ANTHROPIC_BASE_URL"], "http://127.0.0.1:8000")
         self.assertEqual(data["env"]["ANTHROPIC_AUTH_TOKEN"], "agy-proxy-token")
         self.assertEqual(data["env"]["ANTHROPIC_API_KEY"], "")
+        self.assertEqual(data["env"]["_CLAUDE_CODE_ASSUME_FIRST_PARTY_BASE_URL"], "1")
         self.assertEqual(data["env"]["DISABLE_TELEMETRY"], "1")
         self.assertEqual(data["env"]["CLAUDE_CODE_MAX_CONTEXT_TOKENS"], "1000000")
         self.assertEqual(data["env"]["CLAUDE_CODE_AUTO_COMPACT_WINDOW"], "800000")
         self.assertEqual(data["env"]["CLAUDE_CODE_MCP_SKIP_UNCHANGED_RELIST"], "1")
         self.assertEqual(data["env"]["CLAUDE_CODE_SUBAGENT_MODEL"], "anthropic.gemini-3.8-flash-high")
         self.assertIn("ANTHROPIC_DEFAULT_HAIKU_MODEL", data["env"])
+        self.assertEqual(data["env"]["ANTHROPIC_DEFAULT_FABLE_MODEL"], "claude-fable-5-2")
+        self.assertEqual(data["env"]["ANTHROPIC_DEFAULT_OPUS_MODEL"], "claude-opus-5-5-medium")
         self.assertIn("modelPicker", data)
         self.assertTrue(data["modelPicker"]["replaceBuiltInOptions"])
         self.assertTrue(len(data["modelPicker"]["options"]) > 0)
+
+    def test_setup_claude_code_mode(self):
+        res = setup_claude(claude_dir=self.claude_dir, port=8000, code_mode=True)
+        self.assertTrue(res["ok"])
+        self.assertTrue(res["code_mode"])
+        settings_file = self.claude_dir / "settings.json"
+        with open(settings_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        self.assertEqual(data["env"]["CLAUDE_CODE_EXPERIMENTAL_CODE_MODE"], "1")
 
     def test_setup_claude_preserves_existing_settings(self):
         self.claude_dir.mkdir(parents=True, exist_ok=True)
@@ -210,6 +222,9 @@ class TestClaudeHelper(unittest.TestCase):
         self.assertTrue(data.get("autoUpdates"))
         self.assertEqual(data.get("hasCompletedOnboarding"), True)
         self.assertEqual(data.get("hasSeenTasksHint"), True)
+        self.assertEqual(data.get("codeModeCaveatsAcceptedV1"), True)
+        self.assertEqual(data.get("codeModeAutoModeCaveatAcceptedV1"), True)
+        self.assertTrue(data.get("cachedGrowthBookFeatures", {}).get("tengu_rustling_blossom"))
         self.assertIn("plan-mode-for-complex-tasks", data.get("tipsHistory", {}))
         self.assertEqual(data["tipsHistory"]["plan-mode-for-complex-tasks"], 100)
 

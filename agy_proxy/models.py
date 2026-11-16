@@ -233,11 +233,27 @@ MODEL_ALIASES: dict[str, str] = {
     "claude-sonnet-4.6-thinking": "claude-sonnet-4-6",
     "claude-4-6-sonnet": "claude-sonnet-4-6",
     "claude-4.6-sonnet": "claude-sonnet-4-6",
+    "claude-sonnet-4-5": "claude-sonnet-4-6",
+    "claude-sonnet-4.5": "claude-sonnet-4-6",
+    "claude-4-5-sonnet": "claude-sonnet-4-6",
+    "claude-4.5-sonnet": "claude-sonnet-4-6",
+    "claude-sonnet-4-0": "claude-sonnet-4-6",
+    "claude-sonnet-4.0": "claude-sonnet-4-6",
+    "claude-4-0-sonnet": "claude-sonnet-4-6",
+    "claude-4-sonnet": "claude-sonnet-4-6",
     "claude-opus-4-6-thinking": "claude-opus-4-6-thinking",
     "claude-opus-4-6": "claude-opus-4-6-thinking",
     "claude-opus-4.6": "claude-opus-4-6-thinking",
     "claude-4-6-opus": "claude-opus-4-6-thinking",
     "claude-4.6-opus": "claude-opus-4-6-thinking",
+    "claude-opus-4-8": "claude-opus-4-6-thinking",
+    "claude-opus-4.8": "claude-opus-4-6-thinking",
+    "claude-opus-4-7": "claude-opus-4-6-thinking",
+    "claude-opus-4.7": "claude-opus-4-6-thinking",
+    "claude-opus-4-5": "claude-opus-4-6-thinking",
+    "claude-opus-4.5": "claude-opus-4-6-thinking",
+    "claude-opus-4-1": "claude-opus-4-6-thinking",
+    "claude-opus-4-0": "claude-opus-4-6-thinking",
     "claude-3-7-sonnet": "claude-sonnet-4-6",
     "claude-3.7-sonnet": "claude-sonnet-4-6",
     "claude-3-7-sonnet-20250219": "claude-sonnet-4-6",
@@ -259,7 +275,7 @@ MODEL_ALIASES: dict[str, str] = {
     "claude-3-opus-20240229": "claude-opus-4-6-thinking",
     "claude-3-opus-latest": "claude-opus-4-6-thinking",
     "claude-3.5-opus-latest": "claude-opus-4-6-thinking",
-    # Claude 4.5 Haiku (Native Antigravity 3P Model enum 340 & 341)
+    # Claude 4.5 & 5.5 Haiku
     "claude-haiku-4-5": "claude-haiku-4-5",
     "claude-haiku-4.5": "claude-haiku-4-5",
     "claude-4-5-haiku": "claude-haiku-4-5",
@@ -268,6 +284,10 @@ MODEL_ALIASES: dict[str, str] = {
     "claude-haiku-4.5-thinking": "claude-haiku-4-5-thinking",
     "claude-4-5-haiku-thinking": "claude-haiku-4-5-thinking",
     "claude-4.5-haiku-thinking": "claude-haiku-4-5-thinking",
+    "claude-haiku-5-5": "claude-haiku-4-5",
+    "claude-haiku-5.5": "claude-haiku-4-5",
+    "claude-5-5-haiku": "claude-haiku-4-5",
+    "claude-haiku-5-5-thinking": "claude-haiku-4-5-thinking",
     "claude-3-5-haiku": "claude-haiku-4-5",
     "claude-3.5-haiku": "claude-haiku-4-5",
     "claude-3-5-haiku-20241022": "claude-haiku-4-5",
@@ -280,7 +300,19 @@ MODEL_ALIASES: dict[str, str] = {
     "claude-opus": "claude-opus-4-6-thinking",
     "claude-haiku": "claude-haiku-4-5",
 
-    # Claude 5.5 Official 3P Flagship models in Antigravity
+    # Claude 5.0 & 5.5 Official Next-Gen Models
+    "claude-sonnet-5": "claude-sonnet-5-5-medium",
+    "claude-sonnet-5.0": "claude-sonnet-5-5-medium",
+    "claude-sonnet-5-high": "claude-sonnet-5-5-high",
+    "claude-sonnet-5-medium": "claude-sonnet-5-5-medium",
+    "claude-sonnet-5-low": "claude-sonnet-5-5-low",
+    "claude-5-sonnet": "claude-sonnet-5-5-medium",
+    "claude-opus-5": "claude-opus-5-5-medium",
+    "claude-opus-5.0": "claude-opus-5-5-medium",
+    "claude-opus-5-high": "claude-opus-5-5-high",
+    "claude-opus-5-medium": "claude-opus-5-5-medium",
+    "claude-opus-5-low": "claude-opus-5-5-low",
+    "claude-5-opus": "claude-opus-5-5-medium",
     "claude-opus-5-5": "claude-opus-5-5-medium",
     "claude-opus-5.5": "claude-opus-5-5-medium",
     "claude-opus-5-5-high": "claude-opus-5-5-high",
@@ -307,6 +339,26 @@ MODEL_ALIASES: dict[str, str] = {
     "claude-5.5-sonnet": "claude-sonnet-5-5-medium",
     "claude-5-5-opus": "claude-opus-5-5-medium",
     "claude-5.5-opus": "claude-opus-5-5-medium",
+
+    # Claude Fable & Mythos Family (Autonomous Planning & Frontier Intelligence)
+    "claude-fable-5": "claude-opus-5-5-high",
+    "claude-fable-5.0": "claude-opus-5-5-high",
+    "claude-fable-5-1": "claude-opus-5-5-high",
+    "claude-fable-5.1": "claude-opus-5-5-high",
+    "claude-fable-5-2": "claude-opus-5-5-high",
+    "claude-fable-5.2": "claude-opus-5-5-high",
+    "fable": "claude-opus-5-5-high",
+    "claude-mythos-5": "gemini-4-argon-high",
+    "claude-mythos-5.0": "gemini-4-argon-high",
+    "claude-mythos-5-1": "gemini-4-argon-high",
+    "claude-mythos-5.1": "gemini-4-argon-high",
+    "claude-mythos-5-2": "gemini-4-argon-high",
+    "claude-mythos-5.2": "gemini-4-argon-high",
+    "claude-mythos-preview": "gemini-4-argon-high",
+    "mythos": "gemini-4-argon-high",
+
+    # Hybrid Plan & Context Presets
+    "opusplan": "claude-opus-5-5-high",
 
     # --------------------------------------------------------------------------
     # 4. OPENAI CODEX CLI AND STANDARD OPENAI MODEL COMPATIBILITY
@@ -1108,6 +1160,17 @@ PROXY_CATALOG_MODELS: dict[str, dict[str, Any]] = {
 
     # Anthropic Claude Models
     "claude-mythos-preview": {"displayName": "Claude Mythos Preview", "maxTokens": 200000, "description": "Anthropic Claude Mythos next-generation preview model", "category": "Anthropic"},
+    "claude-mythos-5": {"displayName": "Claude Mythos 5 (Frontier Intelligence)", "maxTokens": 200000, "description": "Anthropic frontier flagship intelligence model (Tier 3 Reasoning)", "category": "Anthropic"},
+    "claude-mythos-5-2": {"displayName": "Claude Mythos 5.2", "maxTokens": 1000000, "description": "Anthropic highest intelligence frontier model with 1M context native", "category": "Anthropic"},
+    "claude-fable-5-2": {"displayName": "Claude Fable 5.2 (Deep Reasoning)", "maxTokens": 1000000, "description": "Anthropic specialized planning and autonomous execution model (Tier 3 Reasoning)", "category": "Anthropic"},
+    "claude-fable-5": {"displayName": "Claude Fable 5", "maxTokens": 200000, "description": "Anthropic next-generation autonomous planning model", "category": "Anthropic"},
+    "opusplan": {"displayName": "OpusPlan (Opus 5.5 Plan + Sonnet 4.6 Exec)", "maxTokens": 200000, "description": "Anthropic hybrid preset: Opus 5.5 for architectural planning, Sonnet 4.6 for code execution", "category": "Anthropic"},
+    "claude-sonnet-5-5": {"displayName": "Claude Sonnet 5.5", "maxTokens": 1000000, "description": "Anthropic Claude Sonnet 5.5 flagship hybrid model with 1M context native", "category": "Anthropic"},
+    "claude-sonnet-5": {"displayName": "Claude Sonnet 5", "maxTokens": 200000, "description": "Anthropic Claude Sonnet 5 flagship hybrid model ($2/M in, $10/M out)", "category": "Anthropic"},
+    "claude-opus-5-5": {"displayName": "Claude Opus 5.5 (Thinking)", "maxTokens": 1000000, "description": "Anthropic Claude Opus 5.5 frontier reasoning model with 1M context native", "category": "Anthropic"},
+    "claude-opus-5": {"displayName": "Claude Opus 5 (Thinking)", "maxTokens": 200000, "description": "Anthropic Claude Opus 5 high-capability reasoning model ($5/M in, $25/M out)", "category": "Anthropic"},
+    "claude-haiku-5-5": {"displayName": "Claude Haiku 5.5", "maxTokens": 1000000, "description": "Anthropic ultra-low cost high-efficiency model with native 1M context ($0.10/M in, $0.50/M out)", "category": "Anthropic"},
+    "claude-haiku-5-5-thinking": {"displayName": "Claude Haiku 5.5 (Thinking)", "maxTokens": 1000000, "description": "Anthropic Claude Haiku 5.5 with adaptive reasoning effort", "category": "Anthropic"},
     "claude-sonnet-4-6": {"displayName": "Claude Sonnet 4.6 (Thinking)", "maxTokens": 200000, "description": "Anthropic flagship hybrid model with extended thinking (Antigravity 3P)", "category": "Anthropic"},
     "claude-opus-4-6-thinking": {"displayName": "Claude Opus 4.6 (Thinking)", "maxTokens": 200000, "description": "Anthropic high-capability reasoning model (Antigravity 3P)", "category": "Anthropic"},
     "claude-sonnet-4-6-deepagent": {"displayName": "Claude Sonnet 4.6 (DeepAgent)", "maxTokens": 200000, "description": "Anthropic Claude Sonnet 4.6 autonomous agent preset with 64k thinking budget", "category": "Anthropic"},
@@ -1889,10 +1952,13 @@ class AnthropicRequest(BaseModel):
     top_p: float | None = None
     stream: bool | None = False
     thinking: dict[str, Any] | None = None
+    effort: str | None = None
+    reasoning_effort: str | None = None
     service_tier: str | None = None
     output_config: dict[str, Any] | None = None
     tools: list[dict[str, Any]] | None = None
     tool_choice: str | dict[str, Any] | None = None
+    betas: list[str] | None = None
     model_config = ConfigDict(extra="allow")
 
 

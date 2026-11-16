@@ -349,6 +349,59 @@ class TestModelNormalization(unittest.TestCase):
         self.assertEqual(anth_tc["thinkingLevel"], "HIGH")
         self.assertNotIn("thinkingBudget", anth_tc)
 
+    def test_claude_2_1_325_models_and_effort(self):
+        from agy_proxy.converters.anthropic import anthropic_to_cloudcode_payload
+        from agy_proxy.models import PROXY_CATALOG_MODELS, AnthropicRequest
+
+        # Test new next-gen model aliases
+        self.assertEqual(normalize_model_name("claude-sonnet-5"), "claude-sonnet-5-5-medium")
+        self.assertEqual(normalize_model_name("claude-sonnet-5-high"), "claude-sonnet-5-5-high")
+        self.assertEqual(normalize_model_name("claude-sonnet-5-low"), "claude-sonnet-5-5-low")
+        self.assertEqual(normalize_model_name("claude-opus-5"), "claude-opus-5-5-medium")
+        self.assertEqual(normalize_model_name("claude-opus-5-high"), "claude-opus-5-5-high")
+        self.assertEqual(normalize_model_name("claude-opus-4-7"), "claude-opus-4-6-thinking")
+        self.assertEqual(normalize_model_name("claude-opus-4-8"), "claude-opus-4-6-thinking")
+        self.assertEqual(normalize_model_name("claude-fable-5-2"), "claude-opus-5-5-high")
+        self.assertEqual(normalize_model_name("claude-fable-5"), "claude-opus-5-5-high")
+        self.assertEqual(normalize_model_name("fable"), "claude-opus-5-5-high")
+        self.assertEqual(normalize_model_name("claude-mythos-5"), "gemini-4-argon-high")
+        self.assertEqual(normalize_model_name("claude-mythos-5-2"), "gemini-4-argon-high")
+        self.assertEqual(normalize_model_name("claude-haiku-5-5"), "claude-haiku-4-5")
+        self.assertEqual(normalize_model_name("opusplan"), "claude-opus-5-5-high")
+
+        # Context suffix [1m] stripping and normalization
+        self.assertEqual(normalize_model_name("sonnet[1m]"), "claude-sonnet-4-6")
+        self.assertEqual(normalize_model_name("opus[1m]"), "claude-opus-4-6-thinking")
+        self.assertEqual(normalize_model_name("fable[1m]"), "claude-opus-5-5-high")
+        self.assertEqual(normalize_model_name("opusplan[1m]"), "claude-opus-5-5-high")
+
+        # Verify PROXY_CATALOG_MODELS entries
+        self.assertIn("claude-sonnet-5", PROXY_CATALOG_MODELS)
+        self.assertIn("claude-opus-5", PROXY_CATALOG_MODELS)
+        self.assertIn("claude-fable-5-2", PROXY_CATALOG_MODELS)
+        self.assertIn("claude-mythos-5", PROXY_CATALOG_MODELS)
+        self.assertIn("opusplan", PROXY_CATALOG_MODELS)
+
+        # Test reasoning effort level passed in AnthropicRequest
+        req = AnthropicRequest(
+            model="claude-sonnet-5",
+            effort="low",
+            messages=[{"role": "user", "content": "Test low effort"}],
+        )
+        self.assertEqual(req.effort, "low")
+        payload = anthropic_to_cloudcode_payload(req, project_id="test-proj")
+        tc = payload["request"]["generationConfig"]["thinkingConfig"]
+        self.assertEqual(tc.get("thinkingLevel"), "LOW")
+
+        req_high = AnthropicRequest(
+            model="claude-sonnet-5",
+            effort="high",
+            messages=[{"role": "user", "content": "Test high effort"}],
+        )
+        payload_high = anthropic_to_cloudcode_payload(req_high, project_id="test-proj")
+        tc_high = payload_high["request"]["generationConfig"]["thinkingConfig"]
+        self.assertEqual(tc_high.get("thinkingLevel"), "HIGH")
+
 
 
 

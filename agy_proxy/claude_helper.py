@@ -9,6 +9,7 @@ import logging
 import os
 import re
 import shutil
+import time
 from pathlib import Path
 from typing import Any
 
@@ -16,7 +17,7 @@ logger = logging.getLogger("agy_proxy.claude_helper")
 
 
 CLAUDE_RECOMMENDED_MODELS: dict[str, dict[str, str]] = {
-    # ── Anthropic Claude 5.5 & 4.6 ──
+    # ── Anthropic Claude 5.5 & 5.0 (Next-Gen Models) ──
     "claude-sonnet-5-5-high": {
         "displayName": "Claude Sonnet 5.5 (High Reasoning)",
         "description": "Anthropic Claude Sonnet 5.5 flagship hybrid model with extended thinking",
@@ -34,8 +35,28 @@ CLAUDE_RECOMMENDED_MODELS: dict[str, dict[str, str]] = {
     },
     "claude-sonnet-5-5": {
         "displayName": "Claude Sonnet 5.5",
-        "description": "Anthropic Claude Sonnet 5.5 flagship hybrid model",
+        "description": "Anthropic Claude Sonnet 5.5 flagship hybrid model with 1M context native",
         "effortLevel": "high",
+    },
+    "claude-sonnet-5": {
+        "displayName": "Claude Sonnet 5",
+        "description": "Anthropic Claude Sonnet 5 next-generation flagship hybrid model ($2/M in, $10/M out)",
+        "effortLevel": "high",
+    },
+    "claude-sonnet-5-high": {
+        "displayName": "Claude Sonnet 5 (High Reasoning)",
+        "description": "Anthropic Claude Sonnet 5 with deep thinking depth",
+        "effortLevel": "high",
+    },
+    "claude-sonnet-5-medium": {
+        "displayName": "Claude Sonnet 5 (Medium Reasoning)",
+        "description": "Anthropic Claude Sonnet 5 with balanced reasoning depth",
+        "effortLevel": "medium",
+    },
+    "claude-sonnet-5-low": {
+        "displayName": "Claude Sonnet 5 (Low Reasoning)",
+        "description": "Anthropic Claude Sonnet 5 with fast lightweight reasoning",
+        "effortLevel": "low",
     },
     "claude-opus-5-5-high": {
         "displayName": "Claude Opus 5.5 (High Reasoning)",
@@ -54,13 +75,63 @@ CLAUDE_RECOMMENDED_MODELS: dict[str, dict[str, str]] = {
     },
     "claude-opus-5-5": {
         "displayName": "Claude Opus 5.5 (Thinking)",
-        "description": "Anthropic Claude Opus 5.5 high-capability reasoning model",
+        "description": "Anthropic Claude Opus 5.5 high-capability reasoning model with 1M context native",
         "effortLevel": "high",
+    },
+    "claude-opus-5": {
+        "displayName": "Claude Opus 5 (Thinking)",
+        "description": "Anthropic Claude Opus 5 high-capability frontier model ($5/M in, $25/M out)",
+        "effortLevel": "high",
+    },
+    "claude-opus-5-high": {
+        "displayName": "Claude Opus 5 (High Reasoning)",
+        "description": "Anthropic Claude Opus 5 with deep thinking depth",
+        "effortLevel": "high",
+    },
+    "claude-opus-5-medium": {
+        "displayName": "Claude Opus 5 (Medium Reasoning)",
+        "description": "Anthropic Claude Opus 5 with balanced reasoning depth",
+        "effortLevel": "medium",
+    },
+    "claude-fable-5-2": {
+        "displayName": "Claude Fable 5.2 (Deep Reasoning)",
+        "description": "Anthropic specialized planning and autonomous execution model (Tier 3 Reasoning)",
+        "effortLevel": "high",
+    },
+    "claude-fable-5": {
+        "displayName": "Claude Fable 5",
+        "description": "Anthropic next-generation autonomous planning model",
+        "effortLevel": "high",
+    },
+    "claude-mythos-5": {
+        "displayName": "Claude Mythos 5 (Frontier Intelligence)",
+        "description": "Anthropic frontier flagship intelligence model (Tier 3 Reasoning)",
+        "effortLevel": "max",
+    },
+    "claude-mythos-5-2": {
+        "displayName": "Claude Mythos 5.2",
+        "description": "Anthropic highest intelligence frontier model with 1M context native",
+        "effortLevel": "max",
     },
     "claude-mythos-preview": {
         "displayName": "Claude Mythos Preview",
         "description": "Anthropic Claude Mythos next-generation preview model",
         "effortLevel": "high",
+    },
+    "opusplan": {
+        "displayName": "OpusPlan (Opus 5.5 Plan + Sonnet 4.6 Exec)",
+        "description": "Anthropic hybrid dual-model preset: Opus 5.5 for architectural planning, Sonnet 4.6 for coding",
+        "effortLevel": "high",
+    },
+    "claude-haiku-5-5": {
+        "displayName": "Claude Haiku 5.5",
+        "description": "Anthropic ultra-low cost high-efficiency model with native 1M context ($0.10/M in, $0.50/M out)",
+        "effortLevel": "low",
+    },
+    "claude-haiku-5-5-thinking": {
+        "displayName": "Claude Haiku 5.5 (Thinking)",
+        "description": "Anthropic Claude Haiku 5.5 with adaptive reasoning effort",
+        "effortLevel": "medium",
     },
     "claude-sonnet-4-6": {
         "displayName": "Claude Sonnet 4.6 (Thinking)",
@@ -302,11 +373,13 @@ def setup_claude(
     host: str = "127.0.0.1",
     proxy_url: str | None = None,
     direct: bool = False,
+    code_mode: bool = False,
 ) -> dict[str, Any]:
     """
     Configures Claude Code CLI.
     If direct=True, configures for official Anthropic API with telemetry blocked and debloated.
     If direct=False, routes through Antigravity Proxy with Gemini 1M context.
+    If code_mode=True, enables experimental Code Mode (REPL programmatic execution).
     """
     base_dir = get_claude_dir(claude_dir)
     base_dir.mkdir(parents=True, exist_ok=True)
@@ -354,6 +427,7 @@ def setup_claude(
             "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL", "ANTHROPIC_API_KEY",
             "CLAUDE_CODE_SUBAGENT_MODEL", "ANTHROPIC_DEFAULT_HAIKU_MODEL",
             "ANTHROPIC_DEFAULT_SONNET_MODEL", "ANTHROPIC_DEFAULT_OPUS_MODEL",
+            "ANTHROPIC_DEFAULT_FABLE_MODEL", "_CLAUDE_CODE_ASSUME_FIRST_PARTY_BASE_URL",
         ):
             data["env"].pop(k, None)
         data.pop("modelPicker", None)
@@ -367,16 +441,18 @@ def setup_claude(
             data["model"] = model
     else:
         # Proxy routing mode
-        small_model = "gemini-2.5-flash" if is_gemini else "claude-3-5-haiku"
+        small_model = "gemini-2.5-flash" if is_gemini else "claude-haiku-4-5"
         data["env"].update({
             "ANTHROPIC_AUTH_TOKEN": "agy-proxy-token",
             "ANTHROPIC_API_KEY": "",
             "ANTHROPIC_BASE_URL": target_url,
+            "_CLAUDE_CODE_ASSUME_FIRST_PARTY_BASE_URL": "1",
             "ANTHROPIC_MODEL": model,
             "CLAUDE_CODE_SUBAGENT_MODEL": model,
             "ANTHROPIC_DEFAULT_HAIKU_MODEL": small_model,
             "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-4-6",
-            "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-6-thinking",
+            "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-5-5-medium",
+            "ANTHROPIC_DEFAULT_FABLE_MODEL": "claude-fable-5-2",
             "DISABLE_TELEMETRY": "1",
             "DISABLE_ERROR_REPORTING": "1",
             "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
@@ -405,6 +481,9 @@ def setup_claude(
             "replaceBuiltInOptions": True,
             "options": picker_options,
         }
+
+    if code_mode:
+        data["env"]["CLAUDE_CODE_EXPERIMENTAL_CODE_MODE"] = "1"
 
     # Ensure modelSettings entry exists if not present
     if "modelSettings" not in data or not isinstance(data["modelSettings"], dict):
@@ -442,6 +521,7 @@ def setup_claude(
             "backup_created": backup_created,
             "proxy_url": target_url,
             "model": model,
+            "code_mode": bool(code_mode or data.get("env", {}).get("CLAUDE_CODE_EXPERIMENTAL_CODE_MODE") == "1"),
             "available_models": list(CLAUDE_RECOMMENDED_MODELS.keys()),
         }
     except Exception as e:
@@ -468,14 +548,17 @@ def restore_claude(claude_dir: str | Path | None = None) -> dict[str, Any]:
                             "ANTHROPIC_AUTH_TOKEN",
                             "ANTHROPIC_API_KEY",
                             "ANTHROPIC_BASE_URL",
+                            "_CLAUDE_CODE_ASSUME_FIRST_PARTY_BASE_URL",
                             "ANTHROPIC_MODEL",
                             "CLAUDE_CODE_SUBAGENT_MODEL",
                             "ANTHROPIC_DEFAULT_HAIKU_MODEL",
                             "ANTHROPIC_DEFAULT_SONNET_MODEL",
                             "ANTHROPIC_DEFAULT_OPUS_MODEL",
+                            "ANTHROPIC_DEFAULT_FABLE_MODEL",
                             "DISABLE_TELEMETRY",
                             "DISABLE_ERROR_REPORTING",
                             "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC",
+                            "CLAUDE_CODE_EXPERIMENTAL_CODE_MODE",
                         ]:
                             data["env"].pop(k, None)
                         if not data["env"]:
@@ -778,6 +861,12 @@ def debloat_claude_json(claude_json_path: str | Path | None = None) -> dict[str,
     data["hasSeenTasksHint"] = True
     data["showExpandedTodos"] = True
     data["promptQueueUseCount"] = 100
+    data["codeModeCaveatsAcceptedV1"] = True
+    data["codeModeAutoModeCaveatAcceptedV1"] = True
+    if "cachedGrowthBookFeatures" not in data or not isinstance(data["cachedGrowthBookFeatures"], dict):
+        data["cachedGrowthBookFeatures"] = {}
+    data["cachedGrowthBookFeatures"]["tengu_rustling_blossom"] = True
+    data["cachedGrowthBookFeaturesAt"] = int(time.time() * 1000)
     if "tipsHistory" not in data or not isinstance(data["tipsHistory"], dict):
         data["tipsHistory"] = {}
     for tip in [

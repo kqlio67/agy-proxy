@@ -478,11 +478,23 @@ class TestClaudeCliCommand(unittest.TestCase):
             env = kwargs.get("env", {})
             self.assertEqual(env.get("ANTHROPIC_BASE_URL"), "http://127.0.0.1:9000")
             self.assertEqual(env.get("ANTHROPIC_AUTH_TOKEN"), "agy-proxy-token")
+            self.assertEqual(env.get("_CLAUDE_CODE_ASSUME_FIRST_PARTY_BASE_URL"), "1")
+            self.assertEqual(env.get("ANTHROPIC_DEFAULT_OPUS_MODEL"), "claude-opus-5-5-medium")
+            self.assertEqual(env.get("ANTHROPIC_DEFAULT_FABLE_MODEL"), "claude-fable-5-2")
             self.assertNotIn("ANTHROPIC_API_KEY", env)
             self.assertEqual(env.get("CLAUDE_CODE_MAX_CONTEXT_TOKENS"), "1000000")
             self.assertEqual(env.get("CLAUDE_CODE_AUTO_COMPACT_WINDOW"), "800000")
             self.assertEqual(env.get("CLAUDE_CODE_MCP_SKIP_UNCHANGED_RELIST"), "1")
             self.assertNotIn("CLAUDE_CODE_EVEN_MORE_DANGEROUSLY_SKIP_PERMISSIONS", env)
+
+    @patch("shutil.which", return_value="/usr/local/bin/claude")
+    @patch("subprocess.run")
+    def test_handle_run_claude_code_mode(self, mock_run, mock_which):
+        cli.handle_run_claude(code_mode=True)
+        self.assertTrue(mock_run.called)
+        _, kwargs = mock_run.call_args
+        env = kwargs.get("env", {})
+        self.assertEqual(env.get("CLAUDE_CODE_EXPERIMENTAL_CODE_MODE"), "1")
 
     @patch("shutil.which", return_value="/usr/local/bin/claude")
     @patch("subprocess.run")
@@ -581,6 +593,7 @@ class TestClaudeCliCommand(unittest.TestCase):
             env = kwargs.get("env", {})
             self.assertNotIn("ANTHROPIC_BASE_URL", env)
             self.assertNotIn("ANTHROPIC_AUTH_TOKEN", env)
+            self.assertNotIn("_CLAUDE_CODE_ASSUME_FIRST_PARTY_BASE_URL", env)
             self.assertEqual(env.get("DISABLE_TELEMETRY"), "1")
             self.assertEqual(env.get("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"), "1")
 

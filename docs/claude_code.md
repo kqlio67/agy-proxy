@@ -9,6 +9,8 @@ Run Anthropic's official **Claude Code CLI** with maximum freedom, zero telemetr
 - [Two Modes of Operation](#-two-modes-of-operation)
   - [Mode 1: Proxy Mode (Gemini 1M Context & Free Quota)](#mode-1-proxy-mode-gemini-1m-context--free-quota)
   - [Mode 2: Direct Vanilla Mode (Official Anthropic API)](#mode-2-direct-vanilla-mode-official-anthropic-api)
+- [Anthropic Next-Gen Models & Reasoning Effort (`claude-5`, `opusplan`, `--effort`)](#-anthropic-next-gen-models--reasoning-effort)
+- [Experimental Code Mode & REPL Architecture (`--code-mode`)](#-experimental-code-mode--repl-architecture)
 - [Standalone Binary Patcher & Debloater (`patch-claude`)](#-standalone-binary-patcher--debloater-patch-claude)
 - [Selective MCP Tool Management](#-selective-mcp-tool-management)
 - [Autonomous Bypass Mode (`--bypass` / `--danger`)](#-autonomous-bypass-mode---bypass----danger)
@@ -60,6 +62,7 @@ agy-proxy claude -p "Refactor auth_handler.py"
 
 **Key Advantages in Proxy Mode:**
 - **1,000,000 Token Context Window**: `CLAUDE_CODE_MAX_CONTEXT_TOKENS=1000000`.
+- **First-Party Base URL Assumption**: Sets `_CLAUDE_CODE_ASSUME_FIRST_PARTY_BASE_URL: "1"`, bypassing Claude Code's 3P degradation check. This prevents third-party feature clipping, enables 1-hour prompt caching, unlocks next-gen model families (Fable/Mythos), and eliminates artificial rate-limiting heuristics.
 - **High-Capacity Compaction**: Automatic context compaction threshold scaled up to **800,000 tokens** (instead of the standard 160k cutoff).
 - **Prompt Sanitization**: Strips Anthropic internal billing headers (`x-anthropic-billing-header`) and anti-clone rules before forwarding to Gemini.
 
@@ -82,6 +85,95 @@ agy-proxy claude --direct -m claude-opus-4-6-thinking
 - **Zero Telemetry**: Injects `DISABLE_TELEMETRY=1` and `DISABLE_ERROR_REPORTING=1`.
 - **Blocks Remote GrowthBook Config**: Injects `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`, preventing Anthropic from remotely pushing dynamic restrictions (`tengu_*`) and nag popups.
 - **Fast Startup**: Injects `CLAUDE_CODE_MCP_SKIP_UNCHANGED_RELIST=1` to skip redundant MCP schema polling on every turn.
+
+---
+
+## 🧠 Anthropic Next-Gen Models & Reasoning Effort
+
+Discovered via deep REA reverse engineering of Claude Code CLI v2.1.325, Anthropic embeds official model identifiers and thinking tiers. `agy-proxy` provides first-class support and seamless mapping across both local proxy routes and Cloudflare Workers:
+
+### 1. Supported Next-Gen Model Families
+
+| Model ID | Display Name | Thinking Tier | Native Context | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| `claude-sonnet-5` / `claude-sonnet-5-5` | Claude Sonnet 5 / 5.5 | High | 200k / 1M | Anthropic next-gen flagship coding model |
+| `claude-opus-5` / `claude-opus-5-5` | Claude Opus 5 / 5.5 | High / Max | 200k / 1M | Anthropic frontier deep reasoning and architecture model |
+| `claude-fable-5` / `claude-fable-5-2` | Claude Fable 5 / 5.2 | High / Tier 3 | 200k / 1M | Specialized autonomous agent planning and verification model |
+| `claude-mythos-5` / `claude-mythos-5-2` | Claude Mythos 5 / 5.2 | Max / Tier 3 | 1M native | Frontier flagship intelligence model with maximum depth |
+| `claude-haiku-5-5` | Claude Haiku 5.5 | Low / Adaptive | 1M native | Ultra-efficient high-speed model |
+| `opusplan` | OpusPlan | High | 200k / 1M | Hybrid preset: Opus 5.5 for architecture + Sonnet 4.6 for execution |
+
+```bash
+# Launch with Claude Sonnet 5:
+agy-proxy claude -m claude-sonnet-5
+
+# Launch with OpusPlan hybrid preset:
+agy-proxy claude -m opusplan
+
+# Launch with Claude Fable 5.2 autonomous planner:
+agy-proxy claude -m claude-fable-5-2
+```
+
+### 2. Adaptive Reasoning Effort (`--effort`)
+
+Claude Code CLI supports adjusting reasoning depth using `--effort` (or `-e`):
+- `low`: Minimal thinking overhead, optimal for routine edits and syntax fixes.
+- `medium`: Balanced reasoning for refactoring and debugging.
+- `high`: Deep reasoning budget (equivalent to standard thinking).
+- `xhigh` / `max`: Maximum reasoning depth for frontier architectural challenges.
+
+```bash
+# Run with maximum thinking budget:
+agy-proxy claude --effort max
+
+# Combine custom model and effort:
+agy-proxy claude -m claude-opus-5-5 --effort max -p "Design distributed consensus protocol"
+```
+
+In `agy-proxy`, the `effort` parameter is captured from the Anthropic request payload and mapped into Google CloudCode's thinking budget and temperature configuration automatically.
+
+---
+
+## ⚡ Experimental Code Mode & REPL Architecture
+
+In Claude Code **v2.1.323+**, Anthropic added **Code Mode** (`CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=1`). Instead of the traditional multi-turn loop where each file read, edit, or command consumes an entire LLM round-trip and pollutes context, Claude writes a short JavaScript program with `top-level await`. The script runs locally inside a sandboxed Bun VM context, executing tools in parallel and returning only the concise final result (`<repl-output>`).
+
+### 1. Key Benefits
+- **Drastic Token Savings**: Cuts token usage by **80%–98%** (e.g. from 150,000 tokens down to 2,000 tokens on multi-file inspections).
+- **Reduced Round-Trips**: A batch of file operations executes in 1 turn instead of 10–20 turns.
+- **Inspect Generated Scripts**: Press `Ctrl+O` in interactive mode to view the JavaScript script Claude wrote.
+
+### 2. How to Enable in `agy-proxy`
+
+```bash
+# Launch ephemeral session with Code Mode:
+agy-proxy claude --code-mode
+
+# Or persistently configure in ~/.claude/settings.json:
+agy-proxy setup-claude --code-mode
+```
+
+*When enabled via `agy-proxy`, `debloat_claude_json` automatically marks `codeModeCaveatsAcceptedV1: true` and `codeModeAutoModeCaveatAcceptedV1: true` in `~/.claude.json`, skipping the intrusive onboarding confirmation prompt.*
+
+### 3. Requirements & Gate Checks (REA Breakdown)
+
+From reverse engineering the Claude Code binary (`chunk-rrq84hjd.js`), Code Mode enforces strict conditions:
+- **First-Party Assumption (`A()`)**: Claude Code normally refuses to run Code Mode over custom proxies (`ANTHROPIC_BASE_URL != api.anthropic.com`) with `why: "provider"`. **`agy-proxy` bypasses this** via `_CLAUDE_CODE_ASSUME_FIRST_PARTY_BASE_URL="1"`, allowing Code Mode to work seamlessly!
+- **Model Family (`Vxn()`)**: Code Mode requires model version $\ge$ 5.5 (`claude-sonnet-5-5`, `claude-opus-5-5`, `claude-haiku-5-5`) or $\ge$ 5.2 for Fable/Mythos (`claude-fable-5-2`, `claude-mythos-5-2`). Older models trigger `why: "model"`.
+- **Interactive Terminal Only (`ol() === "cli"`)**: Disabled in print mode (`claude -p`), VS Code extension, and Desktop app.
+- **GrowthBook Flag Bypass**: Gated behind `tengu_rustling_blossom`. `agy-proxy patch-claude` and `setup-claude` automatically inject this flag into `cachedGrowthBookFeatures` so you don't have to wait for Anthropic's server rollout waves.
+- **Bash Dependency**: Requires `bash` available in `PATH` (on Windows, Git for Windows is required).
+
+### 4. Achieving Code Mode in Gemini / Antigravity ("Prompt-Based REPL")
+
+While Antigravity / Gemini does not have a hardcoded JS REPL sandbox in the CLI, the exact same token-saving behavior is achieved with a simple instruction:
+
+> *"Не читай файли по одному. Напиши один скрипт на Python або Node.js, який виконає всю роботу паралельно та виведе лише фінальний результат у stdout. Запусти його та дай відповідь на основі виводу."*
+
+- **Demo Task (Scan 34 Markdown files for broken links)**:
+  - Standard loop: 11 turns, 2m 8s, 46k tokens.
+  - Single-script prompt: 3 turns, 37s, 24k tokens (3.5x faster, 50% fewer tokens).
+- *Note: Does not work with `--sandbox` if the sandbox blocks interpreter execution.*
 
 ---
 
@@ -190,7 +282,7 @@ If you prefer running the standard `claude` command directly from your terminal 
 ```bash
 agy-proxy setup-claude --port 8000 --model anthropic.gemini-3.8-flash-high
 ```
-*Injects proxy endpoints, token, and 1M context limits into `~/.claude/settings.json`, creating a backup `settings.json.agy_backup`.*
+*Injects proxy endpoints, token, 1M context limits, first-party assumption (`_CLAUDE_CODE_ASSUME_FIRST_PARTY_BASE_URL: "1"`), default Fable & Opus mappings, and interactive `/model` picker options with all next-gen models into `~/.claude/settings.json`, creating a backup `settings.json.agy_backup`.*
 
 ### Configure for direct official Anthropic API (Debloated):
 ```bash
@@ -210,6 +302,9 @@ agy-proxy restore-claude
 | Command | Description |
 | :--- | :--- |
 | `agy-proxy claude` | Launch Claude Code in ephemeral proxy mode (Gemini 1M context). |
+| `agy-proxy claude --code-mode` | Launch Claude Code with experimental Code Mode (JS REPL). |
+| `agy-proxy claude -m <model>` | Launch with custom model (e.g. `claude-sonnet-5`, `opusplan`, `claude-fable-5-2`). |
+| `agy-proxy claude --effort <level>` | Set reasoning effort (`low`, `medium`, `high`, `xhigh`, `max`). |
 | `agy-proxy claude --direct` | Launch Claude Code directly against official Anthropic API (debloated). |
 | `agy-proxy claude --mcp <name>` | Selectively load specific MCP servers (e.g. `--mcp rea`). |
 | `agy-proxy claude --no-mcp` | Launch without MCP tools to conserve ~90k context tokens. |
@@ -220,7 +315,8 @@ agy-proxy restore-claude
 | `agy-proxy patch-claude apply` | Apply anti-restriction binary patch and debloat tips. |
 | `agy-proxy patch-claude restore` | Restore original Claude Code binary from backup. |
 | `agy-proxy patch-claude debloat` | Debloat `~/.claude.json` without modifying the binary. |
-| `agy-proxy setup-claude` | Persistently configure `~/.claude/settings.json` for proxy. |
+| `agy-proxy setup-claude` | Persistently configure `~/.claude/settings.json` for proxy (with first-party bypass). |
+| `agy-proxy setup-claude --code-mode` | Persistently enable experimental Code Mode in `settings.json`. |
 | `agy-proxy setup-claude --direct` | Persistently configure `~/.claude/settings.json` for direct official API. |
 | `agy-proxy restore-claude` | Restore original `~/.claude/settings.json` from backup. |
 
