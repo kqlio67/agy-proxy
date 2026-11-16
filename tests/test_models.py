@@ -461,6 +461,25 @@ class TestSchemas(unittest.TestCase):
         self.assertEqual(resp.object, "list")
         self.assertEqual(len(resp.data), 2)
         self.assertEqual(resp.data[0].id, "gemini-3.7-flash-high")
+        self.assertEqual(resp.data[0].context_window, 1048576)
+        self.assertEqual(resp.data[0].context_length, 1048576)
+        self.assertEqual(resp.data[1].context_window, 200000)
+        self.assertEqual(resp.data[1].context_length, 200000)
+
+    def test_model_card_context_window_magpie_hermes(self):
+        """Verify context_window, context_length, and max_context_length for Magpie and Hermes."""
+        c1 = ModelCard(id="gemini-3.8-flash-low")
+        self.assertEqual(c1.context_window, 1048576)
+        self.assertEqual(c1.context_length, 1048576)
+        self.assertEqual(c1.max_context_length, 1048576)
+        self.assertGreaterEqual(c1.context_window, 64000)
+
+        c2 = ModelCard(id="gpt-6-astra")
+        self.assertEqual(c2.context_window, 272000)
+        self.assertEqual(c2.context_length, 272000)
+
+        c3 = ModelCard(id="deepseek-chat")
+        self.assertEqual(c3.context_window, 131072)
 
 
     def test_v2_29_0_models_and_codenames(self):

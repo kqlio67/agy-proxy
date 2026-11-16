@@ -7,7 +7,7 @@ from __future__ import annotations
 from enum import Enum
 import time
 from typing import Any
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 # ==============================================================================
@@ -1890,6 +1890,35 @@ class OpenAIChatRequest(BaseModel):
     model_config = ConfigDict(extra="allow")
 
 
+def get_default_context_window(model_id: str, max_tokens: int | None = None) -> int:
+    """Returns the expected context window size in tokens for a model."""
+    m = (model_id or "").lower()
+    # Gemini models have at least 1M context window (some 2M)
+    if any(k in m for k in ("gemini", "carbon", "argon", "hydrogen", "orchestrator", "worker")):
+        if max_tokens and max_tokens > 65536:
+            return max_tokens
+        return 1048576
+    if max_tokens and max_tokens > 0:
+        return max_tokens
+    if "1m" in m or "1-m" in m:
+        return 1000000
+    if "2m" in m or "2-m" in m:
+        return 2000000
+    if any(k in m for k in ("claude", "opus", "sonnet", "haiku", "fable", "mythos")):
+        if any(v in m for v in ("5-5", "5.5", "5-2", "5.2")):
+            return 1000000
+        return 200000
+    if any(k in m for k in ("gpt-6", "gpt-5", "codex")):
+        return 272000
+    if any(k in m for k in ("o1", "o3")):
+        return 200000
+    if any(k in m for k in ("gpt-4", "o4")):
+        return 128000
+    if "deepseek" in m:
+        return 131072
+    return 128000
+
+
 class ModelCard(BaseModel):
     id: str
     object: str = "model"
@@ -1897,8 +1926,31 @@ class ModelCard(BaseModel):
     owned_by: str = "antigravity"
     display_name: str | None = None
     max_tokens: int | None = None
+    context_window: int | None = None
+    context_length: int | None = None
+    max_context_length: int | None = None
+    max_input_tokens: int | None = None
+    max_output_tokens: int | None = None
     remaining_quota: float | None = None
     reset_time: str | None = None
+    model_config = ConfigDict(extra="allow")
+
+    @model_validator(mode="after")
+    def populate_context_attributes(self) -> "ModelCard":
+        ctx = self.context_window or self.context_length or self.max_context_length
+        if not ctx:
+            ctx = get_default_context_window(self.id, self.max_tokens)
+        if not self.context_window:
+            self.context_window = ctx
+        if not self.context_length:
+            self.context_length = ctx
+        if not self.max_context_length:
+            self.max_context_length = ctx
+        if not self.max_tokens:
+            self.max_tokens = ctx
+        if not self.max_input_tokens:
+            self.max_input_tokens = ctx
+        return self
 
 
 class ModelListResponse(BaseModel):

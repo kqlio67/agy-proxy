@@ -167,6 +167,14 @@ class TestServerRoutes(unittest.IsolatedAsyncioTestCase):
         self.assertIn("anthropic.claude-sonnet-4-6", model_ids)
         self.assertIn("gpt-oss-120b-medium", model_ids)
 
+        # Verify context_window and context_length are reported for Magpie and Hermes
+        models_by_id = {m["id"]: m for m in data.get("data", [])}
+        flash_m = models_by_id.get("gemini-3.8-flash-high")
+        self.assertIsNotNone(flash_m)
+        self.assertEqual(flash_m.get("context_window"), 1048576)
+        self.assertEqual(flash_m.get("context_length"), 1048576)
+        self.assertGreaterEqual(flash_m.get("context_window", 0), 64000)
+
         # Available proxy models should also be advertised for ClaudeDev & OpenAI clients
         self.assertIn("gpt-4o", model_ids)
         self.assertIn("gpt-6-astra", model_ids)

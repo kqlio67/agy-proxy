@@ -61,6 +61,7 @@ from agy_proxy.models import (
     OpenAIChatRequest,
     OpenAIEmbeddingRequest,
     normalize_model_name,
+    get_default_context_window,
 )
 from agy_proxy.converter import anthropic_to_cloudcode_payload
 from agy_proxy.responses import (
@@ -2867,7 +2868,7 @@ def create_app(
         models_dict = await pool.get_pool_models() if pool.accounts else {}
         if not models_dict:
             models_dict = {
-                m_id: {"displayName": m_id, "maxTokens": 65536, "quotaInfo": {}}
+                m_id: {"displayName": m_id, "maxTokens": 1048576, "quotaInfo": {}}
                 for m_id in sorted(VALID_CLOUDCODE_MODELS)
             }
 
@@ -2883,11 +2884,14 @@ def create_app(
             seen_ids.add(m_id)
             quota_info = info.get("quotaInfo", {})
             pool_rem = info.get("pool_remaining_fraction", quota_info.get("remainingFraction", 1.0))
+            max_tok = info.get("maxTokens") or get_default_context_window(m_id)
             model_cards.append(
                 ModelCard(
                     id=m_id,
                     display_name=info.get("displayName", m_id),
-                    max_tokens=info.get("maxTokens"),
+                    max_tokens=max_tok,
+                    context_window=max_tok,
+                    context_length=max_tok,
                     remaining_quota=pool_rem,
                     reset_time=quota_info.get("resetTime"),
                 )
@@ -2900,7 +2904,9 @@ def create_app(
                         ModelCard(
                             id=prefix,
                             display_name=info.get("displayName", m_id),
-                            max_tokens=info.get("maxTokens"),
+                            max_tokens=max_tok,
+                            context_window=max_tok,
+                            context_length=max_tok,
                             remaining_quota=pool_rem,
                             reset_time=quota_info.get("resetTime"),
                         )
@@ -2914,11 +2920,14 @@ def create_app(
                 target_info = models_dict.get(target_backend, {})
                 quota_info = target_info.get("quotaInfo", {})
                 pool_rem = target_info.get("pool_remaining_fraction", quota_info.get("remainingFraction", 1.0))
+                max_tok = info.get("maxTokens", 128000) or get_default_context_window(m_id)
                 model_cards.append(
                     ModelCard(
                         id=m_id,
                         display_name=info.get("displayName", m_id),
-                        max_tokens=info.get("maxTokens", 128000),
+                        max_tokens=max_tok,
+                        context_window=max_tok,
+                        context_length=max_tok,
                         remaining_quota=pool_rem,
                         reset_time=quota_info.get("resetTime"),
                     )
@@ -2926,11 +2935,14 @@ def create_app(
             for prefix in (f"anthropic/{m_id}", f"anthropic.{m_id}"):
                 if prefix not in seen_ids:
                     seen_ids.add(prefix)
+                    max_tok = info.get("maxTokens", 128000) or get_default_context_window(m_id)
                     model_cards.append(
                         ModelCard(
                             id=prefix,
                             display_name=info.get("displayName", m_id),
-                            max_tokens=info.get("maxTokens", 128000),
+                            max_tokens=max_tok,
+                            context_window=max_tok,
+                            context_length=max_tok,
                             remaining_quota=pool_rem,
                             reset_time=quota_info.get("resetTime"),
                         )
@@ -2941,13 +2953,16 @@ def create_app(
             from agy_proxy.providers import external_provider_manager
             for em in external_provider_manager.get_all_active_models():
                 em_id = em["id"]
+                ctx = em.get("context_window") or 131072
                 if em_id not in seen_ids:
                     seen_ids.add(em_id)
                     model_cards.append(
                         ModelCard(
                             id=em_id,
                             display_name=em["display_name"],
-                            max_tokens=em["context_window"],
+                            max_tokens=ctx,
+                            context_window=ctx,
+                            context_length=ctx,
                             remaining_quota=1.0,
                             reset_time=None,
                         )
@@ -2959,7 +2974,9 @@ def create_app(
                         ModelCard(
                             id=raw_id,
                             display_name=em["display_name"],
-                            max_tokens=em["context_window"],
+                            max_tokens=ctx,
+                            context_window=ctx,
+                            context_length=ctx,
                             remaining_quota=1.0,
                             reset_time=None,
                         )
@@ -3012,7 +3029,7 @@ def create_app(
         from agy_proxy.codex_helper import restore_codex
         return restore_codex()
 
-    @app.get("/v1/models/{model_id}")
+    @app.get("/v1/models/{model_id:path}")
     async def get_openai_model(model_id: str, request: Request):
         verify_api_key(
             authorization=request.headers.get("Authorization"),
@@ -3025,14 +3042,17 @@ def create_app(
             models_dict = acc.available_models
         if not models_dict:
             models_dict = {
-                m_id: {"displayName": m_id, "maxTokens": 65536, "quotaInfo": {}}
+                m_id: {"displayName": m_id, "maxTokens": 1048576, "quotaInfo": {}}
                 for m_id in sorted(VALID_CLOUDCODE_MODELS)
             }
         info = models_dict.get(normalized) or PROXY_CATALOG_MODELS.get(model_id) or PROXY_CATALOG_MODELS.get(normalized, {})
+        max_tok = info.get("maxTokens") or get_default_context_window(model_id)
         return ModelCard(
             id=model_id,
             display_name=info.get("displayName", model_id),
-            max_tokens=info.get("maxTokens"),
+            max_tokens=max_tok,
+            context_window=max_tok,
+            context_length=max_tok,
         )
 
     @app.post("/v1/chat/completions")

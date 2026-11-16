@@ -29,7 +29,7 @@ jobs:
             arch: amd64
             artifact_name: agy-proxy-windows-amd64
             asset_name: agy-proxy-windows-amd64.zip
-          - os: macos-14 # Apple Silicon (M1/M2/M3/M4)
+          - os: macos-latest # Apple Silicon (M1/M2/M3/M4)
             arch: arm64
             artifact_name: agy-proxy-darwin-arm64
             asset_name: agy-proxy-darwin-arm64.tar.gz
