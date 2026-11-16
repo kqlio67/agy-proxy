@@ -5503,9 +5503,9 @@ https://your-tunnel.trycloudflare.com/v1</pre>
                 <span>Ping</span>
               </button>
               ${classifyProviderMethod(p) === 'web' && !idLower.includes('guest') ? `
-              <button onclick="refreshProviderCdp('${safePidJs}')" class="px-2.5 py-1 rounded-xl glass-pill hover:bg-teal-500/15 hover:text-teal-300 hover:border-teal-500/30 text-slate-300 font-medium text-[11px] flex items-center gap-1 transition shadow-sm" title="Sync session token / cookies from Chrome CDP (port 9222)">
+              <button onclick="refreshProviderCdp('${safePidJs}')" class="px-2.5 py-1 rounded-xl glass-pill hover:bg-teal-500/15 hover:text-teal-300 hover:border-teal-500/30 text-slate-300 font-medium text-[11px] flex items-center gap-1 transition shadow-sm" title="Sync session token / cookies from Helium/Chrome Browser or CDP">
                 <i class="fa-solid fa-rotate text-teal-400 text-[10px]"></i>
-                <span>CDP</span>
+                <span>Sync</span>
               </button>
               ` : `
               <button onclick="discoverProvider('${safePidJs}')" class="px-2.5 py-1 rounded-xl glass-pill hover:bg-purple-500/15 hover:text-purple-300 hover:border-purple-500/30 text-slate-300 font-medium text-[11px] flex items-center gap-1 transition shadow-sm" title="Auto-discover models from this provider">
@@ -8471,54 +8471,54 @@ https://your-tunnel.trycloudflare.com/v1</pre>
     }
 
     async function refreshProviderCdp(providerId, cdpPort = 9222) {
-      showToast(`Connecting to Chrome CDP at port ${cdpPort}...`, 'info');
+      showToast(`Syncing session for ${providerId} from Browser/CDP...`, 'info');
       try {
         const res = await fetch(`/api/providers/${encodeURIComponent(providerId)}/refresh-cdp?cdp_port=${cdpPort}`, { method: 'POST' });
         const data = await res.json();
         if (data.status === 'ok') {
-          showToast(`CDP Synced ${data.provider_name || providerId}! ${data.email ? 'Account: ' + data.email : ''}`, 'success');
+          showToast(`Synced ${data.provider_name || providerId}! ${data.email ? 'Account: ' + data.email : ''}`, 'success');
           await loadAccounts(true);
           await loadModels();
         } else {
-          showToast(`CDP Sync error: ${data.detail || data.error || 'Failed to extract session from Chrome'}`, 'error');
+          showToast(`Sync error: ${data.detail || data.error || 'Failed to extract session from Browser or CDP'}`, 'error');
         }
       } catch (err) {
-        showToast('Error syncing CDP: ' + (err.message || err), 'error');
+        showToast('Error syncing session: ' + (err.message || err), 'error');
       }
     }
 
     async function autoDetectFromCdpModal() {
       const cdpPort = parseInt(document.getElementById('webCdpPortInput')?.value || '9222', 10);
-      showToast(`Connecting to Chrome CDP at port ${cdpPort}...`, 'info');
+      showToast(`Detecting session from Browser / CDP port ${cdpPort}...`, 'info');
       try {
         if (currentAuthMethod === 'openai_web') {
           const res = await fetch(`/api/providers/chatgpt-web/refresh-cdp?cdp_port=${cdpPort}`, { method: 'POST' });
           const data = await res.json();
           if (data.status === 'ok') {
-            showToast(`Auto-detected ChatGPT session via CDP! ${data.email || ''}`, 'success');
+            showToast(`Auto-detected ChatGPT session from browser! ${data.email || ''}`, 'success');
             const tok = data.details?.token || '';
             if (tok) document.getElementById('webCookiesInput').value = tok;
             if (data.email) document.getElementById('webNameInput').value = `ChatGPT Web (${data.email})`;
           } else {
-            showToast(`CDP error: ${data.detail || data.error}`, 'error');
+            showToast(`Sync error: ${data.detail || data.error}`, 'error');
           }
         } else if (currentAuthMethod === 'deepseek_web') {
           const res = await fetch(`/api/providers/deepseek-web/refresh-cdp?cdp_port=${cdpPort}`, { method: 'POST' });
           const data = await res.json();
           if (data.status === 'ok') {
-            showToast(`Auto-detected DeepSeek token via CDP! ${data.email || ''}`, 'success');
+            showToast(`Auto-detected DeepSeek token from browser! ${data.email || ''}`, 'success');
             const tok = data.details?.token || '';
             if (tok) document.getElementById('webCookiesInput').value = tok;
             const ident = data.email || data.details?.username;
             if (ident) document.getElementById('webNameInput').value = `DeepSeek Web (${ident})`;
           } else {
-            showToast(`CDP error: ${data.detail || data.error}`, 'error');
+            showToast(`Sync error: ${data.detail || data.error}`, 'error');
           }
         } else {
-          showToast(`For Gemini Web, submitting with CDP port ${cdpPort} auto-extracts cookies!`, 'info');
+          showToast(`Submitting auto-extracts session from active Browser profile!`, 'info');
         }
       } catch (err) {
-        showToast('CDP auto-detect failed: ' + err.message, 'error');
+        showToast('Auto-detect failed: ' + err.message, 'error');
       }
     }
 

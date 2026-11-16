@@ -640,8 +640,37 @@ class ChatGPTWebProvider(BaseExternalProvider):
 
             try:
                 async with client.stream("POST", conv_url, json=conv_payload, headers=headers) as response:
-                    if response.status_code != 200:
+                    if response.status_code == 401 and not getattr(self, "_auto_heal_tried", False):
                         err_body = await response.aread()
+                        logger.warning("[ChatGPT Web] Encountered 401 unauthorized. Attempting auto-heal from local browser profiles...")
+                        try:
+                            from agy_proxy.providers.browser_cookie_sync import extract_chatgpt_from_browser
+                            res = await extract_chatgpt_from_browser()
+                            if res.get("token") and res["token"] != self.api_key:
+                                self.api_key = res["token"]
+                                self.config.api_key = res["token"]
+                                if res.get("name"):
+                                    self.name = res["name"]
+                                    self.config.name = res["name"]
+                                try:
+                                    from agy_proxy.providers import external_provider_manager
+                                    if external_provider_manager:
+                                        external_provider_manager.save()
+                                except Exception:
+                                    pass
+                                logger.info("[ChatGPT Web] Successfully auto-healed access token from %s. Retrying request...", res.get("browser"))
+                                self._auto_heal_tried = True
+                                try:
+                                    async for chunk in self.stream_chat(payload):
+                                        yield chunk
+                                    return
+                                finally:
+                                    self._auto_heal_tried = False
+                        except Exception as h_err:
+                            logger.debug("[ChatGPT Web] Auto-heal failed: %s", h_err)
+
+                    if response.status_code != 200:
+                        err_body = await response.aread() if not response.is_closed else b""
                         logger.error(
                             "[ChatGPT Web] Conversation request failed (%d): %s",
                             response.status_code,

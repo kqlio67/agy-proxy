@@ -2423,6 +2423,39 @@ def create_app(
             logger.error("CDP sync error for provider %s: %s", provider_id, e)
             raise HTTPException(status_code=400, detail=str(e))
 
+    @app.post("/api/providers/sync-browser")
+    async def sync_providers_from_browser():
+        from agy_proxy.providers import external_provider_manager
+        from agy_proxy.providers.browser_cookie_sync import sync_all_web_providers_from_browser
+        try:
+            res = await sync_all_web_providers_from_browser(external_provider_manager)
+            try:
+                from agy_proxy.web_launcher import sync_bundle_proxy_mode
+                sync_bundle_proxy_mode()
+            except Exception:
+                pass
+            return res
+        except Exception as e:
+            logger.error("Browser sync error: %s", e)
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/providers/{provider_id}/sync-browser")
+    async def sync_single_provider_from_browser(provider_id: str):
+        from agy_proxy.providers import external_provider_manager
+        from agy_proxy.providers.cdp_sync import sync_provider_via_cdp
+        try:
+            # Passes cdp_port=0 to immediately use browser profile cookie extraction fallback
+            res = await sync_provider_via_cdp(provider_id, cdp_port=0, provider_manager=external_provider_manager)
+            try:
+                from agy_proxy.web_launcher import sync_bundle_proxy_mode
+                sync_bundle_proxy_mode()
+            except Exception:
+                pass
+            return res
+        except Exception as e:
+            logger.error("Browser sync error for provider %s: %s", provider_id, e)
+            raise HTTPException(status_code=400, detail=str(e))
+
     @app.get("/api/providers/routing")
     async def get_providers_routing():
         from agy_proxy.providers import external_provider_manager

@@ -364,22 +364,43 @@ async def sync_provider_via_cdp(
     provider_manager: Any = None,
 ) -> dict[str, Any]:
     """
-    Auto-detects the provider type, extracts session credentials via Chrome CDP,
+    Auto-detects the provider type, extracts session credentials via Chrome CDP
+    (falling back automatically to direct browser SQLite profile inspection if CDP is inactive),
     updates the provider configuration in ProviderManager, and persists it.
     """
     pid = provider_id.lower()
-    if "chatgpt" in pid or "openai_web" in pid:
-        result = await extract_chatgpt_via_cdp(cdp_port)
-    elif "deepseek" in pid:
-        result = await extract_deepseek_via_cdp(cdp_port)
-    elif "claude" in pid or "anthropic_web" in pid:
-        result = await extract_claude_via_cdp(cdp_port)
-    else:
-        raise ValueError(f"CDP session extraction not supported for provider '{provider_id}'.")
+    result = None
+    cdp_error = None
 
-    token = result.get("token")
-    if not token:
-        raise RuntimeError(f"CDP extraction for '{provider_id}' returned no valid credentials.")
+    try:
+        if "chatgpt" in pid or "openai_web" in pid:
+            result = await extract_chatgpt_via_cdp(cdp_port)
+        elif "deepseek" in pid:
+            result = await extract_deepseek_via_cdp(cdp_port)
+        elif "claude" in pid or "anthropic_web" in pid:
+            result = await extract_claude_via_cdp(cdp_port)
+        else:
+            raise ValueError(f"CDP session extraction not supported for provider '{provider_id}'.")
+    except Exception as err:
+        cdp_error = err
+        logger.info("[CDP Sync] CDP extraction on port %s failed (%s), attempting direct browser profile sync...", cdp_port, err)
+
+    if not result or not result.get("token"):
+        # Fallback to direct browser profile sync
+        try:
+            from agy_proxy.providers.browser_cookie_sync import extract_chatgpt_from_browser, extract_gemini_from_browser
+            if "chatgpt" in pid or "openai_web" in pid:
+                result = await extract_chatgpt_from_browser()
+            elif "gemini" in pid:
+                result = await extract_gemini_from_browser()
+        except Exception as b_err:
+            logger.debug("[CDP Sync] Browser profile fallback also failed: %s", b_err)
+
+    if not result or not result.get("token"):
+        err_msg = str(cdp_error or "Could not extract credentials via CDP or local browser profiles.")
+        raise RuntimeError(err_msg)
+
+    token = result["token"]
 
     if provider_manager:
         cfg = provider_manager.providers.get(provider_id)
