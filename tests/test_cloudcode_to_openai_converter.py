@@ -345,3 +345,44 @@ def test_openai_response_to_anthropic():
     assert ant_res["stop_reason"] == "end_turn"
     assert ant_res["usage"]["input_tokens"] == 12
     assert ant_res["usage"]["output_tokens"] == 8
+
+
+def test_cloudcode_sse_translator_finalize_flushes_pending_tools_and_stop():
+    translator = CloudCodeSSETranslator()
+    # Chunk with partial tool call but stream terminates before finish_reason chunk
+    chunk1 = {
+        "id": "chatcmpl-stream-tool",
+        "choices": [
+            {
+                "index": 0,
+                "delta": {
+                    "tool_calls": [
+                        {
+                            "index": 0,
+                            "id": "call_12345",
+                            "function": {"name": "search_files", "arguments": '{"query": "models"}'},
+                        }
+                    ]
+                },
+                "finish_reason": None,
+            }
+        ],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+    }
+    events = translator.process_chunk(chunk1)
+    assert len(events) == 0  # tool call is accumulating
+
+    # Finalize should flush accumulated tool call and emit STOP candidate with usage
+    final_events = translator.finalize()
+    assert len(final_events) == 1
+    resp = final_events[0]["response"]
+    candidate = resp["candidates"][0]
+    assert candidate["finishReason"] == "STOP"
+    assert len(candidate["content"]["parts"]) == 1
+    fc = candidate["content"]["parts"][0]["functionCall"]
+    assert fc["name"] == "search_files"
+    assert fc["args"] == {"query": "models"}
+    assert resp["usageMetadata"]["totalTokenCount"] == 15
+
+    # Subsequent finalize call returns nothing
+    assert translator.finalize() == []

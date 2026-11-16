@@ -214,11 +214,14 @@ class ExternalProviderManager:
                 matched_model = next((m for m in p_cfg.models if m.id == upstream_id), None)
                 return instance, upstream_id, matched_model
 
-        # 2. Exact match against configured models (skip if colliding with native Antigravity models/aliases)
-        from agy_proxy.models import MODEL_ALIASES, VALID_CLOUDCODE_MODELS
-        if clean not in MODEL_ALIASES and clean not in VALID_CLOUDCODE_MODELS:
+        # 2. Exact match against configured models (skip if colliding with native Antigravity CloudCode models)
+        from agy_proxy.models import VALID_CLOUDCODE_MODELS
+        if clean not in VALID_CLOUDCODE_MODELS:
             for p_id, p_cfg in self.providers.items():
                 if not p_cfg.enabled:
+                    continue
+                # Skip guest web scraper presets from hijacking standard OpenAI compatibility aliases
+                if p_id == "chatgpt-web-guest" and clean in ("gpt-4o", "gpt-4o-mini", "o3-mini", "chatgpt-4o-latest"):
                     continue
                 for m in p_cfg.models:
                     if m.enabled and (m.id == clean or m.display_name == clean or m.name == clean):

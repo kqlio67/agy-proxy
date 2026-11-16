@@ -6680,9 +6680,23 @@ https://your-tunnel.trycloudflare.com/v1</pre>
           resetStr: formatResetTime(info.quotaInfo?.resetTime),
           maxTokens: info.maxTokens || 0,
           accounts: info.accounts || null,
-          supportsThinking: keyLower.includes('thinking') || keyLower.includes('argon') || keyLower.includes('high') || keyLower.includes('sonnet-4-6'),
+          supportsThinking: keyLower.includes('thinking') || keyLower.includes('argon') || keyLower.includes('hydrogen') || keyLower.includes('high') || keyLower.includes('medium') || keyLower.includes('low') || keyLower.includes('deepagent') || keyLower.includes('claude-') || keyLower.includes('5-5') || keyLower.includes('5.5'),
         });
       });
+
+      // Sort pool entries by authentic Google CloudCode flagship priority
+      const poolPriority = [
+        'gemini-4-argon-medium', 'gemini-4-argon-high', 'gemini-4-argon-low', 'gemini-4-argon',
+        'gemini-4-hydrogen-medium', 'gemini-4-hydrogen-high', 'gemini-4-hydrogen-xhigh', 'gemini-4-hydrogen-low', 'gemini-4-hydrogen',
+        'gemini-pro-orchestrator-g1-pro',
+        'gemini-3.8-flash-medium', 'gemini-3.8-flash-high', 'gemini-3.8-flash-low',
+        'claude-opus-5-5-medium', 'claude-opus-5-5-high', 'claude-opus-5-5-low', 'claude-opus-5-5-max',
+        'claude-sonnet-5-5-medium', 'claude-sonnet-5-5-high', 'claude-sonnet-5-5-low', 'claude-sonnet-5-5-max',
+        'gpt-oss-120b-medium',
+        'gemini-4-carbon', 'gemini-4-carbon-disabled'
+      ];
+      const pRankMap = Object.fromEntries(poolPriority.map((id, idx) => [id, idx]));
+      entries.sort((a, b) => (pRankMap[a.id] !== undefined ? pRankMap[a.id] : 999) - (pRankMap[b.id] !== undefined ? pRankMap[b.id] : 999));
 
       // Fallback/extra Gemini Web models when a Gemini Web session is active
       if (hasWebAccs) {
@@ -7033,22 +7047,32 @@ https://your-tunnel.trycloudflare.com/v1</pre>
     ];
 
     const ANTIGRAVITY_MODELS = [
-      { id: 'gemini-pro-orchestrator-g1-pro', name: 'gemini-pro-orchestrator-g1-pro (Orchestrator Argon)' },
-      { id: 'gemini-4-hydrogen', name: 'gemini-4-hydrogen (Flagship · 256k Output)' },
-      { id: 'gemini-4-hydrogen-high', name: 'gemini-4-hydrogen-high (Thinking High)' },
-      { id: 'gemini-4-hydrogen-medium', name: 'gemini-4-hydrogen-medium' },
-      { id: 'gemini-4-hydrogen-low', name: 'gemini-4-hydrogen-low' },
-      { id: 'gemini-4-hydrogen-xhigh', name: 'gemini-4-hydrogen-xhigh (Thinking XHigh)' },
-      { id: 'gemini-4-carbon', name: 'gemini-4-carbon (Flagship · 1M Context)' },
-      { id: 'gemini-4-argon', name: 'gemini-4-argon (Flagship)' },
-      { id: 'gemini-4-argon-high', name: 'gemini-4-argon-high (Thinking High)' },
-      { id: 'gemini-4-argon-medium', name: 'gemini-4-argon-medium' },
-      { id: 'gemini-4-argon-low', name: 'gemini-4-argon-low' },
+      { id: 'gemini-4-argon-medium', name: 'gemini-4-argon-medium (Flagship Medium · New)' },
+      { id: 'gemini-4-argon-high', name: 'gemini-4-argon-high (Thinking High · New)' },
+      { id: 'gemini-4-argon-low', name: 'gemini-4-argon-low (Fast · New)' },
+      { id: 'gemini-4-argon', name: 'gemini-4-argon (Flagship · New)' },
+      { id: 'gemini-4-hydrogen-medium', name: 'gemini-4-hydrogen-medium (Flagship Medium · 256k · New)' },
+      { id: 'gemini-4-hydrogen-high', name: 'gemini-4-hydrogen-high (Thinking High · 256k · New)' },
+      { id: 'gemini-4-hydrogen-xhigh', name: 'gemini-4-hydrogen-xhigh (Thinking XHigh · 256k · New)' },
+      { id: 'gemini-4-hydrogen-low', name: 'gemini-4-hydrogen-low (Fast · 256k · New)' },
+      { id: 'gemini-4-hydrogen', name: 'gemini-4-hydrogen (Flagship · 256k Output · New)' },
+      { id: 'gemini-pro-orchestrator-g1-pro', name: 'gemini-pro-orchestrator-g1-pro (Orchestrator Argon · New)' },
+      { id: 'gemini-3.8-flash-medium', name: 'gemini-3.8-flash-medium (Fast Reasoning)' },
       { id: 'gemini-3.8-flash-high', name: 'gemini-3.8-flash-high (Thinking High)' },
-      { id: 'gemini-3.8-flash-medium', name: 'gemini-3.8-flash-medium' },
-      { id: 'gemini-3.8-flash-low', name: 'gemini-3.8-flash-low' },
+      { id: 'gemini-3.8-flash-low', name: 'gemini-3.8-flash-low (Fast)' },
       { id: 'gemini-3.8-flash-tiered', name: 'gemini-3.8-flash-tiered (Tiered)' },
       { id: 'gemini-3.8-flash-deepagent', name: 'gemini-3.8-flash-deepagent (Deep Work)' },
+      { id: 'claude-opus-5-5-medium', name: 'claude-opus-5-5-medium (Anthropic 3P Medium ⚠️ New)' },
+      { id: 'claude-opus-5-5-high', name: 'claude-opus-5-5-high (Anthropic 3P High ⚠️ New)' },
+      { id: 'claude-opus-5-5-low', name: 'claude-opus-5-5-low (Anthropic 3P Fast ⚠️ New)' },
+      { id: 'claude-opus-5-5-max', name: 'claude-opus-5-5-max (Anthropic 3P Max ⚠️ New)' },
+      { id: 'claude-sonnet-5-5-medium', name: 'claude-sonnet-5-5-medium (Anthropic 3P Medium ⚠️ New)' },
+      { id: 'claude-sonnet-5-5-high', name: 'claude-sonnet-5-5-high (Anthropic 3P High ⚠️ New)' },
+      { id: 'claude-sonnet-5-5-low', name: 'claude-sonnet-5-5-low (Anthropic 3P Fast ⚠️ New)' },
+      { id: 'claude-sonnet-5-5-max', name: 'claude-sonnet-5-5-max (Anthropic 3P Max ⚠️ New)' },
+      { id: 'gpt-oss-120b-medium', name: 'gpt-oss-120b-medium (OpenAI 3P 120B ⚠️ Notice)' },
+      { id: 'gemini-4-carbon', name: 'gemini-4-carbon (Next-Gen · Unavailable)' },
+      { id: 'gemini-4-carbon-disabled', name: 'gemini-4-carbon-disabled (Unavailable)' },
       { id: 'gemini-3.5-flash-lite', name: 'gemini-3.5-flash-lite' },
       { id: 'gemini-3.1-flash-lite', name: 'gemini-3.1-flash-lite (Ultra Fast)' },
       { id: 'gemini-3.1-flash-image', name: 'gemini-3.1-flash-image' },
@@ -7061,13 +7085,6 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       { id: 'claude-opus-4-6-thinking', name: 'claude-opus-4-6-thinking (Deep Reasoning)' },
       { id: 'claude-sonnet-4-6-deepagent', name: 'claude-sonnet-4-6-deepagent (Deep Work)' },
       { id: 'claude-opus-4-6-deepagent', name: 'claude-opus-4-6-deepagent (Deep Work)' },
-      { id: 'claude-sonnet-5-5-high', name: 'claude-sonnet-5-5-high' },
-      { id: 'claude-sonnet-5-5-medium', name: 'claude-sonnet-5-5-medium' },
-      { id: 'claude-sonnet-5-5-low', name: 'claude-sonnet-5-5-low' },
-      { id: 'claude-opus-5-5-high', name: 'claude-opus-5-5-high' },
-      { id: 'claude-opus-5-5-medium', name: 'claude-opus-5-5-medium' },
-      { id: 'claude-opus-5-5-low', name: 'claude-opus-5-5-low' },
-      { id: 'gpt-oss-120b-medium', name: 'gpt-oss-120b-medium' },
     ];
 
     function updatePlaygroundModelsForAccount(acc, extProvider = null) {
@@ -7151,6 +7168,18 @@ https://your-tunnel.trycloudflare.com/v1</pre>
             m !== 'claude-haiku-4-5-thinking'
           );
           if (valid.length > 0) {
+            const priorityOrder = [
+              'gemini-4-argon-medium', 'gemini-4-argon-high', 'gemini-4-argon-low', 'gemini-4-argon',
+              'gemini-4-hydrogen-medium', 'gemini-4-hydrogen-high', 'gemini-4-hydrogen-xhigh', 'gemini-4-hydrogen-low', 'gemini-4-hydrogen',
+              'gemini-pro-orchestrator-g1-pro',
+              'gemini-3.8-flash-medium', 'gemini-3.8-flash-high', 'gemini-3.8-flash-low',
+              'claude-opus-5-5-medium', 'claude-opus-5-5-high', 'claude-opus-5-5-low', 'claude-opus-5-5-max',
+              'claude-sonnet-5-5-medium', 'claude-sonnet-5-5-high', 'claude-sonnet-5-5-low', 'claude-sonnet-5-5-max',
+              'gpt-oss-120b-medium',
+              'gemini-4-carbon', 'gemini-4-carbon-disabled'
+            ];
+            const pRank = Object.fromEntries(priorityOrder.map((id, idx) => [id, idx]));
+            valid.sort((a, b) => (pRank[a] !== undefined ? pRank[a] : 999) - (pRank[b] !== undefined ? pRank[b] : 999));
             list = valid.map(m => ANTIGRAVITY_MODELS.find(d => d.id === m) || { id: m, name: m });
           }
         }
@@ -7160,7 +7189,10 @@ https://your-tunnel.trycloudflare.com/v1</pre>
           opt.innerText = m.name && m.name !== m.id ? `${m.id} — ${m.name}` : m.id;
           select.appendChild(opt);
         });
-        select.value = list.some(m => m.id === prevVal) ? prevVal : 'gemini-3.8-flash-high';
+        const defaultTarget = list.some(m => m.id === 'gemini-4-hydrogen-medium')
+          ? 'gemini-4-hydrogen-medium'
+          : (list.some(m => m.id === 'gemini-4-argon-medium') ? 'gemini-4-argon-medium' : (list[0]?.id || 'gemini-3.8-flash-high'));
+        select.value = list.some(m => m.id === prevVal) ? prevVal : defaultTarget;
       } else {
         // Auto Pool mode: clean company-grouped options (no duplicates or misclassifications)
         const allEntries = buildUnifiedModelCatalogEntries();
@@ -7192,12 +7224,13 @@ https://your-tunnel.trycloudflare.com/v1</pre>
           });
 
           const allKeys = Array.from(select.options).map(o => o.value);
+          const defaultTarget = allKeys.includes('gemini-4-hydrogen-medium')
+            ? 'gemini-4-hydrogen-medium'
+            : (allKeys.includes('gemini-4-argon-medium') ? 'gemini-4-argon-medium' : (allKeys[0] || 'gemini-3.8-flash-high'));
           if (allKeys.includes(prevVal)) {
             select.value = prevVal;
-          } else if (allKeys.includes('gemini-3.8-flash-high')) {
-            select.value = 'gemini-3.8-flash-high';
           } else {
-            select.value = allKeys[0] || 'gemini-3.8-flash-high';
+            select.value = defaultTarget;
           }
         } else {
           ANTIGRAVITY_MODELS.forEach(m => {
@@ -7206,7 +7239,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
             opt.innerText = m.name ? `${m.id} — ${m.name}` : m.id;
             select.appendChild(opt);
           });
-          select.value = 'gemini-3.8-flash-high';
+          select.value = 'gemini-4-hydrogen-medium';
         }
       }
 

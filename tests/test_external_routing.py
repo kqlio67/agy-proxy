@@ -257,3 +257,30 @@ class TestExternalRouting(unittest.IsolatedAsyncioTestCase):
         # Verify seamless failover response
         assert res.status_code == 200
         assert "Responded via auto-failover external provider!" in res.text
+
+    async def test_external_model_unprefixed_resolution(self):
+        # Configure external DeepSeek provider
+        prov_cfg = ExternalProviderConfig(
+            id="deepseek",
+            name="DeepSeek Provider",
+            provider_type="openai_compatible",
+            base_url="https://api.deepseek.com/v1",
+            models=[ExternalModelConfig(id="deepseek-r1", name="DeepSeek R1", supports_thinking=True)],
+        )
+        external_provider_manager.add_or_update_provider(prov_cfg)
+
+        mock_inst = MagicMock()
+        mock_inst.id = "deepseek"
+        mock_inst.name = "DeepSeek Provider"
+        external_provider_manager._instances["deepseek"] = mock_inst
+
+        # 1. Un-prefixed "deepseek-r1" should resolve to DeepSeek provider
+        resolved = external_provider_manager.resolve_model("deepseek-r1")
+        assert resolved is not None
+        inst, model_id, m_cfg = resolved
+        assert inst.id == "deepseek"
+        assert model_id == "deepseek-r1"
+
+        # 2. Native model "gemini-4-argon-high" must NOT resolve to external provider
+        resolved_native = external_provider_manager.resolve_model("gemini-4-argon-high")
+        assert resolved_native is None

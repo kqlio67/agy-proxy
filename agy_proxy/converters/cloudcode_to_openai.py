@@ -231,6 +231,7 @@ class CloudCodeSSETranslator:
     def __init__(self):
         self.tool_calls_acc: dict[int, dict[str, Any]] = {}
         self.in_think_block = False
+        self.has_emitted_finish = False
         self.prompt_tokens = 0
         self.completion_tokens = 0
         self.thoughts_tokens = 0
@@ -449,9 +450,61 @@ class CloudCodeSSETranslator:
                     usage_meta["thoughtsTokenCount"] = self.thoughts_tokens
                 final_event["response"]["usageMetadata"] = usage_meta
 
+            self.has_emitted_finish = True
             events.append(final_event)
 
         return events
+
+    def finalize(self) -> list[dict[str, Any]]:
+        """
+        Flushes any remaining accumulated tool calls or generates a closing STOP candidate
+        with usage metadata if the upstream stream ended without an explicit finishReason chunk.
+        """
+        if self.has_emitted_finish and not self.tool_calls_acc:
+            return []
+
+        parts: list[dict[str, Any]] = []
+        for idx in sorted(self.tool_calls_acc.keys()):
+            acc_tc = self.tool_calls_acc[idx]
+            tc_name = acc_tc.get("name", "")
+            args_str = acc_tc.get("arguments", "{}")
+            try:
+                args_obj = json.loads(args_str) if args_str else {}
+            except Exception:
+                args_obj = {}
+
+            parts.append({
+                "functionCall": {
+                    "name": tc_name,
+                    "args": args_obj,
+                    "id": acc_tc.get("id"),
+                }
+            })
+        self.tool_calls_acc.clear()
+
+        resp_candidate: dict[str, Any] = {
+            "content": {"role": "model", "parts": parts},
+            "finishReason": "STOP",
+            "index": 0,
+        }
+
+        final_event: dict[str, Any] = {
+            "response": {
+                "candidates": [resp_candidate],
+            }
+        }
+        if self.total_tokens or self.prompt_tokens or self.completion_tokens or self.thoughts_tokens:
+            usage_meta: dict[str, Any] = {
+                "promptTokenCount": self.prompt_tokens,
+                "candidatesTokenCount": self.completion_tokens,
+                "totalTokenCount": self.total_tokens or (self.prompt_tokens + self.completion_tokens),
+            }
+            if self.thoughts_tokens:
+                usage_meta["thoughtsTokenCount"] = self.thoughts_tokens
+            final_event["response"]["usageMetadata"] = usage_meta
+
+        self.has_emitted_finish = True
+        return [final_event]
 
 
 def openai_response_to_cloudcode(openai_resp: dict[str, Any]) -> dict[str, Any]:

@@ -145,12 +145,52 @@ def _get_default_passthrough_response(action_key: str) -> dict[str, Any]:
                     }
                 },
             }
-            if "argon" in m:
+            if "hydrogen" in m:
+                m_entry["maxOutputTokens"] = 262144
+                m_entry["supportsImages"] = True
+                m_entry["supportsVideo"] = True
+                m_entry["recommended"] = True
+                m_entry["disabled"] = False
+                m_entry["tagTitle"] = "New"
+                m_entry["modelProvider"] = "Google"
+            elif "argon" in m:
                 m_entry["maxOutputTokens"] = 65536
                 m_entry["supportsImages"] = True
                 m_entry["supportsVideo"] = True
                 m_entry["recommended"] = True
                 m_entry["disabled"] = False
+                m_entry["tagTitle"] = "New"
+                m_entry["modelProvider"] = "Google"
+            elif "carbon" in m:
+                m_entry["disabled"] = True
+                m_entry["tagTitle"] = "Unavailable"
+                m_entry["tagDescription"] = "Not available with your plan"
+                m_entry["modelProvider"] = "Google"
+            elif "orchestrator" in m:
+                m_entry["tagTitle"] = "New"
+                m_entry["tagDescription"] = "Plan and execute agent using Gemini 4 Argon"
+                m_entry["modelProvider"] = "Google"
+            elif "claude" in m and ("5-5" in m or "5.5" in m):
+                m_entry["tagTitle"] = "New"
+                m_entry["modelProvider"] = "Anthropic"
+                m_entry["apiProvider"] = "Anthropic"
+                m_entry["supportsImages"] = True
+                if "max" in m:
+                    thinking_budget = -1
+                    thinking_level = 4
+                elif "high" in m:
+                    thinking_budget = -1
+                    thinking_level = 3
+                elif "low" in m:
+                    thinking_budget = 1000
+                    thinking_level = 1
+                else:
+                    thinking_budget = 4000
+                    thinking_level = 2
+            elif "gpt-oss-120b" in m:
+                m_entry["tagTitle"] = "Notice"
+                m_entry["tagDescription"] = "Third-party open-weights model"
+                m_entry["modelProvider"] = "OpenAI"
             if m in CLOUDCODE_PLACEHOLDER_MAP:
                 m_entry["model"] = CLOUDCODE_PLACEHOLDER_MAP[m]
             if supports_thinking:
@@ -160,28 +200,37 @@ def _get_default_passthrough_response(action_key: str) -> dict[str, Any]:
                 m_entry["thinkingLevel"] = thinking_level
             models_dict[m] = m_entry
         sorted_model_ids = [
-            "gemini-4-argon-high",
             "gemini-4-argon-medium",
+            "gemini-4-argon-high",
             "gemini-4-argon-low",
             "gemini-4-argon",
+            "gemini-4-hydrogen-high",
+            "gemini-4-hydrogen-xhigh",
+            "gemini-4-hydrogen-medium",
+            "gemini-4-hydrogen-low",
+            "gemini-4-hydrogen",
+            "gemini-pro-orchestrator-g1-pro",
             "gemini-3.8-flash-high",
             "gemini-3.8-flash-medium",
             "gemini-3.8-flash-low",
-            "gemini-3.7-flash-high",
-            "gemini-3.7-flash-medium",
-            "gemini-3.7-flash-low",
-            "gemini-3.6-flash-high",
-            "gemini-3.6-flash-medium",
-            "gemini-3.6-flash-low",
-            "gemini-pro-agent",
-            "gemini-3.1-pro-low",
+            "gemini-3.8-flash",
+            "claude-opus-5-5-low",
+            "claude-opus-5-5-medium",
+            "claude-opus-5-5-high",
+            "claude-opus-5-5-max",
+            "claude-sonnet-5-5-low",
+            "claude-sonnet-5-5-medium",
+            "claude-sonnet-5-5-high",
+            "claude-sonnet-5-5-max",
+            "gpt-oss-120b-medium",
+            "gemini-4-carbon-disabled",
+            "gemini-4-carbon",
             "claude-sonnet-4-6",
             "claude-opus-4-6-thinking",
-            "gpt-oss-120b-medium",
         ]
         return {
             "models": models_dict,
-            "defaultAgentModelId": "gemini-4-argon-medium",
+            "defaultAgentModelId": "gemini-4-hydrogen-medium",
             "agentModelSorts": [
                 {
                     "displayName": "Recommended",
@@ -4617,6 +4666,9 @@ def create_app(
                                 for ev in events:
                                     yield f"data: {json.dumps(ev)}\n\n"
 
+                            for ev in translator.finalize():
+                                yield f"data: {json.dumps(ev)}\n\n"
+
                             _record_cloudcode_traffic(
                                 acc_obj=type("ExternalAccount", (), {"account_id": provider.id, "email": provider.name, "auth_method": "external"})(),
                                 st_code=200,
@@ -4856,6 +4908,9 @@ def create_app(
                                     events = translator.process_chunk(chunk)
                                     for ev in events:
                                         yield f"data: {json.dumps(ev)}\n\n"
+
+                                for ev in translator.finalize():
+                                    yield f"data: {json.dumps(ev)}\n\n"
                             except Exception as err:
                                 err_event = {
                                     "response": {
@@ -5840,6 +5895,9 @@ def create_app(
                                             events = translator.process_chunk(chunk)
                                             for ev in events:
                                                 yield f"data: {json.dumps(ev)}\n\n"
+
+                                        for ev in translator.finalize():
+                                            yield f"data: {json.dumps(ev)}\n\n"
                                     except Exception as fb_err:
                                         logger.error("[Model-Fallback] Stream error (%s): %s", fb_provider.name, fb_err)
                                         err_event = {
@@ -5992,6 +6050,9 @@ def create_app(
                                         events = translator.process_chunk(chunk)
                                         for ev in events:
                                             yield f"data: {json.dumps(ev)}\n\n"
+
+                                    for ev in translator.finalize():
+                                        yield f"data: {json.dumps(ev)}\n\n"
                                 except Exception as fb_err:
                                     logger.error("[Auto-Failover] Stream error (%s): %s", fb_provider.name, fb_err)
                                     err_event = {

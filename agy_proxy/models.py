@@ -75,6 +75,9 @@ MODEL_ALIASES: dict[str, str] = {
 
     # Gemini 4 Carbon (Next-Gen v2.31.0 CloudCode model)
     "gemini-4-carbon": "gemini-4-carbon",
+    "gemini-4-carbon-high": "gemini-4-carbon-high",
+    "gemini-4-carbon-medium": "gemini-4-carbon-medium",
+    "gemini-4-carbon-low": "gemini-4-carbon-low",
     "gemini-4-carbon-disabled": "gemini-4-carbon-disabled",
     "carbon": "gemini-4-carbon",
 
@@ -277,6 +280,34 @@ MODEL_ALIASES: dict[str, str] = {
     "claude-opus": "claude-opus-4-6-thinking",
     "claude-haiku": "claude-haiku-4-5",
 
+    # Claude 5.5 Official 3P Flagship models in Antigravity
+    "claude-opus-5-5": "claude-opus-5-5-medium",
+    "claude-opus-5.5": "claude-opus-5-5-medium",
+    "claude-opus-5-5-high": "claude-opus-5-5-high",
+    "claude-opus-5.5-high": "claude-opus-5-5-high",
+    "claude-opus-5-5-medium": "claude-opus-5-5-medium",
+    "claude-opus-5.5-medium": "claude-opus-5-5-medium",
+    "claude-opus-5-5-low": "claude-opus-5-5-low",
+    "claude-opus-5.5-low": "claude-opus-5-5-low",
+    "claude-opus-5-5-max": "claude-opus-5-5-max",
+    "claude-opus-5.5-max": "claude-opus-5-5-max",
+    "claude-sonnet-5-5": "claude-sonnet-5-5-medium",
+    "claude-sonnet-5.5": "claude-sonnet-5-5-medium",
+    "claude-sonnet-5-5-high": "claude-sonnet-5-5-high",
+    "claude-sonnet-5.5-high": "claude-sonnet-5-5-high",
+    "claude-sonnet-5-5-medium": "claude-sonnet-5-5-medium",
+    "claude-sonnet-5.5-medium": "claude-sonnet-5-5-medium",
+    "claude-sonnet-5-5-low": "claude-sonnet-5-5-low",
+    "claude-sonnet-5.5-low": "claude-sonnet-5-5-low",
+    "claude-sonnet-5-5-max": "claude-sonnet-5-5-max",
+    "claude-sonnet-5.5-max": "claude-sonnet-5-5-max",
+    "claude-5-5": "claude-sonnet-5-5-medium",
+    "claude-5.5": "claude-sonnet-5-5-medium",
+    "claude-5-5-sonnet": "claude-sonnet-5-5-medium",
+    "claude-5.5-sonnet": "claude-sonnet-5-5-medium",
+    "claude-5-5-opus": "claude-opus-5-5-medium",
+    "claude-5.5-opus": "claude-opus-5-5-medium",
+
     # --------------------------------------------------------------------------
     # 4. OPENAI CODEX CLI AND STANDARD OPENAI MODEL COMPATIBILITY
     #    (Compatibility aliases mapping standard IDs to Gemini 3.8 Flash)
@@ -353,6 +384,9 @@ VALID_CLOUDCODE_MODELS = {
     "gemini-4-hydrogen-low",
     "gemini-4-hydrogen-xhigh",
     "gemini-4-carbon",
+    "gemini-4-carbon-high",
+    "gemini-4-carbon-medium",
+    "gemini-4-carbon-low",
     "gemini-4-carbon-disabled",
     # Antigravity Orchestrator & Execution Worker (v2.31.0)
     "gemini-pro-orchestrator-g1-pro",
@@ -377,9 +411,11 @@ VALID_CLOUDCODE_MODELS = {
     "claude-opus-4-6-thinking",
     "claude-sonnet-4-6-deepagent",
     "claude-opus-4-6-deepagent",
+    "claude-sonnet-5-5-max",
     "claude-sonnet-5-5-high",
     "claude-sonnet-5-5-medium",
     "claude-sonnet-5-5-low",
+    "claude-opus-5-5-max",
     "claude-opus-5-5-high",
     "claude-opus-5-5-medium",
     "claude-opus-5-5-low",
@@ -475,6 +511,9 @@ CLOUDCODE_PLACEHOLDER_MAP: dict[str, str] = {
     "gemini-4-hydrogen-xhigh": "MODEL_PLACEHOLDER_M528",
     "gemini-4-hydrogen-medium": "MODEL_PLACEHOLDER_M526",
     "gemini-4-carbon": "MODEL_PLACEHOLDER_M670",
+    "gemini-4-carbon-high": "MODEL_PLACEHOLDER_M670",
+    "gemini-4-carbon-medium": "MODEL_PLACEHOLDER_M670",
+    "gemini-4-carbon-low": "MODEL_PLACEHOLDER_M670",
     "gemini-4-carbon-disabled": "MODEL_PLACEHOLDER_M670",
     "gemini-pro-orchestrator-g1-pro": "MODEL_PLACEHOLDER_M668",
     "gemini-flash-worker-agy": "MODEL_PLACEHOLDER_M669",
@@ -484,9 +523,11 @@ CLOUDCODE_PLACEHOLDER_MAP: dict[str, str] = {
     "claude-opus-5-5-low": "MODEL_PLACEHOLDER_M400",
     "claude-opus-5-5-medium": "MODEL_PLACEHOLDER_M401",
     "claude-opus-5-5-high": "MODEL_PLACEHOLDER_M402",
+    "claude-opus-5-5-max": "MODEL_PLACEHOLDER_M406",
     "claude-sonnet-5-5-low": "MODEL_PLACEHOLDER_M403",
     "claude-sonnet-5-5-medium": "MODEL_PLACEHOLDER_M404",
     "claude-sonnet-5-5-high": "MODEL_PLACEHOLDER_M405",
+    "claude-sonnet-5-5-max": "MODEL_PLACEHOLDER_M407",
     "gemini-3.1-flash-image": "MODEL_PLACEHOLDER_M21",
     "gemini-3.1-flash-lite": "MODEL_PLACEHOLDER_M50",
     "gemini-3.5-flash-lite": "MODEL_PLACEHOLDER_M198",
@@ -705,18 +746,42 @@ REVERSE_PLACEHOLDER_MAP.update({
     "1319": "gemini-3.8-flash-medium",
     "1320": "gemini-3.8-flash-low",
     "1322": "gemini-3.8-flash-tiered",
+    "1400": "claude-opus-5-5-low",
+    "1401": "claude-opus-5-5-medium",
+    "1402": "claude-opus-5-5-high",
+    "1403": "claude-sonnet-5-5-low",
+    "1404": "claude-sonnet-5-5-medium",
+    "1405": "claude-sonnet-5-5-high",
+    "1406": "claude-opus-5-5-max",
+    "1407": "claude-sonnet-5-5-max",
+    "1408": "gemini-4-argon",
+    "1410": "gpt-oss-120b-medium",
     "1417": "gemini-4-argon-high",
     "1418": "gemini-4-argon-medium",
     "1419": "gemini-4-argon-low",
     "1421": "gemini-4-argon",
     "1422": "gemini-4-argon-medium",
     "1423": "gemini-4-argon-low",
+    "1432": "gemini-4-hydrogen",
+    "model_placeholder_m400": "claude-opus-5-5-low",
+    "model_placeholder_m401": "claude-opus-5-5-medium",
+    "model_placeholder_m402": "claude-opus-5-5-high",
+    "model_placeholder_m403": "claude-sonnet-5-5-low",
+    "model_placeholder_m404": "claude-sonnet-5-5-medium",
+    "model_placeholder_m405": "claude-sonnet-5-5-high",
+    "model_placeholder_m406": "claude-opus-5-5-max",
+    "model_placeholder_m407": "claude-sonnet-5-5-max",
+    "model_placeholder_m408": "gemini-4-argon",
+    "model_placeholder_m410": "gpt-oss-120b-medium",
     "model_placeholder_m417": "gemini-4-argon-high",
     "model_placeholder_m418": "gemini-4-argon-medium",
     "model_placeholder_m419": "gemini-4-argon-low",
     "model_placeholder_m421": "gemini-4-argon",
     "model_placeholder_m422": "gemini-4-argon-medium",
     "model_placeholder_m423": "gemini-4-argon-low",
+    "model_placeholder_m432": "gemini-4-hydrogen",
+    "model_placeholder_m667": "gemini-pro-orchestrator-g1-pro",
+    "1667": "gemini-pro-orchestrator-g1-pro",
     "model_placeholder_m668": "gemini-pro-orchestrator-g1-pro",
     "1668": "gemini-pro-orchestrator-g1-pro",
     "model_placeholder_m669": "gemini-flash-worker-agy",
@@ -865,6 +930,9 @@ EXACT_MODEL_METADATA: dict[str, dict[str, Any]] = {
     "gemini-4-argon-low": {"displayName": "Gemini 4 Argon (Low)", "maxTokens": 1048576, "maxOutputTokens": 65536, "supportsImages": True, "supportsVideo": True, "supportsThinking": True, "thinkingBudget": -1, "thinkingLevel": 1},
     # Gemini 4 Carbon (Next-Gen v2.31.0 CloudCode model)
     "gemini-4-carbon": {"displayName": "Gemini 4 Carbon", "maxTokens": 1048576, "maxOutputTokens": 65536, "supportsImages": True, "supportsVideo": True, "supportsThinking": True, "thinkingBudget": -1, "thinkingLevel": 3},
+    "gemini-4-carbon-high": {"displayName": "Gemini 4 Carbon (High)", "maxTokens": 1048576, "maxOutputTokens": 65536, "supportsImages": True, "supportsVideo": True, "supportsThinking": True, "thinkingBudget": -1, "thinkingLevel": 3},
+    "gemini-4-carbon-medium": {"displayName": "Gemini 4 Carbon (Medium)", "maxTokens": 1048576, "maxOutputTokens": 65536, "supportsImages": True, "supportsVideo": True, "supportsThinking": True, "thinkingBudget": -1, "thinkingLevel": 2},
+    "gemini-4-carbon-low": {"displayName": "Gemini 4 Carbon (Low)", "maxTokens": 1048576, "maxOutputTokens": 65536, "supportsImages": True, "supportsVideo": True, "supportsThinking": True, "thinkingBudget": -1, "thinkingLevel": 1},
     "gemini-4-carbon-disabled": {"displayName": "Gemini 4 Carbon", "maxTokens": 1048576, "maxOutputTokens": 65536, "supportsImages": True, "supportsVideo": True, "supportsThinking": True, "thinkingBudget": -1, "thinkingLevel": 3},
     # Antigravity Orchestrator & Execution Worker (v2.31.0 Plan-and-Execute)
     "gemini-pro-orchestrator-g1-pro": {"displayName": "Orchestrator (Argon)", "maxTokens": 1048576, "maxOutputTokens": 65536, "supportsImages": True, "supportsVideo": True, "supportsThinking": True, "thinkingBudget": -1, "thinkingLevel": 3},
@@ -910,12 +978,14 @@ EXACT_MODEL_METADATA: dict[str, dict[str, Any]] = {
     "claude-opus-4-6-thinking": {"displayName": "Claude Opus 4.6 (Thinking)", "maxTokens": 200000},
     "claude-sonnet-4-6-deepagent": {"displayName": "Claude Sonnet 4.6 (DeepAgent)", "maxTokens": 200000},
     "claude-opus-4-6-deepagent": {"displayName": "Claude Opus 4.6 (DeepAgent)", "maxTokens": 200000},
-    "claude-sonnet-5-5-high": {"displayName": "Claude Sonnet 5.5 (High)", "maxTokens": 200000},
-    "claude-sonnet-5-5-medium": {"displayName": "Claude Sonnet 5.5 (Medium)", "maxTokens": 200000},
-    "claude-sonnet-5-5-low": {"displayName": "Claude Sonnet 5.5 (Low)", "maxTokens": 200000},
-    "claude-opus-5-5-high": {"displayName": "Claude Opus 5.5 (High)", "maxTokens": 200000},
-    "claude-opus-5-5-medium": {"displayName": "Claude Opus 5.5 (Medium)", "maxTokens": 200000},
-    "claude-opus-5-5-low": {"displayName": "Claude Opus 5.5 (Low)", "maxTokens": 200000},
+    "claude-sonnet-5-5-max": {"displayName": "Claude Sonnet 5.5 (Max)", "maxTokens": 200000, "supportsThinking": True, "thinkingLevel": 4},
+    "claude-sonnet-5-5-high": {"displayName": "Claude Sonnet 5.5 (High)", "maxTokens": 200000, "supportsThinking": True, "thinkingLevel": 3},
+    "claude-sonnet-5-5-medium": {"displayName": "Claude Sonnet 5.5 (Medium)", "maxTokens": 200000, "supportsThinking": True, "thinkingLevel": 2},
+    "claude-sonnet-5-5-low": {"displayName": "Claude Sonnet 5.5 (Low)", "maxTokens": 200000, "supportsThinking": True, "thinkingLevel": 1},
+    "claude-opus-5-5-max": {"displayName": "Claude Opus 5.5 (Max)", "maxTokens": 200000, "supportsThinking": True, "thinkingLevel": 4},
+    "claude-opus-5-5-high": {"displayName": "Claude Opus 5.5 (High)", "maxTokens": 200000, "supportsThinking": True, "thinkingLevel": 3},
+    "claude-opus-5-5-medium": {"displayName": "Claude Opus 5.5 (Medium)", "maxTokens": 200000, "supportsThinking": True, "thinkingLevel": 2},
+    "claude-opus-5-5-low": {"displayName": "Claude Opus 5.5 (Low)", "maxTokens": 200000, "supportsThinking": True, "thinkingLevel": 1},
     "claude-haiku-4-5": {"displayName": "Claude 4.5 Haiku", "maxTokens": 200000},
     "claude-haiku-4-5-thinking": {"displayName": "Claude 4.5 Haiku (Thinking)", "maxTokens": 200000, "supportsThinking": True},
     "claude-4-5-haiku": {"displayName": "Claude 4.5 Haiku", "maxTokens": 200000},
@@ -1054,6 +1124,14 @@ PROXY_CATALOG_MODELS: dict[str, dict[str, Any]] = {
     "claude-4-5-haiku-thinking": {"displayName": "Claude 4.5 Haiku (Thinking)", "maxTokens": 200000, "description": "Anthropic Claude 4.5 Haiku thinking model alias", "category": "Anthropic"},
     "claude-3-5-haiku": {"displayName": "Claude 3.5 Haiku", "maxTokens": 200000, "description": "Claude 3.5 Haiku alias mapping to native Claude 4.5 Haiku", "category": "Anthropic"},
     "claude-3-5-haiku-latest": {"displayName": "Claude 3.5 Haiku (Latest)", "maxTokens": 200000, "description": "Anthropic Claude 3.5 Haiku alias mapping to native Claude 4.5 Haiku", "category": "Anthropic"},
+    "claude-sonnet-5-5-high": {"displayName": "Claude Sonnet 5.5 (High)", "maxTokens": 200000, "description": "Anthropic Claude Sonnet 5.5 with high reasoning (Antigravity 3P)", "category": "Anthropic"},
+    "claude-sonnet-5-5-medium": {"displayName": "Claude Sonnet 5.5 (Medium)", "maxTokens": 200000, "description": "Anthropic Claude Sonnet 5.5 with balanced reasoning (Antigravity 3P)", "category": "Anthropic"},
+    "claude-sonnet-5-5-low": {"displayName": "Claude Sonnet 5.5 (Low)", "maxTokens": 200000, "description": "Anthropic Claude Sonnet 5.5 with fast reasoning (Antigravity 3P)", "category": "Anthropic"},
+    "claude-sonnet-5-5-max": {"displayName": "Claude Sonnet 5.5 (Max)", "maxTokens": 200000, "description": "Anthropic Claude Sonnet 5.5 with maximum reasoning (Antigravity 3P)", "category": "Anthropic"},
+    "claude-opus-5-5-high": {"displayName": "Claude Opus 5.5 (High)", "maxTokens": 200000, "description": "Anthropic Claude Opus 5.5 with deep reasoning (Antigravity 3P)", "category": "Anthropic"},
+    "claude-opus-5-5-medium": {"displayName": "Claude Opus 5.5 (Medium)", "maxTokens": 200000, "description": "Anthropic Claude Opus 5.5 with balanced reasoning (Antigravity 3P)", "category": "Anthropic"},
+    "claude-opus-5-5-low": {"displayName": "Claude Opus 5.5 (Low)", "maxTokens": 200000, "description": "Anthropic Claude Opus 5.5 with fast reasoning (Antigravity 3P)", "category": "Anthropic"},
+    "claude-opus-5-5-max": {"displayName": "Claude Opus 5.5 (Max)", "maxTokens": 200000, "description": "Anthropic Claude Opus 5.5 with maximum reasoning (Antigravity 3P)", "category": "Anthropic"},
 
     # Antigravity Codenames & Next-Gen Experimental Models (v2.29.0)
     "gemini-riftrunner": {"displayName": "Gemini Riftrunner", "maxTokens": 1048576, "description": "Next-generation Gemini Riftrunner agentic model", "category": "Google Gemini"},
@@ -1068,6 +1146,9 @@ PROXY_CATALOG_MODELS: dict[str, dict[str, Any]] = {
     "gemini-4-hydrogen-low": {"displayName": "Gemini 4 Hydrogen (Low)", "maxTokens": 1048576, "maxOutputTokens": 262144, "description": "Gemini 4 Hydrogen fast reasoning with 256k generation tokens", "category": "Google Gemini"},
     "gemini-4-hydrogen-xhigh": {"displayName": "Gemini 4 Hydrogen (XHigh)", "maxTokens": 1048576, "maxOutputTokens": 262144, "description": "Gemini 4 Hydrogen extra-high reasoning with 256k generation tokens", "category": "Google Gemini"},
     "gemini-4-carbon": {"displayName": "Gemini 4 Carbon", "maxTokens": 1048576, "description": "Google Next-Gen Gemini 4 Carbon CloudCode model", "category": "Google Gemini"},
+    "gemini-4-carbon-high": {"displayName": "Gemini 4 Carbon (High)", "maxTokens": 1048576, "description": "Google Next-Gen Gemini 4 Carbon deep reasoning CloudCode model", "category": "Google Gemini"},
+    "gemini-4-carbon-medium": {"displayName": "Gemini 4 Carbon (Medium)", "maxTokens": 1048576, "description": "Google Next-Gen Gemini 4 Carbon balanced reasoning CloudCode model", "category": "Google Gemini"},
+    "gemini-4-carbon-low": {"displayName": "Gemini 4 Carbon (Low)", "maxTokens": 1048576, "description": "Google Next-Gen Gemini 4 Carbon fast reasoning CloudCode model", "category": "Google Gemini"},
     "gemini-4-carbon-disabled": {"displayName": "Gemini 4 Carbon (Disabled)", "maxTokens": 1048576, "description": "Google Next-Gen Gemini 4 Carbon CloudCode model", "category": "Google Gemini"},
     "gemini-pro-orchestrator-g1-pro": {"displayName": "Orchestrator (Argon)", "maxTokens": 1048576, "description": "Antigravity Plan-and-Execute Argon Orchestrator", "category": "Google Gemini"},
     "gemini-flash-worker-agy": {"displayName": "Gemini Flash (Execution Worker)", "maxTokens": 1048576, "maxOutputTokens": 262144, "description": "Antigravity 256k Execution Worker", "category": "Google Gemini"},
@@ -1148,8 +1229,8 @@ def normalize_model_name(model_name: Any) -> str:
     if not cleaned:
         return DEFAULT_MODEL
 
-    # Retain external models without coercing to Google Antigravity endpoints
-    if is_external_model(raw):
+    # Retain external models with provider prefix without coercing to Google Antigravity endpoints
+    if "/" in raw and is_external_model(raw):
         return raw
 
     if cleaned in REVERSE_PLACEHOLDER_MAP:
@@ -1168,11 +1249,11 @@ def normalize_model_name(model_name: Any) -> str:
     if cleaned in REVERSE_PLACEHOLDER_MAP:
         return REVERSE_PLACEHOLDER_MAP[cleaned]
 
-    if is_external_model(cleaned):
-        return cleaned
-
     if cleaned in MODEL_ALIASES:
         return MODEL_ALIASES[cleaned]
+
+    if is_external_model(cleaned):
+        return cleaned
 
     if cleaned in VALID_WEB_MODELS:
         return cleaned
@@ -1214,6 +1295,14 @@ def normalize_model_name(model_name: Any) -> str:
                 return "gemini-3.8-flash-web-task"
             return "gemini-4-argon-web-task"
         if "carbon" in cleaned:
+            if "high" in cleaned:
+                return "gemini-4-carbon-high"
+            if "low" in cleaned:
+                return "gemini-4-carbon-low"
+            if "med" in cleaned:
+                return "gemini-4-carbon-medium"
+            if "disabled" in cleaned:
+                return "gemini-4-carbon-disabled"
             return "gemini-4-carbon"
         if "argon" in cleaned:
             if "low" in cleaned:
@@ -1270,6 +1359,14 @@ def normalize_model_name(model_name: Any) -> str:
                 return "gemini-3.8-flash-high"
             return "gemini-4-argon-high"
         if "carbon" in cleaned:
+            if "high" in cleaned:
+                return "gemini-4-carbon-high"
+            if "low" in cleaned:
+                return "gemini-4-carbon-low"
+            if "med" in cleaned:
+                return "gemini-4-carbon-medium"
+            if "disabled" in cleaned:
+                return "gemini-4-carbon-disabled"
             return "gemini-4-carbon"
         if "argon" in cleaned:
             if "low" in cleaned:
@@ -1320,11 +1417,15 @@ def normalize_model_name(model_name: Any) -> str:
     # Claude 5.5 models
     if ("5.5" in cleaned or "5-5" in cleaned) and "gpt" not in cleaned:
         is_opus = "opus" in cleaned
+        if "max" in cleaned:
+            return "claude-opus-5-5-max" if is_opus else "claude-sonnet-5-5-max"
+        if "high" in cleaned:
+            return "claude-opus-5-5-high" if is_opus else "claude-sonnet-5-5-high"
         if "low" in cleaned:
             return "claude-opus-5-5-low" if is_opus else "claude-sonnet-5-5-low"
         if "med" in cleaned:
             return "claude-opus-5-5-medium" if is_opus else "claude-sonnet-5-5-medium"
-        return "claude-opus-5-5-high" if is_opus else "claude-sonnet-5-5-high"
+        return "claude-opus-5-5-medium" if is_opus else "claude-sonnet-5-5-medium"
 
     # Family specific checks
     if "opus" in cleaned:
@@ -1367,33 +1468,63 @@ def is_3p_model(model: str) -> bool:
 
 
 CLAUDE_5_5_MODELS: set[str] = {
+    "claude-sonnet-5-5-max",
+    "claude-sonnet-5.5-max",
     "claude-sonnet-5-5-high",
+    "claude-sonnet-5.5-high",
     "claude-sonnet-5-5-medium",
+    "claude-sonnet-5.5-medium",
     "claude-sonnet-5-5-low",
+    "claude-sonnet-5.5-low",
+    "claude-opus-5-5-max",
+    "claude-opus-5.5-max",
     "claude-opus-5-5-high",
+    "claude-opus-5.5-high",
     "claude-opus-5-5-medium",
+    "claude-opus-5.5-medium",
     "claude-opus-5-5-low",
+    "claude-opus-5.5-low",
     "claude-5-5",
+    "claude-5.5",
     "claude-sonnet-5-5",
+    "claude-sonnet-5.5",
     "claude-opus-5-5",
+    "claude-opus-5.5",
     "claude-5-5-sonnet",
+    "claude-5.5-sonnet",
     "claude-5-5-opus",
+    "claude-5.5-opus",
 }
 
 CLAUDE_5_5_TO_4_6_FALLBACK: dict[str, str] = {
     # Sonnet 5.5 variants -> claude-sonnet-4-6
+    "claude-sonnet-5-5-max": "claude-sonnet-4-6",
+    "claude-sonnet-5.5-max": "claude-sonnet-4-6",
     "claude-sonnet-5-5-high": "claude-sonnet-4-6",
+    "claude-sonnet-5.5-high": "claude-sonnet-4-6",
     "claude-sonnet-5-5-medium": "claude-sonnet-4-6",
+    "claude-sonnet-5.5-medium": "claude-sonnet-4-6",
     "claude-sonnet-5-5-low": "claude-sonnet-4-6",
+    "claude-sonnet-5.5-low": "claude-sonnet-4-6",
     "claude-sonnet-5-5": "claude-sonnet-4-6",
+    "claude-sonnet-5.5": "claude-sonnet-4-6",
     "claude-5-5": "claude-sonnet-4-6",
+    "claude-5.5": "claude-sonnet-4-6",
     "claude-5-5-sonnet": "claude-sonnet-4-6",
+    "claude-5.5-sonnet": "claude-sonnet-4-6",
     # Opus 5.5 variants -> claude-opus-4-6-thinking
+    "claude-opus-5-5-max": "claude-opus-4-6-thinking",
+    "claude-opus-5.5-max": "claude-opus-4-6-thinking",
     "claude-opus-5-5-high": "claude-opus-4-6-thinking",
+    "claude-opus-5.5-high": "claude-opus-4-6-thinking",
     "claude-opus-5-5-medium": "claude-opus-4-6-thinking",
+    "claude-opus-5.5-medium": "claude-opus-4-6-thinking",
     "claude-opus-5-5-low": "claude-opus-4-6-thinking",
+    "claude-opus-5.5-low": "claude-opus-4-6-thinking",
     "claude-opus-5-5": "claude-opus-4-6-thinking",
+    "claude-opus-5.5": "claude-opus-4-6-thinking",
     "claude-5-5-opus": "claude-opus-4-6-thinking",
+    "claude-5.5-opus": "claude-opus-4-6-thinking",
 }
 
 
@@ -1464,6 +1595,9 @@ ARGON_MODELS: set[str] = {
     "gemini-4-hydrogen-low",
     "gemini-4-hydrogen-xhigh",
     "gemini-4-carbon",
+    "gemini-4-carbon-high",
+    "gemini-4-carbon-medium",
+    "gemini-4-carbon-low",
     "gemini-4-carbon-disabled",
     "gemini-4-argon-web-high",
     "gemini-4-argon-web-medium",

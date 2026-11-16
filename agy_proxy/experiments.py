@@ -2189,6 +2189,7 @@ def enhance_available_models(data: dict[str, Any]) -> dict[str, Any]:
         if _argon_k in models and isinstance(models[_argon_k], dict):
             models[_argon_k]["disabled"] = False
             models[_argon_k]["recommended"] = True
+            models[_argon_k]["tagTitle"] = "New"
             models[_argon_k].setdefault("model", _argon_ph)
             models[_argon_k].setdefault("thinkingLevel", _argon_lvl)
             models[_argon_k].setdefault("maxOutputTokens", 65536)
@@ -2206,6 +2207,7 @@ def enhance_available_models(data: dict[str, Any]) -> dict[str, Any]:
         if _h_k in models and isinstance(models[_h_k], dict):
             models[_h_k]["disabled"] = False
             models[_h_k]["recommended"] = True
+            models[_h_k]["tagTitle"] = "New"
             models[_h_k].setdefault("model", _h_ph)
             models[_h_k].setdefault("thinkingLevel", _h_lvl)
             models[_h_k].setdefault("maxOutputTokens", 262144)
@@ -2213,6 +2215,47 @@ def enhance_available_models(data: dict[str, Any]) -> dict[str, Any]:
             models[_h_k].setdefault("supportsVideo", True)
             models[_h_k].setdefault("supportsThinking", True)
             models[_h_k].pop("betaWarningMessage", None)
+
+    for _c_k, _c_ph, _c_lvl in (
+        ("claude-opus-5-5-low", "MODEL_PLACEHOLDER_M400", 1),
+        ("claude-opus-5-5-medium", "MODEL_PLACEHOLDER_M401", 2),
+        ("claude-opus-5-5-high", "MODEL_PLACEHOLDER_M402", 3),
+        ("claude-opus-5-5-max", "MODEL_PLACEHOLDER_M406", 4),
+        ("claude-sonnet-5-5-low", "MODEL_PLACEHOLDER_M403", 1),
+        ("claude-sonnet-5-5-medium", "MODEL_PLACEHOLDER_M404", 2),
+        ("claude-sonnet-5-5-high", "MODEL_PLACEHOLDER_M405", 3),
+        ("claude-sonnet-5-5-max", "MODEL_PLACEHOLDER_M407", 4),
+    ):
+        if _c_k in models and isinstance(models[_c_k], dict):
+            models[_c_k]["disabled"] = False
+            models[_c_k]["tagTitle"] = "New"
+            models[_c_k]["modelProvider"] = "Anthropic"
+            models[_c_k]["apiProvider"] = "Anthropic"
+            models[_c_k].setdefault("model", _c_ph)
+            models[_c_k].setdefault("thinkingLevel", _c_lvl)
+            models[_c_k].setdefault("maxOutputTokens", 65536)
+            models[_c_k].setdefault("supportsImages", True)
+            models[_c_k].setdefault("supportsThinking", True)
+            models[_c_k].pop("betaWarningMessage", None)
+
+    if "gemini-pro-orchestrator-g1-pro" in models and isinstance(models["gemini-pro-orchestrator-g1-pro"], dict):
+        models["gemini-pro-orchestrator-g1-pro"]["tagTitle"] = "New"
+        models["gemini-pro-orchestrator-g1-pro"]["tagDescription"] = "Plan and execute agent using Gemini 4 Argon"
+        models["gemini-pro-orchestrator-g1-pro"]["displayName"] = "Orchestrator (Argon)"
+        models["gemini-pro-orchestrator-g1-pro"]["modelProvider"] = "Google"
+
+    if "gpt-oss-120b-medium" in models and isinstance(models["gpt-oss-120b-medium"], dict):
+        models["gpt-oss-120b-medium"]["tagTitle"] = "Notice"
+        models["gpt-oss-120b-medium"]["tagDescription"] = "Third-party open-weights model"
+        models["gpt-oss-120b-medium"]["displayName"] = "GPT-OSS 120B (Medium)"
+        models["gpt-oss-120b-medium"]["modelProvider"] = "OpenAI"
+
+    for _cb_k in ("gemini-4-carbon", "gemini-4-carbon-disabled", "gemini-4-carbon-high", "gemini-4-carbon-medium", "gemini-4-carbon-low"):
+        if _cb_k in models and isinstance(models[_cb_k], dict):
+            models[_cb_k]["disabled"] = True
+            models[_cb_k]["tagTitle"] = "Unavailable"
+            models[_cb_k]["tagDescription"] = "Not available with your plan"
+            models[_cb_k]["modelProvider"] = "Google"
 
     # Clean deprecation warning messages while preserving authentic badges (Notice, Unavailable, New)
     for m_k, m_info in models.items():
@@ -2231,6 +2274,39 @@ def enhance_available_models(data: dict[str, Any]) -> dict[str, Any]:
             m_info.pop("betaWarningMessage", None)
 
     # Fix agentModelSorts: replace gemini-4-argon-disabled / gemini-4-hydrogen-disabled with canonical names (dedup, single entry)
+    # and sort by authentic Google CloudCode flagship priority
+    SORT_PRIORITY = [
+        "gemini-4-argon-medium",
+        "gemini-4-argon-high",
+        "gemini-4-argon-low",
+        "gemini-4-argon",
+        "gemini-4-hydrogen-high",
+        "gemini-4-hydrogen-xhigh",
+        "gemini-4-hydrogen-medium",
+        "gemini-4-hydrogen-low",
+        "gemini-4-hydrogen",
+        "gemini-pro-orchestrator-g1-pro",
+        "gemini-3.8-flash-high",
+        "gemini-3.8-flash-medium",
+        "gemini-3.8-flash-low",
+        "gemini-3.8-flash",
+        "claude-opus-5-5-low",
+        "claude-opus-5-5-medium",
+        "claude-opus-5-5-high",
+        "claude-opus-5-5-max",
+        "claude-opus-5-5",
+        "claude-sonnet-5-5-low",
+        "claude-sonnet-5-5-medium",
+        "claude-sonnet-5-5-high",
+        "claude-sonnet-5-5-max",
+        "claude-sonnet-5-5",
+        "gpt-oss-120b-medium",
+        "gpt-oss-120b",
+        "gemini-4-carbon",
+        "gemini-4-carbon-disabled",
+    ]
+    sort_rank = {m: i for i, m in enumerate(SORT_PRIORITY)}
+
     sorts = data.get("agentModelSorts")
     if isinstance(sorts, list):
         for s in sorts:
@@ -2239,19 +2315,20 @@ def enhance_available_models(data: dict[str, Any]) -> dict[str, Any]:
                     if isinstance(grp, dict):
                         mids = grp.get("modelIds")
                         if isinstance(mids, list):
-                            # Replace all gemini-4-*-disabled → gemini-4-*
+                            # Replace all gemini-4-*-disabled → gemini-4-* (except carbon)
                             for i, mid in enumerate(mids):
                                 if mid == "gemini-4-argon-disabled":
                                     mids[i] = "gemini-4-argon"
                                 elif mid == "gemini-4-hydrogen-disabled":
                                     mids[i] = "gemini-4-hydrogen"
-                            # Deduplicate
+                            # Deduplicate preserving order
                             seen = set()
                             deduped = []
                             for mid in mids:
                                 if mid not in seen:
                                     seen.add(mid)
                                     deduped.append(mid)
+                            deduped.sort(key=lambda m: (sort_rank.get(m, 999), m))
                             grp["modelIds"] = deduped
 
     # Ensure bidirectional catalog redirection for Claude 3P models:
@@ -2341,12 +2418,46 @@ def enhance_available_models(data: dict[str, Any]) -> dict[str, Any]:
                     m_entry["supportsVideo"] = True
                     m_entry["recommended"] = True
                     m_entry["disabled"] = False
+                    m_entry["tagTitle"] = "New"
+                    m_entry["modelProvider"] = "Google"
                 elif "argon" in m:
                     m_entry["maxOutputTokens"] = 65536
                     m_entry["supportsImages"] = True
                     m_entry["supportsVideo"] = True
                     m_entry["recommended"] = True
                     m_entry["disabled"] = False
+                    m_entry["tagTitle"] = "New"
+                    m_entry["modelProvider"] = "Google"
+                elif "carbon" in m:
+                    m_entry["disabled"] = True
+                    m_entry["tagTitle"] = "Unavailable"
+                    m_entry["tagDescription"] = "Not available with your plan"
+                    m_entry["modelProvider"] = "Google"
+                elif "orchestrator" in m:
+                    m_entry["tagTitle"] = "New"
+                    m_entry["tagDescription"] = "Plan and execute agent using Gemini 4 Argon"
+                    m_entry["modelProvider"] = "Google"
+                elif "claude" in m and ("5-5" in m or "5.5" in m):
+                    m_entry["tagTitle"] = "New"
+                    m_entry["modelProvider"] = "Anthropic"
+                    m_entry["apiProvider"] = "Anthropic"
+                    m_entry["supportsImages"] = True
+                    if "max" in m:
+                        thinking_budget = -1
+                        thinking_level = 4
+                    elif "high" in m:
+                        thinking_budget = -1
+                        thinking_level = 3
+                    elif "low" in m:
+                        thinking_budget = 1000
+                        thinking_level = 1
+                    else:
+                        thinking_budget = 4000
+                        thinking_level = 2
+                elif "gpt-oss-120b" in m:
+                    m_entry["tagTitle"] = "Notice"
+                    m_entry["tagDescription"] = "Third-party open-weights model"
+                    m_entry["modelProvider"] = "OpenAI"
                 if m in CLOUDCODE_PLACEHOLDER_MAP:
                     m_entry["model"] = CLOUDCODE_PLACEHOLDER_MAP[m]
                 if supports_thinking:

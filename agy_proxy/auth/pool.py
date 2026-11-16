@@ -1467,33 +1467,43 @@ class AccountPool:
                 models = acc.available_models or {}
 
             for m_id, info in models.items():
+                is_disabled = (
+                    m_id.endswith("-disabled")
+                    or info.get("disabled") is True
+                )
                 if (
                     m_id.startswith(("tab_", "chat_"))
-                    or m_id.endswith("-disabled")
                     or m_id in ("gemini-flash-worker-agy", "claude-haiku-4-5", "claude-haiku-4-5-thinking")
-                    or info.get("disabled") is True
                 ):
                     continue
 
-                if m_id not in combined_models:
+                if is_disabled and not include_disabled:
+                    continue
+
+                canonical_id = m_id[:-9] if m_id.endswith("-disabled") else m_id
+
+                if canonical_id not in combined_models:
                     from agy_proxy.models import EXACT_MODEL_METADATA
-                    meta = EXACT_MODEL_METADATA.get(m_id, {})
-                    disp = meta.get("displayName") or info.get("displayName") or info.get("display_name") or m_id
+                    meta = EXACT_MODEL_METADATA.get(canonical_id, {})
+                    disp = meta.get("displayName") or info.get("displayName") or info.get("display_name") or canonical_id
                     # Clean up Google's mislabeled models if any
-                    if m_id == "gemini-2.5-flash" and "3.5" in str(disp):
+                    if canonical_id == "gemini-2.5-flash" and "3.5" in str(disp):
                         disp = "Gemini 2.5 Flash"
-                    elif m_id == "gemini-2.5-flash-thinking" and "3.5" in str(disp):
+                    elif canonical_id == "gemini-2.5-flash-thinking" and "3.5" in str(disp):
                         disp = "Gemini 2.5 Flash (Thinking)"
-                    elif m_id == "gemini-3-flash-agent" and "3.5" in str(disp):
+                    elif canonical_id == "gemini-3-flash-agent" and "3.5" in str(disp):
                         disp = "Gemini 3 Flash Agent"
-                    elif m_id == "gemini-pro-agent" and "3.1" in str(disp):
+                    elif canonical_id == "gemini-pro-agent" and "3.1" in str(disp):
                         disp = "Gemini Pro Agent"
 
                     max_tok = meta.get("maxTokens") or info.get("maxTokens", 0)
 
-                    combined_models[m_id] = {
+                    combined_models[canonical_id] = {
                         "displayName": disp,
                         "maxTokens": max_tok,
+                        "disabled": is_disabled,
+                        "status": "unavailable" if is_disabled else "available",
+                        "tagTitle": info.get("tagTitle", "Unavailable" if "carbon" in canonical_id else ""),
                         "quotaInfo": {},
                         "accounts": {},
                         "available_accounts": 0,
@@ -1501,35 +1511,35 @@ class AccountPool:
                         "pool_remaining_fraction": 0.0,
                     }
 
-                combined_models[m_id]["total_accounts"] += 1
+                combined_models[canonical_id]["total_accounts"] += 1
 
                 # Real calculated quota from get_model_quota
                 q_data = acc.get_model_quota(m_id)
                 rem = q_data["remainingFraction"]
                 reset_time = q_data["resetTime"]
 
-                combined_models[m_id]["accounts"][acc.email or acc.account_id] = {
+                combined_models[canonical_id]["accounts"][acc.email or acc.account_id] = {
                     "remainingFraction": rem,
                     "resetTime": reset_time,
                     "is_rate_limited": acc.is_rate_limited(m_id) or rem <= 0.001,
                     "enabled": acc.enabled,
                 }
 
-                if rem > 0.001 and not acc.is_rate_limited(m_id):
-                    combined_models[m_id]["available_accounts"] += 1
+                if rem > 0.001 and not acc.is_rate_limited(m_id) and not is_disabled:
+                    combined_models[canonical_id]["available_accounts"] += 1
 
-                if rem > combined_models[m_id]["pool_remaining_fraction"]:
-                    combined_models[m_id]["pool_remaining_fraction"] = rem
-                    combined_models[m_id]["quotaInfo"] = {
+                if rem > combined_models[canonical_id]["pool_remaining_fraction"]:
+                    combined_models[canonical_id]["pool_remaining_fraction"] = rem
+                    combined_models[canonical_id]["quotaInfo"] = {
                         "remainingFraction": max(rem, 0.05) if rem > 0 else 0.05,
                         "resetTime": reset_time,
                     }
-                elif not combined_models[m_id]["quotaInfo"].get("resetTime") and reset_time:
-                    combined_models[m_id]["quotaInfo"]["resetTime"] = reset_time
+                elif not combined_models[canonical_id]["quotaInfo"].get("resetTime") and reset_time:
+                    combined_models[canonical_id]["quotaInfo"]["resetTime"] = reset_time
 
         # Ensure that models with active accounts never expose a 0 remainingFraction to prevent IDE/Web UI send locks
         for m_id, m_dict in combined_models.items():
-            if m_dict.get("total_accounts", 0) > 0:
+            if m_dict.get("total_accounts", 0) > 0 and not m_dict.get("disabled"):
                 q_info = m_dict.setdefault("quotaInfo", {})
                 current_rem = q_info.get("remainingFraction", 0)
                 if current_rem is None or current_rem <= 0:
