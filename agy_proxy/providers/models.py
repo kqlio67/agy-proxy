@@ -504,7 +504,7 @@ DEFAULT_PROVIDER_PRESETS: dict[str, dict[str, Any]] = {
         "provider_type": "chatgpt_web",
         "base_url": "https://chatgpt.com/backend-api",
         "api_key": "zero-auth",
-        "enabled": True,
+        "enabled": False,
         "models": [
             {
                 "id": "gpt-4o",
@@ -558,7 +558,7 @@ DEFAULT_PROVIDER_PRESETS: dict[str, dict[str, Any]] = {
         "provider_type": "gemini_guest",
         "base_url": "https://geminiweb-pa.clients6.google.com/v1",
         "api_key": "",
-        "enabled": True,
+        "enabled": False,
         "models": [
             {
                 "id": "gemini-2.0-flash-lite",

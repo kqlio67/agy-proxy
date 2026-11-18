@@ -676,7 +676,7 @@ class AccountPool:
                     logger.debug("Loaded GeminiWeb session %s (%s, enabled=%s)", acc_id, acc.name, acc.enabled)
 
                 if duplicates_found:
-                    self.save_accounts()
+                    self.save_accounts(force=True)
             except Exception as e:
                 logger.error("Error reading web sessions file %s: %s", self.web_sessions_file, e)
 

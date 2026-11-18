@@ -80,10 +80,7 @@ class ExternalProviderManager:
             for pid, preset in DEFAULT_PROVIDER_PRESETS.items():
                 if pid not in self.providers:
                     preset_copy = dict(preset)
-                    if pid in ("gemini-web-guest", "chatgpt-web-guest"):
-                        preset_copy["enabled"] = True
-                    else:
-                        preset_copy["enabled"] = False
+                    preset_copy["enabled"] = bool(preset.get("enabled", False))
                     self.providers[pid] = ExternalProviderConfig(**preset_copy)
                     modified = True
 

@@ -695,9 +695,9 @@ def find_language_server(
                     if opt_cand.is_file():
                         set_configured_ls_path(str(opt_cand))
                         return opt_cand
-            # Check if a newer versioned user install is available (e.g. ~/Antigravity/Antigravity-x64-v2.32.1/...)
+            # Check if a newer versioned user install is available (only if current config is missing or already in ~/Antigravity)
             user_agy = Path.home() / "Antigravity"
-            if user_agy.is_dir():
+            if user_agy.is_dir() and (not p_cfg.is_file() or str(p_cfg).startswith(str(user_agy))):
                 for vdir in sorted(user_agy.glob("Antigravity-x64-*"), key=lambda p: p.stat().st_mtime, reverse=True):
                     cand = search_dir_for_language_server(vdir)
                     if cand and cand.is_file():
