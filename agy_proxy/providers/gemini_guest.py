@@ -24,6 +24,7 @@ import httpx
 
 from agy_proxy.providers.base import BaseExternalProvider
 from agy_proxy.providers.models import ExternalModelConfig, ExternalProviderConfig
+from agy_proxy.providers.web_prompt_utils import compact_web_system_prompt
 
 logger = logging.getLogger("agy_proxy.providers.gemini_guest")
 
@@ -373,7 +374,9 @@ class GeminiGuestProvider(BaseExternalProvider):
                 continue
 
             if role == "system":
-                parts.append(f"[System Instructions: {text.strip()}]")
+                compact_sys = compact_web_system_prompt(text.strip())
+                if compact_sys:
+                    parts.append(f"[System Instructions: {compact_sys}]")
             elif role == "user":
                 parts.append(f"User: {text.strip()}")
             elif role == "assistant":

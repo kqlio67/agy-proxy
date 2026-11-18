@@ -31,6 +31,12 @@ import httpx
 
 from agy_proxy.providers.base import BaseExternalProvider
 from agy_proxy.providers.models import ExternalModelConfig
+from agy_proxy.providers.web_prompt_utils import (
+    WebToolCallStreamParser,
+    build_tool_schema_map,
+    compact_web_system_prompt,
+    format_web_prompt,
+)
 
 logger = logging.getLogger("agy_proxy.providers.chatgpt_web")
 
@@ -545,30 +551,18 @@ class ChatGPTWebProvider(BaseExternalProvider):
         elif "latest" in model_name:
             backend_model = "chatgpt-4o-latest"
 
-        # Format messages
+        # Format messages with compacted system prompt & tools
         input_messages = payload.get("messages", [])
-        prompt_parts: list[str] = []
-        for m in input_messages:
-            role = m.get("role", "user")
-            content = m.get("content", "")
-            if isinstance(content, list):
-                content_str = " ".join(item.get("text", "") for item in content if isinstance(item, dict))
-            else:
-                content_str = str(content)
-            if role == "system":
-                prompt_parts.append(f"[System Instruction]: {content_str}")
-            elif role == "user":
-                prompt_parts.append(content_str)
-            elif role == "assistant":
-                prompt_parts.append(f"[Assistant Previous Reply]: {content_str}")
-
-        full_prompt = "\n\n".join(prompt_parts) if prompt_parts else "Hello"
+        tools = payload.get("tools") or []
+        schema_map = build_tool_schema_map(tools)
+        full_prompt = format_web_prompt(input_messages, tools=tools or None, tool_style="tool_call") or "Hello"
 
         conv_id = str(uuid.uuid4())
         msg_id = str(uuid.uuid4())
         parent_id = "client-created-root"
         resp_id = f"chatcmpl_{uuid.uuid4().hex[:12]}"
         created_ts = int(time.time())
+        tool_parser = WebToolCallStreamParser(resp_id, model_name, schema_map)
 
         async with httpx.AsyncClient(timeout=180.0) as client:
             chat_tok, pow_tok = await self.get_sentinel_requirements(client, is_octane=False)
@@ -736,19 +730,8 @@ class ChatGPTWebProvider(BaseExternalProvider):
 
                                     # Content delta
                                     if p == "/message/content/parts/0" and v and isinstance(v, str):
-                                        yield {
-                                            "id": resp_id,
-                                            "object": "chat.completion.chunk",
-                                            "created": created_ts,
-                                            "model": model_name,
-                                            "choices": [
-                                                {
-                                                    "index": 0,
-                                                    "delta": {"content": v},
-                                                    "finish_reason": None,
-                                                }
-                                            ],
-                                        }
+                                        for out_c in tool_parser.feed(v):
+                                            yield out_c
 
                                     # Reasoning / thinking delta (o3-mini)
                                     elif p in ("/message/metadata/thought", "/message/metadata/reasoning") and v:
@@ -779,19 +762,8 @@ class ChatGPTWebProvider(BaseExternalProvider):
                             if len(full_text) > last_text_len:
                                 delta_chunk = full_text[last_text_len:]
                                 last_text_len = len(full_text)
-                                yield {
-                                    "id": resp_id,
-                                    "object": "chat.completion.chunk",
-                                    "created": created_ts,
-                                    "model": model_name,
-                                    "choices": [
-                                        {
-                                            "index": 0,
-                                            "delta": {"content": delta_chunk},
-                                            "finish_reason": None,
-                                        }
-                                    ],
-                                }
+                                for out_c in tool_parser.feed(delta_chunk):
+                                    yield out_c
 
                         metadata = msg.get("metadata") or {}
                         thought_text = metadata.get("thought") or ""
@@ -815,6 +787,9 @@ class ChatGPTWebProvider(BaseExternalProvider):
                         if status == "finished_successfully":
                             break
 
+                    for out_c in tool_parser.flush():
+                        yield out_c
+
                     # Final finish stop chunk
                     yield {
                         "id": resp_id,
@@ -825,7 +800,7 @@ class ChatGPTWebProvider(BaseExternalProvider):
                             {
                                 "index": 0,
                                 "delta": {},
-                                "finish_reason": "stop",
+                                "finish_reason": "tool_calls" if tool_parser.emitted_tool_calls else "stop",
                             }
                         ],
                     }
@@ -920,36 +895,26 @@ class ChatGPTWebProvider(BaseExternalProvider):
 
         # Extract prompt text and image data if provided
         input_messages = payload.get("messages", [])
-        prompt_parts: list[str] = []
+        tools = payload.get("tools") or []
+        schema_map = build_tool_schema_map(tools)
         raw_images_to_upload: list[tuple[bytes, str]] = []
 
         for m in input_messages:
-            role = m.get("role", "user")
             content = m.get("content", "")
             if isinstance(content, list):
                 for item in content:
-                    if isinstance(item, dict):
-                        if item.get("type") == "text":
-                            prompt_parts.append(item.get("text", ""))
-                        elif item.get("type") == "image_url":
-                            img_url = item.get("image_url", {}).get("url", "")
-                            if img_url.startswith("data:"):
-                                try:
-                                    header, b64_data = img_url.split(",", 1)
-                                    mime = header.split(";")[0].replace("data:", "") or "image/jpeg"
-                                    raw_images_to_upload.append((base64.b64decode(b64_data), mime))
-                                except Exception:
-                                    pass
-            else:
-                content_str = str(content)
-                if role == "system":
-                    prompt_parts.append(f"[System Instruction]: {content_str}")
-                elif role == "user":
-                    prompt_parts.append(content_str)
-                elif role == "assistant":
-                    prompt_parts.append(f"[Assistant Previous Reply]: {content_str}")
+                    if isinstance(item, dict) and item.get("type") == "image_url":
+                        img_url = item.get("image_url", {}).get("url", "")
+                        if img_url.startswith("data:"):
+                            try:
+                                header, b64_data = img_url.split(",", 1)
+                                mime = header.split(";")[0].replace("data:", "") or "image/jpeg"
+                                raw_images_to_upload.append((base64.b64decode(b64_data), mime))
+                            except Exception:
+                                pass
 
-        full_prompt = "\n\n".join(prompt_parts) if prompt_parts else "Hello"
+        full_prompt = format_web_prompt(input_messages, tools=tools or None, tool_style="tool_call") or "Hello"
+        tool_parser = WebToolCallStreamParser(resp_id, model_name, schema_map)
         hints = "search" if (payload.get("web_search") or payload.get("search") or "search" in str(model_name).lower()) else None
         url_suffix = f"?hints={hints}&lightweight_authenticated=0" if hints else "?lightweight_authenticated=0"
 
@@ -1193,19 +1158,8 @@ class ChatGPTWebProvider(BaseExternalProvider):
                         if len(text_part) > last_text_len:
                             chunk_delta = text_part[last_text_len:]
                             last_text_len = len(text_part)
-                            yield {
-                                "id": resp_id,
-                                "object": "chat.completion.chunk",
-                                "created": created_ts,
-                                "model": model_name,
-                                "choices": [
-                                    {
-                                        "index": 0,
-                                        "delta": {"content": chunk_delta},
-                                        "finish_reason": None,
-                                    }
-                                ],
-                            }
+                            for out_c in tool_parser.feed(chunk_delta):
+                                yield out_c
 
                 if blocked_by_cf:
                     yield {
@@ -1230,6 +1184,9 @@ class ChatGPTWebProvider(BaseExternalProvider):
                     }
                     return
 
+                for out_c in tool_parser.flush():
+                    yield out_c
+
                 # Normal stop chunk
                 yield {
                     "id": resp_id,
@@ -1240,7 +1197,7 @@ class ChatGPTWebProvider(BaseExternalProvider):
                         {
                             "index": 0,
                             "delta": {},
-                            "finish_reason": "stop",
+                            "finish_reason": "tool_calls" if tool_parser.emitted_tool_calls else "stop",
                         }
                     ],
                 }
@@ -1271,21 +1228,35 @@ class ChatGPTWebProvider(BaseExternalProvider):
         """Non-streaming chat completion aggregating chunks."""
         full_text = ""
         full_thought = ""
+        tool_calls_list: list[dict[str, Any]] = []
+        finish_reason = "stop"
         model_name = payload.get("model", "gpt-4o")
         resp_id = f"chatcmpl_{uuid.uuid4().hex[:12]}"
 
         async for chunk in self.stream_chat(payload):
             choices = chunk.get("choices", [])
             if choices:
-                delta = choices[0].get("delta", {})
+                c0 = choices[0]
+                if c0.get("finish_reason"):
+                    finish_reason = c0["finish_reason"]
+                delta = c0.get("delta", {})
                 if delta.get("content"):
                     full_text += delta["content"]
                 if delta.get("reasoning_content"):
                     full_thought += delta["reasoning_content"]
+                if delta.get("tool_calls"):
+                    for tc in delta["tool_calls"]:
+                        tool_calls_list.append({
+                            "id": tc.get("id") or f"call_{uuid.uuid4().hex[:12]}",
+                            "type": tc.get("type", "function"),
+                            "function": tc.get("function", {}),
+                        })
 
         msg_obj: dict[str, Any] = {"role": "assistant", "content": full_text}
         if full_thought:
             msg_obj["reasoning_content"] = full_thought
+        if tool_calls_list:
+            msg_obj["tool_calls"] = tool_calls_list
 
         return {
             "id": resp_id,
@@ -1296,7 +1267,7 @@ class ChatGPTWebProvider(BaseExternalProvider):
                 {
                     "index": 0,
                     "message": msg_obj,
-                    "finish_reason": "stop",
+                    "finish_reason": finish_reason,
                 }
             ],
             "usage": {

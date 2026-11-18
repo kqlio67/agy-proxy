@@ -214,7 +214,10 @@ class CloudCodeClient:
         prompt_sections = [guardrail]
 
         if sys_text.strip():
-            prompt_sections.append(f"Instructions:\n{sys_text.strip()}")
+            from agy_proxy.providers.web_prompt_utils import compact_web_system_prompt
+            compact_sys = compact_web_system_prompt(sys_text.strip())
+            if compact_sys:
+                prompt_sections.append(f"Instructions:\n{compact_sys}")
 
         if tools:
             try:

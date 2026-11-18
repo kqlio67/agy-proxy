@@ -2308,6 +2308,32 @@ def extract_auth_urls_from_log(log_path: Path, start_offset: int = 0) -> tuple[l
     return urls, new_offset
 
 
+def _resolve_web_cwd(workdir: Optional[str | Path] = None) -> str:
+    """
+    Resolves the working directory for the launched Antigravity Web process.
+    Honors explicit workdir, AGY_WEB_CWD, or AGY_CALLER_CWD (exported by start_proxy.sh),
+    and falls back to the user's home directory when started from the agy-proxy repo or '/'.
+    """
+    for candidate in (workdir, os.environ.get("AGY_WEB_CWD"), os.environ.get("AGY_CALLER_CWD")):
+        if candidate:
+            try:
+                p = Path(candidate).expanduser().resolve()
+                if p.is_dir():
+                    return str(p)
+            except Exception:
+                pass
+
+    repo_root = Path(__file__).resolve().parent.parent
+    try:
+        cur_cwd = Path.cwd().resolve()
+    except Exception:
+        return str(Path.home())
+
+    if cur_cwd == repo_root or cur_cwd == Path("/"):
+        return str(Path.home())
+    return str(cur_cwd)
+
+
 def launch_antigravity_web(
     port: int = DEFAULT_WEB_PORT,
     host: str = "127.0.0.1",
@@ -2329,6 +2355,7 @@ def launch_antigravity_web(
     force_patch: bool = False,
     bundle_dir: Optional[str | Path] = None,
     use_hub: bool = False,
+    workdir: Optional[str | Path] = None,
 ) -> int:
     """
     Main entry point for starting Antigravity in browser Web Mode.
@@ -2538,6 +2565,7 @@ def launch_antigravity_web(
 
     # Launch server process
     log_out = None
+    proc_cwd = _resolve_web_cwd(workdir)
     proc_env = os.environ.copy()
     if effective_proxy_url and proxy_alive and not direct:
         clean_proxy = effective_proxy_url.rstrip("/")
@@ -2588,6 +2616,7 @@ def launch_antigravity_web(
                 stderr=target_err,
                 start_new_session=True,
                 env=proc_env,
+                cwd=proc_cwd,
             )
             console.print(f"Server started with PID: [bold cyan]{proc.pid}[/bold cyan]")
             return 0
@@ -2595,9 +2624,9 @@ def launch_antigravity_web(
         # Foreground mode: forward signals gracefully
         if not verbose:
             log_out = open(effective_log_path, "a", encoding="utf-8")
-            proc = subprocess.Popen(cmd, stdout=log_out, stderr=subprocess.STDOUT, env=proc_env)
+            proc = subprocess.Popen(cmd, stdout=log_out, stderr=subprocess.STDOUT, env=proc_env, cwd=proc_cwd)
         else:
-            proc = subprocess.Popen(cmd, env=proc_env)
+            proc = subprocess.Popen(cmd, env=proc_env, cwd=proc_cwd)
 
         def _signal_handler(signum, frame):
             try:

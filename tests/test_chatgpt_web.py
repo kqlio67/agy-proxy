@@ -323,7 +323,7 @@ def test_chatgpt_web_guest_preset_and_manager():
     preset = DEFAULT_PROVIDER_PRESETS["chatgpt-web-guest"]
     assert preset["provider_type"] == "chatgpt_web"
     assert preset["api_key"] == "zero-auth"
-    assert preset["enabled"] is True
+    assert preset["enabled"] is False
 
     cfg = ExternalProviderConfig(**preset)
     prov = _create_provider_instance(cfg)

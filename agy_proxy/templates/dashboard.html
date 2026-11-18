@@ -2477,6 +2477,9 @@ https://your-tunnel.trycloudflare.com/v1</pre>
     let isGenerating = false;
     let currentOAuthState = null;
     let currentOAuthVerifier = null;
+    let currentOAuthUrl = null;
+    let currentOAuthStartedAt = 0;
+    let currentOAuthGcpTos = false;
     let rawAccountsData = [];
     let rawProvidersData = [];
     let rawRoutingSettings = { enable_external_failover: false, fallback_model: null, enable_model_fallback: false, model_fallback_target: 'gemini-3.8-flash-high', model_fallbacks: {} };
@@ -7790,25 +7793,80 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       }
     }
 
+    function clearOAuthFlowState() {
+      currentOAuthState = null;
+      currentOAuthVerifier = null;
+      currentOAuthUrl = null;
+      currentOAuthStartedAt = 0;
+      currentOAuthGcpTos = false;
+      try { sessionStorage.removeItem('agy_oauth_flow'); } catch (e) {}
+    }
+
+    function restoreOAuthFlowState() {
+      if (currentOAuthState && currentOAuthVerifier && currentOAuthUrl) {
+        if (Date.now() - currentOAuthStartedAt < 540000) return true;
+        clearOAuthFlowState();
+        return false;
+      }
+      try {
+        const raw = sessionStorage.getItem('agy_oauth_flow');
+        if (!raw) return false;
+        const saved = JSON.parse(raw);
+        if (saved && saved.state && saved.verifier && saved.url && (Date.now() - (saved.startedAt || 0) < 540000)) {
+          currentOAuthState = saved.state;
+          currentOAuthVerifier = saved.verifier;
+          currentOAuthUrl = saved.url;
+          currentOAuthStartedAt = saved.startedAt;
+          currentOAuthGcpTos = Boolean(saved.isGcpTos);
+          return true;
+        }
+        sessionStorage.removeItem('agy_oauth_flow');
+      } catch (e) {}
+      return false;
+    }
+
     async function initOAuthFlow(forceNew = false) {
       if (isStartingOAuth) return;
-      if (!forceNew && currentOAuthVerifier && currentOAuthState) {
+      const isGcpTos = Boolean(document.getElementById('oauthGcpTosCheckbox')?.checked);
+      const link = document.getElementById('oauthLoginLink');
+
+      if (!forceNew && restoreOAuthFlowState() && currentOAuthGcpTos === isGcpTos) {
+        if (link && currentOAuthUrl) {
+          link.onclick = null;
+          link.href = currentOAuthUrl;
+          link.dataset.ready = 'true';
+          link.innerHTML = '<i class="fa-solid fa-arrow-up-right-from-square mr-1.5"></i><span>Open Google OAuth Sign-In</span>';
+          link.classList.remove('opacity-75', 'pointer-events-none');
+        }
         return;
       }
+
       isStartingOAuth = true;
-      const link = document.getElementById('oauthLoginLink');
       if (link) {
+        link.onclick = null;
+        link.href = '#';
         link.dataset.ready = 'false';
         link.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1.5"></i><span>Preparing OAuth link...</span>';
         link.classList.add('opacity-75', 'pointer-events-none');
       }
       try {
-        const isGcpTos = Boolean(document.getElementById('oauthGcpTosCheckbox')?.checked);
         const res = await fetch('/api/accounts/oauth/start?is_gcp_tos=' + (isGcpTos ? 'true' : 'false'), { method: 'POST' });
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
         currentOAuthState = data.state;
         currentOAuthVerifier = data.code_verifier;
+        currentOAuthUrl = data.auth_url;
+        currentOAuthStartedAt = Date.now();
+        currentOAuthGcpTos = isGcpTos;
+        try {
+          sessionStorage.setItem('agy_oauth_flow', JSON.stringify({
+            state: currentOAuthState,
+            verifier: currentOAuthVerifier,
+            url: currentOAuthUrl,
+            startedAt: currentOAuthStartedAt,
+            isGcpTos: currentOAuthGcpTos,
+          }));
+        } catch (e) {}
         if (link) {
           link.href = data.auth_url;
           link.dataset.ready = 'true';
@@ -7817,9 +7875,12 @@ https://your-tunnel.trycloudflare.com/v1</pre>
         }
       } catch (e) {
         console.error('Failed to start OAuth:', e);
+        clearOAuthFlowState();
         if (link) {
+          link.href = '#';
           link.innerHTML = '<i class="fa-solid fa-triangle-exclamation mr-1.5 text-amber-400"></i><span>Retry Generating Link</span>';
-          link.classList.remove('pointer-events-none');
+          link.classList.remove('opacity-75', 'pointer-events-none');
+          link.onclick = (ev) => { ev.preventDefault(); link.onclick = null; initOAuthFlow(true); };
         }
       } finally {
         isStartingOAuth = false;
@@ -7982,8 +8043,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
 
     async function openAddAccountModal(initialTab = 'oauth') {
       const tab = initialTab || 'oauth';
-      currentOAuthState = null;
-      currentOAuthVerifier = null;
+      const hasValidOAuth = restoreOAuthFlowState();
       document.getElementById('authCodeInput').value = '';
       document.getElementById('apiKeyValueInput').value = '';
       document.getElementById('apiKeyLabelInput').value = '';
@@ -7992,7 +8052,9 @@ https://your-tunnel.trycloudflare.com/v1</pre>
       if (document.getElementById('webAuthUserInput')) document.getElementById('webAuthUserInput').value = '0';
       if (document.getElementById('webForceNewCheckbox')) document.getElementById('webForceNewCheckbox').checked = false;
       if (document.getElementById('webCdpPortInput')) document.getElementById('webCdpPortInput').value = '9222';
-      if (document.getElementById('oauthGcpTosCheckbox')) document.getElementById('oauthGcpTosCheckbox').checked = false;
+      if (document.getElementById('oauthGcpTosCheckbox')) {
+        document.getElementById('oauthGcpTosCheckbox').checked = hasValidOAuth ? currentOAuthGcpTos : false;
+      }
       if (document.getElementById('provNameInput')) document.getElementById('provNameInput').value = '';
       if (document.getElementById('provIdInput')) document.getElementById('provIdInput').value = '';
       if (document.getElementById('provUrlInput')) document.getElementById('provUrlInput').value = '';
@@ -8020,6 +8082,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
         btn.disabled = true;
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Adding...';
 
+        restoreOAuthFlowState();
         let codeToSend = rawCodeOrUrl;
         let stateToSend = currentOAuthState;
         try {
@@ -8056,6 +8119,7 @@ https://your-tunnel.trycloudflare.com/v1</pre>
             throw new Error(msg);
           }
           const data = await res.json();
+          clearOAuthFlowState();
           showToast('Successfully added Google Account: ' + (data.email || data.account_id), 'success');
           closeAddAccountModal();
           await loadAccounts();
@@ -8063,7 +8127,16 @@ https://your-tunnel.trycloudflare.com/v1</pre>
         } catch (err) {
           let displayErr = err.message;
           if (displayErr.includes('invalid_grant')) {
-            displayErr = 'Invalid or expired authorization grant (invalid_grant). Google authorization codes can only be used once and expire quickly. Please click "Refresh Link", sign in again, and paste the new callback URL.';
+            let reason = '';
+            try {
+              const jsonMatch = displayErr.match(/\{[\s\S]*\}/);
+              if (jsonMatch) {
+                const parsed = JSON.parse(jsonMatch[0]);
+                if (parsed.error_description) reason = ': ' + parsed.error_description;
+              }
+            } catch (e) {}
+            displayErr = `Invalid or expired authorization grant (invalid_grant${reason}). Google authorization codes are single-use. A fresh sign-in link has been generated — please sign in again and paste the new code.`;
+            initOAuthFlow(true);
           }
           showToast('Failed to add account: ' + displayErr, 'error');
         } finally {

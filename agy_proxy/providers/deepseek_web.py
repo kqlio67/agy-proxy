@@ -14,6 +14,7 @@ import base64
 import json
 import logging
 import os
+import re
 import time
 import uuid
 from pathlib import Path
@@ -23,6 +24,12 @@ import httpx
 
 from agy_proxy.providers.base import BaseExternalProvider
 from agy_proxy.providers.models import ExternalModelConfig
+from agy_proxy.providers.web_prompt_utils import (
+    WebToolCallStreamParser as _DSMLStreamParser,
+    build_tool_schema_map as _build_tool_schema_map,
+    format_web_prompt,
+    parse_tool_calls_from_block as _parse_tool_calls_from_block,
+)
 
 logger = logging.getLogger("agy_proxy.providers.deepseek_web")
 
@@ -310,7 +317,7 @@ class DeepSeekWebProvider(BaseExternalProvider):
                 display_name="DeepSeek V3 (Web Free)",
                 context_window=65536,
                 max_output_tokens=8192,
-                supports_tools=False,
+                supports_tools=True,
                 supports_thinking=False,
                 supports_vision=False,
                 is_fallback=True,
@@ -321,7 +328,7 @@ class DeepSeekWebProvider(BaseExternalProvider):
                 display_name="DeepSeek R1 (Web Free Thinking)",
                 context_window=65536,
                 max_output_tokens=8192,
-                supports_tools=False,
+                supports_tools=True,
                 supports_thinking=True,
                 supports_vision=False,
                 is_fallback=True,
@@ -329,30 +336,13 @@ class DeepSeekWebProvider(BaseExternalProvider):
             ),
         ]
 
-    def _format_prompt(self, messages: list[dict[str, Any]]) -> str:
-        """Formats an OpenAI messages array into a prompt string for DeepSeek Web."""
-        if not messages:
-            return ""
-
-        if len(messages) == 1 and messages[0].get("role") == "user":
-            content = messages[0].get("content")
-            if isinstance(content, str):
-                return content
-            elif isinstance(content, list):
-                parts = [p.get("text", "") for p in content if isinstance(p, dict) and p.get("type") == "text"]
-                return "\n".join(parts)
-
-        lines: list[str] = []
-        for m in messages:
-            role = m.get("role", "user").capitalize()
-            content = m.get("content", "")
-            if isinstance(content, list):
-                text_parts = [p.get("text", "") for p in content if isinstance(p, dict) and p.get("type") == "text"]
-                content = "\n".join(text_parts)
-            lines.append(f"{role}: {content}")
-
-        lines.append("Assistant: ")
-        return "\n\n".join(lines)
+    def _format_prompt(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+    ) -> str:
+        """Formats OpenAI messages and compacted tool schemas into a prompt string for DeepSeek Web."""
+        return format_web_prompt(messages, tools=tools, tool_style="dsml")
 
     async def stream_chat(self, payload: dict[str, Any]) -> AsyncGenerator[dict[str, Any], None]:
         """
@@ -369,7 +359,10 @@ class DeepSeekWebProvider(BaseExternalProvider):
         )
 
         messages = payload.get("messages", [])
-        prompt_text = self._format_prompt(messages)
+        tools = payload.get("tools") or []
+        schema_map = _build_tool_schema_map(tools)
+        prompt_text = self._format_prompt(messages, tools=tools or None)
+        dsml_parser = _DSMLStreamParser(req_id, model, schema_map)
 
         # 1. Create chat session
         sess_id = await self._create_chat_session(client)
@@ -400,6 +393,19 @@ class DeepSeekWebProvider(BaseExternalProvider):
             "model": model,
             "choices": [{"index": 0, "delta": {"role": "assistant"}, "finish_reason": None}],
         }
+
+        def _emit_fragment_text(frag_type: str, text: str) -> list[dict[str, Any]]:
+            if not text:
+                return []
+            if frag_type == "THINK":
+                return [{
+                    "id": req_id,
+                    "object": "chat.completion.chunk",
+                    "created": int(time.time()),
+                    "model": model,
+                    "choices": [{"index": 0, "delta": {"reasoning_content": text}, "finish_reason": None}],
+                }]
+            return dsml_parser.feed(text)
 
         async with client.stream(
             "POST",
@@ -441,60 +447,31 @@ class DeepSeekWebProvider(BaseExternalProvider):
                 except Exception:
                     continue
 
-                # 1. Full response object (initial state or replacement)
+                # 1. Full response object or fragment list update
+                frags_to_process: list[dict[str, Any]] = []
+                finished = False
                 if "v" in ev and isinstance(ev["v"], dict) and "response" in ev["v"]:
                     r_obj = ev["v"]["response"]
-                    frags = r_obj.get("fragments", [])
-                    for f in frags:
-                        fid = f.get("id")
-                        if fid is not None and fid not in seen_fragment_ids:
-                            seen_fragment_ids.add(fid)
-                            current_fragment_type = f.get("type", current_fragment_type)
-                            init_text = f.get("content", "")
-                            if init_text:
-                                chunk = {
-                                    "id": req_id,
-                                    "object": "chat.completion.chunk",
-                                    "created": int(time.time()),
-                                    "model": model,
-                                    "choices": [{"index": 0, "finish_reason": None}],
-                                }
-                                if current_fragment_type == "THINK":
-                                    chunk["choices"][0]["delta"] = {"reasoning_content": init_text}
-                                else:
-                                    chunk["choices"][0]["delta"] = {"content": init_text}
-                                yield chunk
-                    if r_obj.get("status") == "FINISHED":
-                        break
-
-                # 2. Fragment list updated or appended
+                    frags_to_process = r_obj.get("fragments", []) or []
+                    finished = r_obj.get("status") == "FINISHED"
                 elif ev.get("p") == "response/fragments" and isinstance(ev.get("v"), list):
-                    frags = ev["v"]
-                    for f in frags:
-                        fid = f.get("id")
-                        if fid is not None and fid not in seen_fragment_ids:
-                            seen_fragment_ids.add(fid)
-                            current_fragment_type = f.get("type", current_fragment_type)
-                            init_text = f.get("content", "")
-                            if init_text:
-                                chunk = {
-                                    "id": req_id,
-                                    "object": "chat.completion.chunk",
-                                    "created": int(time.time()),
-                                    "model": model,
-                                    "choices": [{"index": 0, "finish_reason": None}],
-                                }
-                                if current_fragment_type == "THINK":
-                                    chunk["choices"][0]["delta"] = {"reasoning_content": init_text}
-                                else:
-                                    chunk["choices"][0]["delta"] = {"content": init_text}
-                                yield chunk
-
-                # 3. Completion finished
+                    frags_to_process = ev["v"]
                 elif ev.get("p") == "response/status" and ev.get("v") == "FINISHED":
+                    finished = True
+
+                for f in frags_to_process:
+                    fid = f.get("id")
+                    if fid is not None and fid not in seen_fragment_ids:
+                        seen_fragment_ids.add(fid)
+                        current_fragment_type = f.get("type", current_fragment_type)
+                        init_text = f.get("content", "")
+                        for chunk in _emit_fragment_text(current_fragment_type, init_text):
+                            yield chunk
+
+                if finished:
                     break
 
-                # 4. Streamed content delta (append to current fragment)
+                # 2. Streamed content delta (append to current fragment)
                 token_delta: str | None = None
                 if ev.get("p") == "response/fragments/-1/content" and ev.get("o") == "APPEND" and isinstance(ev.get("v"), str):
                     token_delta = ev["v"]
@@ -502,19 +479,11 @@ class DeepSeekWebProvider(BaseExternalProvider):
                     token_delta = ev["v"]
 
                 if token_delta:
-                    chunk = {
-                        "id": req_id,
-                        "object": "chat.completion.chunk",
-                        "created": int(time.time()),
-                        "model": model,
-                        "choices": [{"index": 0, "finish_reason": None}],
-                    }
-                    if current_fragment_type == "THINK":
-                        chunk["choices"][0]["delta"] = {"reasoning_content": token_delta}
-                    else:
-                        chunk["choices"][0]["delta"] = {"content": token_delta}
+                    for chunk in _emit_fragment_text(current_fragment_type, token_delta):
+                        yield chunk
 
-                    yield chunk
+        for chunk in dsml_parser.flush():
+            yield chunk
 
         # Final stop chunk
         yield {
@@ -522,7 +491,11 @@ class DeepSeekWebProvider(BaseExternalProvider):
             "object": "chat.completion.chunk",
             "created": int(time.time()),
             "model": model,
-            "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+            "choices": [{
+                "index": 0,
+                "delta": {},
+                "finish_reason": "tool_calls" if dsml_parser.emitted_tool_calls else "stop",
+            }],
         }
 
     async def stream_chat_completion(self, payload: dict[str, Any]) -> AsyncGenerator[str, None]:
@@ -535,17 +508,29 @@ class DeepSeekWebProvider(BaseExternalProvider):
         """Unary chat completion accumulating chunks into a complete response."""
         content_parts: list[str] = []
         reasoning_parts: list[str] = []
+        tool_calls_list: list[dict[str, Any]] = []
+        finish_reason = "stop"
         model = payload.get("model", "deepseek-chat")
         req_id = f"chatcmpl-{uuid.uuid4().hex[:12]}"
 
         async for chunk in self.stream_chat(payload):
             choices = chunk.get("choices", [])
             if choices:
-                delta = choices[0].get("delta", {})
+                c0 = choices[0]
+                if c0.get("finish_reason"):
+                    finish_reason = c0["finish_reason"]
+                delta = c0.get("delta", {})
                 if delta.get("content"):
                     content_parts.append(delta["content"])
                 if delta.get("reasoning_content"):
                     reasoning_parts.append(delta["reasoning_content"])
+                if delta.get("tool_calls"):
+                    for tc in delta["tool_calls"]:
+                        tool_calls_list.append({
+                            "id": tc.get("id") or f"call_{uuid.uuid4().hex[:12]}",
+                            "type": tc.get("type", "function"),
+                            "function": tc.get("function", {}),
+                        })
 
         message: dict[str, Any] = {
             "role": "assistant",
@@ -553,6 +538,8 @@ class DeepSeekWebProvider(BaseExternalProvider):
         }
         if reasoning_parts:
             message["reasoning_content"] = "".join(reasoning_parts)
+        if tool_calls_list:
+            message["tool_calls"] = tool_calls_list
 
         return {
             "id": req_id,
@@ -563,7 +550,7 @@ class DeepSeekWebProvider(BaseExternalProvider):
                 {
                     "index": 0,
                     "message": message,
-                    "finish_reason": "stop",
+                    "finish_reason": finish_reason,
                 }
             ],
             "usage": {
