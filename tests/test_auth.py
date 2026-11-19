@@ -472,6 +472,9 @@ class TestPolymorphicAccountHierarchy(unittest.IsolatedAsyncioTestCase):
         self.assertNotIsInstance(acc, AIStudioApiKeySession)
         self.assertTrue(acc.is_model_supported("gemini-2.5-pro"))
         self.assertTrue(acc.is_model_supported("anthropic.claude-3-7-sonnet"))
+        self.assertTrue(acc.is_model_supported("gemini-4-hydrogen"))
+        self.assertTrue(acc.is_model_supported("gemini-4-hydrogen-high"))
+        self.assertFalse(acc.is_model_supported("gemini-4-hydrogen-disabled"))
         self.assertFalse(acc.is_model_supported("gemini-4-argon"))
         self.assertFalse(acc.is_model_supported("gemini-4-argon-high"))
 

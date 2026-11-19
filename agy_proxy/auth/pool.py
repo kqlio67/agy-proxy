@@ -1199,9 +1199,9 @@ class AccountPool:
         norm_model = normalize_model_name(model)
 
         if specific_account_id:
-            if specific_account_id not in self.accounts:
+            acc = self.get_account(specific_account_id)
+            if not acc:
                 raise RuntimeError(f"Requested account '{specific_account_id}' was not found in pool.")
-            acc = self.accounts[specific_account_id]
             if not acc.enabled:
                 raise RuntimeError(f"Requested account {acc.email or acc.name or acc.account_id} is currently disabled/paused.")
             if not acc.is_model_supported(norm_model):

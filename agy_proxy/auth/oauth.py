@@ -420,8 +420,11 @@ class AntigravityOAuthSession(AccountSession):
             is_claude_4_6_model,
             is_argon_model,
             is_hydrogen_model,
+            is_neon_model,
+            is_carbon_model,
             is_deepagent_model,
             is_gemini_web_model,
+            resolve_cloudcode_argon_model,
         )
         norm = normalize_model_name(model_name)
 
@@ -461,22 +464,61 @@ class AntigravityOAuthSession(AccountSession):
                 return False
             return True
 
-        # 5. Gemini 4 Argon & Hydrogen models: supported if explicitly available & enabled in CloudCode, or has dedicated quota bucket
-        if is_argon_model(norm):
-            if str(model_name).strip().lower() in ("gemini-4-argon-disabled", "gemini-4-hydrogen-disabled"):
+        # 5a. Gemini 4 Hydrogen models: first-class flagship model available across all Antigravity OAuth accounts
+        if is_hydrogen_model(norm):
+            if str(model_name).strip().lower() == "gemini-4-hydrogen-disabled":
                 return False
             if avail:
                 if norm in avail:
                     return not bool(avail[norm].get("disabled", False))
-                if is_hydrogen_model(norm):
+                # Check resolved variant (e.g. bare gemini-4-hydrogen -> gemini-4-hydrogen-high/medium)
+                return any(
+                    m in avail and not bool(avail[m].get("disabled", False))
+                    for m in (
+                        "gemini-4-hydrogen-high",
+                        "gemini-4-hydrogen-medium",
+                        "gemini-4-hydrogen-low",
+                        "gemini-4-hydrogen-xhigh",
+                        "gemini-4-hydrogen",
+                    )
+                )
+            # When catalog is not yet populated: allow trying by default (consumer and enterprise accounts support Hydrogen)
+            return True
+
+        # 5b. Gemini 4 Argon, Neon & Carbon models: supported if explicitly available & enabled in CloudCode, or has dedicated quota bucket
+        if is_argon_model(norm):
+            if str(model_name).strip().lower() in (
+                "gemini-4-argon-disabled",
+                "gemini-4-neon-disabled",
+                "gemini-4-carbon-disabled",
+            ):
+                return False
+            if avail:
+                if norm in avail:
+                    return not bool(avail[norm].get("disabled", False))
+                resolved = resolve_cloudcode_argon_model(norm)
+                if resolved in avail:
+                    return not bool(avail[resolved].get("disabled", False))
+                if is_neon_model(norm):
                     return any(
                         m in avail and not bool(avail[m].get("disabled", False))
                         for m in (
-                            "gemini-4-hydrogen-high",
-                            "gemini-4-hydrogen-medium",
-                            "gemini-4-hydrogen-low",
-                            "gemini-4-hydrogen-xhigh",
-                            "gemini-4-hydrogen",
+                            "gemini-4-neon-high",
+                            "gemini-4-neon-medium",
+                            "gemini-4-neon-low",
+                            "gemini-4-neon-xhigh",
+                            "gemini-4-neon",
+                        )
+                    )
+                if is_carbon_model(norm):
+                    return any(
+                        m in avail and not bool(avail[m].get("disabled", False))
+                        for m in (
+                            "gemini-4-carbon-high",
+                            "gemini-4-carbon-medium",
+                            "gemini-4-carbon-low",
+                            "gemini-4-carbon-xhigh",
+                            "gemini-4-carbon",
                         )
                     )
                 return any(

@@ -1847,6 +1847,14 @@ def is_hydrogen_model(model_name: str | None) -> bool:
     return "hydrogen" in norm
 
 
+def is_carbon_model(model_name: str | None) -> bool:
+    """Checks whether the requested model is a Gemini 4 Carbon variant."""
+    if not model_name:
+        return False
+    norm = normalize_model_name(model_name)
+    return "carbon" in norm
+
+
 def resolve_cloudcode_argon_model(model_name: str) -> str:
     """Maps bare 'gemini-4-neon' to 'gemini-4-neon-medium', bare 'gemini-4-argon' (or '-disabled') to 'gemini-4-argon-high', carbon to 'gemini-4-carbon-disabled', and hydrogen to 'gemini-4-hydrogen-medium'."""
     if model_name in ("gemini-4-neon", "gemini-4-neon-disabled"):
