@@ -13,9 +13,11 @@ Configure popular AI code editors and CLI agents to route through `agy-proxy` us
    http://127.0.0.1:8000/v1
    ```
 4. In the model selector, add custom model names supported by `agy-proxy`:
+   - `gemini-4-neon-high` / `gemini-4-hydrogen-high`
    - `gemini-3.8-flash-high`
    - `gemini-3.1-pro-high`
-   - `claude-sonnet-4-6`
+   - `claude-sonnet-4-6` / `claude-sonnet-5-5-high`
+   - `deepseek-chat` / `deepseek-reasoner` *(via DeepSeek Web with DSML tool calling)*
 
 ---
 
@@ -66,6 +68,7 @@ Roo Code and Cline require robust tool calling and strict schema compatibility. 
 - **Custom Tool Schema Unpacking**: Automatically unpacks complex tool definitions from `tool.custom.input_schema`, `tool.custom.parameters`, `tool.custom.name`, and `tool.custom.description`.
 - **Schema Sanitization (`sanitize_gemini_schema`)**: Flattens `anyOf`, `oneOf`, `allOf`, maps union nullables (`["string", "null"]` -> `type: "string", nullable: true`), and strips unsupported metadata (`$schema`, `definitions`, `additionalProperties`) preventing upstream Error 400 validation failures.
 - **Tool Pairing Integrity (`ensure_tool_pairing_integrity`)**: Enforces strict 1:1 pairing between model `functionCall` turns and user `functionResponse` turns, caching thought signatures and resolving orphaned responses so conversation histories never crash downstream translations.
+- **Web Provider IDE Prompt Compaction & Tool Calling**: Even when routing Roo Code / Cline through free Web Providers (`deepseek-chat`, `deepseek-reasoner`, `gemini-2.0-flash-lite`, `gpt-4o`), `agy-proxy` automatically compacts massive IDE system prompts, strips artificial restrictions, handles `role: "developer"`, and parses streaming `DSML` / `<tool_call>` blocks back into standard tool calls.
 
 ---
 

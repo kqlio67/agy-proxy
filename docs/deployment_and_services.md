@@ -12,7 +12,7 @@ docker run -d \
   --name agy-proxy \
   -p 8000:8000 \
   -v agy_data:/root/.config/agy-proxy \
-  ghcr.io/agy-proxy/agy-proxy:latest
+  ghcr.io/kqlio67/agy-proxy:latest
 ```
 
 ### Docker Compose
@@ -20,7 +20,7 @@ Create a `docker-compose.yml`:
 ```yaml
 services:
   agy-proxy:
-    image: ghcr.io/agy-proxy/agy-proxy:latest
+    image: ghcr.io/kqlio67/agy-proxy:latest
     container_name: agy-proxy
     restart: unless-stopped
     ports:
@@ -69,7 +69,7 @@ Run `agy-proxy` directly on Android smartphones and tablets:
 pkg update && pkg install python git -y
 
 # 2. Clone and install dependencies:
-git clone https://github.com/agy-proxy/agy-proxy.git
+git clone https://github.com/kqlio67/agy-proxy.git
 cd agy-proxy
 pip install -e .
 
@@ -94,18 +94,23 @@ agy-proxy update
 
 ---
 
-## 📦 Standalone Binaries (Zero Dependencies)
+## 📦 Standalone Binaries & One-Line Installers (Zero Dependencies)
 
-If Python is not installed on the host system, download compiled standalone single-file executables from the GitHub Releases page:
-- `agy-proxy-linux-x86_64`
-- `agy-proxy-darwin-arm64` (Apple Silicon)
-- `agy-proxy-darwin-x86_64` (Intel)
-- `agy-proxy-windows-x64.exe`
+For quick automated installation with a live terminal progress bar:
+- **Linux / macOS**: `curl -fsSL https://raw.githubusercontent.com/kqlio67/agy-proxy/main/install.sh | bash`
+- **Windows (PowerShell)**: `irm https://raw.githubusercontent.com/kqlio67/agy-proxy/main/install.ps1 | iex`
 
-Make executable and run directly:
+If you prefer manual downloads, grab pre-built single-file release archives from the [GitHub Releases](https://github.com/kqlio67/agy-proxy/releases) page (verified with `SHA256SUMS.txt`):
+- `agy-proxy-linux-amd64.tar.gz` (Linux x86_64)
+- `agy-proxy-linux-arm64.tar.gz` (Linux ARM64 / Raspberry Pi / ARM64 Servers)
+- `agy-proxy-darwin-arm64.tar.gz` (macOS Apple Silicon)
+- `agy-proxy-windows-amd64.zip` (Windows x64)
+
+Extract, make executable, and run directly:
 ```bash
-chmod +x agy-proxy-linux-x86_64
-./agy-proxy-linux-x86_64
+tar -xzf agy-proxy-linux-amd64.tar.gz
+chmod +x agy-proxy
+./agy-proxy start
 ```
 
 ---

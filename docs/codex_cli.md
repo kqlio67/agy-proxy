@@ -15,6 +15,8 @@ The fastest way to run Codex through the proxy on the fly without modifying your
 agy-proxy codex
 
 # Launch with a specific model:
+agy-proxy codex --model gemini-4-neon-high
+agy-proxy codex --model gemini-4-hydrogen-high
 agy-proxy codex --model gemini-3.8-flash-high
 agy-proxy codex --model claude-sonnet-4-6
 

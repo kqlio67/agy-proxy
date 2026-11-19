@@ -73,7 +73,11 @@ You can now directly use:
 - **API Key**: `dummy` (or your `PROXY_API_KEY`)
 - **Default Model**: `gemini-3.8-flash-high`
 - **Supported Models**:
+  - `gemini-4-neon`, `gemini-4-neon-xhigh`, `gemini-4-neon-high`, `gemini-4-neon-medium`, `gemini-4-neon-low`, `gemini-pro-orchestrator-neon` (`neon`, `orchestrator-neon`)
+  - `gemini-4-hydrogen`, `gemini-4-hydrogen-xhigh`, `gemini-4-hydrogen-high`, `gemini-4-hydrogen-medium`, `gemini-4-hydrogen-low` (`hydrogen`)
+  - `gemini-4-carbon`, `gemini-4-carbon-high`, `gemini-4-carbon-medium`, `gemini-4-carbon-low`, `gemini-4-carbon-disabled` (`carbon`)
   - `gemini-4-argon-high`, `gemini-4-argon-medium`, `gemini-4-argon-low`, `gemini-4-argon`
+  - Web & Spark aliases: `gemini-4-neon-web-*`, `gemini-4-carbon-web-*`, `gemini-4-hydrogen-web-*`, `gemini-auto-web`, `spark-neon`, `spark-carbon`, `spark-hydrogen`, `spark-auto`
   - `gemini-3.8-flash-high`, `gemini-3.8-flash-medium`, `gemini-3.8-flash-low`
   - `gemini-3.7-flash-high`, `gemini-3.7-flash-medium`, `gemini-3.7-flash-low`
   - `gemini-3.1-pro-high`, `gemini-3.1-pro-low`
@@ -86,12 +90,13 @@ You can now directly use:
 
 ---
 
-## 💡 Key Features in v2.28.2
+## 💡 Key Features in v2.33.0 Edge Sync (`agy-proxy` v2.3.0)
 
-- **Upstream User-Agent Alignment**: Uses `antigravity/hub/2.28.2` (cl=1009437749) matching official client telemetry.
-- **Gemini 4 Argon CloudCode Support**: Full routing and isolated rate-limit tracking for `gemini-4-argon-high` (`M417`), `gemini-4-argon-medium` (`M418`), and `gemini-4-argon-low` (`M419`) with authentic `thinkingLevel` payloads, plus gateway pass-through for `/v1alpha:fetchConfig` (`aicode.googleapis.com`).
+- **Upstream User-Agent Alignment**: Uses `antigravity/hub/2.33.0` (`cl=1023160026`) matching official Antigravity Hub v2.33.0 telemetry.
+- **Gemini 4 Neon, Hydrogen, Carbon & Argon Support**: Full CloudCode routing, dynamic model aliases, and isolated rate-limit tracking for Gemini 4 Neon (`M532`–`M535`, Orchestrator Neon `M537`), Gemini 4 Hydrogen (256k output, enabled for all consumer OAuth accounts), Gemini 4 Carbon, Gemini 4 Argon (`M417`–`M419`), and Gemini Web / Spark variants, plus gateway pass-through for `/v1alpha:fetchConfig` (`aicode.googleapis.com`).
+- **Default Prompt Restriction Stripping & Guidelines Curation**: Automatically cleans `systemInstruction` and guideline-injected `contents` on both `streamGenerateContent` and `generateContent` (removing v2.33.0 CAPTCHA/bot-check/anti-scraping bans, access-control weakening boilerplate, reverse-engineering bans, and catalog ads), and curates `template__system_prompts__guidelines` in `fetchAvailableModels` responses.
 - **Claude 5.5 Support & Auto-Fallback**: Full support for Claude Sonnet 5.5 & Opus 5.5 with 1M token context, adaptive reasoning, and automatic account fallback to Claude 4.6 on 404/429.
-- **DeepAgent & Experiments Activation**: Automatically activates `enable-deepagent: true` on `/v1internal:listExperiments` pass-through for autonomous subagent workflows (`/deepagent`).
+- **DeepAgent & v2.33.0 Experiments Activation**: Automatically activates curated v2.33.0 flags and `enable-deepagent: true` on `/v1internal:listExperiments` pass-through for autonomous subagent workflows (`/deepagent`).
 - **Claude Code Billing Header Stripping**: Strips internal `x-anthropic-billing-header:` prompts to eliminate Google CloudCode 429 RESOURCE_EXHAUSTED rejections.
 - **Smart 429 Cooldown**: Dynamically parses reset duration from 429 responses (`resets in ...` / `retry after ...`) with intelligent 15s default cooldown.
 - **Multi-Account Failover Loop**: Automatically iterates through pooled accounts on `429 Too Many Requests`, `401 Unauthorized` (with automatic token refresh), or `5xx Server Error` (500, 502, 503, 504), preventing interrupted requests.

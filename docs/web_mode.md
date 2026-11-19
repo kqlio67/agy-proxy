@@ -47,7 +47,9 @@ agy-proxy web --download-server
 ```
 
 > [!TIP]
-> **Tab Spam Protection**: By default, `agy-proxy web` does **not** auto-open your browser to prevent accidental browser tab spam when running multiple background commands. You can click the displayed HTTPS URL directly in your terminal, or pass `-o` / `--open`. When `-o` is used, a 10-second cross-process debounce lock prevents duplicate tabs from opening.
+> **Tab Spam Protection & Working Directory Preservation**:
+> - By default, `agy-proxy web` does **not** auto-open your browser to prevent accidental browser tab spam when running multiple background commands. Click the displayed HTTPS URL in your terminal, or pass `-o` / `--open` (guarded by a 10-second cross-process debounce lock).
+> - Your current workspace directory is automatically preserved via `AGY_WEB_CWD` / `AGY_CALLER_CWD` (exported by `start_proxy.sh`), so launching Antigravity Web from any project directory opens directly in that workspace.
 
 ### Combined One-Command Launch (Proxy + Web together)
 ```bash
@@ -100,10 +102,10 @@ Using `agy-proxy web --patched` (or `agy-proxy web -P`) automatically extracts t
 - ⚔️ **Battle Mode & Split View**: Enables multi-model side-by-side comparison and split chat layouts.
 - 🤖 **Autonomous Mode**: Enables the autonomous execution toggle (`labs-autonomous-mode`) without repeated permission prompts.
 - 💬 **Inline Actions & Thought Steering**: Displays floating toast action cards and allows editing agent thoughts in real-time.
-- 🎯 **Full Model Selector Unlocked**: Direct access to all Google models categorized neatly with section banners:
+- 🎯 **Full Model Selector Unlocked & Dynamic Server Model Preservation**: Direct access to all Google models categorized neatly with section banners — while preserving live server-side dynamic models returned by Antigravity v2.33.0 upstream:
   - **Default**: Default recommended workspace models (Gemini 3.8 Flash).
-  - **Web**: Gemini 4 Argon (Web), Gemini 3.8 Flash (Web), Gemini 3.1 Pro (Web), Gemini 3.5 Flash-Lite (Web) [shown only when running with proxy].
-  - **Antigravity**: Gemini 4 Argon (High/Med/Low), Claude Sonnet 5.5 (High/Med/Low), Claude Opus 5.5 (High/Med/Low), Gemini 3.8 Flash (DeepAgent & Tiered), Claude Sonnet 4.6 & Opus 4.6 (Thinking), GPT-OSS 120B, Gemini 3.7 Flash, Gemini 3.6 Flash, Gemini 3.5 Flash/Lite, Gemini 3.1 Pro (High/Med/Low), Gemini 3 Flash, Gemini 2.5 Pro/Flash/Thinking [always visible in both direct and proxy modes].
+  - **Web**: Gemini 4 Neon (Web & Spark), Gemini 4 Carbon (Web & Spark), Gemini 4 Hydrogen (Web & Spark), Gemini 4 Argon (Web & Spark), Gemini Auto (Web & Spark), Gemini 3.8 Flash (Web & Spark), Gemini 3.1 Pro (Web), Gemini 3.5 Flash-Lite (Web) [shown only when running with proxy].
+  - **Antigravity**: Gemini 4 Neon (Low/Med/High/XHigh), Orchestrator (Neon), Gemini 4 Hydrogen (Low/Med/High/XHigh), Gemini 4 Carbon, Gemini 4 Argon (High/Med/Low), Claude Sonnet 5.5 (High/Med/Low), Claude Opus 5.5 (High/Med/Low), Gemini 3.8 Flash (DeepAgent & Tiered), Claude Sonnet 4.6 & Opus 4.6 (Thinking), GPT-OSS 120B, Gemini 3.7 Flash, Gemini 3.6 Flash, Gemini 3.5 Flash/Lite, Gemini 3.1 Pro (High/Med/Low), Gemini 3 Flash, Gemini 2.5 Pro/Flash/Thinking [always visible in both direct and proxy modes].
   - **Fast Completion (Unlimited)**: Tab Flash Lite Preview [Unlimited], Tab Jump Prediction [Unlimited].
   - **Image Generation**: Gemini 3.1 Flash (Image) (with full multimodal image attachments and markdown image rendering).
 - 🧹 **Google3 Clutter Removed**: Suppresses scary Google3 chat migration banners (`projectV5Migration`), broken `Agent Team` blaze calls, and inaccessible `Chief of Staff` concierge archives.

@@ -56,4 +56,15 @@ Use the generated temporary URL (e.g. `https://<random>.trycloudflare.com/v1`) i
 
 ---
 
+## ✨ Edge Worker Parity (`v2.33.0` Sync)
+
+The Cloudflare Worker ([`cloudflare/worker.js`](../cloudflare/worker.js)) stays synchronized with the local Python proxy:
+- **Antigravity Hub v2.33.0 Telemetry**: Aligns upstream `User-Agent` to `antigravity/hub/2.33.0` (`cl=1023160026`) and activates curated v2.33.0 experiments.
+- **Full Gemini 4 & Claude 5.5 Catalog**: Supports Gemini 4 Neon (`-low`/`-medium`/`-high`/`-xhigh`, `gemini-pro-orchestrator-neon`), Gemini 4 Hydrogen, Gemini 4 Carbon, Gemini 4 Argon, Web/Spark aliases, and Claude 5.5/4.6 failover.
+- **Default Prompt Restriction Stripping & Guidelines Curation**: Automatically cleans `systemInstruction` and guideline-injected `contents` on `streamGenerateContent` and `generateContent`, and curates `template__system_prompts__guidelines` in `fetchAvailableModels`.
+
+👉 *Detailed worker configuration & model list: [Cloudflare Edge README](../cloudflare/README.md)*
+
+---
+
 [← Back to Main README](../README.md)

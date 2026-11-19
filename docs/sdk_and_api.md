@@ -100,10 +100,13 @@ edit_res = client.images.edit(
 | `AGY_CONFIG_DIR` | `~/.config/agy-proxy` | Directory where configuration, account tokens, and caches are persisted. |
 | `AGY_UPSTREAM_PROXY` | *(None)* | Upstream proxy URL (HTTP/HTTPS/SOCKS5) for all outgoing requests. |
 | `ALL_PROXY` | *(None)* | Fallback proxy URL for network tunneling. |
+| `AGY_PROXY_STRIP_PROMPT_RESTRICTIONS` | `1` *(enabled)* | Strips artificial prompt restrictions (CAPTCHA/bot checks, reverse-engineering bans, guardrail bloat) across CloudCode & Web providers. Set `0`, `false`, `off`, or `disable` to opt out. |
+| `AGY_USER_AGENT` | `antigravity/hub/2.33.0 ...` | Overrides the upstream Antigravity client `User-Agent` header. |
+| `AGY_WEB_CWD` / `AGY_CALLER_CWD` | *(Current directory)* | Preserves workspace working directory when launching Antigravity Web Mode (`agy-proxy web` / `start_proxy.sh --web`). |
 | `ANTIGRAVITY_LS_PATH` | *(Auto)* | Explicit path to `language_server` binary. |
 | `ANTIGRAVITY_EDITOR_PATH` | *(Auto)* | Path to Antigravity editor root directory. |
 | `CLOUD_CODE_URL` | `http://127.0.0.1:8000` | Redirects official `agy` CLI to route via `agy-proxy`. |
-| `AGY_ACCOUNT` | *(None)* | Selects active account for `agy` CLI sessions from proxy pool. |
+| `AGY_ACCOUNT` | *(None)* | Selects active account for `agy` CLI sessions from proxy pool (by email, name, or account ID). |
 | `AGY_CLI_AUTO_COMPACT_OVERRIDE` | *(Auto)* | Controls `agy` CLI internal context auto-compaction (`1` or `0`). |
 | `ANTIGRAVITY_CLI_TELEMETRY` | `0` | Disables telemetry reporting in Antigravity CLI and ACP server. |
 

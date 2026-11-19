@@ -49,6 +49,8 @@ Routes Claude Code requests through `agy-proxy` to Google CloudCode / Gemini end
 agy-proxy claude
 
 # Specific model variants:
+agy-proxy claude -m gemini-4-neon-high
+agy-proxy claude -m gemini-4-hydrogen-high
 agy-proxy claude -m claude-sonnet-4-6
 agy-proxy claude -m claude-opus-4-6-thinking
 agy-proxy claude -m gemini-3.8-pro
@@ -64,7 +66,7 @@ agy-proxy claude -p "Refactor auth_handler.py"
 - **1,000,000 Token Context Window**: `CLAUDE_CODE_MAX_CONTEXT_TOKENS=1000000`.
 - **First-Party Base URL Assumption**: Sets `_CLAUDE_CODE_ASSUME_FIRST_PARTY_BASE_URL: "1"`, bypassing Claude Code's 3P degradation check. This prevents third-party feature clipping, enables 1-hour prompt caching, unlocks next-gen model families (Fable/Mythos), and eliminates artificial rate-limiting heuristics.
 - **High-Capacity Compaction**: Automatic context compaction threshold scaled up to **800,000 tokens** (instead of the standard 160k cutoff).
-- **Prompt Sanitization**: Strips Anthropic internal billing headers (`x-anthropic-billing-header`) and anti-clone rules before forwarding to Gemini.
+- **Prompt Sanitization**: Automatically strips Anthropic internal billing headers (`x-anthropic-billing-header`), anti-clone rules, and artificial prompt restrictions (CAPTCHA/bot-check bans, reverse-engineering bans, guardrail bloat) by default before forwarding to CloudCode or Web Providers (opt out with `AGY_PROXY_STRIP_PROMPT_RESTRICTIONS=0`).
 
 ---
 

@@ -57,6 +57,11 @@ When an account exhausts its rate limit or receives an upstream `429 Too Many Re
 3. Seamlessly transparently re-executes the streaming request.
 4. Client coding agents (Cursor, Claude Code, Cline, Aider) never crash or stall.
 
+### Model Tier Routing & Account Selection (`v2.3.0+`)
+- **Gemini 4 Hydrogen on Consumer OAuth**: `gemini-4-hydrogen` (`-low`, `-medium`, `-high`, `-xhigh`) is enabled by default across **all** standard consumer and GCP ToS OAuth accounts (separated from restricted enterprise Argon/Carbon quota-group checks).
+- **Flexible Account Targeting**: Passing a specific account (`AGY_ACCOUNT`, `-a`, or `specific_account_id`) resolves cleanly by **email address**, **display name**, or **account ID**.
+- **Reserve Guest Web Fallbacks**: Zero-auth guest providers (`gemini-web-guest`, `chatgpt-web-guest`) default to `enabled: false` as opt-in reserve fallbacks so your primary OAuth and API key pool is always prioritized. See [Web Providers Guide](web_providers.md).
+
 ---
 
 ## 🔒 Secure Credential Storage & Native Windows Support
