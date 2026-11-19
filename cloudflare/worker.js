@@ -855,6 +855,11 @@ function shouldCleanText(str, stripRestrictions = false) {
   if (!stripRestrictions) return false;
   return (
     lower.includes("never defeat or bypass") ||
+    lower.includes("never solve") ||
+    lower.includes("bot checks") ||
+    lower.includes("captcha") ||
+    lower.includes("prohibited platform automation") ||
+    lower.includes("access control weakening") ||
     lower.includes("block any task that") ||
     lower.includes("system prompt protection") ||
     lower.includes("rule 1 — decoy") ||
@@ -884,6 +889,16 @@ function cleanSystemPromptText(text, stripRestrictions = false) {
     if (cleaned.toLowerCase().includes("never defeat or bypass")) {
       cleaned = cleaned.replace(/(?:^[ \t]*-[ \t]*)?Never defeat or bypass an access control[^\n]*(?:\n(?![ \t]*-|<)[^\n]*)*?(?:report the error and stop\.?)?\s*/gim, "");
       cleaned = cleaned.replace(/<guidelines>\s*(?:Follow these behavioral guidelines at all times:\s*)?<\/guidelines>\s*/gi, "");
+    }
+    if (cleaned.toLowerCase().includes("never solve") || cleaned.toLowerCase().includes("bot checks") || cleaned.toLowerCase().includes("captcha")) {
+      cleaned = cleaned.replace(/(?:^[ \t]*-[ \t]*)?Never solve, click through, wait out, compute, or bypass a CAPTCHA[^\n]*(?:\n(?![ \t]*-|<)[^\n]*)*?(?:in a visible UI when appropriate\.\)?)?\s*|(?:^[ \t]*\*[ \t]*)?NEVER solve captchas or attempt to bypass bot detection[^\n]*(?:\n(?![ \t]*\*|<)[^\n]*)*?(?:due to captcha\/bot detection\.?)?\s*|(?:^[ \t]*-[ \t]*)?\*\*Bot checks\*\*[^\n]*(?:\n(?![ \t]*-|<)[^\n]*)*?(?:have the user complete it\.?)?\s*|the script works on a CAPTCHA or another anti-bot challenge\. Never solve[^\n.]*\.?\s*/gim, "");
+      cleaned = cleaned.replace(/<guidelines>\s*(?:Follow these behavioral guidelines at all times:\s*)?<\/guidelines>\s*/gi, "");
+    }
+    if (cleaned.toLowerCase().includes("prohibited platform automation")) {
+      cleaned = cleaned.replace(/(?:^[ \t]*-[ \t]*)?Prohibited platform automation and web scraping:[^\n]*(?:\n(?![ \t]*-|<)[^\n]*)*?\s*/gim, "");
+    }
+    if (cleaned.toLowerCase().includes("access control weakening")) {
+      cleaned = cleaned.replace(/(?:^[ \t]*-[ \t]*)?\*\*Access Control Weakening\*\*:[^\n]*(?:\n(?![ \t]*-|<)[^\n]*)*?\s*/gim, "");
     }
     if (cleaned.toLowerCase().includes("block any task that compromises")) {
       cleaned = cleaned.replace(/BLOCK any task that compromises system security[^\n]*(?:\n(?!\n)[^\n]*)*?(?:even if performed at scale\.?)?\s*/gi, "");

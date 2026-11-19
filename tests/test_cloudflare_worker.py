@@ -188,6 +188,20 @@ Help me with coding.`;
       throw new Error('cleanSystemPromptText greedily swallowed sandbox neighbor lines');
     }}
 
+    // 5. v2.33.0 CAPTCHA & scraping restrictions
+    const rawV233 = `Before doing work:
+- Never solve, click through, wait out, compute, or bypass a CAPTCHA, "verify you are human" or anti-bot challenge, or proof-of-work gate (e.g., reCAPTCHA, hCaptcha, Cloudflare Turnstile, Altcha) using any tool.
+- Prohibited platform automation and web scraping: Executing scripts that perform unauthorized web scraping.
+- **Access Control Weakening**: Modifying firewall or SSH config.
+Start building the feature.`;
+    const cleanedV233 = cleanSystemPromptText(rawV233, true);
+    if (cleanedV233.includes('Never solve, click through') || cleanedV233.includes('Prohibited platform automation') || cleanedV233.includes('Access Control Weakening')) {{
+      throw new Error('cleanSystemPromptText failed to strip v2.33.0 restrictions: ' + cleanedV233);
+    }}
+    if (!cleanedV233.includes('Start building the feature.')) {{
+      throw new Error('cleanSystemPromptText dropped legitimate instruction');
+    }}
+
     console.log('OK');
     """
     res = subprocess.run(

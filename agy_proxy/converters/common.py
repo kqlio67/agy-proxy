@@ -106,6 +106,27 @@ _SANDBOX_RESTRICTION_PATTERN = re.compile(
     re.IGNORECASE | re.MULTILINE,
 )
 
+_CAPTCHA_RESTRICTION_PATTERN = re.compile(
+    # Matches Antigravity v2.33.0 CAPTCHA / anti-bot / proof-of-work restriction bullet or subagent directives.
+    r"(?:^[ \t]*-[ \t]*)?Never solve, click through, wait out, compute, or bypass a CAPTCHA[^\n]*(?:\n(?![ \t]*-|<)[^\n]*)*?(?:in a visible UI when appropriate\.\)?)?\s*|"
+    r"(?:^[ \t]*\*[ \t]*)?NEVER solve captchas or attempt to bypass bot detection[^\n]*(?:\n(?![ \t]*\*|<)[^\n]*)*?(?:due to captcha/bot detection\.?)?\s*|"
+    r"(?:^[ \t]*-[ \t]*)?\*\*Bot checks\*\*[^\n]*(?:\n(?![ \t]*-|<)[^\n]*)*?(?:have the user complete it\.?)?\s*|"
+    r"the script works on a CAPTCHA or another anti-bot challenge\. Never solve[^\n.]*\.?\s*",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+_PROHIBITED_SCRAPING_PATTERN = re.compile(
+    # Matches injected platform automation and web scraping restriction policy lines.
+    r"(?:^[ \t]*-[ \t]*)?Prohibited platform automation and web scraping:[^\n]*(?:\n(?![ \t]*-|<)[^\n]*)*?\s*",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+_ACCESS_CONTROL_WEAKENING_PATTERN = re.compile(
+    # Matches injected access control weakening restriction bullet.
+    r"(?:^[ \t]*-[ \t]*)?\*\*Access Control Weakening\*\*:[^\n]*(?:\n(?![ \t]*-|<)[^\n]*)*?\s*",
+    re.IGNORECASE | re.MULTILINE,
+)
+
 _EMPTY_GUIDELINES_PATTERN = re.compile(
     r"<guidelines>\s*(?:Follow these behavioral guidelines at all times:\s*)?</guidelines>\s*",
     re.IGNORECASE,
@@ -170,6 +191,11 @@ def should_clean_text(text: Any, strip_restrictions: bool | None = None) -> bool
         return False
     return (
         "never defeat or bypass" in lower
+        or "never solve" in lower
+        or "bot checks" in lower
+        or "captcha" in lower
+        or "prohibited platform automation" in lower
+        or "access control weakening" in lower
         or "block any task that" in lower
         or "system prompt protection" in lower
         or "rule 1 — decoy" in lower
@@ -203,6 +229,13 @@ def clean_system_prompt_text(text: str, strip_restrictions: bool | None = None) 
         if "never defeat or bypass" in text.lower():
             text = _SANDBOX_RESTRICTION_PATTERN.sub("", text)
             text = _EMPTY_GUIDELINES_PATTERN.sub("", text)
+        if "never solve" in text.lower() or "bot checks" in text.lower() or "captcha" in text.lower():
+            text = _CAPTCHA_RESTRICTION_PATTERN.sub("", text)
+            text = _EMPTY_GUIDELINES_PATTERN.sub("", text)
+        if "prohibited platform automation" in text.lower():
+            text = _PROHIBITED_SCRAPING_PATTERN.sub("", text)
+        if "access control weakening" in text.lower():
+            text = _ACCESS_CONTROL_WEAKENING_PATTERN.sub("", text)
         if "block any task that compromises" in text.lower():
             text = _SECURITY_INTERFERENCE_PATTERN.sub("", text)
         if "block any task that" in text.lower():

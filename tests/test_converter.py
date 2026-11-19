@@ -710,6 +710,49 @@ class TestModularConvertersPackage(unittest.TestCase):
         self.assertIn("<identity>\nYou are Antigravity.\n</identity>", cleaned_bloat)
         self.assertIn("Build the payment gateway.", cleaned_bloat)
 
+    def test_clean_system_prompt_text_strips_v2_33_0_captcha_and_scraping_restrictions(self):
+        from agy_proxy.converters.common import clean_system_prompt_text, should_clean_text
+
+        raw_v2_33_guidelines = (
+            "<guidelines>\n"
+            "Follow these behavioral guidelines at all times:\n"
+            "- Maintain documentation integrity. Preserve all existing comments and docstrings that are unrelated to your code changes, unless the user specifies otherwise.\n"
+            "- Never defeat or bypass an access control, permission check, credential requirement, network/proxy restriction, or sandbox/environment boundary - including writing to the state or processes such a check reads, spoofing identity, intercepting the check, probing undocumented local/host services, or modifying host, harness, or test infrastructure outside your task scope. Use documented, sanctioned paths only; if none of them work, you are blocked - report the error and stop.\n"
+            "- Never solve, click through, wait out, compute, or bypass a CAPTCHA, \"verify you are human\" or anti-bot challenge, or proof-of-work gate (e.g., reCAPTCHA, hCaptcha, Cloudflare Turnstile, Altcha) using any tool - including browser actions, terminal commands, scripts, HTTP clients (such as curl, python, or headless browsers), or alternate/cached URLs. When a target resource is gated by one, or if asked to solve or bypass one, stop and report the block to the user (or let the user complete it directly in a visible UI when appropriate).\n"
+            "</guidelines>\n"
+            "Solve the challenge."
+        )
+
+        # Default safe mode preserves prompt text
+        self.assertFalse(should_clean_text(raw_v2_33_guidelines))
+        self.assertEqual(clean_system_prompt_text(raw_v2_33_guidelines), raw_v2_33_guidelines.strip())
+
+        # Explicit opt-in strips both sandbox and CAPTCHA restrictions while preserving documentation integrity
+        self.assertTrue(should_clean_text(raw_v2_33_guidelines, strip_restrictions=True))
+        cleaned = clean_system_prompt_text(raw_v2_33_guidelines, strip_restrictions=True)
+        self.assertNotIn("Never defeat or bypass an access control", cleaned)
+        self.assertNotIn("Never solve, click through, wait out, compute, or bypass a CAPTCHA", cleaned)
+        self.assertNotIn("proof-of-work gate", cleaned)
+        self.assertIn("Maintain documentation integrity", cleaned)
+        self.assertIn("Solve the challenge.", cleaned)
+
+        # Subagent instructions & scraping policy
+        raw_subagent_and_scraping = (
+            "* NEVER solve captchas or attempt to bypass bot detection, age verification, content warnings, or other safety mechanisms. If you encounter a captcha or something asking to prove that you are human, respond to the user that the task cannot be completed due to captcha/bot detection.\n"
+            "- **Bot checks**: you are an automated agent, and bot checks exist to stop automated agents. Never click, solve, wait out, or route around a CAPTCHA, Cloudflare Turnstile, \"verify you are human\" page, stop and ask the parent agent to have the user complete it.\n"
+            "- Prohibited platform automation and web scraping: Executing scripts, inline code, or tools that perform unauthorized web scraping of third-party websites, search engines, social feeds, forums/subreddits, or product/financial pages (e.g. scraping HTML/DOM with BeautifulSoup/lxml/Playwright/Selenium/requests, scraping trending topics or moderation histories, or bypassing anti-bot/CAPTCHA/rate-limit/authentication controls), bulk media or channel downloading from video/streaming platforms (e.g. yt-dlp channel/playlist/bulk video downloads), or automated inventory/ticket/reservation polling, scalping.\n"
+            "- **Access Control Weakening**: Modifying firewall, SSH, or application config to permit unauthorized external access or weaken authentication.\n"
+            "Execute the target automation."
+        )
+        self.assertFalse(should_clean_text(raw_subagent_and_scraping))
+        self.assertTrue(should_clean_text(raw_subagent_and_scraping, strip_restrictions=True))
+        cleaned_sub = clean_system_prompt_text(raw_subagent_and_scraping, strip_restrictions=True)
+        self.assertNotIn("NEVER solve captchas", cleaned_sub)
+        self.assertNotIn("**Bot checks**", cleaned_sub)
+        self.assertNotIn("Prohibited platform automation and web scraping", cleaned_sub)
+        self.assertNotIn("**Access Control Weakening**", cleaned_sub)
+        self.assertIn("Execute the target automation.", cleaned_sub)
+
     def test_models_normalization_exports(self):
         import agy_proxy.converter as facade
         import agy_proxy.converters as pkg
