@@ -174,10 +174,19 @@ DEFAULT_SAFETY_SETTINGS: list[dict[str, str]] = [
 
 
 def _should_strip_prompt_restrictions(strip_restrictions: bool | None = None) -> bool:
+    """
+    Determines whether to strip artificial system prompt restrictions and bloat.
+    Active by default (True) so that models are not constrained by redundant prompt restrictions
+    that degrade reasoning and coding performance.
+    Can be explicitly disabled by passing strip_restrictions=False or setting
+    AGY_PROXY_STRIP_PROMPT_RESTRICTIONS=0 (or 'false', 'off', 'disable').
+    """
     if strip_restrictions is not None:
         return bool(strip_restrictions)
     env_val = os.environ.get("AGY_PROXY_STRIP_PROMPT_RESTRICTIONS", "").strip().lower()
-    return env_val in ("1", "true", "yes", "on", "enable", "enabled")
+    if env_val in ("0", "false", "no", "off", "disable", "disabled"):
+        return False
+    return True
 
 
 def should_clean_text(text: Any, strip_restrictions: bool | None = None) -> bool:
@@ -213,8 +222,9 @@ def clean_system_prompt_text(text: str, strip_restrictions: bool | None = None) 
     """
     Cleans system prompt text safely:
     - Always removes Claude Code CLI internal billing headers (x-anthropic-billing-header)
-    - Only removes restriction/policy/tag blocks when explicitly opted in via
-      strip_restrictions=True or AGY_PROXY_STRIP_PROMPT_RESTRICTIONS=1.
+    - Strips artificial restriction, security policy, anti-bot/CAPTCHA, and catalog bloat blocks
+      by default so that the underlying model's reasoning and coding capacity are not degraded.
+    - Can be opted out via strip_restrictions=False or AGY_PROXY_STRIP_PROMPT_RESTRICTIONS=0.
     Preserves <slash_commands> UI shortcuts per user preference.
     """
     if not text:

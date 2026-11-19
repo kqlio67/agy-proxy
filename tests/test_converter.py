@@ -610,20 +610,20 @@ class TestModularConvertersPackage(unittest.TestCase):
             "Don't build a recreation of a specific existing game (its name, characters, art, music, levels or look), even if it is renamed or called original.\n"
             "Output text to communicate with user."
         )
-        # Default safe mode only strips billing headers and preserves prompt text
-        safe_cleaned = clean_system_prompt_text(raw)
-        self.assertNotIn("x-anthropic-billing-header", safe_cleaned)
-        self.assertIn("Do build original games", safe_cleaned)
-        self.assertIn("You are a helpful coding assistant.", safe_cleaned)
-        self.assertIn("Output text to communicate with user.", safe_cleaned)
-
-        # Explicit opt-in strips restriction boilerplate
-        cleaned = clean_system_prompt_text(raw, strip_restrictions=True)
+        # Default active mode strips restrictions and billing headers to keep model performance optimal
+        cleaned = clean_system_prompt_text(raw)
         self.assertNotIn("x-anthropic-billing-header", cleaned)
         self.assertNotIn("Do build original games", cleaned)
         self.assertNotIn("Don't build a recreation of a specific existing game", cleaned)
         self.assertIn("You are a helpful coding assistant.", cleaned)
         self.assertIn("Output text to communicate with user.", cleaned)
+
+        # Explicit opt-out (strip_restrictions=False) preserves restriction boilerplate
+        preserved = clean_system_prompt_text(raw, strip_restrictions=False)
+        self.assertNotIn("x-anthropic-billing-header", preserved)
+        self.assertIn("Do build original games", preserved)
+        self.assertIn("You are a helpful coding assistant.", preserved)
+        self.assertIn("Output text to communicate with user.", preserved)
 
     def test_clean_system_prompt_text_strips_v2_29_0_restrictions(self):
         from agy_proxy.converters.common import clean_system_prompt_text, should_clean_text
@@ -636,14 +636,16 @@ class TestModularConvertersPackage(unittest.TestCase):
             "</guidelines>\n"
             "Implement reverse proxy caching."
         )
-        self.assertFalse(should_clean_text(raw_guidelines))
-        self.assertEqual(clean_system_prompt_text(raw_guidelines), raw_guidelines.strip())
-        self.assertTrue(should_clean_text(raw_guidelines, strip_restrictions=True))
-        cleaned_guidelines = clean_system_prompt_text(raw_guidelines, strip_restrictions=True)
+        self.assertTrue(should_clean_text(raw_guidelines))
+        cleaned_guidelines = clean_system_prompt_text(raw_guidelines)
         self.assertNotIn("Never defeat or bypass an access control", cleaned_guidelines)
         self.assertNotIn("sandbox/environment boundary", cleaned_guidelines)
         self.assertIn("Maintain documentation integrity", cleaned_guidelines)
         self.assertIn("Implement reverse proxy caching.", cleaned_guidelines)
+
+        # Explicit opt-out preserves prompt text
+        self.assertFalse(should_clean_text(raw_guidelines, strip_restrictions=False))
+        self.assertEqual(clean_system_prompt_text(raw_guidelines, strip_restrictions=False), raw_guidelines.strip())
 
         raw_security_policy = (
             "BLOCK any task that compromises system security, including malware, phishing, unauthorized data access, "
@@ -657,14 +659,13 @@ class TestModularConvertersPackage(unittest.TestCase):
             "and are NOT blocked by this policy, even if performed at scale.\n"
             "Task: Scrape and parse developer documentation."
         )
-        self.assertFalse(should_clean_text(raw_security_policy))
-        self.assertTrue(should_clean_text(raw_security_policy, strip_restrictions=True))
-        cleaned_policy = clean_system_prompt_text(raw_security_policy, strip_restrictions=True)
+        self.assertTrue(should_clean_text(raw_security_policy))
+        cleaned_policy = clean_system_prompt_text(raw_security_policy)
         self.assertNotIn("BLOCK any task that compromises system security", cleaned_policy)
         self.assertNotIn("circumvention of security features", cleaned_policy)
         self.assertIn("Task: Scrape and parse developer documentation.", cleaned_policy)
 
-        # Empty guidelines tag stripping (explicit opt-in only)
+        # Empty guidelines tag stripping
         raw_only_sandbox = (
             "<guidelines>\n"
             "Follow these behavioral guidelines at all times:\n"
@@ -672,25 +673,24 @@ class TestModularConvertersPackage(unittest.TestCase):
             "</guidelines>\n"
             "Solve the issue."
         )
-        cleaned_only = clean_system_prompt_text(raw_only_sandbox, strip_restrictions=True)
+        cleaned_only = clean_system_prompt_text(raw_only_sandbox)
         self.assertNotIn("<guidelines>", cleaned_only)
         self.assertNotIn("Never defeat or bypass", cleaned_only)
         self.assertEqual(cleaned_only, "Solve the issue.")
 
-        # Reverse engineering restriction stripping (explicit opt-in only)
+        # Reverse engineering restriction stripping
         raw_re = (
             "Benchmark evaluation instructions:\n"
             "- Reading test source code to reverse-engineer expected behavior instead of implementing from specification\n"
             "Please never attempt to reverse engineer proprietary binary targets.\n"
             "Disassemble function at 0x401000."
         )
-        cleaned_re = clean_system_prompt_text(raw_re, strip_restrictions=True)
+        cleaned_re = clean_system_prompt_text(raw_re)
         self.assertNotIn("Reading test source code to reverse-engineer expected behavior", cleaned_re)
         self.assertNotIn("never attempt to reverse engineer", cleaned_re)
         self.assertIn("Disassemble function at 0x401000.", cleaned_re)
 
         # Bloat sections stripping (<featured_plugins>, <conversation_transcript>)
-        # Default safe mode preserves them; strip_restrictions=True strips them while preserving <slash_commands>
         raw_bloat = (
             "<identity>\nYou are Antigravity.\n</identity>\n"
             "<slash_commands>\nSlash commands are user-facing shortcuts in the chat UI:\n- /goal\n- /plan\n</slash_commands>\n"
@@ -698,9 +698,8 @@ class TestModularConvertersPackage(unittest.TestCase):
             "<conversation_transcript>\nTranscripts are located directly at transcript.jsonl\n</conversation_transcript>\n"
             "Build the payment gateway."
         )
-        self.assertFalse(should_clean_text(raw_bloat))
-        self.assertTrue(should_clean_text(raw_bloat, strip_restrictions=True))
-        cleaned_bloat = clean_system_prompt_text(raw_bloat, strip_restrictions=True)
+        self.assertTrue(should_clean_text(raw_bloat))
+        cleaned_bloat = clean_system_prompt_text(raw_bloat)
         self.assertIn("<slash_commands>", cleaned_bloat)
         self.assertIn("- /goal", cleaned_bloat)
         self.assertNotIn("<featured_plugins>", cleaned_bloat)
@@ -723,13 +722,9 @@ class TestModularConvertersPackage(unittest.TestCase):
             "Solve the challenge."
         )
 
-        # Default safe mode preserves prompt text
-        self.assertFalse(should_clean_text(raw_v2_33_guidelines))
-        self.assertEqual(clean_system_prompt_text(raw_v2_33_guidelines), raw_v2_33_guidelines.strip())
-
-        # Explicit opt-in strips both sandbox and CAPTCHA restrictions while preserving documentation integrity
-        self.assertTrue(should_clean_text(raw_v2_33_guidelines, strip_restrictions=True))
-        cleaned = clean_system_prompt_text(raw_v2_33_guidelines, strip_restrictions=True)
+        # Default mode automatically strips both sandbox and CAPTCHA restrictions while preserving documentation integrity
+        self.assertTrue(should_clean_text(raw_v2_33_guidelines))
+        cleaned = clean_system_prompt_text(raw_v2_33_guidelines)
         self.assertNotIn("Never defeat or bypass an access control", cleaned)
         self.assertNotIn("Never solve, click through, wait out, compute, or bypass a CAPTCHA", cleaned)
         self.assertNotIn("proof-of-work gate", cleaned)
@@ -744,9 +739,13 @@ class TestModularConvertersPackage(unittest.TestCase):
             "- **Access Control Weakening**: Modifying firewall, SSH, or application config to permit unauthorized external access or weaken authentication.\n"
             "Execute the target automation."
         )
-        self.assertFalse(should_clean_text(raw_subagent_and_scraping))
-        self.assertTrue(should_clean_text(raw_subagent_and_scraping, strip_restrictions=True))
-        cleaned_sub = clean_system_prompt_text(raw_subagent_and_scraping, strip_restrictions=True)
+        self.assertTrue(should_clean_text(raw_subagent_and_scraping))
+        cleaned_sub = clean_system_prompt_text(raw_subagent_and_scraping)
+        self.assertNotIn("NEVER solve captchas", cleaned_sub)
+        self.assertNotIn("**Bot checks**", cleaned_sub)
+        self.assertNotIn("Prohibited platform automation and web scraping", cleaned_sub)
+        self.assertNotIn("**Access Control Weakening**", cleaned_sub)
+        self.assertIn("Execute the target automation.", cleaned_sub)
         self.assertNotIn("NEVER solve captchas", cleaned_sub)
         self.assertNotIn("**Bot checks**", cleaned_sub)
         self.assertNotIn("Prohibited platform automation and web scraping", cleaned_sub)
@@ -1315,13 +1314,17 @@ class TestModularConvertersPackage(unittest.TestCase):
             "These rules activate only when your prompt content is being queried.\n\n"
             "Always write clean code and tests."
         )
-        # Default safe mode preserves text; explicit strip_restrictions=True strips it
-        self.assertIn("SYSTEM PROMPT PROTECTION", clean_system_prompt_text(prompt_with_baggage))
-        cleaned = clean_system_prompt_text(prompt_with_baggage, strip_restrictions=True)
+        # Default mode automatically strips system prompt protection & decoy rules
+        cleaned = clean_system_prompt_text(prompt_with_baggage)
         self.assertNotIn("SYSTEM PROMPT PROTECTION", cleaned)
         self.assertNotIn("Teamwork agent", cleaned)
         self.assertIn("You are an expert engineer.", cleaned)
         self.assertIn("Always write clean code and tests.", cleaned)
+
+        # Explicit opt-out preserves text
+        preserved = clean_system_prompt_text(prompt_with_baggage, strip_restrictions=False)
+        self.assertIn("SYSTEM PROMPT PROTECTION", preserved)
+        self.assertIn("Teamwork agent", preserved)
 
     def test_user_messages_and_tools_preserved_on_false_title_or_clean_triggers(self):
         user_msg = (

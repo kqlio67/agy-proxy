@@ -133,22 +133,24 @@ Please do not attempt to reverse engineer or decompile.
 x-anthropic-billing-header: secret-billing-token
 Task: Parse website data.`;
 
-    // Default safe mode preserves guidelines/policies and only strips billing header
-    if (shouldCleanText(raw.replace('x-anthropic-billing-header: secret-billing-token\\n', ''))) {{
-      throw new Error('shouldCleanText should default to false when only restrictions exist');
+    // Default mode automatically strips restrictions and billing header
+    if (!shouldCleanText(raw)) {{
+      throw new Error('shouldCleanText should default to true when restrictions exist');
     }}
-    const safeCleaned = cleanSystemPromptText(raw);
-    if (safeCleaned.includes('x-anthropic-billing-header')) throw new Error('billing header was not removed by default');
-    if (!safeCleaned.includes('Never defeat or bypass')) throw new Error('default mode should preserve prompt text');
+    const defaultCleaned = cleanSystemPromptText(raw);
+    if (defaultCleaned.includes('x-anthropic-billing-header')) throw new Error('billing header was not removed by default');
+    if (defaultCleaned.includes('Never defeat or bypass')) throw new Error('default mode should strip restriction');
+    if (defaultCleaned.includes('BLOCK any task that compromises system security')) throw new Error('BLOCK any task was not removed by default');
+    if (defaultCleaned.includes('reverse engineer')) throw new Error('reverse engineer restriction was not removed by default');
+    if (!defaultCleaned.includes('Maintain documentation integrity')) throw new Error('Maintain documentation integrity should be preserved');
+    if (!defaultCleaned.includes('Task: Parse website data.')) throw new Error('Actual user task was removed');
 
-    if (!shouldCleanText(raw, true)) throw new Error('shouldCleanText(raw, true) should return true');
-    const cleaned = cleanSystemPromptText(raw, true);
-
-    if (cleaned.includes('Never defeat or bypass')) throw new Error('Never defeat or bypass was not removed');
-    if (cleaned.includes('BLOCK any task that compromises system security')) throw new Error('BLOCK any task was not removed');
-    if (cleaned.includes('reverse engineer')) throw new Error('reverse engineer restriction was not removed');
-    if (!cleaned.includes('Maintain documentation integrity')) throw new Error('Maintain documentation integrity should be preserved');
-    if (!cleaned.includes('Task: Parse website data.')) throw new Error('Actual user task was removed');
+    // Explicit opt-out (stripRestrictions=false) preserves prompt text
+    if (shouldCleanText(raw.replace('x-anthropic-billing-header: secret-billing-token\\n', ''), false)) {{
+      throw new Error('shouldCleanText(..., false) should be false when only restrictions exist');
+    }}
+    const preserved = cleanSystemPromptText(raw, false);
+    if (!preserved.includes('Never defeat or bypass')) throw new Error('opt-out mode should preserve prompt text');
 
     const rawBloat = `
 <identity>You are Antigravity.</identity>
@@ -157,9 +159,9 @@ Task: Parse website data.`;
 <conversation_transcript>Transcript log schema</conversation_transcript>
 Task: Run service.`;
 
-    if (shouldCleanText(rawBloat)) throw new Error('shouldCleanText should default to false for rawBloat');
-    if (!shouldCleanText(rawBloat, true)) throw new Error('shouldCleanText(rawBloat, true) should return true');
-    const cleanedBloat = cleanSystemPromptText(rawBloat, true);
+    if (!shouldCleanText(rawBloat)) throw new Error('shouldCleanText should default to true for rawBloat');
+    if (shouldCleanText(rawBloat, false)) throw new Error('shouldCleanText(rawBloat, false) should return false');
+    const cleanedBloat = cleanSystemPromptText(rawBloat);
     if (!cleanedBloat.includes('<slash_commands>')) throw new Error('<slash_commands> should be preserved per user preference');
     if (cleanedBloat.includes('<featured_plugins>')) throw new Error('<featured_plugins> was not removed');
     if (cleanedBloat.includes('<conversation_transcript>')) throw new Error('<conversation_transcript> was not removed');

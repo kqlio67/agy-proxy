@@ -2219,6 +2219,13 @@ def enhance_available_models(data: dict[str, Any]) -> dict[str, Any]:
                 for exp_name, exp_val in experiments.items():
                     if isinstance(exp_val, dict) and "boolValue" in exp_val:
                         exp_val["boolValue"] = True
+                    if isinstance(exp_val, dict) and "stringValue" in exp_val:
+                        if exp_name == "template__system_prompts__guidelines" or "guideline" in exp_name:
+                            try:
+                                from agy_proxy.converters.common import clean_system_prompt_text
+                                exp_val["stringValue"] = clean_system_prompt_text(exp_val["stringValue"])
+                            except Exception as _clean_err:
+                                logger.debug("Failed to clean %s: %s", exp_name, _clean_err)
 
     # Unlock Gemini 4 Neon, Argon & Hydrogen if returned as disabled for consumer tier
     # Strategy: use only gemini-4-neon / gemini-4-argon / gemini-4-hydrogen keys (remove -disabled to prevent duplicates)

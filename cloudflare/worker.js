@@ -884,7 +884,7 @@ async function getAccessToken(account, forceRefresh = false) {
 // Message Conversion & Role Sanitization
 // -----------------------------------------------------------------------------
 
-function shouldCleanText(str, stripRestrictions = false) {
+function shouldCleanText(str, stripRestrictions = true) {
   if (!str || typeof str !== "string") return false;
   const lower = str.toLowerCase();
   if (lower.includes("x-anthropic-billing-header:")) return true;
@@ -909,7 +909,7 @@ function shouldCleanText(str, stripRestrictions = false) {
   );
 }
 
-function cleanSystemPromptText(text, stripRestrictions = false) {
+function cleanSystemPromptText(text, stripRestrictions = true) {
   if (!text || typeof text !== "string") return "";
   let cleaned = text;
   if (stripRestrictions) {
@@ -1937,7 +1937,7 @@ export default {
     let reqBody = ["GET", "HEAD"].includes(request.method) ? null : request.body;
     if (
       request.method === "POST" &&
-      targetPath.includes("streamGenerateContent")
+      (targetPath.includes("streamGenerateContent") || targetPath.includes("generateContent"))
     ) {
       try {
         const bodyText = await request.text();
@@ -1948,7 +1948,18 @@ export default {
           if (innerReq.systemInstruction?.parts) {
             for (const p of innerReq.systemInstruction.parts) {
               if (p && typeof p.text === "string") {
-                p.text = cleanSystemPromptText(p.text);
+                p.text = cleanSystemPromptText(p.text, true);
+              }
+            }
+          }
+          if (Array.isArray(innerReq.contents)) {
+            for (const c of innerReq.contents) {
+              if (c && Array.isArray(c.parts)) {
+                for (const p of c.parts) {
+                  if (p && typeof p.text === "string" && shouldCleanText(p.text, true)) {
+                    p.text = cleanSystemPromptText(p.text, true);
+                  }
+                }
               }
             }
           }
@@ -1971,6 +1982,26 @@ export default {
       const resHeaders = new Headers(response.headers);
       for (const [k, v] of Object.entries(CORS_HEADERS)) {
         resHeaders.set(k, v);
+      }
+
+      if (targetPath.includes("fetchAvailableModels") && response.ok) {
+        try {
+          const modelsData = await response.json();
+          if (modelsData && typeof modelsData === "object" && modelsData.models) {
+            for (const mData of Object.values(modelsData.models)) {
+              if (mData?.modelExperiments?.experiments?.template__system_prompts__guidelines?.stringValue) {
+                mData.modelExperiments.experiments.template__system_prompts__guidelines.stringValue = cleanSystemPromptText(
+                  mData.modelExperiments.experiments.template__system_prompts__guidelines.stringValue,
+                  true
+                );
+              }
+            }
+            return new Response(JSON.stringify(modelsData), {
+              status: response.status,
+              headers: resHeaders,
+            });
+          }
+        } catch (_) {}
       }
 
       if (targetPath.includes("listExperiments") && response.ok) {

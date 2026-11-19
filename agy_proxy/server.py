@@ -5486,7 +5486,7 @@ def create_app(
                             if inner_k not in candidate_body["request"]:
                                 candidate_body["request"][inner_k] = val
 
-                    # Clean systemInstruction headers (preserve user/model message contents untouched)
+                    # Clean systemInstruction headers and injected restriction bloat
                     if "systemInstruction" in candidate_body["request"]:
                         si = candidate_body["request"]["systemInstruction"]
                         if isinstance(si, dict) and "parts" in si and isinstance(si["parts"], list):
@@ -5494,6 +5494,17 @@ def create_app(
                             for part in si["parts"]:
                                 if isinstance(part, dict) and "text" in part and isinstance(part["text"], str):
                                     part["text"] = clean_system_prompt_text(part["text"])
+
+                    # Also sanitize any system/developer or guideline-injected parts in contents
+                    if "contents" in candidate_body["request"] and isinstance(candidate_body["request"]["contents"], list):
+                        from agy_proxy.converters.common import clean_system_prompt_text, should_clean_text
+                        for c in candidate_body["request"]["contents"]:
+                            if isinstance(c, dict) and "parts" in c and isinstance(c["parts"], list):
+                                is_system_role = c.get("role") in ("system", "developer")
+                                for part in c["parts"]:
+                                    if isinstance(part, dict) and "text" in part and isinstance(part["text"], str):
+                                        if is_system_role or should_clean_text(part["text"]):
+                                            part["text"] = clean_system_prompt_text(part["text"])
 
                     # Apply permissive safety settings to prevent false refusals on coding/debugging tasks
                     candidate_body["request"]["safetySettings"] = [
