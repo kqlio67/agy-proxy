@@ -218,3 +218,158 @@ def test_compact_web_system_prompt_strips_ide_bloat():
     assert "OS is linux" in prompt
     assert "<mcp_servers>" not in prompt
     assert prompt.strip().endswith("hi")
+
+
+@pytest.mark.anyio
+async def test_deepseek_web_session_reuse_and_overflow_rotation():
+    import json
+    from unittest.mock import AsyncMock
+
+    cfg = ExternalProviderConfig(
+        id="deepseek-web",
+        name="DeepSeek Web Session",
+        provider_type="deepseek_web",
+        base_url="https://chat.deepseek.com/api/v0",
+        api_key="tok",
+        enabled=True,
+    )
+    prov = DeepSeekWebProvider(cfg)
+
+    created_sessions = []
+    sent_requests = []
+    turn_responses = [
+        # Turn 1: initial response (message_id=2, 100 tokens)
+        (200, [
+            'event: ready',
+            'data: {"request_message_id":1,"response_message_id":2,"model_type":"default"}',
+            'data: {"v":{"response":{"message_id":2,"parent_id":1,"status":"WIP","accumulated_token_usage":0,"fragments":[{"id":2,"type":"RESPONSE","content":"Привіт!"}]}}}',
+            'data: {"p":"response","o":"BATCH","v":[{"p":"accumulated_token_usage","v":100},{"p":"quasi_status","v":"FINISHED"}]}',
+            'data: {"p":"response/status","o":"SET","v":"FINISHED"}',
+        ]),
+        # Turn 2: continuation response (message_id=4, 57000 tokens -> triggers overflow next turn)
+        (200, [
+            'event: ready',
+            'data: {"request_message_id":3,"response_message_id":4,"model_type":"default"}',
+            'data: {"v":{"response":{"message_id":4,"parent_id":3,"status":"WIP","accumulated_token_usage":56500,"fragments":[{"id":2,"type":"RESPONSE","content":"Все чудово!"}]}}}',
+            'data: {"p":"response","o":"BATCH","v":[{"p":"accumulated_token_usage","v":57000},{"p":"quasi_status","v":"FINISHED"}]}',
+            'data: {"p":"response/status","o":"SET","v":"FINISHED"}',
+        ]),
+        # Turn 3: overflow rotation -> new session sess-2!
+        (200, [
+            'event: ready',
+            'data: {"request_message_id":1,"response_message_id":2,"model_type":"default"}',
+            'data: {"v":{"response":{"message_id":2,"parent_id":1,"status":"WIP","accumulated_token_usage":120,"fragments":[{"id":2,"type":"RESPONSE","content":"Продовжуємо!"}]}}}',
+            'data: {"p":"response/status","o":"SET","v":"FINISHED"}',
+        ]),
+    ]
+
+    class FakeStreamCtx:
+        def __init__(self, status_code, lines):
+            self.status_code = status_code
+            self._lines = lines
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def aread(self):
+            return b"error"
+
+        async def aiter_lines(self):
+            for l in self._lines:
+                yield l
+
+    class FakeClient:
+        def stream(self, method, url, headers=None, json=None, timeout=None):
+            sent_requests.append(json)
+            sc, lines = turn_responses.pop(0)
+            return FakeStreamCtx(sc, lines)
+
+    prov.get_http_client = AsyncMock(return_value=FakeClient())
+
+    async def fake_create_session(client):
+        sid = f"sess-{len(created_sessions) + 1}"
+        created_sessions.append(sid)
+        return sid
+
+    prov._create_chat_session = fake_create_session
+    prov._solve_pow_challenge = AsyncMock(return_value="mock-pow")
+
+    # Turn 1
+    r1 = await prov.chat_completion({
+        "model": "deepseek-chat",
+        "messages": [
+            {"role": "system", "content": "The current local time is: 19:00:00"},
+            {"role": "user", "content": "привіт"},
+        ],
+    })
+    assert r1["choices"][0]["message"]["content"] == "Привіт!"
+    assert created_sessions == ["sess-1"]
+    assert sent_requests[0]["chat_session_id"] == "sess-1"
+    assert sent_requests[0]["parent_message_id"] is None
+    assert sent_requests[0]["model_type"] == "default"
+
+    # Turn 2 (even with changed system timestamp, reuses sess-1!)
+    r2 = await prov.chat_completion({
+        "model": "deepseek-chat",
+        "messages": [
+            {"role": "system", "content": "The current local time is: 19:05:00"},
+            {"role": "user", "content": "привіт"},
+            {"role": "assistant", "content": "Привіт!"},
+            {"role": "user", "content": "як діла"},
+        ],
+    })
+    assert r2["choices"][0]["message"]["content"] == "Все чудово!"
+    assert created_sessions == ["sess-1"]  # NO new session created!
+    assert sent_requests[1]["chat_session_id"] == "sess-1"
+    assert sent_requests[1]["parent_message_id"] == 2
+    assert sent_requests[1]["model_type"] is None
+    assert sent_requests[1]["prompt"] == "як діла"
+
+    # Turn 3 (accumulated_tokens was 57000 >= 56000 -> auto-rotates to sess-2!)
+    r3 = await prov.chat_completion({
+        "model": "deepseek-chat",
+        "messages": [
+            {"role": "system", "content": "The current local time is: 19:10:00"},
+            {"role": "user", "content": "привіт"},
+            {"role": "assistant", "content": "Привіт!"},
+            {"role": "user", "content": "як діла"},
+            {"role": "assistant", "content": "Все чудово!"},
+            {"role": "user", "content": "далі"},
+        ],
+    })
+    assert r3["choices"][0]["message"]["content"] == "Продовжуємо!"
+    assert created_sessions == ["sess-1", "sess-2"]
+    assert sent_requests[2]["chat_session_id"] == "sess-2"
+    assert sent_requests[2]["parent_message_id"] is None
+
+    # Turn 4: continuation HTTP error (e.g. session expired/overflowed upstream) -> auto-rotates to sess-3!
+    turn_responses.extend([
+        (400, []),
+        (200, [
+            'event: ready',
+            'data: {"request_message_id":1,"response_message_id":2,"model_type":"default"}',
+            'data: {"v":{"response":{"message_id":2,"parent_id":1,"status":"WIP","accumulated_token_usage":200,"fragments":[{"id":2,"type":"RESPONSE","content":"Відновлено!"}]}}}',
+            'data: {"p":"response/status","o":"SET","v":"FINISHED"}',
+        ]),
+    ])
+    r4 = await prov.chat_completion({
+        "model": "deepseek-chat",
+        "messages": [
+            {"role": "user", "content": "привіт"},
+            {"role": "assistant", "content": "Привіт!"},
+            {"role": "user", "content": "як діла"},
+            {"role": "assistant", "content": "Все чудово!"},
+            {"role": "user", "content": "далі"},
+            {"role": "assistant", "content": "Продовжуємо!"},
+            {"role": "user", "content": "ще раз"},
+        ],
+    })
+    assert r4["choices"][0]["message"]["content"] == "Відновлено!"
+    assert created_sessions == ["sess-1", "sess-2", "sess-3"]
+    assert sent_requests[3]["chat_session_id"] == "sess-2"
+    assert sent_requests[4]["chat_session_id"] == "sess-3"
+    assert sent_requests[4]["parent_message_id"] is None
+    await prov.close()

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import hashlib
 import json
 import logging
 import os
@@ -106,6 +107,63 @@ def extract_deepseek_token_from_har(raw_or_path: str | dict[str, Any]) -> tuple[
     return token, email, user_id
 
 
+_MAX_SESSION_TOKENS = 56000
+_MAX_CACHED_SESSIONS = 200
+
+
+def _extract_msg_text(content: Any) -> str:
+    if isinstance(content, list):
+        return "\n".join(
+            p.get("text", "") for p in content if isinstance(p, dict) and p.get("type") == "text"
+        ).strip()
+    if content is None:
+        return ""
+    return str(content).strip()
+
+
+def _normalize_tool_calls_for_hash(tool_calls: Any) -> list[tuple[str, str]]:
+    if not isinstance(tool_calls, list):
+        return []
+    out: list[tuple[str, str]] = []
+    for tc in tool_calls:
+        if not isinstance(tc, dict):
+            continue
+        fn = tc.get("function") or {}
+        name = str(fn.get("name", ""))
+        raw_args = fn.get("arguments", "{}")
+        try:
+            args_obj = json.loads(raw_args) if isinstance(raw_args, str) else (raw_args or {})
+            args_canon = json.dumps(args_obj, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+        except Exception:
+            args_canon = str(raw_args)
+        out.append((name, args_canon))
+    return out
+
+
+def _split_latest_turn(messages: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Splits non-system messages into (history_through_last_assistant, latest_pending_turns)."""
+    non_sys = [m for m in messages if str(m.get("role", "")).lower() != "system"]
+    last_asst_idx = -1
+    for i, m in enumerate(non_sys):
+        if str(m.get("role", "")).lower() == "assistant":
+            last_asst_idx = i
+    if last_asst_idx == -1 or last_asst_idx == len(non_sys) - 1:
+        return [], non_sys
+    return non_sys[: last_asst_idx + 1], non_sys[last_asst_idx + 1 :]
+
+
+def _hash_turn_prefix(prefix_msgs: list[dict[str, Any]]) -> str:
+    """Computes a stable hash over conversation turns (ignoring dynamic system timestamps)."""
+    canon = []
+    for m in prefix_msgs:
+        role = str(m.get("role", "")).lower()
+        text = _extract_msg_text(m.get("content", ""))
+        tcs = _normalize_tool_calls_for_hash(m.get("tool_calls"))
+        canon.append([role, text, tcs])
+    raw = json.dumps(canon, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()
+
+
 class DeepSeekWebProvider(BaseExternalProvider):
     """
     Direct web adapter for chat.deepseek.com web sessions.
@@ -120,6 +178,8 @@ class DeepSeekWebProvider(BaseExternalProvider):
         super().__init__(config)
         self.cached_user_email: str | None = None
         self.cached_user_id: str | None = None
+        # Maps (is_reasoning, prefix_hash) -> {"session_id": str, "parent_message_id": int, "accumulated_tokens": int}
+        self._chat_sessions: dict[tuple[bool, str], dict[str, Any]] = {}
 
     @property
     def token(self) -> str:
@@ -344,9 +404,48 @@ class DeepSeekWebProvider(BaseExternalProvider):
         """Formats OpenAI messages and compacted tool schemas into a prompt string for DeepSeek Web."""
         return format_web_prompt(messages, tools=tools, tool_style="dsml")
 
+    def _format_continuation_prompt(
+        self,
+        latest_msgs: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+    ) -> str:
+        """Formats only the new user / tool-result turns for an active DeepSeek Web chat."""
+        parts: list[str] = []
+        for m in latest_msgs:
+            role = str(m.get("role", "user")).lower()
+            text = _extract_msg_text(m.get("content", ""))
+            if role == "tool":
+                t_name = m.get("name") or m.get("tool_call_id") or "tool"
+                parts.append(f"Tool Result ({t_name}):\n{text}")
+            elif text:
+                parts.append(text)
+        body = "\n\n".join(parts).strip() or "Continue."
+        if tools and any(str(m.get("role", "")).lower() == "tool" for m in latest_msgs):
+            body += "\n\n[Reminder: Use the tool result above to answer the user, or emit <｜DSML｜calls>...</｜DSML｜calls> if another tool is needed.]"
+        return body
+
+    def _save_session_state(
+        self,
+        is_reasoning: bool,
+        prefix_hash: str,
+        session_id: str,
+        message_id: int,
+        accumulated_tokens: int,
+    ) -> None:
+        key = (is_reasoning, prefix_hash)
+        self._chat_sessions.pop(key, None)
+        self._chat_sessions[key] = {
+            "session_id": session_id,
+            "parent_message_id": message_id,
+            "accumulated_tokens": accumulated_tokens,
+        }
+        while len(self._chat_sessions) > _MAX_CACHED_SESSIONS:
+            self._chat_sessions.pop(next(iter(self._chat_sessions)))
+
     async def stream_chat(self, payload: dict[str, Any]) -> AsyncGenerator[dict[str, Any], None]:
         """
-        Streams completion from DeepSeek Web with PoW solving, yielding OpenAI-compatible chunks.
+        Streams completion from DeepSeek Web with multi-turn session reuse,
+        automatic overflow rotation, PoW solving, and DSML tool-call parsing.
         """
         client = await self.get_http_client()
         req_id = f"chatcmpl-{uuid.uuid4().hex[:12]}"
@@ -361,29 +460,17 @@ class DeepSeekWebProvider(BaseExternalProvider):
         messages = payload.get("messages", [])
         tools = payload.get("tools") or []
         schema_map = _build_tool_schema_map(tools)
-        prompt_text = self._format_prompt(messages, tools=tools or None)
-        dsml_parser = _DSMLStreamParser(req_id, model, schema_map)
+        prefix_msgs, latest_msgs = _split_latest_turn(messages)
+        prefix_hash = _hash_turn_prefix(prefix_msgs) if prefix_msgs else ""
+        session_key = (is_reasoning, prefix_hash)
+        cached_session = self._chat_sessions.get(session_key) if prefix_hash else None
 
-        # 1. Create chat session
-        sess_id = await self._create_chat_session(client)
-
-        # 2. Solve PoW Challenge
-        pow_header = await self._solve_pow_challenge(client, target_path="/api/v0/chat/completion")
-
-        headers = self.get_auth_headers()
-        headers["x-ds-pow-response"] = pow_header
-
-        req_body = {
-            "chat_session_id": sess_id,
-            "parent_message_id": None,
-            "model_type": "deepseek-reasoner" if is_reasoning else "default",
-            "prompt": prompt_text,
-            "ref_file_ids": [],
-            "thinking_enabled": is_reasoning,
-            "search_enabled": bool(payload.get("search_enabled", False)),
-            "action": None,
-            "preempt": False,
-        }
+        can_continue = bool(
+            cached_session
+            and cached_session.get("session_id")
+            and cached_session.get("parent_message_id") is not None
+            and cached_session.get("accumulated_tokens", 0) < _MAX_SESSION_TOKENS
+        )
 
         # Yield initial role chunk
         yield {
@@ -394,96 +481,207 @@ class DeepSeekWebProvider(BaseExternalProvider):
             "choices": [{"index": 0, "delta": {"role": "assistant"}, "finish_reason": None}],
         }
 
+        dsml_parser = _DSMLStreamParser(req_id, model, schema_map)
+        emitted_content: list[str] = []
+        emitted_tool_calls: list[dict[str, Any]] = []
+        response_message_id: int | None = None
+        accumulated_tokens = 0
+        sess_id: str | None = None
+        yielded_any_output = False
+
+        def _collect_and_emit(chunks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+            nonlocal yielded_any_output
+            for ch in chunks:
+                delta = ch.get("choices", [{}])[0].get("delta", {})
+                if delta.get("content"):
+                    emitted_content.append(delta["content"])
+                    yielded_any_output = True
+                if delta.get("reasoning_content"):
+                    yielded_any_output = True
+                if delta.get("tool_calls"):
+                    emitted_tool_calls.extend(delta["tool_calls"])
+                    yielded_any_output = True
+            return chunks
+
         def _emit_fragment_text(frag_type: str, text: str) -> list[dict[str, Any]]:
             if not text:
                 return []
             if frag_type == "THINK":
-                return [{
+                return _collect_and_emit([{
                     "id": req_id,
                     "object": "chat.completion.chunk",
                     "created": int(time.time()),
                     "model": model,
                     "choices": [{"index": 0, "delta": {"reasoning_content": text}, "finish_reason": None}],
-                }]
-            return dsml_parser.feed(text)
+                }])
+            return _collect_and_emit(dsml_parser.feed(text))
 
-        async with client.stream(
-            "POST",
-            f"{self.base_url}/chat/completion",
-            headers=headers,
-            json=req_body,
-            timeout=120.0,
-        ) as resp:
-            if resp.status_code != 200:
-                err_text = await resp.aread()
-                yield {
-                    "id": req_id,
-                    "object": "chat.completion.chunk",
-                    "created": int(time.time()),
-                    "model": model,
-                    "choices": [
-                        {
-                            "index": 0,
-                            "delta": {"content": f"\n\n[DeepSeek Web Error ({resp.status_code}): {err_text.decode('utf-8', errors='replace')[:200]}]"},
-                            "finish_reason": "error",
-                        }
-                    ],
-                }
-                return
+        # Up to 2 attempts: try continuing existing chat session; on error/overflow, rotate to fresh session
+        for attempt in range(2):
+            use_continuation = can_continue and attempt == 0
+            if use_continuation and cached_session:
+                sess_id = cached_session["session_id"]
+                parent_msg_id = cached_session["parent_message_id"]
+                accumulated_tokens = int(cached_session.get("accumulated_tokens", 0))
+                model_type = None
+                prompt_text = self._format_continuation_prompt(latest_msgs, tools=tools or None)
+            else:
+                sess_id = await self._create_chat_session(client)
+                parent_msg_id = None
+                accumulated_tokens = 0
+                model_type = "deepseek-reasoner" if is_reasoning else "default"
+                prompt_text = self._format_prompt(messages, tools=tools or None)
 
-            current_fragment_type = "THINK" if is_reasoning else "RESPONSE"
-            seen_fragment_ids: set[Any] = set()
+            pow_header = await self._solve_pow_challenge(client, target_path="/api/v0/chat/completion")
+            headers = self.get_auth_headers()
+            headers["x-ds-pow-response"] = pow_header
 
-            async for line in resp.aiter_lines():
-                if not line or not line.startswith("data: "):
-                    continue
+            req_body = {
+                "chat_session_id": sess_id,
+                "parent_message_id": parent_msg_id,
+                "model_type": model_type,
+                "prompt": prompt_text,
+                "ref_file_ids": [],
+                "thinking_enabled": is_reasoning,
+                "search_enabled": bool(payload.get("search_enabled", False)),
+                "action": None,
+                "preempt": False,
+            }
 
-                raw_data = line[6:].strip()
-                if raw_data == "[DONE]":
-                    break
+            should_retry_fresh = False
+            async with client.stream(
+                "POST",
+                f"{self.base_url}/chat/completion",
+                headers=headers,
+                json=req_body,
+                timeout=120.0,
+            ) as resp:
+                if resp.status_code != 200:
+                    err_text = await resp.aread()
+                    if use_continuation:
+                        logger.info(
+                            "DeepSeek continuation failed (%s); rotating to a fresh chat session.",
+                            resp.status_code,
+                        )
+                        self._chat_sessions.pop(session_key, None)
+                        can_continue = False
+                        continue
+                    yield {
+                        "id": req_id,
+                        "object": "chat.completion.chunk",
+                        "created": int(time.time()),
+                        "model": model,
+                        "choices": [
+                            {
+                                "index": 0,
+                                "delta": {"content": f"\n\n[DeepSeek Web Error ({resp.status_code}): {err_text.decode('utf-8', errors='replace')[:200]}]"},
+                                "finish_reason": "error",
+                            }
+                        ],
+                    }
+                    return
 
-                try:
-                    ev = json.loads(raw_data)
-                except Exception:
-                    continue
+                current_fragment_type = "THINK" if is_reasoning else "RESPONSE"
+                seen_fragment_ids: set[Any] = set()
 
-                # 1. Full response object or fragment list update
-                frags_to_process: list[dict[str, Any]] = []
-                finished = False
-                if "v" in ev and isinstance(ev["v"], dict) and "response" in ev["v"]:
-                    r_obj = ev["v"]["response"]
-                    frags_to_process = r_obj.get("fragments", []) or []
-                    finished = r_obj.get("status") == "FINISHED"
-                elif ev.get("p") == "response/fragments" and isinstance(ev.get("v"), list):
-                    frags_to_process = ev["v"]
-                elif ev.get("p") == "response/status" and ev.get("v") == "FINISHED":
-                    finished = True
+                async for line in resp.aiter_lines():
+                    if not line:
+                        continue
+                    if not line.startswith("data: "):
+                        if line.startswith("{") and use_continuation and not yielded_any_output:
+                            try:
+                                err_obj = json.loads(line)
+                                if err_obj.get("code") not in (None, 0):
+                                    should_retry_fresh = True
+                                    break
+                            except Exception:
+                                pass
+                        continue
 
-                for f in frags_to_process:
-                    fid = f.get("id")
-                    if fid is not None and fid not in seen_fragment_ids:
-                        seen_fragment_ids.add(fid)
-                        current_fragment_type = f.get("type", current_fragment_type)
-                        init_text = f.get("content", "")
-                        for chunk in _emit_fragment_text(current_fragment_type, init_text):
+                    raw_data = line[6:].strip()
+                    if raw_data == "[DONE]":
+                        break
+
+                    try:
+                        ev = json.loads(raw_data)
+                    except Exception:
+                        continue
+
+                    if not isinstance(ev, dict):
+                        continue
+
+                    # Track session message IDs and token usage
+                    if ev.get("response_message_id") is not None:
+                        response_message_id = ev["response_message_id"]
+
+                    if ev.get("code") not in (None, 0) and use_continuation and not yielded_any_output:
+                        should_retry_fresh = True
+                        break
+
+                    if ev.get("p") == "response" and ev.get("o") == "BATCH" and isinstance(ev.get("v"), list):
+                        for patch in ev["v"]:
+                            if isinstance(patch, dict) and patch.get("p") == "accumulated_token_usage" and isinstance(patch.get("v"), (int, float)):
+                                accumulated_tokens = int(patch["v"])
+
+                    # 1. Full response object or fragment list update
+                    frags_to_process: list[dict[str, Any]] = []
+                    finished = False
+                    if "v" in ev and isinstance(ev["v"], dict) and "response" in ev["v"]:
+                        r_obj = ev["v"]["response"]
+                        if r_obj.get("message_id") is not None:
+                            response_message_id = r_obj["message_id"]
+                        if isinstance(r_obj.get("accumulated_token_usage"), (int, float)):
+                            accumulated_tokens = int(r_obj["accumulated_token_usage"])
+                        frags_to_process = r_obj.get("fragments", []) or []
+                        finished = r_obj.get("status") == "FINISHED"
+                    elif ev.get("p") == "response/fragments" and isinstance(ev.get("v"), list):
+                        frags_to_process = ev["v"]
+                    elif ev.get("p") == "response/status" and ev.get("v") == "FINISHED":
+                        finished = True
+
+                    for f in frags_to_process:
+                        fid = f.get("id")
+                        if fid is not None and fid not in seen_fragment_ids:
+                            seen_fragment_ids.add(fid)
+                            current_fragment_type = f.get("type", current_fragment_type)
+                            init_text = f.get("content", "")
+                            for chunk in _emit_fragment_text(current_fragment_type, init_text):
+                                yield chunk
+
+                    if finished:
+                        break
+
+                    # 2. Streamed content delta (append to current fragment)
+                    token_delta: str | None = None
+                    if ev.get("p") == "response/fragments/-1/content" and ev.get("o") == "APPEND" and isinstance(ev.get("v"), str):
+                        token_delta = ev["v"]
+                    elif "p" not in ev and "v" in ev and isinstance(ev["v"], str):
+                        token_delta = ev["v"]
+
+                    if token_delta:
+                        for chunk in _emit_fragment_text(current_fragment_type, token_delta):
                             yield chunk
 
-                if finished:
-                    break
+            if should_retry_fresh or (use_continuation and not yielded_any_output and not dsml_parser.text_buf and not dsml_parser.tool_buf):
+                logger.info("DeepSeek continuation returned empty/error; rotating to a fresh chat session.")
+                self._chat_sessions.pop(session_key, None)
+                can_continue = False
+                dsml_parser = _DSMLStreamParser(req_id, model, schema_map)
+                continue
+            break
 
-                # 2. Streamed content delta (append to current fragment)
-                token_delta: str | None = None
-                if ev.get("p") == "response/fragments/-1/content" and ev.get("o") == "APPEND" and isinstance(ev.get("v"), str):
-                    token_delta = ev["v"]
-                elif "p" not in ev and "v" in ev and isinstance(ev["v"], str):
-                    token_delta = ev["v"]
-
-                if token_delta:
-                    for chunk in _emit_fragment_text(current_fragment_type, token_delta):
-                        yield chunk
-
-        for chunk in dsml_parser.flush():
+        for chunk in _collect_and_emit(dsml_parser.flush()):
             yield chunk
+
+        # Persist session state so the next turn reuses this exact chat session
+        if sess_id and response_message_id is not None and (emitted_content or emitted_tool_calls):
+            next_turns = prefix_msgs + latest_msgs + [{
+                "role": "assistant",
+                "content": "".join(emitted_content),
+                "tool_calls": emitted_tool_calls,
+            }]
+            next_hash = _hash_turn_prefix(next_turns)
+            self._save_session_state(is_reasoning, next_hash, sess_id, response_message_id, accumulated_tokens)
 
         # Final stop chunk
         yield {
