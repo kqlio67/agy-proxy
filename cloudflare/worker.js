@@ -13,7 +13,7 @@
  */
 
 const DEFAULT_USER_AGENT =
-  "antigravity/hub/2.31.0 (aidev_client; os_type=linux; arch=amd64; cl=1017595969)";
+  "antigravity/hub/2.33.0 (aidev_client; os_type=linux; arch=amd64; cl=1023160026)";
 
 const DEFAULT_MODEL = "gemini-3.8-flash-high";
 
@@ -51,6 +51,13 @@ const DEFAULT_SAFETY_SETTINGS = [
 // -----------------------------------------------------------------------------
 
 const VALID_CLOUDCODE_MODELS = new Set([
+  // Gemini 4 Neon (v2.33.0 CloudCode model)
+  "gemini-4-neon",
+  "gemini-4-neon-high",
+  "gemini-4-neon-medium",
+  "gemini-4-neon-low",
+  "gemini-4-neon-xhigh",
+  "gemini-pro-orchestrator-neon",
   // Gemini 4 Argon, Hydrogen & Carbon
   "gemini-4-argon",
   "gemini-4-argon-high",
@@ -118,6 +125,17 @@ const VALID_CLOUDCODE_MODELS = new Set([
 ]);
 
 const MODEL_ALIASES = {
+  // Gemini 4 Neon
+  "gemini-4-neon": "gemini-4-neon",
+  "gemini-4-neon-medium": "gemini-4-neon-medium",
+  "gemini-4-neon-high": "gemini-4-neon-high",
+  "gemini-4-neon-low": "gemini-4-neon-low",
+  "gemini-4-neon-xhigh": "gemini-4-neon-xhigh",
+  "gemini-4-neon-disabled": "gemini-4-neon",
+  "neon": "gemini-4-neon",
+  "gemini-pro-orchestrator-neon": "gemini-pro-orchestrator-neon",
+  "orchestrator-neon": "gemini-pro-orchestrator-neon",
+
   "gemini-4-argon": "gemini-4-argon",
   "gemini-4-argon-high": "gemini-4-argon-high",
   "gemini-4-argon-medium": "gemini-4-argon-medium",

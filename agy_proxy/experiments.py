@@ -1610,6 +1610,87 @@ CURATED_SAFE_FLAGS: dict[str, dict[str, Any]] = {
         "category": "tools_plugins",
         "desc": "Enables quick tool & plugin connectors directly in the chat composer",
     },
+    # --- Antigravity Hub v2.33.0 New Features & Upstream Flags ---
+    "enable-wcv-three-layer-stack": {
+        "value": True,
+        "category": "ui_editor",
+        "desc": "v2.33.0 Flag: Enables Workspace Context View 3-layer stack architecture (dist/constants.js)",
+    },
+    "enable-aux-pane-redesign-extension": {
+        "value": True,
+        "category": "ui_editor",
+        "desc": "v2.33.0 Flag: Enables auxiliary pane redesign extensions and panel integration",
+    },
+    "enable-work-efficiently-reminder": {
+        "value": True,
+        "category": "ui_editor",
+        "desc": "v2.33.0 Flag: Enables work efficiently reminder prompt guidance",
+    },
+    "enable-browser-subagent-webview": {
+        "value": True,
+        "category": "agents",
+        "desc": "v2.33.0 Flag: Enables browser subagent embedded webview rendering",
+    },
+    "enable-remote-preview-wake": {
+        "value": True,
+        "category": "agents",
+        "desc": "v2.33.0 Flag: Enables automatic wake for remote subagent web previews",
+    },
+    "enable-ssh-remote": {
+        "value": True,
+        "category": "remote_agents",
+        "desc": "v2.33.0 Flag: Enables SSH remote development environment connections",
+    },
+    "enable-agy-hub-cua-script-mode": {
+        "value": True,
+        "category": "remote_agents",
+        "desc": "v2.33.0 Flag: Enables Computer Use Agent (CUA) script execution mode",
+    },
+    "ambient_injection_enabled": {
+        "value": True,
+        "category": "rag_context",
+        "desc": "v2.33.0 Flag: Enables ambient contextual awareness injection into model prompts",
+    },
+    "enroll-new-users-in-auto-mode": {
+        "value": True,
+        "category": "automations",
+        "desc": "v2.33.0 Flag: Enrolls new users into autonomous automation mode",
+    },
+    "deprecate-workflows": {
+        "value": True,
+        "category": "automations",
+        "desc": "v2.33.0 Flag: Enables deprecation path migrating legacy workflows to modern skills",
+    },
+    "DuetAICodeTransform__custom_slash_commands": {
+        "value": True,
+        "category": "tools_plugins",
+        "desc": "v2.33.0 Flag: Enables custom slash commands for code transformations",
+    },
+    "DuetAi__custom_preambles": {
+        "value": True,
+        "category": "rag_context",
+        "desc": "v2.33.0 Flag: Enables custom system prompt preambles",
+    },
+    "DuetAiLocalRag__merge_fragments": {
+        "value": True,
+        "category": "rag_context",
+        "desc": "v2.33.0 Flag: Merges fragmented local RAG search results for higher precision",
+    },
+    "DuetAiGeneration__auto_trigger_on_empty_class_struct_def": {
+        "value": True,
+        "category": "sdlc_models",
+        "desc": "v2.33.0 Flag: Auto-triggers generation on empty class and struct definitions",
+    },
+    "DatacloudDatabases__discoverability_improvements": {
+        "value": True,
+        "category": "tools_plugins",
+        "desc": "v2.33.0 Flag: Enables database discoverability enhancements in IDE",
+    },
+    "DatacloudDatabases__enable_query_execution_details": {
+        "value": True,
+        "category": "tools_plugins",
+        "desc": "v2.33.0 Flag: Shows query execution plan details in database viewer",
+    },
 }
 
 # Optimized non-bool flag overrides
@@ -1883,6 +1964,10 @@ CURATED_EXPERIMENT_IDS: list[int] = [
     106913264, 106927140, 106937777,
     # v2.31.0 Experiment IDs (Swarm Mode, Battle Mode, Remote Control Mesh, Next-Gen Architectures)
     106986919, 106828998, 1714256, 106898384, 107036252, 106806117, 106931179, 107033208,
+    # v2.33.0 Experiment IDs (Neon & Next-Gen CloudCode Live Upstream)
+    106644190, 106644197, 106784317, 106788243, 106788247, 106788251, 106808527,
+    106933312, 106939313, 106949161, 107002378, 107002392, 107032007, 107032052,
+    107034214, 107036253, 107045198, 107045206, 107086970, 107086985,
 ]
 
 

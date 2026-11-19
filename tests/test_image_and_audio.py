@@ -75,7 +75,7 @@ class TestImageAndAudioCapabilities(unittest.TestCase):
         # 6. Legacy reverse mappings backward compatibility
         self.assertEqual(normalize_model_name("MODEL_PLACEHOLDER_M521"), "gemini-3.8-flash-tiered")
         self.assertEqual(normalize_model_name("MODEL_PLACEHOLDER_M530"), "gemini-3.5-flash-lite")
-        self.assertEqual(normalize_model_name("MODEL_PLACEHOLDER_M534"), "gemini-3.1-flash-lite")
+        self.assertEqual(normalize_model_name("MODEL_PLACEHOLDER_M534"), "gemini-4-neon-low")
         self.assertEqual(normalize_model_name("MODEL_PLACEHOLDER_M548"), "gemini-3.1-flash-image")
 
     def test_proxy_catalog_contains_all_specialized_models(self):

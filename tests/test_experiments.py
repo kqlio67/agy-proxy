@@ -336,10 +336,10 @@ def test_enhance_list_experiments_input_immutability():
 
 
 def test_v2_26_0_updates():
-    """Verify v2.29.0 & v2.31.0 User-Agent, experiment IDs, and experimental flags."""
+    """Verify v2.29.0, v2.31.0 & v2.33.0 User-Agent, experiment IDs, and experimental flags."""
     from agy_proxy.auth.constants import USER_AGENT
-    assert any(v in USER_AGENT for v in ("2.29.0", "2.31.0"))
-    assert any(cl in USER_AGENT for cl in ("1006921819", "1013060670", "1017595969"))
+    assert any(v in USER_AGENT for v in ("2.29.0", "2.31.0", "2.33.0"))
+    assert any(cl in USER_AGENT for cl in ("1006921819", "1013060670", "1017595969", "1023160026"))
 
     payload = get_default_experiments_payload()
     exp_ids = payload["experimentIds"]
@@ -365,7 +365,7 @@ def test_v2_26_0_updates():
     assert flags_dict.get("show_memory_operations") is True
     assert flags_dict.get("ambient_prefetch_enabled") is False
     assert flags_dict.get("ambient_memory_si_enabled") is True
-    assert flags_dict.get("enable-browser-subagent-webview") is False
+    assert flags_dict.get("enable-browser-subagent-webview") is True
     assert flags_dict.get("enable-citc-workspace-hygiene-rule") is True
     assert flags_dict.get("enable-swarm-monitor") is True
     assert flags_dict.get("enable-resource-manager") is True
@@ -929,6 +929,63 @@ def test_v2_31_0_flags_and_capabilities():
     fmap = {f["name"]: f for f in enhanced["flags"]}
     assert fmap["deepagent-arm"]["stringValue"] == "treatment"
     assert fmap["deepagent_effort"]["intValue"] == "3"
+
+
+def test_v2_33_0_flags_and_capabilities():
+    """Verify Antigravity v2.33.0 User-Agent, live experiment IDs, and newly curated upstream flags."""
+    from agy_proxy.auth.constants import USER_AGENT
+    from agy_proxy.experiments import (
+        CURATED_SAFE_FLAGS,
+        CURATED_EXPERIMENT_IDS,
+        enhance_list_experiments,
+    )
+
+    # 1. User-Agent
+    assert "2.33.0" in USER_AGENT
+    assert "1023160026" in USER_AGENT
+
+    # 2. Curated safe flags
+    v2_33_flags = [
+        "enable-wcv-three-layer-stack",
+        "enable-aux-pane-redesign-extension",
+        "enable-work-efficiently-reminder",
+        "enable-browser-subagent-webview",
+        "enable-remote-preview-wake",
+        "enable-ssh-remote",
+        "enable-agy-hub-cua-script-mode",
+        "ambient_injection_enabled",
+        "enroll-new-users-in-auto-mode",
+        "deprecate-workflows",
+        "DuetAICodeTransform__custom_slash_commands",
+        "DuetAi__custom_preambles",
+        "DuetAiLocalRag__merge_fragments",
+        "DuetAiGeneration__auto_trigger_on_empty_class_struct_def",
+        "DatacloudDatabases__discoverability_improvements",
+        "DatacloudDatabases__enable_query_execution_details",
+    ]
+    for flag in v2_33_flags:
+        assert flag in CURATED_SAFE_FLAGS, f"Expected {flag} in CURATED_SAFE_FLAGS"
+        assert CURATED_SAFE_FLAGS[flag]["value"] is True
+
+    # 3. Live experiment IDs
+    for exp_id in [
+        107045198, 107036253, 107034214, 107045206, 107032052,
+        107086985, 107002392, 107032007, 107086970, 107002378,
+        106644190, 106644197,
+    ]:
+        assert exp_id in CURATED_EXPERIMENT_IDS, f"Expected {exp_id} in CURATED_EXPERIMENT_IDS"
+
+    # 4. Enhance list experiments
+    enhanced = enhance_list_experiments(
+        {"experimentIds": [99999], "flags": []},
+        config_override={"enabled": True, "mode": "curated", "custom_overrides": {}},
+    )
+    flags_dict = {f["name"]: f.get("boolValue") for f in enhanced["flags"]}
+    for flag in v2_33_flags:
+        assert flags_dict.get(flag) is True, f"Expected {flag} to be True in enhanced experiments"
+
+    assert 107045198 in enhanced["experimentIds"]
+    assert 99999 in enhanced["experimentIds"]
 
 
 def test_enhance_available_models_neon_unlocking():
