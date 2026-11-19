@@ -24,7 +24,14 @@ import httpx
 
 from agy_proxy.providers.base import BaseExternalProvider
 from agy_proxy.providers.models import ExternalModelConfig, ExternalProviderConfig
-from agy_proxy.providers.web_prompt_utils import compact_web_system_prompt
+from agy_proxy.providers.web_prompt_utils import (
+    WebToolCallStreamParser,
+    build_tool_schema_map,
+    compact_web_system_prompt,
+    format_web_continuation_prompt,
+    format_web_prompt,
+    split_latest_turn,
+)
 
 logger = logging.getLogger("agy_proxy.providers.gemini_guest")
 
@@ -372,11 +379,18 @@ class GeminiGuestProvider(BaseExternalProvider):
                 "error": str(e),
             }
 
-    def _format_messages_to_prompt(self, messages: list[dict[str, Any]]) -> str:
-        """Formats list of OpenAI messages into prompt text."""
+    def _format_messages_to_prompt(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+    ) -> str:
+        """Formats list of OpenAI messages (and optional tools) into prompt text."""
+        if tools:
+            return format_web_prompt(messages, tools=tools, tool_style="tool_call") or "Hello"
+
         parts: list[str] = []
         for msg in messages:
-            role = msg.get("role", "user")
+            role = str(msg.get("role", "user")).lower()
             content = msg.get("content")
             text = ""
             if isinstance(content, str):
@@ -388,10 +402,13 @@ class GeminiGuestProvider(BaseExternalProvider):
             if not text.strip():
                 continue
 
-            if role == "system":
+            if role in ("system", "developer"):
                 compact_sys = compact_web_system_prompt(text.strip())
                 if compact_sys:
                     parts.append(f"[System Instructions: {compact_sys}]")
+            elif role == "tool":
+                t_name = msg.get("name") or msg.get("tool_call_id") or "tool"
+                parts.append(f"Tool Result ({t_name}):\n{text.strip()}")
             elif role == "user":
                 parts.append(f"User: {text.strip()}")
             elif role == "assistant":
@@ -536,6 +553,8 @@ class GeminiGuestProvider(BaseExternalProvider):
         resp_id = f"chatcmpl_{uuid.uuid4().hex[:12]}"
         created_ts = int(time.time())
         messages = payload.get("messages", [])
+        tools = payload.get("tools") or []
+        schema_map = build_tool_schema_map(tools)
         session_id = payload.get("session_id")
 
         client = await self.get_http_client()
@@ -551,33 +570,22 @@ class GeminiGuestProvider(BaseExternalProvider):
 
         if cdp_available:
             try:
-                # If continuing in an existing browser tab, send latest message
+                # If continuing in an existing browser tab, send only the latest user / tool-result turn
                 if self._active_cdp_target_id and self._cdp_turn_count >= 1 and messages:
-                    last_msg = messages[-1].get("content", "")
-                    if isinstance(last_msg, str):
-                        prompt_text = last_msg
-                    elif isinstance(last_msg, list):
-                        prompt_text = "".join(p.get("text", "") for p in last_msg if isinstance(p, dict) and p.get("type") == "text")
-                    else:
-                        prompt_text = str(last_msg)
+                    _, latest_msgs = split_latest_turn(messages)
+                    prompt_text = format_web_continuation_prompt(
+                        latest_msgs, tools=tools or None, tool_style="tool_call"
+                    )
                 else:
-                    prompt_text = self._format_messages_to_prompt(messages)
+                    prompt_text = self._format_messages_to_prompt(messages, tools=tools or None)
 
+                cdp_parser = WebToolCallStreamParser(resp_id, model_name, schema_map)
                 logger.info("[Gemini Guest] Using high-fidelity CDP Conduit on port 9222 (turn %d)", self._cdp_turn_count + 1)
                 async for delta in self._query_via_cdp_worker(prompt_text, session_id=session_id):
-                    yield {
-                        "id": resp_id,
-                        "object": "chat.completion.chunk",
-                        "created": created_ts,
-                        "model": model_name,
-                        "choices": [
-                            {
-                                "index": 0,
-                                "delta": {"content": delta},
-                                "finish_reason": None,
-                            }
-                        ],
-                    }
+                    for parsed_chunk in cdp_parser.feed(delta):
+                        yield parsed_chunk
+                for parsed_chunk in cdp_parser.flush():
+                    yield parsed_chunk
                 yield {
                     "id": resp_id,
                     "object": "chat.completion.chunk",
@@ -588,7 +596,7 @@ class GeminiGuestProvider(BaseExternalProvider):
                         {
                             "index": 0,
                             "delta": {},
-                            "finish_reason": "stop",
+                            "finish_reason": "tool_calls" if cdp_parser.emitted_tool_calls else "stop",
                         }
                     ],
                 }
@@ -597,7 +605,8 @@ class GeminiGuestProvider(BaseExternalProvider):
                 logger.warning("[Gemini Guest] CDP conduit failed, falling back to direct WebChannel: %s", cdp_err)
 
         # Direct WebChannel stream execution with session continuation
-        prompt_text = self._format_messages_to_prompt(messages)
+        prompt_text = self._format_messages_to_prompt(messages, tools=tools or None)
+        tool_parser = WebToolCallStreamParser(resp_id, model_name, schema_map)
         try:
             now = time.time()
             sess_key = session_id or "default_guest"
@@ -691,21 +700,13 @@ class GeminiGuestProvider(BaseExternalProvider):
                                 if txt and len(txt) > len(last_text):
                                     delta = txt[len(last_text):]
                                     last_text = txt
-                                    yield {
-                                        "id": resp_id,
-                                        "object": "chat.completion.chunk",
-                                        "created": created_ts,
-                                        "model": model_name,
-                                        "choices": [
-                                            {
-                                                "index": 0,
-                                                "delta": {"content": delta},
-                                                "finish_reason": None,
-                                            }
-                                        ],
-                                    }
+                                    for parsed_chunk in tool_parser.feed(delta):
+                                        yield parsed_chunk
                             except Exception:
                                 pass
+
+            for parsed_chunk in tool_parser.flush():
+                yield parsed_chunk
 
             # Normal completion
             yield {
@@ -718,7 +719,7 @@ class GeminiGuestProvider(BaseExternalProvider):
                     {
                         "index": 0,
                         "delta": {},
-                        "finish_reason": "stop",
+                        "finish_reason": "tool_calls" if tool_parser.emitted_tool_calls else "stop",
                     }
                 ],
             }
@@ -746,17 +747,33 @@ class GeminiGuestProvider(BaseExternalProvider):
         yield "data: [DONE]\n\n"
 
     async def chat_completion(self, payload: dict[str, Any]) -> dict[str, Any]:
-        """Non-streaming chat completion aggregating chunks."""
+        """Non-streaming chat completion aggregating chunks and tool calls."""
         full_text = ""
+        tool_calls_list: list[dict[str, Any]] = []
+        finish_reason = "stop"
         model_name = payload.get("model", "gemini-2.0-flash-lite")
         resp_id = f"chatcmpl_{uuid.uuid4().hex[:12]}"
 
         async for chunk in self.stream_chat(payload):
             choices = chunk.get("choices", [])
             if choices:
-                delta = choices[0].get("delta", {})
+                c0 = choices[0]
+                if c0.get("finish_reason"):
+                    finish_reason = c0["finish_reason"]
+                delta = c0.get("delta", {})
                 if delta.get("content"):
                     full_text += delta["content"]
+                if delta.get("tool_calls"):
+                    for tc in delta["tool_calls"]:
+                        tool_calls_list.append({
+                            "id": tc.get("id") or f"call_{uuid.uuid4().hex[:12]}",
+                            "type": tc.get("type", "function"),
+                            "function": tc.get("function", {}),
+                        })
+
+        message: dict[str, Any] = {"role": "assistant", "content": full_text}
+        if tool_calls_list:
+            message["tool_calls"] = tool_calls_list
 
         return {
             "id": resp_id,
@@ -766,8 +783,8 @@ class GeminiGuestProvider(BaseExternalProvider):
             "choices": [
                 {
                     "index": 0,
-                    "message": {"role": "assistant", "content": full_text},
-                    "finish_reason": "stop",
+                    "message": message,
+                    "finish_reason": finish_reason,
                 }
             ],
             "usage": {

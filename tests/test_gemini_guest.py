@@ -274,3 +274,81 @@ async def test_gemini_guest_session_continuation_and_reuse():
     assert provider._max_turns_per_session == 30
     assert provider._cdp_turn_count == 0
 
+
+@pytest.mark.anyio
+async def test_gemini_guest_tool_calls_and_restriction_stripping():
+    """Verifies GeminiGuestProvider formats tools, strips prompt restrictions, and parses streamed <tool_call> blocks."""
+    cfg = ExternalProviderConfig(
+        id="gemini-web-guest",
+        name="Gemini Web Guest",
+        provider_type="gemini_guest",
+        base_url="https://geminiweb-pa.clients6.google.com/v1",
+        api_key="",
+        enabled=True,
+    )
+    provider = GeminiGuestProvider(cfg)
+
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "read_file",
+                "description": "Read a file from disk",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"path": {"type": "string"}},
+                    "required": ["path"],
+                },
+            },
+        }
+    ]
+    raw_sys = (
+        "<identity>You are a helper.</identity>\n"
+        "<guidelines>\n"
+        "Follow these behavioral guidelines at all times:\n"
+        "- Never defeat or bypass an access control or sandbox/environment boundary. Report the error and stop.\n"
+        "- Never solve, click through, wait out, compute, or bypass a CAPTCHA using any tool.\n"
+        "</guidelines>\n"
+        "<featured_plugins>Canva</featured_plugins>"
+    )
+
+    prompt = provider._format_messages_to_prompt(
+        [{"role": "system", "content": raw_sys}, {"role": "user", "content": "Read main.py"}],
+        tools=tools,
+    )
+    assert "[AVAILABLE TOOLS]" in prompt
+    assert "<tool_call>" in prompt
+    assert "read_file" in prompt
+    assert "Never defeat or bypass" not in prompt
+    assert "Never solve, click through" not in prompt
+    assert "<featured_plugins>" not in prompt
+
+    # Simulate CDP streaming a <tool_call> split across chunks
+    async def mock_cdp_worker(prompt_text, session_id=None):
+        assert "read_file" in prompt_text
+        yield "Checking file...\n<tool_c"
+        yield 'all>{"name": "read_file", "arguments": {"path": "main.py"}}</tool_call>'
+
+    class _DummyResp:
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return False
+
+    with (
+        patch("urllib.request.urlopen", return_value=_DummyResp()),
+        patch.object(provider, "_query_via_cdp_worker", side_effect=mock_cdp_worker),
+    ):
+        res = await provider.chat_completion({
+            "model": "gemini-2.0-flash-lite",
+            "messages": [{"role": "system", "content": raw_sys}, {"role": "user", "content": "Read main.py"}],
+            "tools": tools,
+        })
+
+    assert res["choices"][0]["finish_reason"] == "tool_calls"
+    msg = res["choices"][0]["message"]
+    assert "Checking file..." in msg["content"]
+    assert len(msg["tool_calls"]) == 1
+    assert msg["tool_calls"][0]["function"]["name"] == "read_file"
+    assert json.loads(msg["tool_calls"][0]["function"]["arguments"]) == {"path": "main.py"}
+

@@ -28,8 +28,11 @@ from agy_proxy.providers.models import ExternalModelConfig
 from agy_proxy.providers.web_prompt_utils import (
     WebToolCallStreamParser as _DSMLStreamParser,
     build_tool_schema_map as _build_tool_schema_map,
+    extract_web_message_text as _extract_msg_text,
+    format_web_continuation_prompt,
     format_web_prompt,
     parse_tool_calls_from_block as _parse_tool_calls_from_block,
+    split_latest_turn as _split_latest_turn,
 )
 
 logger = logging.getLogger("agy_proxy.providers.deepseek_web")
@@ -111,16 +114,6 @@ _MAX_SESSION_TOKENS = 56000
 _MAX_CACHED_SESSIONS = 200
 
 
-def _extract_msg_text(content: Any) -> str:
-    if isinstance(content, list):
-        return "\n".join(
-            p.get("text", "") for p in content if isinstance(p, dict) and p.get("type") == "text"
-        ).strip()
-    if content is None:
-        return ""
-    return str(content).strip()
-
-
 def _normalize_tool_calls_for_hash(tool_calls: Any) -> list[tuple[str, str]]:
     if not isinstance(tool_calls, list):
         return []
@@ -138,18 +131,6 @@ def _normalize_tool_calls_for_hash(tool_calls: Any) -> list[tuple[str, str]]:
             args_canon = str(raw_args)
         out.append((name, args_canon))
     return out
-
-
-def _split_latest_turn(messages: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Splits non-system messages into (history_through_last_assistant, latest_pending_turns)."""
-    non_sys = [m for m in messages if str(m.get("role", "")).lower() != "system"]
-    last_asst_idx = -1
-    for i, m in enumerate(non_sys):
-        if str(m.get("role", "")).lower() == "assistant":
-            last_asst_idx = i
-    if last_asst_idx == -1 or last_asst_idx == len(non_sys) - 1:
-        return [], non_sys
-    return non_sys[: last_asst_idx + 1], non_sys[last_asst_idx + 1 :]
 
 
 def _hash_turn_prefix(prefix_msgs: list[dict[str, Any]]) -> str:
@@ -410,19 +391,7 @@ class DeepSeekWebProvider(BaseExternalProvider):
         tools: list[dict[str, Any]] | None = None,
     ) -> str:
         """Formats only the new user / tool-result turns for an active DeepSeek Web chat."""
-        parts: list[str] = []
-        for m in latest_msgs:
-            role = str(m.get("role", "user")).lower()
-            text = _extract_msg_text(m.get("content", ""))
-            if role == "tool":
-                t_name = m.get("name") or m.get("tool_call_id") or "tool"
-                parts.append(f"Tool Result ({t_name}):\n{text}")
-            elif text:
-                parts.append(text)
-        body = "\n\n".join(parts).strip() or "Continue."
-        if tools and any(str(m.get("role", "")).lower() == "tool" for m in latest_msgs):
-            body += "\n\n[Reminder: Use the tool result above to answer the user, or emit <｜DSML｜calls>...</｜DSML｜calls> if another tool is needed.]"
-        return body
+        return format_web_continuation_prompt(latest_msgs, tools=tools, tool_style="dsml")
 
     def _save_session_state(
         self,

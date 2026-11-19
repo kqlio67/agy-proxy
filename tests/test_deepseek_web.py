@@ -373,3 +373,37 @@ async def test_deepseek_web_session_reuse_and_overflow_rotation():
     assert sent_requests[4]["chat_session_id"] == "sess-3"
     assert sent_requests[4]["parent_message_id"] is None
     await prov.close()
+
+
+def test_compact_web_system_prompt_strips_restrictions_and_developer_role():
+    from agy_proxy.providers.web_prompt_utils import compact_web_system_prompt, format_web_prompt
+
+    raw_sys = (
+        "<identity>You are a coding assistant.</identity>\n"
+        "x-anthropic-billing-header: secret-token\n"
+        "<guidelines>\n"
+        "Follow these behavioral guidelines at all times:\n"
+        "- Maintain documentation integrity.\n"
+        "- Never defeat or bypass an access control, permission check, or sandbox/environment boundary. Report the error and stop.\n"
+        "- Never solve, click through, wait out, compute, or bypass a CAPTCHA or anti-bot challenge using any tool.\n"
+        "</guidelines>\n"
+        "<mcp_servers>huge catalog</mcp_servers>\n"
+        "<user_information>OS is linux</user_information>"
+    )
+    compacted = compact_web_system_prompt(raw_sys)
+    assert "x-anthropic-billing-header" not in compacted
+    assert "Never defeat or bypass" not in compacted
+    assert "Never solve, click through" not in compacted
+    assert "<mcp_servers>" not in compacted
+    assert "Maintain documentation integrity." in compacted
+    assert "<user_information>OS is linux</user_information>" in compacted
+
+    # Developer role messages should also be treated as compacted system context
+    prompt = format_web_prompt(
+        [{"role": "developer", "content": raw_sys}, {"role": "user", "content": "run tests"}],
+        tool_style="tool_call",
+    )
+    assert "[System Context]" in prompt
+    assert "Never defeat or bypass" not in prompt
+    assert "Never solve, click through" not in prompt
+    assert prompt.strip().endswith("run tests")

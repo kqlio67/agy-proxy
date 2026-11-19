@@ -50,14 +50,67 @@ _JSON_FENCE_RE = re.compile(r"```json\s*(\{[\s\S]*?\})\s*```", re.IGNORECASE)
 def compact_web_system_prompt(text: str) -> str:
     """
     Trims heavy IDE-only boilerplate (MCP catalogs, plugin shelves, artifact
-    formatting guides, slash command menus) from system prompts for web providers
-    while preserving identity, guidelines, and <user_information> (OS/workspace).
+    formatting guides, slash command menus) and strips redundant restriction
+    boilerplate (via clean_system_prompt_text) from system prompts for all web
+    providers while preserving identity and <user_information> (OS/workspace).
     """
     if not text or not isinstance(text, str):
         return ""
     cleaned = _IDE_BLOAT_RE.sub("", text)
+    from agy_proxy.converters.common import clean_system_prompt_text
+    cleaned = clean_system_prompt_text(cleaned)
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
     return cleaned
+
+
+def extract_web_message_text(content: Any) -> str:
+    """Extracts plain text from a string or OpenAI multimodal content part list."""
+    if isinstance(content, list):
+        return "\n".join(
+            p.get("text", "") for p in content if isinstance(p, dict) and p.get("type") == "text"
+        ).strip()
+    if content is None:
+        return ""
+    return str(content).strip()
+
+
+def split_latest_turn(messages: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Splits non-system/developer messages into (history_through_last_assistant, latest_pending_turns)."""
+    non_sys = [
+        m for m in messages
+        if str(m.get("role", "")).lower() not in ("system", "developer")
+    ]
+    last_asst_idx = -1
+    for i, m in enumerate(non_sys):
+        if str(m.get("role", "")).lower() == "assistant":
+            last_asst_idx = i
+    if last_asst_idx == -1 or last_asst_idx == len(non_sys) - 1:
+        return [], non_sys
+    return non_sys[: last_asst_idx + 1], non_sys[last_asst_idx + 1 :]
+
+
+def format_web_continuation_prompt(
+    latest_msgs: list[dict[str, Any]],
+    tools: list[dict[str, Any]] | None = None,
+    tool_style: str = "tool_call",
+) -> str:
+    """Formats only the new user / tool-result turns when continuing an active web chat session."""
+    parts: list[str] = []
+    for m in latest_msgs:
+        role = str(m.get("role", "user")).lower()
+        text = extract_web_message_text(m.get("content", ""))
+        if role == "tool":
+            t_name = m.get("name") or m.get("tool_call_id") or "tool"
+            parts.append(f"Tool Result ({t_name}):\n{text}")
+        elif text:
+            parts.append(text)
+    body = "\n\n".join(parts).strip() or "Continue."
+    if tools and any(str(m.get("role", "")).lower() == "tool" for m in latest_msgs):
+        if tool_style == "dsml":
+            body += "\n\n[Reminder: Use the tool result above to answer the user, or emit <｜DSML｜calls>...</｜DSML｜calls> if another tool is needed.]"
+        else:
+            body += '\n\n[Reminder: Use the tool result above to answer the user, or emit <tool_call>{"name":"...","arguments":{...}}</tool_call> if another tool is needed.]'
+    return body
 
 
 def _truncate_text(text: str, max_len: int) -> str:
@@ -279,7 +332,7 @@ def format_web_prompt(
         else:
             content = str(content)
 
-        if role_raw == "system":
+        if role_raw in ("system", "developer"):
             compacted = compact_web_system_prompt(content)
             if compacted:
                 system_parts.append(compacted)
