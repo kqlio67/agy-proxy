@@ -497,6 +497,9 @@ def test_enhance_user_status_direct_and_proxy_models(tmp_path):
     assert '"gemini-4-argon-high":1417' in patched_js
     assert '"gemini-4-argon-medium":1418' in patched_js
     assert '"gemini-4-argon-low":1419' in patched_js
+    assert '"gemini-4-neon":1533' in patched_js
+    assert '"gemini-4-neon-high":1532' in patched_js
+    assert '"gemini-pro-orchestrator-neon":1537' in patched_js
     assert '"claude-sonnet-5-5-high":1405' in patched_js
     assert '"claude-opus-5-5-high":1402' in patched_js
     assert '"gemini-3.8-flash-deepagent":1522' in patched_js
@@ -552,6 +555,8 @@ def test_enhance_user_status_direct_and_proxy_models(tmp_path):
         assert "── Image Generation ─────────" in direct_labels
         
         # Verify key models are in direct mode
+        assert "Gemini 4 Neon (Medium)" in direct_labels
+        assert "Orchestrator (Neon)" in direct_labels
         assert "Gemini 4 Argon (High)" in direct_labels
         assert "Claude Sonnet 4.6 (Thinking)" in direct_labels
         assert "Claude Opus 4.6 (Thinking)" in direct_labels

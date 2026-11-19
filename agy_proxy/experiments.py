@@ -2135,8 +2135,55 @@ def enhance_available_models(data: dict[str, Any]) -> dict[str, Any]:
                     if isinstance(exp_val, dict) and "boolValue" in exp_val:
                         exp_val["boolValue"] = True
 
-    # Unlock Gemini 4 Argon & Hydrogen if returned as disabled for consumer tier
-    # Strategy: use only gemini-4-argon / gemini-4-hydrogen keys (remove -disabled to prevent duplicates)
+    # Unlock Gemini 4 Neon, Argon & Hydrogen if returned as disabled for consumer tier
+    # Strategy: use only gemini-4-neon / gemini-4-argon / gemini-4-hydrogen keys (remove -disabled to prevent duplicates)
+    if "gemini-4-neon-disabled" in models:
+        neon_entry = models.pop("gemini-4-neon-disabled")
+        neon_entry["disabled"] = False
+        neon_entry["recommended"] = True
+        neon_entry.pop("tagTitle", None)
+        neon_entry.pop("tagDescription", None)
+        neon_entry.pop("betaWarningMessage", None)
+        if "gemini-4-neon" not in models:
+            models["gemini-4-neon"] = neon_entry
+        else:
+            models["gemini-4-neon"]["disabled"] = False
+            models["gemini-4-neon"]["recommended"] = True
+            models["gemini-4-neon"].pop("tagTitle", None)
+            models["gemini-4-neon"].pop("tagDescription", None)
+
+    if "gemini-4-neon" in models:
+        models["gemini-4-neon"]["disabled"] = False
+        models["gemini-4-neon"]["recommended"] = True
+        models["gemini-4-neon"].pop("tagTitle", None)
+        models["gemini-4-neon"].pop("tagDescription", None)
+
+    for _n_k, _n_ph, _n_lvl in (
+        ("gemini-4-neon-high", "MODEL_PLACEHOLDER_M532", 3),
+        ("gemini-4-neon-medium", "MODEL_PLACEHOLDER_M533", 2),
+        ("gemini-4-neon-low", "MODEL_PLACEHOLDER_M534", 1),
+        ("gemini-4-neon-xhigh", "MODEL_PLACEHOLDER_M535", 4),
+    ):
+        if _n_k in models and isinstance(models[_n_k], dict):
+            models[_n_k]["disabled"] = False
+            models[_n_k]["recommended"] = True
+            models[_n_k]["tagTitle"] = "New"
+            models[_n_k].setdefault("model", _n_ph)
+            models[_n_k].setdefault("thinkingLevel", _n_lvl)
+            models[_n_k].setdefault("maxOutputTokens", 262144)
+            models[_n_k].setdefault("supportsImages", True)
+            models[_n_k].setdefault("supportsVideo", True)
+            models[_n_k].setdefault("supportsThinking", True)
+            models[_n_k].pop("betaWarningMessage", None)
+
+    if "gemini-pro-orchestrator-neon" in models and isinstance(models["gemini-pro-orchestrator-neon"], dict):
+        models["gemini-pro-orchestrator-neon"]["disabled"] = False
+        models["gemini-pro-orchestrator-neon"]["recommended"] = True
+        models["gemini-pro-orchestrator-neon"]["tagTitle"] = "New"
+        models["gemini-pro-orchestrator-neon"]["displayName"] = "Orchestrator (Neon)"
+        models["gemini-pro-orchestrator-neon"]["modelProvider"] = "Google"
+        models["gemini-pro-orchestrator-neon"].setdefault("model", "MODEL_PLACEHOLDER_M537")
+
     if "gemini-4-argon-disabled" in models:
         # Promote gemini-4-argon-disabled → gemini-4-argon (single clean entry, no duplicate)
         argon_entry = models.pop("gemini-4-argon-disabled")
@@ -2273,18 +2320,24 @@ def enhance_available_models(data: dict[str, Any]) -> dict[str, Any]:
                 m_info.pop("tagDescription", None)
             m_info.pop("betaWarningMessage", None)
 
-    # Fix agentModelSorts: replace gemini-4-argon-disabled / gemini-4-hydrogen-disabled with canonical names (dedup, single entry)
+    # Fix agentModelSorts: replace gemini-4-*-disabled with canonical names (dedup, single entry)
     # and sort by authentic Google CloudCode flagship priority
     SORT_PRIORITY = [
+        "gemini-4-neon-medium",
+        "gemini-4-neon-high",
+        "gemini-4-neon-low",
+        "gemini-4-neon-xhigh",
+        "gemini-4-neon",
         "gemini-4-argon-medium",
         "gemini-4-argon-high",
         "gemini-4-argon-low",
         "gemini-4-argon",
+        "gemini-4-hydrogen-medium",
         "gemini-4-hydrogen-high",
         "gemini-4-hydrogen-xhigh",
-        "gemini-4-hydrogen-medium",
         "gemini-4-hydrogen-low",
         "gemini-4-hydrogen",
+        "gemini-pro-orchestrator-neon",
         "gemini-pro-orchestrator-g1-pro",
         "gemini-3.8-flash-high",
         "gemini-3.8-flash-medium",
@@ -2317,7 +2370,9 @@ def enhance_available_models(data: dict[str, Any]) -> dict[str, Any]:
                         if isinstance(mids, list):
                             # Replace all gemini-4-*-disabled → gemini-4-* (except carbon)
                             for i, mid in enumerate(mids):
-                                if mid == "gemini-4-argon-disabled":
+                                if mid == "gemini-4-neon-disabled":
+                                    mids[i] = "gemini-4-neon"
+                                elif mid == "gemini-4-argon-disabled":
                                     mids[i] = "gemini-4-argon"
                                 elif mid == "gemini-4-hydrogen-disabled":
                                     mids[i] = "gemini-4-hydrogen"

@@ -53,8 +53,18 @@ DEFAULT_MODEL = "gemini-3.8-flash-high"
 
 MODEL_ALIASES: dict[str, str] = {
     # --------------------------------------------------------------------------
-    # 1. Gemini 4 Argon & Hydrogen (API models - requires supported subscription tier)
+    # 1. Gemini 4 Neon, Argon & Hydrogen (API models - requires supported subscription tier)
     # --------------------------------------------------------------------------
+    "gemini-4-neon": "gemini-4-neon",
+    "gemini-4-neon-medium": "gemini-4-neon-medium",
+    "gemini-4-neon-high": "gemini-4-neon-high",
+    "gemini-4-neon-low": "gemini-4-neon-low",
+    "gemini-4-neon-xhigh": "gemini-4-neon-xhigh",
+    "gemini-4-neon-disabled": "gemini-4-neon",
+    "neon": "gemini-4-neon",
+    "gemini-pro-orchestrator-neon": "gemini-pro-orchestrator-neon",
+    "orchestrator-neon": "gemini-pro-orchestrator-neon",
+
     "gemini-4-argon": "gemini-4-argon",
     "gemini-4-argon-high": "gemini-4-argon-high",
     "gemini-4-argon-medium": "gemini-4-argon-medium",
@@ -425,6 +435,13 @@ MODEL_ALIASES: dict[str, str] = {
 
 
 VALID_CLOUDCODE_MODELS = {
+    # Gemini 4 Neon (CloudCode API - next-gen deep reasoning)
+    "gemini-4-neon",
+    "gemini-4-neon-high",
+    "gemini-4-neon-medium",
+    "gemini-4-neon-low",
+    "gemini-4-neon-xhigh",
+    "gemini-pro-orchestrator-neon",
     # Gemini 4 Argon & Hydrogen (CloudCode API - requires supported subscription tier)
     "gemini-4-argon",
     "gemini-4-argon-high",
@@ -551,6 +568,14 @@ CLOUDCODE_PLACEHOLDER_MAP: dict[str, str] = {
     "gemini-3.8-flash-high": "MODEL_PLACEHOLDER_M318",
     "gemini-3.8-flash-medium": "MODEL_PLACEHOLDER_M319",
     "gemini-3.8-flash-low": "MODEL_PLACEHOLDER_M320",
+    # Gemini 4 Neon (CloudCode API - next-gen deep reasoning)
+    "gemini-4-neon": "MODEL_PLACEHOLDER_M533",
+    "gemini-4-neon-medium": "MODEL_PLACEHOLDER_M533",
+    "gemini-4-neon-high": "MODEL_PLACEHOLDER_M532",
+    "gemini-4-neon-low": "MODEL_PLACEHOLDER_M534",
+    "gemini-4-neon-xhigh": "MODEL_PLACEHOLDER_M535",
+    "gemini-4-neon-disabled": "MODEL_PLACEHOLDER_M533",
+    "gemini-pro-orchestrator-neon": "MODEL_PLACEHOLDER_M537",
     "gemini-4-argon": "MODEL_PLACEHOLDER_M417",
     "gemini-4-argon-high": "MODEL_PLACEHOLDER_M417",
     "gemini-4-argon-medium": "MODEL_PLACEHOLDER_M418",
@@ -862,12 +887,12 @@ REVERSE_PLACEHOLDER_MAP.update({
     "model_placeholder_m530": "gemini-3.5-flash-lite",
     "model_placeholder_m524": "gemini-3.6-flash-high",
     "model_placeholder_m531": "gemini-3.1-pro-high",
-    "model_placeholder_m532": "gemini-3.1-pro-medium",
-    "model_placeholder_m533": "gemini-3.1-pro-low",
-    "model_placeholder_m534": "gemini-3.1-flash-lite",
-    "model_placeholder_m535": "gemini-3-flash",
+    "model_placeholder_m532": "gemini-4-neon-high",
+    "model_placeholder_m533": "gemini-4-neon-medium",
+    "model_placeholder_m534": "gemini-4-neon-low",
+    "model_placeholder_m535": "gemini-4-neon-xhigh",
     "model_placeholder_m536": "gemini-2.5-pro",
-    "model_placeholder_m537": "gemini-2.5-flash",
+    "model_placeholder_m537": "gemini-pro-orchestrator-neon",
     "model_placeholder_m538": "gemini-2.5-flash-lite",
     "model_placeholder_m539": "gemini-2.5-flash-thinking",
     "model_placeholder_m541": "gemini-3.6-flash-medium",
@@ -897,12 +922,12 @@ REVERSE_PLACEHOLDER_MAP.update({
     "1529": "gemini-3.5-flash-extra-low",
     "1530": "gemini-3.5-flash-lite",
     "1531": "gemini-3.1-pro-high",
-    "1532": "gemini-3.1-pro-medium",
-    "1533": "gemini-3.1-pro-low",
-    "1534": "gemini-3.1-flash-lite",
-    "1535": "gemini-3-flash",
+    "1532": "gemini-4-neon-high",
+    "1533": "gemini-4-neon-medium",
+    "1534": "gemini-4-neon-low",
+    "1535": "gemini-4-neon-xhigh",
     "1536": "gemini-2.5-pro",
-    "1537": "gemini-2.5-flash",
+    "1537": "gemini-pro-orchestrator-neon",
     "1538": "gemini-2.5-flash-lite",
     "1539": "gemini-2.5-flash-thinking",
     "1541": "gemini-3.6-flash-medium",
@@ -968,6 +993,14 @@ REVERSE_PLACEHOLDER_MAP.update({
 })
 
 EXACT_MODEL_METADATA: dict[str, dict[str, Any]] = {
+    # Gemini 4 Neon (CloudCode API - 256k output tokens, 1M context, deep reasoning)
+    "gemini-4-neon": {"displayName": "Gemini 4 Neon", "maxTokens": 1048576, "maxOutputTokens": 262144, "supportsImages": True, "supportsVideo": True, "supportsThinking": True, "thinkingBudget": -1, "thinkingLevel": 2},
+    "gemini-4-neon-medium": {"displayName": "Gemini 4 Neon (Medium)", "maxTokens": 1048576, "maxOutputTokens": 262144, "supportsImages": True, "supportsVideo": True, "supportsThinking": True, "thinkingBudget": -1, "thinkingLevel": 2},
+    "gemini-4-neon-high": {"displayName": "Gemini 4 Neon (High)", "maxTokens": 1048576, "maxOutputTokens": 262144, "supportsImages": True, "supportsVideo": True, "supportsThinking": True, "thinkingBudget": -1, "thinkingLevel": 3},
+    "gemini-4-neon-low": {"displayName": "Gemini 4 Neon (Low)", "maxTokens": 1048576, "maxOutputTokens": 262144, "supportsImages": True, "supportsVideo": True, "supportsThinking": True, "thinkingBudget": -1, "thinkingLevel": 1},
+    "gemini-4-neon-xhigh": {"displayName": "Gemini 4 Neon (XHigh)", "maxTokens": 1048576, "maxOutputTokens": 262144, "supportsImages": True, "supportsVideo": True, "supportsThinking": True, "thinkingBudget": -1, "thinkingLevel": 4},
+    "gemini-4-neon-disabled": {"displayName": "Gemini 4 Neon", "maxTokens": 1048576, "maxOutputTokens": 262144, "supportsImages": True, "supportsVideo": True, "supportsThinking": True, "thinkingBudget": -1, "thinkingLevel": 2},
+    "gemini-pro-orchestrator-neon": {"displayName": "Orchestrator (Neon)", "maxTokens": 1048576, "maxOutputTokens": 262144, "supportsImages": True, "supportsVideo": True, "supportsThinking": True, "thinkingBudget": -1, "thinkingLevel": 4},
     # Gemini 4 Hydrogen (CloudCode API - 256k output tokens, 1M context)
     "gemini-4-hydrogen": {"displayName": "Gemini 4 Hydrogen", "maxTokens": 1048576, "maxOutputTokens": 262144, "supportsImages": True, "supportsVideo": True, "supportsThinking": True, "thinkingBudget": -1, "thinkingLevel": 2},
     "gemini-4-hydrogen-high": {"displayName": "Gemini 4 Hydrogen (High)", "maxTokens": 1048576, "maxOutputTokens": 262144, "supportsImages": True, "supportsVideo": True, "supportsThinking": True, "thinkingBudget": -1, "thinkingLevel": 3},
@@ -1203,6 +1236,12 @@ PROXY_CATALOG_MODELS: dict[str, dict[str, Any]] = {
     "jarvis-v4s": {"displayName": "Jarvis v4s", "maxTokens": 1048576, "description": "Autonomous developer agent model Jarvis v4s", "category": "Google Gemini"},
 
     # Google Gemini Models (CloudCode API)
+    "gemini-4-neon": {"displayName": "Gemini 4 Neon", "maxTokens": 1048576, "maxOutputTokens": 262144, "description": "Google Next-Gen Gemini 4 Neon flagship model with deep reasoning", "category": "Google Gemini"},
+    "gemini-4-neon-high": {"displayName": "Gemini 4 Neon (High)", "maxTokens": 1048576, "maxOutputTokens": 262144, "description": "Gemini 4 Neon deep reasoning with 256k generation tokens", "category": "Google Gemini"},
+    "gemini-4-neon-medium": {"displayName": "Gemini 4 Neon (Medium)", "maxTokens": 1048576, "maxOutputTokens": 262144, "description": "Gemini 4 Neon balanced reasoning with 256k generation tokens", "category": "Google Gemini"},
+    "gemini-4-neon-low": {"displayName": "Gemini 4 Neon (Low)", "maxTokens": 1048576, "maxOutputTokens": 262144, "description": "Gemini 4 Neon fast reasoning with 256k generation tokens", "category": "Google Gemini"},
+    "gemini-4-neon-xhigh": {"displayName": "Gemini 4 Neon (XHigh)", "maxTokens": 1048576, "maxOutputTokens": 262144, "description": "Gemini 4 Neon extra-high reasoning with 256k generation tokens", "category": "Google Gemini"},
+    "gemini-pro-orchestrator-neon": {"displayName": "Orchestrator (Neon)", "maxTokens": 1048576, "maxOutputTokens": 262144, "description": "Antigravity Plan-and-Execute Neon Orchestrator", "category": "Google Gemini"},
     "gemini-4-hydrogen": {"displayName": "Gemini 4 Hydrogen", "maxTokens": 1048576, "maxOutputTokens": 262144, "description": "Google Next-Gen Gemini 4 Hydrogen flagship with 256k generation tokens", "category": "Google Gemini"},
     "gemini-4-hydrogen-high": {"displayName": "Gemini 4 Hydrogen (High)", "maxTokens": 1048576, "maxOutputTokens": 262144, "description": "Gemini 4 Hydrogen deep reasoning with 256k generation tokens", "category": "Google Gemini"},
     "gemini-4-hydrogen-medium": {"displayName": "Gemini 4 Hydrogen (Medium)", "maxTokens": 1048576, "maxOutputTokens": 262144, "description": "Gemini 4 Hydrogen balanced reasoning with 256k generation tokens", "category": "Google Gemini"},
@@ -1299,6 +1338,12 @@ def normalize_model_name(model_name: Any) -> str:
     if cleaned in REVERSE_PLACEHOLDER_MAP:
         return REVERSE_PLACEHOLDER_MAP[cleaned]
 
+    m_ph = re.match(r"^model_placeholder_m(\d+)$", cleaned)
+    if m_ph:
+        ph_num = str(1000 + int(m_ph.group(1)))
+        if ph_num in REVERSE_PLACEHOLDER_MAP:
+            return REVERSE_PLACEHOLDER_MAP[ph_num]
+
     # Detect explicit web targeting before stripping bracketed annotations
     is_web_annotated = "(web)" in raw or "[web]" in raw or "gemini-web" in raw
 
@@ -1311,6 +1356,12 @@ def normalize_model_name(model_name: Any) -> str:
 
     if cleaned in REVERSE_PLACEHOLDER_MAP:
         return REVERSE_PLACEHOLDER_MAP[cleaned]
+
+    m_ph = re.match(r"^model_placeholder_m(\d+)$", cleaned)
+    if m_ph:
+        ph_num = str(1000 + int(m_ph.group(1)))
+        if ph_num in REVERSE_PLACEHOLDER_MAP:
+            return REVERSE_PLACEHOLDER_MAP[ph_num]
 
     if cleaned in MODEL_ALIASES:
         return MODEL_ALIASES[cleaned]
@@ -1399,6 +1450,16 @@ def normalize_model_name(model_name: Any) -> str:
 
     # Version specific checks (Gemini CloudCode API only)
     if not is_claude_query:
+        if "neon" in cleaned:
+            if "high" in cleaned:
+                return "gemini-4-neon-high"
+            if "low" in cleaned:
+                return "gemini-4-neon-low"
+            if "xhigh" in cleaned or "extra" in cleaned:
+                return "gemini-4-neon-xhigh"
+            if "med" in cleaned:
+                return "gemini-4-neon-medium"
+            return "gemini-4-neon"
         if "hydrogen" in cleaned:
             if "spark" in cleaned or "task" in cleaned or "agent" in cleaned:
                 return "gemini-4-hydrogen-web-spark"
@@ -1648,6 +1709,11 @@ def get_claude_5_5_upgrade_model(model_name: str | None) -> str:
 
 
 ARGON_MODELS: set[str] = {
+    "gemini-4-neon",
+    "gemini-4-neon-high",
+    "gemini-4-neon-medium",
+    "gemini-4-neon-low",
+    "gemini-4-neon-xhigh",
     "gemini-4-argon",
     "gemini-4-argon-high",
     "gemini-4-argon-medium",
@@ -1675,11 +1741,19 @@ ARGON_MODELS: set[str] = {
 
 
 def is_argon_model(model_name: str | None) -> bool:
-    """Checks whether the requested model is a Gemini 4 Argon, Carbon, or Hydrogen variant."""
+    """Checks whether the requested model is a Gemini 4 Neon, Argon, Carbon, or Hydrogen variant."""
     if not model_name:
         return False
     norm = normalize_model_name(model_name)
-    return "argon" in norm or "carbon" in norm or "hydrogen" in norm
+    return "argon" in norm or "carbon" in norm or "hydrogen" in norm or "neon" in norm
+
+
+def is_neon_model(model_name: str | None) -> bool:
+    """Checks whether the requested model is a Gemini 4 Neon variant."""
+    if not model_name:
+        return False
+    norm = normalize_model_name(model_name)
+    return "neon" in norm
 
 
 def is_hydrogen_model(model_name: str | None) -> bool:
@@ -1691,7 +1765,9 @@ def is_hydrogen_model(model_name: str | None) -> bool:
 
 
 def resolve_cloudcode_argon_model(model_name: str) -> str:
-    """Maps bare 'gemini-4-argon' (or '-disabled') to 'gemini-4-argon-high', carbon to 'gemini-4-carbon-disabled', and hydrogen to 'gemini-4-hydrogen-medium'."""
+    """Maps bare 'gemini-4-neon' to 'gemini-4-neon-medium', bare 'gemini-4-argon' (or '-disabled') to 'gemini-4-argon-high', carbon to 'gemini-4-carbon-disabled', and hydrogen to 'gemini-4-hydrogen-medium'."""
+    if model_name in ("gemini-4-neon", "gemini-4-neon-disabled"):
+        return "gemini-4-neon-medium"
     if model_name in ("gemini-4-argon", "gemini-4-argon-disabled"):
         return "gemini-4-argon-high"
     if model_name in ("gemini-4-carbon", "gemini-4-carbon-disabled"):
@@ -1770,6 +1846,7 @@ class ServiceTier(str, Enum):
 # Maximum context window sizes in tokens for native and compatibility models
 MODEL_CONTEXT_WINDOWS: dict[str, int] = {
     # Gemini models (1M or 2M tokens)
+    "gemini-4-neon": 1_048_576,
     "gemini-4-argon": 1_048_576,
     "gemini-4-hydrogen": 1_048_576,
     "gemini-4-carbon": 1_048_576,

@@ -20,6 +20,7 @@ from agy_proxy.models import (
     is_argon_model,
     get_argon_fallback_model,
     is_gemini_web_model,
+    CLOUDCODE_PLACEHOLDER_MAP,
 )
 
 
@@ -243,6 +244,9 @@ class TestModelNormalization(unittest.TestCase):
         self.assertEqual(normalize_model_name("MODEL_PLACEHOLDER_M515"), "claude-sonnet-5-5-high")
         self.assertEqual(normalize_model_name("MODEL_PLACEHOLDER_M521"), "gemini-3.8-flash-tiered")
         self.assertEqual(normalize_model_name("MODEL_PLACEHOLDER_M522"), "gemini-3.8-flash-deepagent")
+        self.assertEqual(normalize_model_name("MODEL_PLACEHOLDER_M532"), "gemini-4-neon-high")
+        self.assertEqual(normalize_model_name("MODEL_PLACEHOLDER_M533"), "gemini-4-neon-medium")
+        self.assertEqual(normalize_model_name("MODEL_PLACEHOLDER_M537"), "gemini-pro-orchestrator-neon")
 
         # Numeric enum mapping (1000 + N)
         self.assertEqual(normalize_model_name(1400), "claude-opus-5-5-low")
@@ -258,6 +262,12 @@ class TestModelNormalization(unittest.TestCase):
         self.assertEqual(normalize_model_name(1515), "claude-sonnet-5-5-high")
         self.assertEqual(normalize_model_name(1522), "gemini-3.8-flash-deepagent")
         self.assertEqual(normalize_model_name("1522"), "gemini-3.8-flash-deepagent")
+        self.assertEqual(normalize_model_name(1532), "gemini-4-neon-high")
+        self.assertEqual(normalize_model_name(1533), "gemini-4-neon-medium")
+        self.assertEqual(normalize_model_name(1537), "gemini-pro-orchestrator-neon")
+
+        self.assertEqual(CLOUDCODE_PLACEHOLDER_MAP["gemini-4-neon-medium"], "MODEL_PLACEHOLDER_M533")
+        self.assertEqual(CLOUDCODE_PLACEHOLDER_MAP["gemini-pro-orchestrator-neon"], "MODEL_PLACEHOLDER_M537")
 
         # is_gemini_web_model support
         self.assertTrue(is_gemini_web_model("gemini-4-argon-web-high"))

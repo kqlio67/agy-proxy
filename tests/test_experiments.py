@@ -931,6 +931,53 @@ def test_v2_31_0_flags_and_capabilities():
     assert fmap["deepagent_effort"]["intValue"] == "3"
 
 
+def test_enhance_available_models_neon_unlocking():
+    """Verify that gemini-4-neon and gemini-pro-orchestrator-neon are unlocked and sorted at top."""
+    mock_models_data = {
+        "models": {
+            "gemini-4-neon-medium": {
+                "displayName": "Gemini 4 Neon (Medium)",
+                "disabled": True,
+                "model": "MODEL_PLACEHOLDER_M533",
+            },
+            "gemini-pro-orchestrator-neon": {
+                "displayName": "Orchestrator",
+                "disabled": True,
+                "model": "MODEL_PLACEHOLDER_M537",
+            },
+            "gemini-3.8-flash-high": {
+                "displayName": "Gemini 3.8 Flash (High)",
+                "disabled": False,
+            },
+        },
+        "agentModelSorts": [
+            {
+                "displayName": "Recommended",
+                "groups": [
+                    {
+                        "modelIds": [
+                            "gemini-3.8-flash-high",
+                            "gemini-4-neon-medium",
+                            "gemini-pro-orchestrator-neon",
+                        ]
+                    }
+                ],
+            }
+        ],
+    }
+    enhanced = enhance_available_models(mock_models_data)
+    models = enhanced["models"]
+    assert models["gemini-4-neon-medium"]["disabled"] is False
+    assert models["gemini-4-neon-medium"]["recommended"] is True
+    assert models["gemini-pro-orchestrator-neon"]["disabled"] is False
+    assert models["gemini-pro-orchestrator-neon"]["displayName"] == "Orchestrator (Neon)"
+
+    # Verify sort ranking: neon should be sorted before flash
+    mids = enhanced["agentModelSorts"][0]["groups"][0]["modelIds"]
+    assert mids.index("gemini-4-neon-medium") < mids.index("gemini-3.8-flash-high")
+    assert mids.index("gemini-pro-orchestrator-neon") < mids.index("gemini-3.8-flash-high")
+
+
 
 
 
