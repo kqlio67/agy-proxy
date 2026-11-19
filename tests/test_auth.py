@@ -2391,6 +2391,19 @@ class TestGeminiWebSession(unittest.TestCase):
         self.assertEqual(extracted.get("gemini-3.1-pro"), "e6fa609c3fa255c0")
         self.assertEqual(extracted.get("gemini-3.5-flash-lite"), "8c46e95b1a07cecc")
 
+        # Test live Google otAQ7b structure at inner[15] from gemini.google.com.har
+        live_otaq7b_data = [None] * 15 + [[
+            ["8c46e95b1a07cecc", "Auto", "Adapts to your needs"],
+            ["56fdd199312815e2", "4 Hydrogen", "Everyday help"],
+            ["e6fa609c3fa255c0", "Neon", "4 Neon"],
+            ["95a4c0abcba24364", "Carbon", "4 Carbon"],
+        ]]
+        extracted_live = GeminiWebSession._extract_model_hashes_from_data(live_otaq7b_data)
+        self.assertEqual(extracted_live.get("gemini-4-neon"), "e6fa609c3fa255c0")
+        self.assertEqual(extracted_live.get("gemini-4-carbon"), "95a4c0abcba24364")
+        self.assertEqual(extracted_live.get("gemini-4-hydrogen"), "56fdd199312815e2")
+        self.assertEqual(extracted_live.get("gemini-auto"), "8c46e95b1a07cecc")
+
     def test_gemini_web_default_bl(self):
         """Verify the updated default build label."""
         from agy_proxy.auth.gemini_web import GeminiWebSession

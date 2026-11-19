@@ -188,6 +188,14 @@ class GeminiGuestProvider(BaseExternalProvider):
         self._session_created_at: float = 0.0
         self._session_ttl: float = 300.0  # 5 minutes session reuse
 
+        # Multi-turn Session Continuation State
+        self._active_cdp_target_id: str | None = None
+        self._active_cdp_session_id: str | None = None
+        self._cdp_turn_count: int = 0
+        self._max_turns_per_session: int = 30
+        self._last_cdp_activity: float = 0.0
+        self._chat_sessions: dict[str, dict[str, Any]] = {}
+
     async def discover_models(self) -> list[ExternalModelConfig]:
         """Returns the supported models for Gemini Web Guest."""
         return list(self.config.models) if self.config.models else [
@@ -257,13 +265,13 @@ class GeminiGuestProvider(BaseExternalProvider):
         build_label = wiz.get("cfb2h") or "boq_gemini-web-uiserver_20261112.12_p0"
         return api_key, server_token, build_label
 
-    async def _establish_webchannel_session(self, client: httpx.AsyncClient) -> dict[str, Any]:
+    async def _establish_webchannel_session(self, client: httpx.AsyncClient, client_uuid: str | None = None) -> dict[str, Any]:
         """Performs initial handshake to get gsessionid and sid."""
         api_key, server_token, build_label = await self._fetch_bootstrap_tokens(client)
 
-        client_uuid = str(uuid.uuid4()).upper()
+        uuid_val = client_uuid or str(uuid.uuid4()).upper()
         ext_bin = base64.b64encode(
-            f"cf41b0e0dd7d53e5:en-US:{client_uuid}:{build_label}:Europe/Kiev".encode("utf-8")
+            f"cf41b0e0dd7d53e5:en-US:{uuid_val}:{build_label}:Europe/Kiev".encode("utf-8")
         ).decode("utf-8")
 
         http_headers = (
@@ -272,7 +280,7 @@ class GeminiGuestProvider(BaseExternalProvider):
             f"X-WebChannel-Content-Type:application/x-protobuf\r\n"
             f"x-goog-ext-525001261-bin:{ext_bin}\r\n"
             f"x-goog-ext-73010989-bin:CAA=\r\n"
-            f"x-goog-ext-525005358-bin:CiQ{client_uuid}QAQ==\r\n"
+            f"x-goog-ext-525005358-bin:CiQ{uuid_val}QAQ==\r\n"
             f"x-goog-ext-73010990-bin:CAAQABgA\r\n"
         )
 
@@ -311,22 +319,29 @@ class GeminiGuestProvider(BaseExternalProvider):
             "build_label": build_label,
             "gsessionid": gsessionid,
             "sid": sid,
-            "client_uuid": client_uuid,
+            "client_uuid": uuid_val,
         }
 
-    async def ensure_active_session(self, force_refresh: bool = False) -> dict[str, Any]:
+    async def ensure_active_session(self, force_refresh: bool = False, client_uuid: str | None = None) -> dict[str, Any]:
         """Ensures an active zero-auth WebChannel session exists and returns session tokens."""
         client = await self.get_http_client()
-        return await self._get_active_session(client, force_refresh=force_refresh)
+        return await self._get_active_session(client, force_refresh=force_refresh, client_uuid=client_uuid)
 
-    async def _get_active_session(self, client: httpx.AsyncClient, force_refresh: bool = False) -> dict[str, Any]:
+    async def _get_active_session(
+        self, client: httpx.AsyncClient, force_refresh: bool = False, client_uuid: str | None = None
+    ) -> dict[str, Any]:
         """Returns valid WebChannel session tokens with thread-safe caching."""
         async with self._session_lock:
             now = time.time()
-            if not force_refresh and self._cached_session and (now - self._session_created_at) < self._session_ttl:
+            if (
+                not force_refresh
+                and self._cached_session
+                and (now - self._session_created_at) < self._session_ttl
+                and (client_uuid is None or self._cached_session.get("client_uuid") == client_uuid)
+            ):
                 return self._cached_session
 
-            sess = await self._establish_webchannel_session(client)
+            sess = await self._establish_webchannel_session(client, client_uuid=client_uuid)
             self._cached_session = sess
             self._session_created_at = now
             return sess
@@ -391,10 +406,11 @@ class GeminiGuestProvider(BaseExternalProvider):
 
         return "\n\n".join(parts) + "\n\nAssistant: "
 
-    async def _query_via_cdp_worker(self, prompt: str) -> AsyncGenerator[str, None]:
+    async def _query_via_cdp_worker(self, prompt: str, session_id: str | None = None) -> AsyncGenerator[str, None]:
         """
         Queries Gemini Web via background CDP session on localhost:9222.
         Acts as an ultra-reliable conduit with full authentic browser Botguard validation.
+        Reuses browser conversation tabs across turns within the same chat session.
         """
         import websockets
         version_url = "http://127.0.0.1:9222/json/version"
@@ -410,23 +426,40 @@ class GeminiGuestProvider(BaseExternalProvider):
             raise RuntimeError("CDP browser websocket not available on port 9222")
 
         async with websockets.connect(browser_ws) as b_ws:
-            # 1. Check if a Gemini tab already exists, or create a target
+            # 1. Check existing targets
             await b_ws.send(json.dumps({"id": 1, "method": "Target.getTargets"}))
             targets = json.loads(await b_ws.recv()).get("result", {}).get("targetInfos", [])
-            target = next((t for t in targets if "gemini.google.com" in t.get("url", "")), None)
-            created_by_us = False
 
-            if not target:
-                await b_ws.send(json.dumps({
-                    "id": 2,
-                    "method": "Target.createTarget",
-                    "params": {"url": "https://gemini.google.com/app"}
-                }))
-                res = json.loads(await b_ws.recv())
-                target_id = res.get("result", {}).get("targetId")
-                created_by_us = True
+            target_id = None
+            reuse_target = False
+
+            # Check if active target is still alive and belongs to the same session
+            if self._active_cdp_target_id and self._cdp_turn_count < self._max_turns_per_session:
+                active_t = next((t for t in targets if t.get("targetId") == self._active_cdp_target_id), None)
+                if active_t and (session_id is None or self._active_cdp_session_id == session_id):
+                    target_id = self._active_cdp_target_id
+                    reuse_target = True
+
+            if not reuse_target:
+                target = next((t for t in targets if "gemini.google.com" in t.get("url", "")), None)
+                if not target:
+                    await b_ws.send(json.dumps({
+                        "id": 2,
+                        "method": "Target.createTarget",
+                        "params": {"url": "https://gemini.google.com/app"}
+                    }))
+                    res = json.loads(await b_ws.recv())
+                    target_id = res.get("result", {}).get("targetId")
+                else:
+                    target_id = target.get("targetId")
+
+                self._active_cdp_target_id = target_id
+                self._active_cdp_session_id = session_id
+                self._cdp_turn_count = 1
             else:
-                target_id = target.get("targetId")
+                self._cdp_turn_count += 1
+
+            self._last_cdp_activity = time.time()
 
             try:
                 page_ws_url = f"ws://127.0.0.1:9222/devtools/page/{target_id}"
@@ -490,13 +523,9 @@ class GeminiGuestProvider(BaseExternalProvider):
                             stable_count += 1
                             if stable_count >= 4:  # 2 seconds without change -> finished
                                 break
-            finally:
-                if created_by_us:
-                    await b_ws.send(json.dumps({"id": 99, "method": "Target.closeTarget", "params": {"targetId": target_id}}))
-                    try:
-                        await b_ws.recv()
-                    except Exception:
-                        pass
+            except Exception:
+                self._active_cdp_target_id = None
+                raise
 
     async def stream_chat(self, payload: dict[str, Any]) -> AsyncGenerator[dict[str, Any], None]:
         """
@@ -507,7 +536,7 @@ class GeminiGuestProvider(BaseExternalProvider):
         resp_id = f"chatcmpl_{uuid.uuid4().hex[:12]}"
         created_ts = int(time.time())
         messages = payload.get("messages", [])
-        prompt_text = self._format_messages_to_prompt(messages)
+        session_id = payload.get("session_id")
 
         client = await self.get_http_client()
 
@@ -522,8 +551,20 @@ class GeminiGuestProvider(BaseExternalProvider):
 
         if cdp_available:
             try:
-                logger.info("[Gemini Guest] Using high-fidelity CDP Conduit on port 9222")
-                async for delta in self._query_via_cdp_worker(prompt_text):
+                # If continuing in an existing browser tab, send latest message
+                if self._active_cdp_target_id and self._cdp_turn_count >= 1 and messages:
+                    last_msg = messages[-1].get("content", "")
+                    if isinstance(last_msg, str):
+                        prompt_text = last_msg
+                    elif isinstance(last_msg, list):
+                        prompt_text = "".join(p.get("text", "") for p in last_msg if isinstance(p, dict) and p.get("type") == "text")
+                    else:
+                        prompt_text = str(last_msg)
+                else:
+                    prompt_text = self._format_messages_to_prompt(messages)
+
+                logger.info("[Gemini Guest] Using high-fidelity CDP Conduit on port 9222 (turn %d)", self._cdp_turn_count + 1)
+                async for delta in self._query_via_cdp_worker(prompt_text, session_id=session_id):
                     yield {
                         "id": resp_id,
                         "object": "chat.completion.chunk",
@@ -542,6 +583,7 @@ class GeminiGuestProvider(BaseExternalProvider):
                     "object": "chat.completion.chunk",
                     "created": created_ts,
                     "model": model_name,
+                    "conv_id": self._active_cdp_target_id or "cdp_guest_session",
                     "choices": [
                         {
                             "index": 0,
@@ -554,9 +596,31 @@ class GeminiGuestProvider(BaseExternalProvider):
             except Exception as cdp_err:
                 logger.warning("[Gemini Guest] CDP conduit failed, falling back to direct WebChannel: %s", cdp_err)
 
-        # Direct WebChannel stream execution
+        # Direct WebChannel stream execution with session continuation
+        prompt_text = self._format_messages_to_prompt(messages)
         try:
-            sess = await self._get_active_session(client)
+            now = time.time()
+            sess_key = session_id or "default_guest"
+            chat_sess = self._chat_sessions.get(sess_key)
+            if (
+                not chat_sess
+                or (now - chat_sess.get("last_activity", 0)) > 1800
+                or chat_sess.get("turn_count", 0) >= self._max_turns_per_session
+            ):
+                chat_sess = {
+                    "client_uuid": str(uuid.uuid4()).upper(),
+                    "conv_id": None,
+                    "resp_id": None,
+                    "turn_count": 0,
+                    "last_activity": now,
+                }
+                self._chat_sessions[sess_key] = chat_sess
+
+            chat_sess["turn_count"] += 1
+            chat_sess["last_activity"] = now
+            client_uuid = chat_sess["client_uuid"]
+
+            sess = await self._get_active_session(client, client_uuid=client_uuid)
             gsessionid = sess["gsessionid"]
             sid = sess["sid"]
 
@@ -617,6 +681,12 @@ class GeminiGuestProvider(BaseExternalProvider):
                                 continue
                             try:
                                 raw = base64.b64decode(b64 + "==")
+                                m_conv = re.search(rb'c_[a-f0-9]+', raw)
+                                if m_conv:
+                                    chat_sess["conv_id"] = m_conv.group(0).decode("utf-8")
+                                m_resp = re.search(rb'r_[a-f0-9]+', raw)
+                                if m_resp:
+                                    chat_sess["resp_id"] = m_resp.group(0).decode("utf-8")
                                 txt = extract_gemini_candidate_text(raw)
                                 if txt and len(txt) > len(last_text):
                                     delta = txt[len(last_text):]
@@ -643,6 +713,7 @@ class GeminiGuestProvider(BaseExternalProvider):
                 "object": "chat.completion.chunk",
                 "created": created_ts,
                 "model": model_name,
+                "conv_id": chat_sess.get("conv_id") or "guest_session",
                 "choices": [
                     {
                         "index": 0,

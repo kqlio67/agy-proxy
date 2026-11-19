@@ -203,6 +203,34 @@ MODEL_ALIASES: dict[str, str] = {
     # 2. GEMINI WEB MODELS (Routed EXCLUSIVELY via gemini.google.com web session)
     #    Clean canonical suffix *-web models
     # --------------------------------------------------------------------------
+    "gemini-4-neon-web": "gemini-4-neon-web-medium",
+    "gemini-4-neon-web-high": "gemini-4-neon-web-high",
+    "gemini-4-neon-web-medium": "gemini-4-neon-web-medium",
+    "gemini-4-neon-web-low": "gemini-4-neon-web-low",
+    "gemini-4-neon-web-xhigh": "gemini-4-neon-web-xhigh",
+    "gemini-4-neon-web-spark": "gemini-4-neon-web-spark",
+    "gemini-4-neon-web-task": "gemini-4-neon-web-spark",
+    "gemini-4-neon-spark": "gemini-4-neon-web-spark",
+    "gemini-4-neon-task": "gemini-4-neon-web-spark",
+    "spark-neon": "gemini-4-neon-web-spark",
+
+    "gemini-4-carbon-web": "gemini-4-carbon-web-medium",
+    "gemini-4-carbon-web-high": "gemini-4-carbon-web-high",
+    "gemini-4-carbon-web-medium": "gemini-4-carbon-web-medium",
+    "gemini-4-carbon-web-low": "gemini-4-carbon-web-low",
+    "gemini-4-carbon-web-spark": "gemini-4-carbon-web-spark",
+    "gemini-4-carbon-web-task": "gemini-4-carbon-web-spark",
+    "gemini-4-carbon-spark": "gemini-4-carbon-web-spark",
+    "gemini-4-carbon-task": "gemini-4-carbon-web-spark",
+    "spark-carbon": "gemini-4-carbon-web-spark",
+
+    "gemini-auto-web": "gemini-auto-web",
+    "gemini-auto-web-spark": "gemini-auto-web-spark",
+    "gemini-auto-web-task": "gemini-auto-web-spark",
+    "gemini-auto-spark": "gemini-auto-web-spark",
+    "gemini-auto": "gemini-auto-web",
+    "spark-auto": "gemini-auto-web-spark",
+
     "gemini-4-argon-web": "gemini-4-argon-web-high",
     "gemini-4-argon-web-high": "gemini-4-argon-web-high",
     "gemini-4-argon-web-medium": "gemini-4-argon-web-medium",
@@ -515,6 +543,20 @@ VALID_CLOUDCODE_MODELS = {
 }
 
 VALID_WEB_MODELS = {
+    # Gemini 4 Neon Web models
+    "gemini-4-neon-web-high",
+    "gemini-4-neon-web-medium",
+    "gemini-4-neon-web-low",
+    "gemini-4-neon-web-xhigh",
+    "gemini-4-neon-web-spark",
+    # Gemini 4 Carbon Web models
+    "gemini-4-carbon-web-high",
+    "gemini-4-carbon-web-medium",
+    "gemini-4-carbon-web-low",
+    "gemini-4-carbon-web-spark",
+    # Gemini Auto Web models
+    "gemini-auto-web",
+    "gemini-auto-web-spark",
     # Gemini 4 Argon Web models
     "gemini-4-argon-web-high",
     "gemini-4-argon-web-medium",
@@ -1386,6 +1428,32 @@ def normalize_model_name(model_name: Any) -> str:
     )
 
     if is_web_query:
+        if "neon" in cleaned:
+            if "spark" in cleaned or "task" in cleaned or "agent" in cleaned:
+                return "gemini-4-neon-web-spark"
+            if "xhigh" in cleaned or "extra" in cleaned:
+                return "gemini-4-neon-web-xhigh"
+            if "high" in cleaned:
+                return "gemini-4-neon-web-high"
+            if "low" in cleaned:
+                return "gemini-4-neon-web-low"
+            if "med" in cleaned:
+                return "gemini-4-neon-web-medium"
+            return "gemini-4-neon-web-medium"
+        if "carbon" in cleaned:
+            if "spark" in cleaned or "task" in cleaned or "agent" in cleaned:
+                return "gemini-4-carbon-web-spark"
+            if "high" in cleaned:
+                return "gemini-4-carbon-web-high"
+            if "low" in cleaned:
+                return "gemini-4-carbon-web-low"
+            if "med" in cleaned:
+                return "gemini-4-carbon-web-medium"
+            return "gemini-4-carbon-web-medium"
+        if "auto" in cleaned:
+            if "spark" in cleaned or "task" in cleaned or "agent" in cleaned:
+                return "gemini-auto-web-spark"
+            return "gemini-auto-web"
         if "hydrogen" in cleaned:
             if "spark" in cleaned:
                 return "gemini-4-hydrogen-web-spark"
@@ -1409,6 +1477,8 @@ def normalize_model_name(model_name: Any) -> str:
                 return "gemini-3.8-flash-web-task"
             return "gemini-4-argon-web-task"
         if "carbon" in cleaned:
+            if "spark" in cleaned or "task" in cleaned or "agent" in cleaned:
+                return "gemini-4-carbon-web-spark"
             if "high" in cleaned:
                 return "gemini-4-carbon-high"
             if "low" in cleaned:
@@ -1451,6 +1521,8 @@ def normalize_model_name(model_name: Any) -> str:
     # Version specific checks (Gemini CloudCode API only)
     if not is_claude_query:
         if "neon" in cleaned:
+            if "spark" in cleaned or "task" in cleaned or "agent" in cleaned:
+                return "gemini-4-neon-web-spark"
             if "high" in cleaned:
                 return "gemini-4-neon-high"
             if "low" in cleaned:
@@ -1483,6 +1555,8 @@ def normalize_model_name(model_name: Any) -> str:
                 return "gemini-3.8-flash-high"
             return "gemini-4-argon-high"
         if "carbon" in cleaned:
+            if "spark" in cleaned or "task" in cleaned or "agent" in cleaned:
+                return "gemini-4-carbon-web-spark"
             if "high" in cleaned:
                 return "gemini-4-carbon-high"
             if "low" in cleaned:
@@ -1728,6 +1802,15 @@ ARGON_MODELS: set[str] = {
     "gemini-4-carbon-medium",
     "gemini-4-carbon-low",
     "gemini-4-carbon-disabled",
+    "gemini-4-neon-web-high",
+    "gemini-4-neon-web-medium",
+    "gemini-4-neon-web-low",
+    "gemini-4-neon-web-xhigh",
+    "gemini-4-neon-web-spark",
+    "gemini-4-carbon-web-high",
+    "gemini-4-carbon-web-medium",
+    "gemini-4-carbon-web-low",
+    "gemini-4-carbon-web-spark",
     "gemini-4-argon-web-high",
     "gemini-4-argon-web-medium",
     "gemini-4-argon-web-low",

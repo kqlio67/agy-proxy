@@ -6,6 +6,7 @@ and non-streaming completions.
 
 import base64
 import json
+import time
 import pytest
 from unittest.mock import AsyncMock, patch
 
@@ -224,3 +225,52 @@ def test_gemini_web_session_guest_mode():
     save_d = session.to_save_dict()
     assert save_d["is_guest"] is True
     assert save_d["cookies"] == {}
+
+
+@pytest.mark.anyio
+async def test_gemini_guest_session_continuation_and_reuse():
+    """Verifies that multi-turn requests in the same session reuse chat context without creating new chats."""
+    cfg = ExternalProviderConfig(
+        id="gemini-web-guest",
+        name="Gemini Web Guest",
+        provider_type="gemini_guest",
+        base_url="https://geminiweb-pa.clients6.google.com/v1",
+        api_key="",
+        enabled=True,
+    )
+    provider = GeminiGuestProvider(cfg)
+
+    # Turn 1
+    session_id = "test_sess_continuation_1"
+    now = time.time()
+    chat_sess_turn1 = {
+        "client_uuid": "F5D4F931-05CE-461B-9110-39E5CA0CFF83",
+        "conv_id": "c_95796a554c894356",
+        "resp_id": "r_12e104468ec2b9fe",
+        "turn_count": 1,
+        "last_activity": now,
+    }
+    provider._chat_sessions[session_id] = chat_sess_turn1
+
+    # Simulated Turn 2 with same session_id
+    payload_turn2 = {
+        "model": "gemini-2.0-flash-lite",
+        "session_id": session_id,
+        "messages": [
+            {"role": "user", "content": "1+2"},
+            {"role": "assistant", "content": "3"},
+            {"role": "user", "content": "asada"},
+        ],
+    }
+
+    # Verify session lookup preserves client_uuid and conv_id
+    sess = provider._chat_sessions.get(session_id)
+    assert sess is not None
+    assert sess["client_uuid"] == "F5D4F931-05CE-461B-9110-39E5CA0CFF83"
+    assert sess["conv_id"] == "c_95796a554c894356"
+    assert sess["turn_count"] == 1
+
+    # Turn continuation retains active conversation
+    assert provider._max_turns_per_session == 30
+    assert provider._cdp_turn_count == 0
+

@@ -247,8 +247,108 @@ class GeminiWebSession(AccountSession):
 
     MODEL_CONFIGS: dict[str, dict[str, Any]] = {
         # -------------------------------------------------------------
-        # Canonical 14 Gemini Web models (*-web-*)
+        # Canonical 27 Gemini Web models (*-web-*)
         # -------------------------------------------------------------
+        # Gemini 4 Neon Web (6)
+        "gemini-4-neon-web-high": {
+            "model_id": 8,
+            "mode": 2,
+            "budget": 2,
+            "hash": "e6fa609c3fa255c0",
+            "displayName": "Gemini 4 Neon High (Web Thinking)",
+        },
+        "gemini-4-neon-web-medium": {
+            "model_id": 8,
+            "mode": 4,
+            "budget": 1,
+            "hash": "e6fa609c3fa255c0",
+            "displayName": "Gemini 4 Neon Medium (Web Thinking)",
+        },
+        "gemini-4-neon-web-low": {
+            "model_id": 8,
+            "mode": 1,
+            "budget": 0,
+            "hash": "e6fa609c3fa255c0",
+            "displayName": "Gemini 4 Neon Low (Web)",
+        },
+        "gemini-4-neon-web-xhigh": {
+            "model_id": 8,
+            "mode": 2,
+            "budget": 3,
+            "hash": "e6fa609c3fa255c0",
+            "displayName": "Gemini 4 Neon XHigh (Web Thinking)",
+        },
+        "gemini-4-neon-web-spark": {
+            "model_id": 8,
+            "mode": 1,
+            "budget": 0,
+            "feature_mode": 40,
+            "hash": "e6fa609c3fa255c0",
+            "displayName": "Gemini 4 Neon Spark (Web Agent)",
+        },
+        "gemini-4-neon-web": {
+            "model_id": 8,
+            "mode": 4,
+            "budget": 1,
+            "hash": "e6fa609c3fa255c0",
+            "displayName": "Gemini 4 Neon (Web Flagship)",
+        },
+
+        # Gemini 4 Carbon Web (5)
+        "gemini-4-carbon-web-high": {
+            "model_id": 8,
+            "mode": 2,
+            "budget": 2,
+            "hash": "95a4c0abcba24364",
+            "displayName": "Gemini 4 Carbon High (Web Thinking)",
+        },
+        "gemini-4-carbon-web-medium": {
+            "model_id": 8,
+            "mode": 4,
+            "budget": 1,
+            "hash": "95a4c0abcba24364",
+            "displayName": "Gemini 4 Carbon Medium (Web Thinking)",
+        },
+        "gemini-4-carbon-web-low": {
+            "model_id": 8,
+            "mode": 1,
+            "budget": 0,
+            "hash": "95a4c0abcba24364",
+            "displayName": "Gemini 4 Carbon Low (Web)",
+        },
+        "gemini-4-carbon-web-spark": {
+            "model_id": 8,
+            "mode": 1,
+            "budget": 0,
+            "feature_mode": 40,
+            "hash": "95a4c0abcba24364",
+            "displayName": "Gemini 4 Carbon Spark (Web Agent)",
+        },
+        "gemini-4-carbon-web": {
+            "model_id": 8,
+            "mode": 4,
+            "budget": 1,
+            "hash": "95a4c0abcba24364",
+            "displayName": "Gemini 4 Carbon (Web Flagship)",
+        },
+
+        # Gemini Auto Web (2)
+        "gemini-auto-web": {
+            "model_id": 8,
+            "mode": 2,
+            "budget": 0,
+            "hash": "8c46e95b1a07cecc",
+            "displayName": "Gemini Auto (Adapts to your needs)",
+        },
+        "gemini-auto-web-spark": {
+            "model_id": 8,
+            "mode": 1,
+            "budget": 0,
+            "feature_mode": 40,
+            "hash": "8c46e95b1a07cecc",
+            "displayName": "Gemini Auto Spark (Web Agent)",
+        },
+
         # Gemini 4 Argon Web (4)
         "gemini-4-argon-web-high": {
             "model_id": 8,
@@ -438,6 +538,92 @@ class GeminiWebSession(AccountSession):
         # -------------------------------------------------------------
         # Reverse-engineered browser session fallbacks
         # -------------------------------------------------------------
+        "gemini-4-neon": {
+            "model_id": 8,
+            "mode": 4,
+            "budget": 1,
+            "hash": "e6fa609c3fa255c0",
+            "displayName": "Gemini 4 Neon (Web Flagship)",
+        },
+        "gemini-4-neon-high": {
+            "model_id": 8,
+            "mode": 2,
+            "budget": 2,
+            "hash": "e6fa609c3fa255c0",
+            "displayName": "Gemini 4 Neon High (Web Thinking)",
+        },
+        "gemini-4-neon-medium": {
+            "model_id": 8,
+            "mode": 4,
+            "budget": 1,
+            "hash": "e6fa609c3fa255c0",
+            "displayName": "Gemini 4 Neon Medium (Web Thinking)",
+        },
+        "gemini-4-neon-low": {
+            "model_id": 8,
+            "mode": 1,
+            "budget": 0,
+            "hash": "e6fa609c3fa255c0",
+            "displayName": "Gemini 4 Neon Low (Web)",
+        },
+        "gemini-4-neon-xhigh": {
+            "model_id": 8,
+            "mode": 2,
+            "budget": 3,
+            "hash": "e6fa609c3fa255c0",
+            "displayName": "Gemini 4 Neon XHigh (Web Thinking)",
+        },
+        "gemini-4-neon-spark": {
+            "model_id": 8,
+            "mode": 1,
+            "budget": 0,
+            "feature_mode": 40,
+            "hash": "e6fa609c3fa255c0",
+            "displayName": "Gemini 4 Neon Spark (Web Agent)",
+        },
+        "gemini-4-carbon": {
+            "model_id": 8,
+            "mode": 4,
+            "budget": 1,
+            "hash": "95a4c0abcba24364",
+            "displayName": "Gemini 4 Carbon (Web Flagship)",
+        },
+        "gemini-4-carbon-high": {
+            "model_id": 8,
+            "mode": 2,
+            "budget": 2,
+            "hash": "95a4c0abcba24364",
+            "displayName": "Gemini 4 Carbon High (Web Thinking)",
+        },
+        "gemini-4-carbon-medium": {
+            "model_id": 8,
+            "mode": 4,
+            "budget": 1,
+            "hash": "95a4c0abcba24364",
+            "displayName": "Gemini 4 Carbon Medium (Web Thinking)",
+        },
+        "gemini-4-carbon-low": {
+            "model_id": 8,
+            "mode": 1,
+            "budget": 0,
+            "hash": "95a4c0abcba24364",
+            "displayName": "Gemini 4 Carbon Low (Web)",
+        },
+        "gemini-4-carbon-spark": {
+            "model_id": 8,
+            "mode": 1,
+            "budget": 0,
+            "feature_mode": 40,
+            "hash": "95a4c0abcba24364",
+            "displayName": "Gemini 4 Carbon Spark (Web Agent)",
+        },
+        "gemini-auto": {
+            "model_id": 8,
+            "mode": 2,
+            "budget": 0,
+            "hash": "8c46e95b1a07cecc",
+            "displayName": "Gemini Auto (Adapts to your needs)",
+        },
         "gemini-4-hydrogen": {
             "model_id": 8,
             "mode": 4,
@@ -656,7 +842,24 @@ class GeminiWebSession(AccountSession):
         self.MODEL_CONFIGS = {k: dict(v) for k, v in self.MODEL_CONFIGS.items()}
         self.region_code: str | None = region_code
         self.expiry_timestamp: float = expiry_timestamp or (time.time() + 86400.0)
+        self._guest_provider: Any = None
         self.available_models: dict[str, Any] = {
+            # Gemini 4 Neon Web (6)
+            "gemini-4-neon-web-high": {"displayName": "Gemini 4 Neon High (Web Thinking)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
+            "gemini-4-neon-web-medium": {"displayName": "Gemini 4 Neon Medium (Web Thinking)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
+            "gemini-4-neon-web-low": {"displayName": "Gemini 4 Neon Low (Web)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
+            "gemini-4-neon-web-xhigh": {"displayName": "Gemini 4 Neon XHigh (Web Thinking)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
+            "gemini-4-neon-web-spark": {"displayName": "Gemini 4 Neon Spark (Web Agent)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
+            "gemini-4-neon-web": {"displayName": "Gemini 4 Neon (Web Flagship)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
+            # Gemini 4 Carbon Web (5)
+            "gemini-4-carbon-web-high": {"displayName": "Gemini 4 Carbon High (Web Thinking)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
+            "gemini-4-carbon-web-medium": {"displayName": "Gemini 4 Carbon Medium (Web Thinking)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
+            "gemini-4-carbon-web-low": {"displayName": "Gemini 4 Carbon Low (Web)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
+            "gemini-4-carbon-web-spark": {"displayName": "Gemini 4 Carbon Spark (Web Agent)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
+            "gemini-4-carbon-web": {"displayName": "Gemini 4 Carbon (Web Flagship)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
+            # Gemini Auto Web (2)
+            "gemini-auto-web": {"displayName": "Gemini Auto (Adapts to your needs)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
+            "gemini-auto-web-spark": {"displayName": "Gemini Auto Spark (Web Agent)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
             # Gemini 4 Argon Web (4)
             "gemini-4-argon-web-high": {"displayName": "Gemini 4 Argon High (Web Thinking)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
             "gemini-4-argon-web-medium": {"displayName": "Gemini 4 Argon Medium (Web Thinking)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
@@ -685,6 +888,18 @@ class GeminiWebSession(AccountSession):
             "gemini-3.1-pro-web": {"displayName": "Gemini 3.1 Pro (Web)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
             "gemini-3.5-flash-lite-web": {"displayName": "Gemini 3.5 Flash-Lite (Web)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
             # Reverse-engineered models matching browser session capabilities
+            "gemini-4-neon": {"displayName": "Gemini 4 Neon (Web Flagship)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
+            "gemini-4-neon-high": {"displayName": "Gemini 4 Neon High (Web Thinking)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
+            "gemini-4-neon-medium": {"displayName": "Gemini 4 Neon Medium (Web Thinking)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
+            "gemini-4-neon-low": {"displayName": "Gemini 4 Neon Low (Web)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
+            "gemini-4-neon-xhigh": {"displayName": "Gemini 4 Neon XHigh (Web Thinking)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
+            "gemini-4-neon-spark": {"displayName": "Gemini 4 Neon Spark (Web Agent)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
+            "gemini-4-carbon": {"displayName": "Gemini 4 Carbon (Web Flagship)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
+            "gemini-4-carbon-high": {"displayName": "Gemini 4 Carbon High (Web Thinking)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
+            "gemini-4-carbon-medium": {"displayName": "Gemini 4 Carbon Medium (Web Thinking)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
+            "gemini-4-carbon-low": {"displayName": "Gemini 4 Carbon Low (Web)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
+            "gemini-4-carbon-spark": {"displayName": "Gemini 4 Carbon Spark (Web Agent)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
+            "gemini-auto": {"displayName": "Gemini Auto (Adapts to your needs)", "maxTokens": 1048576, "quotaInfo": {"remainingFraction": 1.0}},
             "gemini-4-hydrogen": {"displayName": "Gemini 4 Hydrogen (Web Flagship)", "maxTokens": 1048576, "maxOutputTokens": 262144, "quotaInfo": {"remainingFraction": 1.0}},
             "gemini-4-hydrogen-high": {"displayName": "Gemini 4 Hydrogen High (Web Thinking)", "maxTokens": 1048576, "maxOutputTokens": 262144, "quotaInfo": {"remainingFraction": 1.0}},
             "gemini-4-hydrogen-medium": {"displayName": "Gemini 4 Hydrogen Medium (Web Thinking)", "maxTokens": 1048576, "maxOutputTokens": 262144, "quotaInfo": {"remainingFraction": 1.0}},
@@ -892,6 +1107,31 @@ class GeminiWebSession(AccountSession):
 
         # 2. Autonomous Spark / Task Agent models
         if any(k in m for k in ("spark", "task", "agent")):
+            if "neon" in m:
+                return (
+                    self._botguard_tokens.get("gemini-4-neon-web-spark")
+                    or self._botguard_tokens.get("gemini-4-neon-spark")
+                    or self._botguard_tokens.get("spark-neon")
+                    or self._botguard_tokens.get("gemini-4-neon-task")
+                    or self._botguard_tokens.get("gemini-4-neon")
+                    or default_tok
+                )
+            if "carbon" in m:
+                return (
+                    self._botguard_tokens.get("gemini-4-carbon-web-spark")
+                    or self._botguard_tokens.get("gemini-4-carbon-spark")
+                    or self._botguard_tokens.get("spark-carbon")
+                    or self._botguard_tokens.get("gemini-4-carbon-task")
+                    or self._botguard_tokens.get("gemini-4-carbon")
+                    or default_tok
+                )
+            if "auto" in m:
+                return (
+                    self._botguard_tokens.get("gemini-auto-web-spark")
+                    or self._botguard_tokens.get("spark-auto")
+                    or self._botguard_tokens.get("gemini-auto")
+                    or default_tok
+                )
             if "hydrogen" in m:
                 return (
                     self._botguard_tokens.get("gemini-4-hydrogen-web-spark")
@@ -935,6 +1175,32 @@ class GeminiWebSession(AccountSession):
             if "low" in m:
                 return self._botguard_tokens.get("gemini-4-hydrogen-web-low") or self._botguard_tokens.get("gemini-4-hydrogen-low") or default_tok
             return self._botguard_tokens.get("gemini-4-hydrogen") or default_tok
+
+        # Neon models (medium, low, high, xhigh)
+        if "neon" in m:
+            if "xhigh" in m or "extra" in m:
+                return self._botguard_tokens.get("gemini-4-neon-web-xhigh") or self._botguard_tokens.get("gemini-4-neon-xhigh") or default_tok
+            if "high" in m:
+                return self._botguard_tokens.get("gemini-4-neon-web-high") or self._botguard_tokens.get("gemini-4-neon-high") or default_tok
+            if "medium" in m or "med" in m:
+                return self._botguard_tokens.get("gemini-4-neon-web-medium") or self._botguard_tokens.get("gemini-4-neon-medium") or default_tok
+            if "low" in m:
+                return self._botguard_tokens.get("gemini-4-neon-web-low") or self._botguard_tokens.get("gemini-4-neon-low") or default_tok
+            return self._botguard_tokens.get("gemini-4-neon-web") or self._botguard_tokens.get("gemini-4-neon") or default_tok
+
+        # Carbon models (medium, low, high)
+        if "carbon" in m:
+            if "high" in m:
+                return self._botguard_tokens.get("gemini-4-carbon-web-high") or self._botguard_tokens.get("gemini-4-carbon-high") or default_tok
+            if "medium" in m or "med" in m:
+                return self._botguard_tokens.get("gemini-4-carbon-web-medium") or self._botguard_tokens.get("gemini-4-carbon-medium") or default_tok
+            if "low" in m:
+                return self._botguard_tokens.get("gemini-4-carbon-web-low") or self._botguard_tokens.get("gemini-4-carbon-low") or default_tok
+            return self._botguard_tokens.get("gemini-4-carbon-web") or self._botguard_tokens.get("gemini-4-carbon") or default_tok
+
+        # Auto models
+        if "auto" in m:
+            return self._botguard_tokens.get("gemini-auto-web") or self._botguard_tokens.get("gemini-auto") or default_tok
 
         # 4. Argon models (medium, low, or high)
         if "argon" in m or "gemini-4" in m:
@@ -1666,21 +1932,27 @@ class GeminiWebSession(AccountSession):
             return
 
         if self.is_guest:
-            from agy_proxy.providers.gemini_guest import GeminiGuestProvider
-            from agy_proxy.providers.models import ExternalProviderConfig
-            provider = GeminiGuestProvider(ExternalProviderConfig(
-                id="gemini-web-guest",
-                name="Gemini Web (Zero-Auth Guest)",
-                provider_type="gemini_guest",
-                base_url="https://geminiweb-pa.clients6.google.com/v1",
-            ))
+            if not getattr(self, "_guest_provider", None):
+                from agy_proxy.providers.gemini_guest import GeminiGuestProvider
+                from agy_proxy.providers.models import ExternalProviderConfig
+                self._guest_provider = GeminiGuestProvider(ExternalProviderConfig(
+                    id="gemini-web-guest",
+                    name="Gemini Web (Zero-Auth Guest)",
+                    provider_type="gemini_guest",
+                    base_url="https://geminiweb-pa.clients6.google.com/v1",
+                ))
+            provider = self._guest_provider
             req = {
                 "model": model or "gemini-2.0-flash-lite",
                 "messages": [{"role": "user", "content": user_message}],
+                "session_id": session_id,
                 "stream": True,
             }
+            reported_conv_id = "guest_session"
             try:
                 async for chunk in provider.chat_completion_stream(req):
+                    if chunk.get("conv_id"):
+                        reported_conv_id = chunk["conv_id"]
                     choices = chunk.get("choices") or []
                     if choices:
                         delta = choices[0].get("delta") or {}
@@ -1689,7 +1961,7 @@ class GeminiWebSession(AccountSession):
                             yield {"type": "text", "text": content}
                 yield {
                     "type": "done",
-                    "conv_id": "guest_session",
+                    "conv_id": reported_conv_id,
                     "resp_id": "guest_response",
                     "model": model or "gemini-2.0-flash-lite",
                 }
@@ -2220,10 +2492,16 @@ class GeminiWebSession(AccountSession):
                 found_hashes["gemini-3.8-flash"] = h
             elif "pro" in t or "3.1 pro" in t:
                 found_hashes["gemini-3.1-pro"] = h
+            elif any(x in t for x in ("neon", "4 neon", "neon4p0")):
+                found_hashes["gemini-4-neon"] = h
             elif any(x in t for x in ("hydrogen", "4 hydrogen", "gemini-4-hydrogen")):
                 found_hashes["gemini-4-hydrogen"] = h
-            elif any(x in t for x in ("carbon", "argon", "ultra", "gemini-4", "4 carbon", "4 argon")):
+            elif any(x in t for x in ("carbon", "4 carbon")):
+                found_hashes["gemini-4-carbon"] = h
+            elif any(x in t for x in ("argon", "4 argon", "ultra")):
                 found_hashes["gemini-4-argon"] = h
+            elif any(x in t for x in ("auto", "adapts to your needs")):
+                found_hashes["gemini-auto"] = h
 
         def _parse_candidate(item: Any) -> None:
             if not (isinstance(item, list) and len(item) >= 2):
@@ -2273,7 +2551,7 @@ class GeminiWebSession(AccountSession):
             return {}
 
         rpc_id = "otAQ7b"
-        req_payload = json.dumps([[[rpc_id, json.dumps([]), None, "generic"]]])
+        req_payload = json.dumps([[[rpc_id, json.dumps([1]), None, "generic"]]])
         url = (
             f"{self.GEMINI_WEB_BASE}/_/BardChatUi/data/batchexecute"
             f"?rpcids={rpc_id}&bl={self._bl_token}"
